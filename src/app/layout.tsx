@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import "./globals.css";
 import { GlobalProvider } from "./hooks/global.hook";
 import AppWrapper from "./wrapper";

@@ -18,7 +18,7 @@ const UtilsService = () => {
       if (er.response?.status == 401) {
         setDataModal({
           isOpen: true,
-          message: "Tu sesión expiro, debes iniciar sesión nuevamente.",
+          content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
           title: "Sesión expirada",
           onClose: () => {
             location.href = "/principal";
@@ -32,13 +32,14 @@ const UtilsService = () => {
             setDataModal((prev) => ({ ...prev, isOpen: false }));
           },
           type: "info",
+          showActions: true,
         });
 
         return;
       } else if (er.response?.status != 401) {
         setDataModal({
           isOpen: true,
-          message: er.response?.data.message || er?.message,
+          content: er.response?.data.message || er?.message,
           title: "Error",
           onClose: () => {
             setDataModal((prev) => ({ ...prev, isOpen: false }));
@@ -47,6 +48,7 @@ const UtilsService = () => {
             setDataModal((prev) => ({ ...prev, isOpen: false }));
           },
           type: "error",
+          showActions: true,
         });
       }
     }
@@ -99,11 +101,18 @@ const UtilsService = () => {
     }
   };
 
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    }).format(value);
+
   return {
     onRouterPush,
     requestPost,
     requestGet,
     requestDelete,
+    formatCurrency,
   };
 };
 

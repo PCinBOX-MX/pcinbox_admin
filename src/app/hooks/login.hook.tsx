@@ -34,7 +34,7 @@ const useLogin = () => {
     if (!email || !password) {
       setDataModal({
         isOpen: true,
-        message: "Completa los campos",
+        content: "Completa los campos",
         title: "Error",
         type: "error",
         onConfirm: () => {

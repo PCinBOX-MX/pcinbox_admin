@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
 import { MdCheckCircle, MdError, MdInfo, MdWarningAmber } from "react-icons/md";
+import { Modal, Typography } from "@mui/material";
+import Box from "@mui/material/Box";
 
 type ModalType = "success" | "error" | "warning" | "info";
 
@@ -11,17 +13,19 @@ const ModalComponent = ({
   onClose,
   type = "success",
   title,
-  message,
+  content,
   children,
   onConfirm,
+  showActions,
 }: {
   isOpen: boolean;
   onClose: () => void;
   type: ModalType;
   title: string;
-  message: any;
+  content: any;
   children: React.ReactNode;
   onConfirm: () => void;
+  showActions: boolean;
 }) => {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -96,153 +100,93 @@ const ModalComponent = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 z-[9999] flex items-center justify-center`}>
+    <div className={`fixed inset-0 flex items-center justify-center`}>
       <div
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isVisible
             ? "opacity-50 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         }`}
-        onClick={handleClose}
-      />
-
-      <div
-        className={`relative bg-[#E6E6E6] rounded shadow-2xl max-w-lg w-full mx-4 p-8 transform transition-all duration-300 ${
-          isVisible
-            ? "scale-100 opacity-100"
-            : "scale-95 opacity-0 pointer-events-none"
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        aria-describedby="modal-description"
+        // onClick={handleClose}
       >
-        <button
-          onClick={handleClose}
-          className="absolute p-2 bg-[#bb3d4b]"
-          style={{
-            right: "-18px",
-            top: "-15px",
-            borderRadius: "50%",
+        <Modal
+          className="flex justify-center items-center"
+          open={isVisible}
+          // onClick={handleClose}
+          aria-labelledby="modal-modal-title"
+          aria-describedby="modal-modal-description"
+          sx={{
+            zIndex: "9999",
           }}
-          aria-label="Cerrar modal"
         >
-          <X className="w-5 h-5 text-[white] font-bold" />
-        </button>
-
-        <div className="bg-[#E6E6E6] min-h-[200px] flex items-end p-3 mt-5 relative">
-          <div
-            className="absolute"
-            style={{
-              transform: "translateX(225px)",
-              top: "-17px",
+          <Box
+            sx={{
+              background: "white",
+              width: "500px",
+              minWidth: "500px",
+              maxWidth: "800px",
+              padding: "10px",
+              borderRadius: "10px",
             }}
           >
-            {config.type == "info" ? (
-              <MdInfo size={55} color="#bb3d4b" />
-            ) : config.type == "success" ? (
-              <MdCheckCircle size={55} />
-            ) : config.type == "warning" ? (
-              <MdWarningAmber size={55} color="#bb3d4b" />
-            ) : config.type == "error" ? (
-              <MdError size={55} color="#bb3d4b" />
-            ) : (
-              ""
-            )}
-          </div>
-          <div className="bg-[white] w-full py-4 px-2 rounded">
-            {title && (
-              <h3
-                id="modal-title"
-                className="text-2xl text-center font-bold text-[#606060]"
-                style={{
-                  color: "#606060",
-                  fontWeight: "bold",
-                }}
-              >
-                {title}
-              </h3>
-            )}
-
-            {typeof message == "string" ? (
-              <p
-                id="modal-description"
-                className="text-[#808080] text-center mb-8 leading-relaxed text-base max-w-[420px] mx-auto"
-              >
-                {message}
-              </p>
-            ) : (
-              message
-            )}
-
-            <div className="flex gap-4 justify-center">
+            <div className="flex justify-end items-center">
               <button
                 onClick={handleClose}
-                className="border text-[#808080] rounded px-2 py-1"
+                className="cursor-pointer font-bold"
+                style={{
+                  padding: "10px",
+                  fontSize: "18px",
+                }}
               >
-                Cancelar
-              </button>
-
-              <button
-                onClick={handleConfirm}
-                className={` text-white font-bold bg-[#bb3d4b] px-2 py-1 rounded`}
-              >
-                Aceptar
+                X
               </button>
             </div>
-          </div>
-        </div>
-
-        {/*
-
-        <div className="text-center" style={{ padding: "25px" }}>
-          <div
-            className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-6 ${config.bgColor} ${config.borderColor} border-2`}
-          >
-            <IconComponent className={`w-8 h-8 ${config.iconColor}`} />
-          </div>
-
-          {title && (
-            <h3
-              id="modal-title"
-              className="text-2xl font-semibold text-gray-900 mb-3"
+            <Typography
+              id="modal-modal-title"
+              variant="h6"
+              component="h2"
+              sx={{
+                textAlign: "center",
+                color: "#bb3d4b",
+                fontWeight: "bold",
+              }}
             >
               {title}
-            </h3>
-          )}
-
-          {message && (
-            <p
-              id="modal-description"
-              className="text-black mb-8 leading-relaxed text-base max-w-[420px] mx-auto"
+            </Typography>
+            <div
+              className="flex justify-center"
+              style={{
+                padding: "10px",
+                marginTop: "10px",
+                marginBottom: "10px",
+              }}
             >
-              {message}
-            </p>
-          )}
+              {content}
+            </div>
 
-         
-          {children && (
-            <div className="flex gap-4 justify-center pb-2">{children}</div>
-          )}
-
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={handleClose}
-              style={{ padding: "10px" }}
-              className="border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              Cancelar
-            </button>
-
-            <button
-              onClick={handleConfirm}
-              style={{ padding: "10px" }}
-              className={` text-white rounded-lg transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 ${config.buttonColor}`}
-            >
-              Aceptar
-            </button>
-          </div>
-        </div> */}
+            {showActions && showActions == true && (
+              <div
+                className="flex justify-center items-center gap-3"
+                style={{ padding: "10px" }}
+              >
+                <button
+                  className="bg-[#bb3d4b] text-white font-bold rounded cursor-pointer"
+                  style={{ padding: "10px" }}
+                  onClick={handleConfirm}
+                >
+                  Aceptar
+                </button>
+                <button
+                  className="bg-[#808080] text-white font-bold rounded cursor-pointer"
+                  style={{ padding: "10px" }}
+                  onClick={handleClose}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </Box>
+        </Modal>
       </div>
     </div>
   );

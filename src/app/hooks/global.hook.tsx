@@ -6,8 +6,8 @@ import {
   useState,
   Dispatch,
   SetStateAction,
-  ChangeEvent,
 } from "react";
+import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
 
 type ModalType = "success" | "error" | "warning" | "info";
 
@@ -18,14 +18,25 @@ interface ModalData {
   onClose: () => void;
   type: ModalType;
   title: string;
-  message: string | React.ReactNode;
+  content: React.ReactNode;
   onConfirm: () => void;
   children?: any;
+  showActions: boolean;
 }
 
 interface ContextProps {
   dataModal: ModalData;
   setDataModal: Dispatch<SetStateAction<ModalData>>;
+  dataProveedores: {
+    loading: boolean;
+    data: ProveedoresI[];
+  };
+  setDataProveedores: Dispatch<
+    SetStateAction<{
+      loading: boolean;
+      data: ProveedoresI[];
+    }>
+  >;
 }
 
 const CreateContext = createContext<ContextProps>({
@@ -34,11 +45,17 @@ const CreateContext = createContext<ContextProps>({
     onClose: () => {},
     type: "success",
     title: "",
-    message: "",
+    content: null,
     onConfirm: () => {},
     children: "",
+    showActions: false,
   },
   setDataModal: () => {},
+  dataProveedores: {
+    loading: false,
+    data: [],
+  },
+  setDataProveedores: () => {},
 });
 
 export const GlobalProvider = ({ children }: { children: any }) => {
@@ -48,16 +65,24 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     onClose: () => {},
     type: "success",
     title: "",
-    message: "",
+    content: null,
     onConfirm: () => {},
     children: "",
+    showActions: false,
   });
+
+  const [dataProveedores, setDataProveedores] = useState<{
+    loading: boolean;
+    data: ProveedoresI[];
+  }>({ loading: false, data: [] });
 
   return (
     <CreateContext.Provider
       value={{
         dataModal,
         setDataModal,
+        dataProveedores,
+        setDataProveedores,
       }}
     >
       {children}
