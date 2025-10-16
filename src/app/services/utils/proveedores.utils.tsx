@@ -6,7 +6,7 @@ const ProveedoresUtils = () => {
   const { setDataModal } = useTheContext();
 
   const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL_PROVEEDORES,
+    baseURL: process.env.NEXT_PUBLIC_API_URL_PROVEEDOR,
   });
 
   api.interceptors.response.use(

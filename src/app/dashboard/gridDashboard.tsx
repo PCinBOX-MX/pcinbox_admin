@@ -12,13 +12,15 @@ import {
 } from "@mui/material";
 //  import useDashboard from "./useDashboard";
 import { useMemo } from "react";
-import { SalesI } from "../interfaces/sales/sales.interface";
+import { MdCardGiftcard, MdCreditCard, MdMoney } from "react-icons/md";
 
 const GridDashboard = ({
   handleChangeStatusShip,
+  handleChangeStatusPay,
   rows,
 }: {
   handleChangeStatusShip: any;
+  handleChangeStatusPay: any;
   rows: any;
 }) => {
   const { formatCurrency } = UtilsService();
@@ -87,7 +89,7 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center flex-col items-center min-h-[100%]"
+              className="flex justify-center flex-col items-center min-h-[100%] overflow-y-auto"
               style={{
                 padding: "10px",
               }}
@@ -173,7 +175,86 @@ const GridDashboard = ({
           );
         },
       },
-
+      {
+        field: "address",
+        headerName: "Dirección",
+        minWidth: 300,
+        maxWidth: 400,
+        renderCell: (params) => {
+          return (
+            <div
+              className="flex justify-center items-center min-h-[100%] flex-wrap"
+              style={{
+                padding: "10px",
+              }}
+            >
+              <span
+                className="text-[black] block text-center font-bold"
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  wordBreak: "break-word",
+                }}
+              >
+                {params.value == "" || params.value == null
+                  ? "Entrega en Sucursal"
+                  : params.value}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
+        field: "method_pay",
+        headerName: "Metodo de pago",
+        minWidth: 200,
+        maxWidth: 300,
+        renderCell: (params) => {
+          return (
+            <div
+              className="flex justify-center items-center min-h-[100%] flex-wrap"
+              style={{
+                padding: "10px",
+              }}
+            >
+              <span
+                className="text-[black] block text-center font-bold"
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  wordBreak: "break-word",
+                }}
+              >
+                {params.value == "tarjeta_de_debito" ||
+                params.value == "tarjeta_de_credito" ? (
+                  <span className="flex gap-2">
+                    Tarjeta <MdCreditCard size={22} />{" "}
+                  </span>
+                ) : params.value == "efectivo_sucursal" ? (
+                  <span className="flex gap-2">
+                    Efectivo <MdMoney size={22} />{" "}
+                  </span>
+                ) : params.value == "oxxo" ? (
+                  <span className="flex gap-2">
+                    <img
+                      src={"/oxxo.png"}
+                      width={50}
+                      height={50}
+                      className="object-contain"
+                    />{" "}
+                  </span>
+                ) : params.value == "tarjeta_sucursal" ? (
+                  <span className="flex gap-2">
+                    Tarjeta <MdCreditCard size={22} />{" "}
+                  </span>
+                ) : (
+                  params.value
+                )}
+              </span>
+            </div>
+          );
+        },
+      },
       {
         field: "statusPay",
         minWidth: 200,
@@ -259,10 +340,56 @@ const GridDashboard = ({
         },
       },
       {
-        field: "actions",
-        headerName: "acciones",
+        field: "actionsPay",
+        headerName: "Acciones de Pago",
         width: 300,
+        renderCell: (params) => {
+          const currentRow = rows.find(
+            (row: any) => row.idShipment === params.row.idShipment
+          );
+          const currentStatusPay = currentRow?.statusPay || "";
 
+          return (
+            <div
+              className="flex justify-center items-center min-h-[100%]"
+              style={{
+                padding: "10px",
+              }}
+            >
+              <FormControl fullWidth>
+                <Select
+                  labelId="demo-simple-select-label"
+                  id="demo-simple-select"
+                  value={currentStatusPay}
+                  onChange={(event) => {
+                    handleChangeStatusPay(
+                      event,
+                      params.row.idOrder,
+                      params.row.idUser
+                    );
+                    // handleChangeStatusShip(
+                    //   event,
+                    //   params.row.idShipment,
+                    //   params.row.idUser
+                    // )
+                  }}
+                >
+                  <MenuItem value={"paid"}>Pagado</MenuItem>
+                  <MenuItem value={"pending"}>Pendiente</MenuItem>
+                  <MenuItem value={"cancelled"}>Cancelado</MenuItem>
+                  <MenuItem value={"rejected"}>Rechazado</MenuItem>
+                  <MenuItem value={"refunded"}>Reembolsado</MenuItem>
+                  <MenuItem value={"charged_back"}>Desconocido</MenuItem>
+                </Select>
+              </FormControl>
+            </div>
+          );
+        },
+      },
+      {
+        field: "actionsShipment",
+        headerName: "Acciones de Envío",
+        width: 300,
         renderCell: (params) => {
           const currentRow = rows.find(
             (row: any) => row.idShipment === params.row.idShipment
@@ -298,6 +425,9 @@ const GridDashboard = ({
             </div>
           );
         },
+      },
+      {
+        field: "",
       },
     ],
     [rows]

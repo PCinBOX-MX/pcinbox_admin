@@ -91,6 +91,7 @@ const Navbar = () => {
               style={{
                 padding: "5px",
                 marginRight: "10px",
+                cursor: "pointer",
               }}
               className="rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-all duration-200 flex items-center gap-2 shadow-lg shadow-red-500/30"
             >

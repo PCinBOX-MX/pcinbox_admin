@@ -6,12 +6,14 @@ import {
   useState,
   Dispatch,
   SetStateAction,
+  useRef,
+  useEffect,
+  RefObject,
 } from "react";
 import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
+import io, { Socket } from "socket.io-client";
 
 type ModalType = "success" | "error" | "warning" | "info";
-
-type NotificationType = "success" | "error" | "warning" | "info";
 
 interface ModalData {
   isOpen: boolean;
@@ -37,6 +39,7 @@ interface ContextProps {
       data: ProveedoresI[];
     }>
   >;
+  socketPagos: RefObject<Socket | null>;
 }
 
 const CreateContext = createContext<ContextProps>({
@@ -56,6 +59,7 @@ const CreateContext = createContext<ContextProps>({
     data: [],
   },
   setDataProveedores: () => {},
+  socketPagos: { current: null },
 });
 
 export const GlobalProvider = ({ children }: { children: any }) => {
@@ -76,6 +80,16 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     data: ProveedoresI[];
   }>({ loading: false, data: [] });
 
+  const socketPagos = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    socketPagos.current = io(process.env.NEXT_PUBLIC_SOCKET_PAGOS || "");
+
+    return () => {
+      socketPagos.current?.disconnect();
+    };
+  }, []);
+
   return (
     <CreateContext.Provider
       value={{
@@ -83,6 +97,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setDataModal,
         dataProveedores,
         setDataProveedores,
+        socketPagos,
       }}
     >
       {children}

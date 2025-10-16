@@ -1,6 +1,8 @@
 "use client";
 
+import { useTheContext } from "@/app/hooks/global.hook";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
+import UtilsService from "@/app/services/utils";
 import {
   Card,
   CardActions,
@@ -8,9 +10,27 @@ import {
   CardMedia,
   Typography,
 } from "@mui/material";
-import { MdFileDownload, MdFileUpload } from "react-icons/md";
+import { MdFileUpload } from "react-icons/md";
 
 const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
+  const { formatCurrency } = UtilsService();
+  const { setDataModal } = useTheContext();
+
+  const handleAltaProduct = async (dataProductProp: ProductsI) => {
+    //console.log(dataProductProp);
+    setDataModal({
+      isOpen: true,
+      title: "Dar de alta el producto",
+      content: "¿Seguro que deseas dar de alta el producto?",
+      type: "info",
+      showActions: true,
+      onClose: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      onConfirm: () => {},
+    });
+  };
+
   return (
     <Card
       key={dataProduct.idProduct}
@@ -30,7 +50,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
 
         <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {dataProduct.description.length > 30
-            ? dataProduct.description.slice(0, 30)
+            ? `${dataProduct.description.slice(0, 30)}...`
             : dataProduct.description}
         </Typography>
         <Typography
@@ -48,6 +68,14 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           <span className="text-black font-bold text-[17px]">Disponible:</span>{" "}
           {dataProduct.stock} piezas.
         </Typography>
+
+        <Typography
+          variant="body2"
+          sx={{ color: "text.secondary", margin: "10px 0px" }}
+        >
+          <span className="text-black font-bold text-[17px]">Price:</span>{" "}
+          {formatCurrency(Number(dataProduct.price))}
+        </Typography>
       </CardContent>
       <CardActions
         sx={{
@@ -58,6 +86,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
         }}
       >
         <button
+          onClick={() => handleAltaProduct(dataProduct)}
           className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer"
           style={{
             padding: "10px",
@@ -65,17 +94,6 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
         >
           Dar de alta al sistema
           <MdFileUpload size={26} />
-        </button>
-
-        <button
-          className="bg-[#606060] rounded text-white font-bold flex justify-center gap-2 cursor-pointer"
-          style={{
-            padding: "10px",
-            marginTop: "10px",
-          }}
-        >
-          Dar de baja del sistema
-          <MdFileDownload size={26} />
         </button>
       </CardActions>
     </Card>

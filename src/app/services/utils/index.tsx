@@ -54,8 +54,26 @@ const UtilsService = () => {
     }
   );
 
-  const onRouterPush = (pathName: string): void => {
-    router.push(pathName);
+  const onRouterPush = async (route: string) => {
+    try {
+      await router.prefetch(route);
+      router.push(route);
+    } catch (error) {
+      setDataModal({
+        isOpen: true,
+        title: "Error",
+        type: "error",
+        showActions: true,
+        content: "Error navegando a la ruta " + route,
+        onConfirm: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+      console.error("Error navegando a la ruta:", error);
+    }
   };
 
   const requestPost = async (data: any, endPoint: string) => {

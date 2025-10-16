@@ -22,7 +22,7 @@ const TableComponent = ({
         initialState={{
           pagination: {
             paginationModel: {
-              pageSize: 25,
+              pageSize: 10,
               page: 0,
             },
           },
@@ -44,6 +44,7 @@ const TableComponent = ({
           },
         }}
         getRowHeight={() => "auto"}
+        getRowId={(row) => row.idOrder}
       />
     )
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheContext } from "@/app/hooks/global.hook";
 import UtilsService from "@/app/services/utils";
 import { useState } from "react";
 
@@ -7,7 +8,7 @@ const useNavbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoadStorage, setIsLoadStorage] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("ventas");
-
+  const { setDataModal } = useTheContext();
   const { onRouterPush } = UtilsService();
 
   const handleActiveTab = (label: string, id: any) => {
@@ -24,9 +25,22 @@ const useNavbar = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("email");
-    onRouterPush("/features/auth/Login");
+    setDataModal({
+      isOpen: true,
+      type: "info",
+      title: "Cierre de sesión",
+      showActions: true,
+      content: "¿Seguro que deseas cerrar sesión?",
+      onClose: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      onConfirm: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+        localStorage.removeItem("token");
+        localStorage.removeItem("email");
+        onRouterPush("/features/auth/Login");
+      },
+    });
   };
 
   return {
