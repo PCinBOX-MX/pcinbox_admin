@@ -3,7 +3,7 @@ import { useTheContext } from "@/app/hooks/global.hook";
 import axios from "axios";
 
 const ProveedoresUtils = () => {
-  const { setDataModal } = useTheContext();
+  const { setDataModal, setShowSpinner } = useTheContext();
 
   const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL_PROVEEDOR,
@@ -12,6 +12,7 @@ const ProveedoresUtils = () => {
   api.interceptors.response.use(
     (response) => response,
     (er) => {
+      setShowSpinner(false);
       setDataModal((prev) => ({ ...prev, isOpen: false }));
 
       if (er.response?.status == 401) {
@@ -53,18 +54,24 @@ const ProveedoresUtils = () => {
 
   const requestGetProveedores = async (endPoint: string) => {
     try {
+      setShowSpinner(true);
       const resp = await api.get(endPoint);
+      setShowSpinner(false);
       return resp;
     } catch (error) {
+      setShowSpinner(false);
       throw error;
     }
   };
 
   const requestPostProveedores = async (data: any, endPoint: string) => {
     try {
+      setShowSpinner(true);
       const resp = await api.post(endPoint, data);
+      setShowSpinner(false);
       return resp;
     } catch (error) {
+      setShowSpinner(false);
       throw error;
     }
   };

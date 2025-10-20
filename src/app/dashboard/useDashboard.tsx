@@ -5,10 +5,11 @@ import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import { GridRowsProp } from "@mui/x-data-grid";
 import PagosUtils from "../services/utils/pagos.utils";
+import { useTheContext } from "../hooks/global.hook";
 
 const useDashboard = () => {
-  const [rows, setRows] = useState<GridRowsProp<SalesI>>([]);
   const { requestGetProveedores } = ProveedoresUtils();
+  const { setRowsVentas } = useTheContext();
   const [tableKey, setTableKey] = useState(0);
 
   const { requestPostPagos } = PagosUtils();
@@ -19,7 +20,7 @@ const useDashboard = () => {
 
       if (resp.status == 200) {
         const data = resp.data;
-        setRows(() => {
+        setRowsVentas(() => {
           const grouped = new Map<number, SalesI>();
 
           data.data.data.forEach((item: SalesI) => {
@@ -74,7 +75,7 @@ const useDashboard = () => {
 
       if (resp.status == 200) {
         // const data = await resp.data;
-        setRows((prev) => {
+        setRowsVentas((prev) => {
           return prev.map((item) => {
             if (item.idShipment == idShipment) {
               return { ...item, statusShip: event.target.value };
@@ -83,7 +84,7 @@ const useDashboard = () => {
           });
         });
 
-        setTableKey((prev) => prev + 1); // Forzar re-render
+        // setTableKey((prev) => prev + 1); // Forzar re-render
       }
     } catch (error) {}
   };
@@ -99,7 +100,7 @@ const useDashboard = () => {
         "/stripe/updateStatusPayByOrden"
       );
       if (resp.status == 200) {
-        setRows((prev) => {
+        setRowsVentas((prev) => {
           return prev.map((item) => {
             if (item.idOrder == idOrder) {
               return { ...item, statusPay: event.target.value };
@@ -108,15 +109,13 @@ const useDashboard = () => {
           });
         });
 
-        setTableKey((prev) => prev + 1); // Forzar re-render
+        // setTableKey((prev) => prev + 1); // Forzar re-render
       }
     } catch (error) {}
   };
 
   return {
-    rows,
     tableKey,
-    setRows,
     handleGetAllSales,
     handleChangeStatusShip,
     handleChangeStatusPay,

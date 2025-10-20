@@ -7,6 +7,17 @@
   --foreground: #171717;
 }
 
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Quitar flechas en Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -24,6 +35,5 @@ body {
 
 section {
   height: 100%;
-
   padding-top: 140px;
 }

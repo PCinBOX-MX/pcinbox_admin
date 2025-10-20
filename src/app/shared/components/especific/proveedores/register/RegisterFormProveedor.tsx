@@ -20,7 +20,7 @@ const RegisterFormProovedor = () => {
       component="form"
       onSubmit={handleSubmit(handleRegisterProveedores)}
       sx={{
-        maxWidth: 400,
+        width: "100%",
         mx: "auto",
         mt: 1,
         display: "flex",

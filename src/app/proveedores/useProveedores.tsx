@@ -2,12 +2,24 @@
 
 import { useState } from "react";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
-import { SelectChangeEvent } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
 import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
 import { useForm } from "react-hook-form";
+import RegisterProduct from "../shared/components/especific/registerProduct/RegisterProduct";
 
 const useProveedores = () => {
   const { reset } = useForm();
@@ -26,6 +38,8 @@ const useProveedores = () => {
   const [registerProveedores, setRegisterProveedores] = useState<{
     loading: boolean;
   }>({ loading: false });
+
+  const [files, setFiles] = useState<File[]>([]);
 
   const handleOnChange = (event: SelectChangeEvent) => {
     setSlcProveedor(event.target.value);
@@ -138,6 +152,22 @@ const useProveedores = () => {
     }
   };
 
+  const handleAddProduct = () => {
+    setDataModal({
+      isOpen: true,
+      content: <RegisterProduct />,
+      title: "Agregar producto",
+      type: "success",
+      showActions: false,
+      onClose: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      onConfirm: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
   return {
     slcProveedor,
     dataProductProveedor,
@@ -147,6 +177,7 @@ const useProveedores = () => {
     handleOnChange,
     showModalRegisterProveedor,
     handleRegisterProveedores,
+    handleAddProduct,
   };
 };
 

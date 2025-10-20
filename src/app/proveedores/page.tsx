@@ -23,6 +23,7 @@ const Proveedores = () => {
     handleOnChange,
     handleGetProveedores,
     showModalRegisterProveedor,
+    handleAddProduct,
   } = useProveedores();
 
   useEffect(() => {
@@ -82,7 +83,7 @@ const Proveedores = () => {
               marginBottom: "10px",
               padding: "5px",
             }}
-            className="flex justify-between"
+            className="flex justify-start relative gap-4"
           >
             <button
               className="bg-[#bb3d4b] text-[white] rounded font-bold cursor-pointer flex justify-center items-center gap-1"
@@ -95,11 +96,24 @@ const Proveedores = () => {
               Agregar proveedor
             </button>
 
-            <TextField
-              id="outlined-basic"
-              label="Buscar producto"
-              variant="outlined"
-            />
+            <button
+              style={{
+                padding: "10px",
+              }}
+              onClick={handleAddProduct}
+              className="bg-white border rounded font-bold cursor-pointer flex justify-center items-center gap-1"
+            >
+              <MdAdd size={22} />
+              Agregar Producto
+            </button>
+
+            <div className="absolute right-0 top-0">
+              <TextField
+                id="outlined-basic"
+                label="Buscar producto"
+                variant="outlined"
+              />
+            </div>
           </div>
 
           <div

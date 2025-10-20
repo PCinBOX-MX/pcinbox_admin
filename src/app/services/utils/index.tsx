@@ -4,7 +4,7 @@ import axios from "axios";
 import { useTheContext } from "@/app/hooks/global.hook";
 
 const UtilsService = () => {
-  const { setDataModal } = useTheContext();
+  const { setDataModal, setShowSpinner } = useTheContext();
 
   const router = useRouter();
 
@@ -15,6 +15,7 @@ const UtilsService = () => {
   api.interceptors.response.use(
     (response) => response,
     (er) => {
+      setShowSpinner(false);
       if (er.response?.status == 401) {
         setDataModal({
           isOpen: true,
@@ -78,13 +79,16 @@ const UtilsService = () => {
 
   const requestPost = async (data: any, endPoint: string) => {
     try {
+      setShowSpinner(true);
       const res = await api.post(endPoint, data, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
+      setShowSpinner(false);
       return res;
     } catch (error: any) {
+      setShowSpinner(false);
       throw error;
     }
   };
@@ -94,27 +98,33 @@ const UtilsService = () => {
     showErrorSesion: boolean = false
   ) => {
     try {
+      setShowSpinner(true);
       const res = await api.get(endPoint, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
+      setShowSpinner(false);
 
       return res;
     } catch (error: any) {
+      setShowSpinner(false);
       throw error;
     }
   };
 
   const requestDelete = async (endPoint: string) => {
     try {
+      setShowSpinner(true);
       const res = await api.delete(endPoint, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
+      setShowSpinner(false);
       return res;
     } catch (error: any) {
+      setShowSpinner(false);
       throw error;
     }
   };

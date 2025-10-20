@@ -101,93 +101,100 @@ const ModalComponent = ({
 
   return (
     <div className={`fixed inset-0 flex items-center justify-center`}>
-      <div
-        className={`absolute inset-0 bg-black transition-opacity duration-300 ${
+      {/* <div
+        className={`absolute inset-0 bg-black transition-opacity duration-300 z-50 ${
           isVisible
             ? "opacity-50 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         }`}
-        // onClick={handleClose}
+        onClick={handleClose}
+      > */}
+      <Modal
+        className="flex justify-center items-center"
+        open={isVisible}
+        onClick={handleClose}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+        sx={{
+          zIndex: 1300, // z-index por defecto de MUI Modal
+        }}
+        BackdropProps={{
+          style: {
+            backgroundColor: "rgba(0, 0, 0, 0.5)", // Tu fondo negro con opacidad
+          },
+        }}
       >
-        <Modal
-          className="flex justify-center items-center"
-          open={isVisible}
-          // onClick={handleClose}
-          aria-labelledby="modal-modal-title"
-          aria-describedby="modal-modal-description"
+        <Box
+          onClick={(e) => e.stopPropagation()}
           sx={{
-            zIndex: "9999",
+            background: "white",
+            width: "500px",
+            minWidth: "500px",
+            maxWidth: "800px",
+            padding: "10px",
+            borderRadius: "10px",
           }}
         >
-          <Box
-            sx={{
-              background: "white",
-              width: "500px",
-              minWidth: "500px",
-              maxWidth: "800px",
-              padding: "10px",
-              borderRadius: "10px",
-            }}
-          >
-            <div className="flex justify-end items-center">
-              <button
-                onClick={handleClose}
-                className="cursor-pointer font-bold"
-                style={{
-                  padding: "10px",
-                  fontSize: "18px",
-                }}
-              >
-                X
-              </button>
-            </div>
-            <Typography
-              id="modal-modal-title"
-              variant="h6"
-              component="h2"
-              sx={{
-                textAlign: "center",
-                color: "#bb3d4b",
-                fontWeight: "bold",
-              }}
-            >
-              {title}
-            </Typography>
-            <div
-              className="flex justify-center"
+          <div className="flex justify-end items-center">
+            <button
+              onClick={handleClose}
+              className="cursor-pointer font-bold"
               style={{
                 padding: "10px",
-                marginTop: "10px",
-                marginBottom: "10px",
+                fontSize: "18px",
               }}
             >
-              {content}
-            </div>
+              X
+            </button>
+          </div>
+          <Typography
+            id="modal-modal-title"
+            variant="h6"
+            component="h2"
+            sx={{
+              textAlign: "center",
+              color: "#bb3d4b",
+              fontWeight: "bold",
+              fontSize: "25px",
+            }}
+          >
+            {title}
+          </Typography>
+          <div
+            className="flex justify-center"
+            style={{
+              padding: "10px",
 
-            {showActions && showActions == true && (
-              <div
-                className="flex justify-center items-center gap-3"
+              marginBottom: "10px",
+            }}
+          >
+            {content}
+          </div>
+
+          {showActions && showActions == true && (
+            <div
+              className="flex justify-center items-center gap-3"
+              style={{ padding: "10px" }}
+            >
+              <button
+                className="bg-[#bb3d4b] text-white font-bold rounded cursor-pointer"
                 style={{ padding: "10px" }}
+                onClick={handleConfirm}
               >
-                <button
-                  className="bg-[#bb3d4b] text-white font-bold rounded cursor-pointer"
-                  style={{ padding: "10px" }}
-                  onClick={handleConfirm}
-                >
-                  Aceptar
-                </button>
-                <button
-                  className="bg-[#808080] text-white font-bold rounded cursor-pointer"
-                  style={{ padding: "10px" }}
-                  onClick={handleClose}
-                >
-                  Cancelar
-                </button>
-              </div>
-            )}
-          </Box>
-        </Modal>
-      </div>
+                Aceptar
+              </button>
+              <button
+                className="bg-[#808080] text-white font-bold rounded cursor-pointer"
+                style={{ padding: "10px" }}
+                onClick={handleClose}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+        </Box>
+      </Modal>
+      {/* </div> */}
     </div>
   );
 };

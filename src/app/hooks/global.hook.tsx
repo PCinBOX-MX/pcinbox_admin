@@ -12,6 +12,8 @@ import {
 } from "react";
 import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
 import io, { Socket } from "socket.io-client";
+import { GridRowsProp } from "@mui/x-data-grid";
+import { SalesI } from "../interfaces/sales/sales.interface";
 
 type ModalType = "success" | "error" | "warning" | "info";
 
@@ -40,6 +42,10 @@ interface ContextProps {
     }>
   >;
   socketPagos: RefObject<Socket | null>;
+  rowsVentas: SalesI[];
+  setRowsVentas: Dispatch<SetStateAction<SalesI[]>>;
+  showSpinner: boolean;
+  setShowSpinner: Dispatch<SetStateAction<boolean>>;
 }
 
 const CreateContext = createContext<ContextProps>({
@@ -60,6 +66,10 @@ const CreateContext = createContext<ContextProps>({
   },
   setDataProveedores: () => {},
   socketPagos: { current: null },
+  rowsVentas: [],
+  setRowsVentas: () => {},
+  showSpinner: false,
+  setShowSpinner: () => {},
 });
 
 export const GlobalProvider = ({ children }: { children: any }) => {
@@ -80,6 +90,10 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     data: ProveedoresI[];
   }>({ loading: false, data: [] });
 
+  const [rowsVentas, setRowsVentas] = useState<SalesI[]>([]);
+
+  const [showSpinner, setShowSpinner] = useState<boolean>(false);
+
   const socketPagos = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -98,6 +112,10 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         dataProveedores,
         setDataProveedores,
         socketPagos,
+        rowsVentas,
+        setRowsVentas,
+        showSpinner,
+        setShowSpinner,
       }}
     >
       {children}
