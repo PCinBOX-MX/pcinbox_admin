@@ -43,6 +43,7 @@ const useLogin = () => {
         onClose: () => {
           setDataModal((prev) => ({ ...prev, isOpen: false }));
         },
+        showActions: true,
       });
       return;
     }
