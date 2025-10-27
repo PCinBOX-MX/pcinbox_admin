@@ -2,19 +2,7 @@
 
 import { useState } from "react";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
-import {
-  Alert,
-  Box,
-  Button,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-  TextField,
-  Typography,
-} from "@mui/material";
-import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
+import { SelectChangeEvent } from "@mui/material";
 import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
@@ -23,7 +11,7 @@ import RegisterProduct from "../shared/components/especific/registerProduct/Regi
 
 const useProveedores = () => {
   const { reset } = useForm();
-  const { dataProveedores, setDataModal, setDataProveedores } = useTheContext();
+  const { setDataModal, setDataProveedores } = useTheContext();
   const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
 
   const [slcProveedor, setSlcProveedor] = useState<string>("");
@@ -38,8 +26,6 @@ const useProveedores = () => {
   const [registerProveedores, setRegisterProveedores] = useState<{
     loading: boolean;
   }>({ loading: false });
-
-  const [files, setFiles] = useState<File[]>([]);
 
   const handleOnChange = (event: SelectChangeEvent) => {
     setSlcProveedor(event.target.value);
@@ -155,7 +141,7 @@ const useProveedores = () => {
   const handleAddProduct = () => {
     setDataModal({
       isOpen: true,
-      content: <RegisterProduct />,
+      content: <RegisterProduct setProductsProveedor={setProductsProveedor} />,
       title: "Agregar producto",
       type: "success",
       showActions: false,

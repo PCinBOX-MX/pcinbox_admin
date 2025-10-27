@@ -128,9 +128,9 @@ const ModalComponent = ({
           onClick={(e) => e.stopPropagation()}
           sx={{
             background: "white",
-            width: "500px",
+            // width: "500px",
             minWidth: "500px",
-            maxWidth: "800px",
+            // maxWidth: "800px",
             padding: "10px",
             borderRadius: "10px",
           }}

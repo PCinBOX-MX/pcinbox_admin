@@ -299,6 +299,15 @@ const GridDashboard = ({
                   <span className="flex gap-2">
                     Tarjeta <MdCreditCard size={22} />{" "}
                   </span>
+                ) : params.value == "mercadopago" ? (
+                  <img
+                    src={"/mercadopago.jpg"}
+                    style={{
+                      width: "100px",
+                      height: "100px",
+                      objectFit: "contain",
+                    }}
+                  />
                 ) : (
                   params.value
                 )}

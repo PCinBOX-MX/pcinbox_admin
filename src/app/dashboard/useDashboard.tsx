@@ -3,7 +3,6 @@
 import { useState } from "react";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { SalesI } from "../interfaces/sales/sales.interface";
-import { GridRowsProp } from "@mui/x-data-grid";
 import PagosUtils from "../services/utils/pagos.utils";
 import { useTheContext } from "../hooks/global.hook";
 

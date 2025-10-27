@@ -3,21 +3,15 @@
 import { useTheContext } from "@/app/hooks/global.hook";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import UtilsService from "@/app/services/utils";
-import {
-  Card,
-  CardActions,
-  CardContent,
-  CardMedia,
-  Typography,
-} from "@mui/material";
-import { MdFileUpload } from "react-icons/md";
+import { Card, CardActions, CardContent, Typography } from "@mui/material";
+import { MdEdit, MdFileUpload } from "react-icons/md";
+import { Carousel } from "react-responsive-carousel";
 
 const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   const { formatCurrency } = UtilsService();
   const { setDataModal } = useTheContext();
 
   const handleAltaProduct = async (dataProductProp: ProductsI) => {
-    //console.log(dataProductProp);
     setDataModal({
       isOpen: true,
       title: "Dar de alta el producto",
@@ -27,7 +21,9 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
       onClose: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
-      onConfirm: () => {},
+      onConfirm: () => {
+        console.log(dataProductProp);
+      },
     });
   };
 
@@ -37,10 +33,20 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
       sx={{ maxWidth: 300, padding: "10px" }}
       className="shadow rounded"
     >
-      <CardMedia
-        sx={{ height: 200, objectFit: "contain" }}
-        image={dataProduct.image_url[0]}
-      />
+      <Carousel showIndicators={true} showThumbs={false} showStatus={false}>
+        {dataProduct.image_url && dataProduct.image_url.length > 0
+          ? dataProduct.image_url.map((img, i) => (
+              <div
+                key={i}
+                className="flex justify-center"
+                style={{ height: "150px" }}
+              >
+                <img src={img} style={{ objectFit: "contain" }} />
+              </div>
+            ))
+          : [<div key="no-img">Sin imágenes</div>]}
+      </Carousel>
+
       <CardContent>
         <Typography gutterBottom variant="h5" component="div">
           {dataProduct.name.length > 30
@@ -73,7 +79,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           variant="body2"
           sx={{ color: "text.secondary", margin: "10px 0px" }}
         >
-          <span className="text-black font-bold text-[17px]">Price:</span>{" "}
+          <span className="text-black font-bold text-[17px]">Precio:</span>{" "}
           {formatCurrency(Number(dataProduct.price))}
         </Typography>
       </CardContent>
@@ -83,17 +89,29 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
+          gap: "10px",
         }}
       >
         <button
           onClick={() => handleAltaProduct(dataProduct)}
-          className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer"
+          className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
           style={{
             padding: "10px",
           }}
         >
           Dar de alta al sistema
           <MdFileUpload size={26} />
+        </button>
+
+        <button
+          className="bg-[#808080] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
+          style={{
+            padding: "10px",
+            marginLeft: "0px",
+          }}
+        >
+          Editar producto
+          <MdEdit size={26} />
         </button>
       </CardActions>
     </Card>
