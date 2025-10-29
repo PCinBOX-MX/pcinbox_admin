@@ -14,6 +14,7 @@ import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
 import io, { Socket } from "socket.io-client";
 import { GridRowsProp } from "@mui/x-data-grid";
 import { SalesI } from "../interfaces/sales/sales.interface";
+import ProveedoresUtils from "../services/utils/proveedores.utils";
 
 type ModalType = "success" | "error" | "warning" | "info";
 
@@ -46,6 +47,10 @@ interface ContextProps {
   setRowsVentas: Dispatch<SetStateAction<SalesI[]>>;
   showSpinner: boolean;
   setShowSpinner: Dispatch<SetStateAction<boolean>>;
+  dataMarca: any;
+  setDataMarca: Dispatch<SetStateAction<any>>;
+  dataCategoria: any;
+  setDataCategoria: Dispatch<SetStateAction<any>>;
 }
 
 const CreateContext = createContext<ContextProps>({
@@ -70,6 +75,10 @@ const CreateContext = createContext<ContextProps>({
   setRowsVentas: () => {},
   showSpinner: false,
   setShowSpinner: () => {},
+  dataMarca: [],
+  setDataMarca: () => {},
+  dataCategoria: [],
+  setDataCategoria: () => {},
 });
 
 export const GlobalProvider = ({ children }: { children: any }) => {
@@ -96,6 +105,37 @@ export const GlobalProvider = ({ children }: { children: any }) => {
 
   const socketPagos = useRef<Socket | null>(null);
 
+  const [dataMarca, setDataMarca] = useState([]);
+
+  const [dataCategoria, setDataCategoria] = useState([]);
+  const { requestGetProveedores } = ProveedoresUtils();
+
+  const handleGetMarcas = async () => {
+    try {
+      const resp = await requestGetProveedores("/getAllMarcaPrincipal");
+      const data = resp.data;
+
+      if (resp.status == 200) {
+        setDataMarca(data.data.data);
+      }
+    } catch (error) {
+      setDataMarca([]);
+    }
+  };
+
+  const handleGetCategorias = async () => {
+    try {
+      const resp = await requestGetProveedores("/getAllCategoriPrincipal");
+      const data = resp.data;
+
+      if (resp.status == 200) {
+        setDataCategoria(data.data.data);
+      }
+    } catch (error) {
+      setDataCategoria([]);
+    }
+  };
+
   useEffect(() => {
     socketPagos.current = io(process.env.NEXT_PUBLIC_SOCKET_PAGOS || "");
 
@@ -103,6 +143,11 @@ export const GlobalProvider = ({ children }: { children: any }) => {
       socketPagos.current?.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    handleGetCategorias();
+    handleGetMarcas();
+  }, [dataCategoria.length, dataMarca.length]);
 
   return (
     <CreateContext.Provider
@@ -116,6 +161,10 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setRowsVentas,
         showSpinner,
         setShowSpinner,
+        dataCategoria,
+        setDataCategoria,
+        dataMarca,
+        setDataMarca,
       }}
     >
       {children}

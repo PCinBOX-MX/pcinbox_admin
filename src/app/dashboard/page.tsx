@@ -28,10 +28,6 @@ const DashBoard = () => {
   return (
     <section className="w-full">
       <div className="w-full flex justify-center items-center">
-        {/* {rows.length == 0 ? (
-          <Alert severity="info">Sin contenido disponible</Alert>
-        ) : ( */}
-
         <div className="w-[95%]">
           <TableComponent
             key={tableKey}
@@ -39,7 +35,6 @@ const DashBoard = () => {
             rowsDataGrid={rowsVentas}
           />
         </div>
-        {/* )} */}
       </div>
     </section>
   );

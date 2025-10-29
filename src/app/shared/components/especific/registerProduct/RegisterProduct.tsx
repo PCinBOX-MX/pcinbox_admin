@@ -49,13 +49,12 @@ const RegisterProduct = ({
     }>
   >;
 }) => {
-  const { setDataModal } = useTheContext();
+  const { setDataModal, dataMarca, dataCategoria } = useTheContext();
   const [files, setFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<number>(0);
-  const [dataMarca, setDataMarca] = useState([]);
 
   const [selectedCategoria, setSelectedCategoria] = useState<number>(0);
-  const [dataCategoria, setDataCategoria] = useState([]);
 
   const [dataNewComponent, setDataNewComponent] = useState<DataNewProductI>({
     name: "",
@@ -89,36 +88,10 @@ const RegisterProduct = ({
 
   const [loadinNewProduct, setLoadingNewProduct] = useState<boolean>(false);
 
-  const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
+  const { requestPostProveedores } = ProveedoresUtils();
 
   const handleRemoveFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleGetMarcas = async () => {
-    try {
-      const resp = await requestGetProveedores("/getAllMarcaPrincipal");
-      const data = resp.data;
-
-      if (resp.status == 200) {
-        setDataMarca(data.data.data);
-      }
-    } catch (error) {
-      setDataMarca([]);
-    }
-  };
-
-  const handleGetCategorias = async () => {
-    try {
-      const resp = await requestGetProveedores("/getAllCategoriPrincipal");
-      const data = resp.data;
-
-      if (resp.status == 200) {
-        setDataCategoria(data.data.data);
-      }
-    } catch (error) {
-      setDataCategoria([]);
-    }
   };
 
   const handleSubmit = async (event: any) => {
@@ -235,9 +208,15 @@ const RegisterProduct = ({
   }, [files]);
 
   useEffect(() => {
-    handleGetMarcas();
-    handleGetCategorias();
-  }, []);
+    const newUrls = files.map((file) => URL.createObjectURL(file));
+    setPreviewUrls(newUrls);
+
+    // Limpia las URLs anteriores al desmontar o actualizar
+    return () => {
+      newUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [files]);
+
   return (
     <Box
       component="form"
@@ -589,7 +568,7 @@ const RegisterProduct = ({
 
           <div className="flex flex-wrap gap-3">
             {files.map((file, indexFile) => {
-              const fileUrl = URL.createObjectURL(file);
+              const fileUrl = previewUrls[indexFile];
               const isVideo = file.type.startsWith("video/");
 
               return (

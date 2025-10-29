@@ -61,9 +61,11 @@ const GridDashboard = ({
         width: 240,
         minWidth: 240,
         maxWidth: 250,
+
         renderCell: (params) => {
           return (
             <div
+              onClick={() => alert("test")}
               className="flex justify-center items-center min-h-[100%]"
               style={{
                 padding: "10px",
