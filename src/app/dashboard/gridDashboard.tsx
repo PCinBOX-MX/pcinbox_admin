@@ -12,7 +12,8 @@ import {
 } from "@mui/material";
 //  import useDashboard from "./useDashboard";
 import { useMemo } from "react";
-import { MdCardGiftcard, MdCreditCard, MdMoney } from "react-icons/md";
+import { MdCheck, MdCreditCard, MdErrorOutline, MdMoney } from "react-icons/md";
+import { useTheContext } from "../hooks/global.hook";
 
 const GridDashboard = ({
   handleChangeStatusShip,
@@ -24,7 +25,7 @@ const GridDashboard = ({
   rows: any;
 }) => {
   const { formatCurrency } = UtilsService();
-  //  const { handleChangeStatusShip, rows } = useDashboard();
+  const { setDataModal } = useTheContext();
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -56,6 +57,73 @@ const GridDashboard = ({
         },
       },
       {
+        field: "requiredFactura",
+        headerName: "¿Requiere factura?",
+        width: 200,
+        renderCell: (params) => {
+          return (
+            <div
+              onClick={() => {
+                if (
+                  Array.isArray(params.row.billing) &&
+                  params.row.billing.length > 0
+                ) {
+                  setDataModal({
+                    isOpen: true,
+                    title: "Datos de facturación",
+                    content: (
+                      <div className="w-full flex flex-col">
+                        {params.row.billing.map((b: any, indexB: number) => {
+                          if (indexB == 0) {
+                            return (
+                              <div key={indexB}>
+                                {Object.entries(b).map(
+                                  ([key, value]: any, indexKV) => (
+                                    <div
+                                      key={indexKV}
+                                      className="grid grid-cols-[1fr_1fr]"
+                                    >
+                                      <span className="block text-end mx-2 text-[18px] text-[#606060] p-1 font-bold">
+                                        {key}
+                                      </span>
+                                      <span
+                                        className="block text-start mx-2 p-1"
+                                        style={{ marginLeft: "10px" }}
+                                      >
+                                        {value}
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            );
+                          }
+                        })}
+                      </div>
+                    ),
+                    type: "info",
+                    showActions: true,
+                    onClose: () => {
+                      setDataModal((prev) => ({ ...prev, isOpen: false }));
+                    },
+                    onConfirm: () => {
+                      setDataModal((prev) => ({ ...prev, isOpen: false }));
+                    },
+                  });
+                }
+              }}
+              className="flex justify-center items-center min-h-[100%]"
+            >
+              {params.value == null || params.value == "" || !params.value ? (
+                <MdErrorOutline size={30} color="red" />
+              ) : (
+                <MdCheck size={30} color="green" />
+              )}
+            </div>
+          );
+        },
+      },
+      {
         field: "name",
         headerName: "Nombre del Cliente",
         width: 240,
@@ -65,7 +133,6 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              onClick={() => alert("test")}
               className="flex justify-center items-center min-h-[100%]"
               style={{
                 padding: "10px",
