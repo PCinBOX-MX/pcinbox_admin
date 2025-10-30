@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  Button,
   FormControl,
   InputLabel,
   MenuItem,
@@ -21,55 +22,63 @@ const Proveedores = () => {
     dataProductProveedor,
     handleGetProductsByProveedor,
     handleOnChange,
-    handleGetProveedores,
     showModalRegisterProveedor,
     handleAddProduct,
   } = useProveedores();
 
-  useEffect(() => {
-    handleGetProveedores();
-  }, []);
-
-  useEffect(() => {
-    if (slcProveedor) {
-      handleGetProductsByProveedor(slcProveedor);
-    }
-  }, [slcProveedor]);
+  // useEffect(() => {
+  //   if (slcProveedor) {
+  //     handleGetProductsByProveedor(slcProveedor);
+  //   }
+  // }, [slcProveedor]);
 
   return (
     <section className="w-full">
       <div className="w-full flex justify-center items-center">
         <div className="w-[95%]">
           {!dataProveedores.loading ? (
-            <FormControl fullWidth>
-              <InputLabel id="demo-simple-select-label">
-                Selecciona un proveedor
-              </InputLabel>
-              <Select
-                labelId="demo-simple-select-label"
-                id="demo-simple-select"
-                value={slcProveedor}
-                label="Selecciona un proveedor"
-                onChange={handleOnChange}
+            <div className="w-full flex justify-between gap-2">
+              <FormControl fullWidth>
+                <InputLabel id="demo-simple-select-label">
+                  Selecciona un proveedor
+                </InputLabel>
+                <Select
+                  labelId="demo-simple-select-label"
+                  id="demo-simple-select"
+                  value={slcProveedor}
+                  label="Selecciona un proveedor"
+                  onChange={handleOnChange}
+                >
+                  {dataProveedores && dataProveedores.data.length > 0 ? (
+                    dataProveedores.data.map((p) => {
+                      return (
+                        <MenuItem
+                          key={p.idProvider}
+                          value={p.idProvider.toString()}
+                        >
+                          {p.companyName}
+                        </MenuItem>
+                      );
+                    })
+                  ) : (
+                    <MenuItem key={0} value={String(0)}>
+                      Sin proveedores disponibles
+                    </MenuItem>
+                  )}
+                </Select>
+              </FormControl>
+              <button
+                type="button"
+                className="bg-[#bb3d4b] text-[white] rounded font-bold px-2 w-[100px] cursor-pointer"
+                onClick={() => {
+                  if (slcProveedor) {
+                    handleGetProductsByProveedor(slcProveedor);
+                  }
+                }}
               >
-                {dataProveedores && dataProveedores.data.length > 0 ? (
-                  dataProveedores.data.map((p) => {
-                    return (
-                      <MenuItem
-                        key={p.idProvider}
-                        value={p.idProvider.toString()}
-                      >
-                        {p.companyName}
-                      </MenuItem>
-                    );
-                  })
-                ) : (
-                  <MenuItem key={0} value={String(0)}>
-                    Sin proveedores disponibles
-                  </MenuItem>
-                )}
-              </Select>
-            </FormControl>
+                Consultar
+              </button>
+            </div>
           ) : (
             <>
               <MdAutorenew size={20} className="m-auto the-spinner" />

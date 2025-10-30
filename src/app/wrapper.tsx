@@ -9,6 +9,8 @@ import React, { useEffect, useState } from "react";
 import { useSound } from "react-sounds";
 import { Button, IconButton, Snackbar } from "@mui/material";
 import SpinnerComponent from "./shared/components/especific/spinner/Spinner";
+import useProveedores from "./proveedores/useProveedores";
+import useDashboard from "./dashboard/useDashboard";
 
 export default function AppWrapper({
   children,
@@ -20,6 +22,8 @@ export default function AppWrapper({
   const [showNotification, setShowNotification] = useState<boolean>(false);
   const play = useSound("/audio/notification.mp3");
   const [messageNoti, setMessageNoti] = useState<string>("");
+  const { handleGetProveedores } = useProveedores();
+  const { handleGetAllSales } = useDashboard();
 
   useProtected(pathName);
 
@@ -78,6 +82,11 @@ export default function AppWrapper({
       socketPagos.current?.off("paidOxxo", handlePayOxxo);
     };
   }, [socketPagos.current]);
+
+  useEffect(() => {
+    handleGetAllSales();
+    handleGetProveedores();
+  }, []);
 
   return (
     <div>

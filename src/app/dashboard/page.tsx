@@ -3,22 +3,14 @@
 import TableComponent from "../shared/components/especific/table/TableComponent";
 import GridDashboard from "./gridDashboard";
 import useDashboard from "./useDashboard";
-import React, { useEffect } from "react";
+import React from "react";
 import { useTheContext } from "../hooks/global.hook";
 import { Alert } from "@mui/material";
 
 const DashBoard = () => {
   const { rowsVentas } = useTheContext();
-  const {
-    tableKey,
-    handleGetAllSales,
-    handleChangeStatusShip,
-    handleChangeStatusPay,
-  } = useDashboard();
-
-  useEffect(() => {
-    handleGetAllSales();
-  }, []);
+  const { tableKey, handleChangeStatusShip, handleChangeStatusPay } =
+    useDashboard();
 
   const { columns } = GridDashboard({
     handleChangeStatusShip,

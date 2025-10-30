@@ -258,7 +258,12 @@ const GridDashboard = ({
               }}
             >
               <div className="w-full flex flex-col">
-                {Array.isArray(params.value) &&
+                {Number(params.row.totalAmount) <= 1000 ? (
+                  <span className="text-[#808080] font-bold">
+                    {"Entrega en sucursal"}
+                  </span>
+                ) : (
+                  Array.isArray(params.value) &&
                   params.value.slice(0, 1).map((item, index) => {
                     return item.street == null ? (
                       <div
@@ -319,7 +324,8 @@ const GridDashboard = ({
                         </div>
                       </div>
                     );
-                  })}
+                  })
+                )}
               </div>
             </div>
           );
