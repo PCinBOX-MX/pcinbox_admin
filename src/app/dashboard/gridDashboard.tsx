@@ -259,7 +259,7 @@ const GridDashboard = ({
             >
               <div className="w-full flex flex-col">
                 {Number(params.row.totalAmount) <= 1000 ? (
-                  <span className="text-[#808080] font-bold">
+                  <span className="text-[#808080] font-bold text-center">
                     {"Entrega en sucursal"}
                   </span>
                 ) : (
