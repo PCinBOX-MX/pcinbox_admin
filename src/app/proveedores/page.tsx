@@ -16,14 +16,15 @@ import { MdAdd, MdAutorenew } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
 
 const Proveedores = () => {
-  const { dataProveedores } = useTheContext();
+  const { dataProveedores, dataProductProveedor } = useTheContext();
   const {
     slcProveedor,
-    dataProductProveedor,
+
     handleGetProductsByProveedor,
     handleOnChange,
     showModalRegisterProveedor,
     handleAddProduct,
+    setProductsProveedor,
   } = useProveedores();
 
   // useEffect(() => {
@@ -142,7 +143,13 @@ const Proveedores = () => {
               dataProductProveedor.data &&
               dataProductProveedor.data.length > 0 ? (
                 dataProductProveedor.data.map((product, index) => {
-                  return <CardComponent key={index} dataProduct={product} />;
+                  return (
+                    <CardComponent
+                      key={index}
+                      dataProduct={product}
+                      setProductsProveedor={setProductsProveedor}
+                    />
+                  );
                 })
               ) : (
                 <Alert severity="info">Sin contenido disponible</Alert>

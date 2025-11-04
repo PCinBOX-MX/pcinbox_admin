@@ -4,25 +4,51 @@ import { useTheContext } from "@/app/hooks/global.hook";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import UtilsService from "@/app/services/utils";
 import { Card, CardActions, CardContent, Typography } from "@mui/material";
-import { MdEdit, MdFileUpload } from "react-icons/md";
+import { MdEdit } from "react-icons/md";
 import { Carousel } from "react-responsive-carousel";
+import FormProduct from "../FormProduct/FormProduct";
+import { Dispatch, SetStateAction } from "react";
 
-const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
+const CardComponent = ({
+  dataProduct,
+  setProductsProveedor,
+}: {
+  dataProduct: ProductsI;
+  setProductsProveedor: Dispatch<
+    SetStateAction<{
+      loading: boolean;
+      data: ProductsI[];
+    }>
+  >;
+}) => {
   const { formatCurrency } = UtilsService();
   const { setDataModal } = useTheContext();
 
-  const handleAltaProduct = async (dataProductProp: ProductsI) => {
+  const handleEditProduct = async (
+    dataProductProp: ProductsI,
+    setProductsProveedor: Dispatch<
+      SetStateAction<{
+        loading: boolean;
+        data: ProductsI[];
+      }>
+    >
+  ) => {
     setDataModal({
       isOpen: true,
-      title: "Dar de alta el producto",
-      content: "¿Seguro que deseas dar de alta el producto?",
+      title: "Editar producto",
+      content: (
+        <FormProduct
+          dataProductProp={dataProductProp}
+          setProductsProveedor={setProductsProveedor}
+        />
+      ),
       type: "info",
-      showActions: true,
+      showActions: false,
       onClose: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
       onConfirm: () => {
-        console.log(dataProductProp);
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
     });
   };
@@ -30,7 +56,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   return (
     <Card
       key={dataProduct.idProduct}
-      sx={{ maxWidth: 300, padding: "10px" }}
+      sx={{ minWidth: 300, maxWidth: 300, padding: "10px" }}
       className="shadow rounded"
     >
       <Carousel showIndicators={true} showThumbs={false} showStatus={false}>
@@ -48,17 +74,22 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
       </Carousel>
 
       <CardContent>
-        <Typography gutterBottom variant="h5" component="div">
+        <Typography
+          gutterBottom
+          variant="h5"
+          component="div"
+          className="min-h-[65px]"
+        >
           {dataProduct.name.length > 30
             ? dataProduct.name.slice(0, 30)
             : dataProduct.name}
         </Typography>
 
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        {/* <Typography variant="body2" sx={{ color: "text.secondary" }}>
           {dataProduct.description.length > 30
             ? `${dataProduct.description.slice(0, 30)}...`
             : dataProduct.description}
-        </Typography>
+        </Typography> */}
         <Typography
           variant="body2"
           sx={{ color: "text.secondary", margin: "10px 0px" }}
@@ -92,7 +123,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           gap: "10px",
         }}
       >
-        <button
+        {/* <button
           onClick={() => handleAltaProduct(dataProduct)}
           className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
           style={{
@@ -101,7 +132,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
         >
           Dar de alta al sistema
           <MdFileUpload size={26} />
-        </button>
+        </button> */}
 
         <button
           className="bg-[#808080] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
@@ -109,6 +140,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             padding: "10px",
             marginLeft: "0px",
           }}
+          onClick={() => handleEditProduct(dataProduct, setProductsProveedor)}
         >
           Editar producto
           <MdEdit size={26} />

@@ -39,17 +39,14 @@ interface DataNewProductI {
   image_url: File[];
 }
 
-const RegisterProduct = ({
-  setProductsProveedor,
-}: {
-  setProductsProveedor?: Dispatch<
-    SetStateAction<{
-      loading: boolean;
-      data: ProductsI[];
-    }>
-  >;
-}) => {
-  const { setDataModal, dataMarca, dataCategoria } = useTheContext();
+const RegisterProduct = () => {
+  const {
+    setDataModal,
+    dataMarca,
+    dataCategoria,
+    dataProductProveedor,
+    setProductsProveedor,
+  } = useTheContext();
   const [files, setFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<number>(0);
@@ -170,7 +167,7 @@ const RegisterProduct = ({
       if (resp.status == 200) {
         const data = resp.data;
 
-        setProductsProveedor!(data.data.data);
+        setProductsProveedor((prev) => ({ ...prev, data: data.data.data }));
       }
     } catch (error: any) {
       setLoadingNewProduct(false);

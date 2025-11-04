@@ -11,17 +11,11 @@ import RegisterProduct from "../shared/components/especific/registerProduct/Regi
 
 const useProveedores = () => {
   const { reset } = useForm();
-  const { setDataModal, setDataProveedores } = useTheContext();
+  const { setDataModal, setDataProveedores, setProductsProveedor } =
+    useTheContext();
   const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
 
   const [slcProveedor, setSlcProveedor] = useState<string>("");
-  const [dataProductProveedor, setProductsProveedor] = useState<{
-    loading: boolean;
-    data: ProductsI[];
-  }>({
-    loading: false,
-    data: [],
-  });
 
   const [registerProveedores, setRegisterProveedores] = useState<{
     loading: boolean;
@@ -141,7 +135,7 @@ const useProveedores = () => {
   const handleAddProduct = () => {
     setDataModal({
       isOpen: true,
-      content: <RegisterProduct setProductsProveedor={setProductsProveedor} />,
+      content: <RegisterProduct />,
       title: "Agregar producto",
       type: "success",
       showActions: false,
@@ -156,7 +150,6 @@ const useProveedores = () => {
 
   return {
     slcProveedor,
-    dataProductProveedor,
     registerProveedores,
     handleGetProductsByProveedor,
     handleGetProveedores,
@@ -164,6 +157,7 @@ const useProveedores = () => {
     showModalRegisterProveedor,
     handleRegisterProveedores,
     handleAddProduct,
+    setProductsProveedor,
   };
 };
 

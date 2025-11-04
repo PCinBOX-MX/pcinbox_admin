@@ -10,7 +10,7 @@ export default function useProtectedRoute(pathname: string) {
 
     if (!token && pathname == "/dashboard") {
       // si no hay token, redirige a login
-      router.replace("/login");
+      router.replace("/features/auth/Login");
     } else {
       // si hay token y estás en login o register, redirige a home
       if ((pathname === "/features/auth/Login" || pathname == "/") && token) {

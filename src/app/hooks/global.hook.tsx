@@ -15,6 +15,7 @@ import io, { Socket } from "socket.io-client";
 import { GridRowsProp } from "@mui/x-data-grid";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
+import { ProductsI } from "../interfaces/products/products.interface";
 
 type ModalType = "success" | "error" | "warning" | "info";
 
@@ -41,6 +42,13 @@ interface ContextProps {
       loading: boolean;
       data: ProveedoresI[];
     }>
+  >;
+  dataProductProveedor: {
+    loading: boolean;
+    data: ProductsI[];
+  };
+  setProductsProveedor: Dispatch<
+    SetStateAction<{ loading: boolean; data: ProductsI[] }>
   >;
   socketPagos: RefObject<Socket | null>;
   rowsVentas: SalesI[];
@@ -70,6 +78,11 @@ const CreateContext = createContext<ContextProps>({
     data: [],
   },
   setDataProveedores: () => {},
+  dataProductProveedor: {
+    loading: false,
+    data: [],
+  },
+  setProductsProveedor: () => {},
   socketPagos: { current: null },
   rowsVentas: [],
   setRowsVentas: () => {},
@@ -98,6 +111,14 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     loading: boolean;
     data: ProveedoresI[];
   }>({ loading: false, data: [] });
+
+  const [dataProductProveedor, setProductsProveedor] = useState<{
+    loading: boolean;
+    data: ProductsI[];
+  }>({
+    loading: false,
+    data: [],
+  });
 
   const [rowsVentas, setRowsVentas] = useState<SalesI[]>([]);
 
@@ -165,6 +186,8 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setDataCategoria,
         dataMarca,
         setDataMarca,
+        dataProductProveedor,
+        setProductsProveedor,
       }}
     >
       {children}
