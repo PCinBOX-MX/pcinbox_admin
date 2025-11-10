@@ -1,6 +1,6 @@
 "use client";
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function useProtectedRoute(pathname: string) {
   const router = useRouter();
@@ -8,7 +8,7 @@ export default function useProtectedRoute(pathname: string) {
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    if (!token && pathname == "/dashboard") {
+    if (!token) {
       // si no hay token, redirige a login
       router.replace("/features/auth/Login");
     } else {

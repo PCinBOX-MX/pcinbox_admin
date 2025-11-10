@@ -9,7 +9,6 @@ import { useTheContext } from "../hooks/global.hook";
 const useDashboard = () => {
   const { requestGetProveedores } = ProveedoresUtils();
   const { setRowsVentas } = useTheContext();
-  const [tableKey, setTableKey] = useState(0);
 
   const { requestPostPagos } = PagosUtils();
 
@@ -82,8 +81,6 @@ const useDashboard = () => {
             return item;
           });
         });
-
-        // setTableKey((prev) => prev + 1); // Forzar re-render
       }
     } catch (error) {}
   };
@@ -114,7 +111,6 @@ const useDashboard = () => {
   };
 
   return {
-    tableKey,
     handleGetAllSales,
     handleChangeStatusShip,
     handleChangeStatusPay,

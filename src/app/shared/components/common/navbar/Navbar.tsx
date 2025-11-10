@@ -21,19 +21,22 @@ const Navbar = () => {
   } = useNavbar();
 
   useEffect(() => {
-    setIsLoadStorage(false);
+    if (!pathName) return;
 
-    if (pathName) {
-      setIsLoadStorage(true);
-      setActiveTab(
-        pathName == "/dashboard"
-          ? "ventas"
-          : pathName == "/proveedores"
-          ? "proveedores"
-          : "ajustes"
-      );
-    }
-  }, []);
+    setIsLoadStorage(true);
+
+    setActiveTab(
+      pathName === "/dashboard"
+        ? "ventas"
+        : pathName === "/proveedores"
+        ? "proveedores"
+        : pathName === "/customer"
+        ? "clientes"
+        : pathName === "/settings"
+        ? "ajustes"
+        : ""
+    );
+  }, [pathName]);
 
   return (
     <nav className="fixed z-10 top-0 left-0 w-full bg-gradient-to-r bg-white min-h-[100px]">
