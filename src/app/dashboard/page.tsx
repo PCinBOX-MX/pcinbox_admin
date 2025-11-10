@@ -8,9 +8,9 @@ import { useTheContext } from "../hooks/global.hook";
 import { Alert } from "@mui/material";
 
 const DashBoard = () => {
-  const { rowsVentas } = useTheContext();
-  const { tableKey, handleChangeStatusShip, handleChangeStatusPay } =
-    useDashboard();
+  const { rowsVentas, tableKey } = useTheContext();
+
+  const { handleChangeStatusShip, handleChangeStatusPay } = useDashboard();
 
   const { columns } = GridDashboard({
     handleChangeStatusShip,

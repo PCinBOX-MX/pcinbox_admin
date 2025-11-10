@@ -12,8 +12,16 @@ import {
 } from "@mui/material";
 //  import useDashboard from "./useDashboard";
 import { useMemo } from "react";
-import { MdCheck, MdCreditCard, MdErrorOutline, MdMoney } from "react-icons/md";
+import {
+  MdAccessTime,
+  MdAccountBalance,
+  MdCheck,
+  MdCreditCard,
+  MdErrorOutline,
+  MdMoney,
+} from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
+import { DataGrid } from "@mui/x-data-grid";
 
 const GridDashboard = ({
   handleChangeStatusShip,
@@ -76,25 +84,199 @@ const GridDashboard = ({
                         {params.row.billing.map((b: any, indexB: number) => {
                           if (indexB == 0) {
                             return (
-                              <div key={indexB}>
-                                {Object.entries(b).map(
-                                  ([key, value]: any, indexKV) => (
-                                    <div
-                                      key={indexKV}
-                                      className="grid grid-cols-[1fr_1fr]"
-                                    >
-                                      <span className="block text-end mx-2 text-[18px] text-[#606060] p-1 font-bold">
-                                        {key}
-                                      </span>
-                                      <span
-                                        className="block text-start mx-2 p-1"
-                                        style={{ marginLeft: "10px" }}
-                                      >
-                                        {value}
-                                      </span>
-                                    </div>
-                                  )
-                                )}
+                              <div
+                                className="w-auto max-w-[900px] grid grid-cols-[1fr_1fr_1fr] gap-2"
+                                key={indexB}
+                              >
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    CFDI
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.cfdi}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col  bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    Compañia
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.companyName}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col  bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    Correo
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800  block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.email}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    Metodo de pago
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.methodPay}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    NO.Orden
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.orden}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    RFC
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.rfc}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    Regimen
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.taxRegimen}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    Código Postal
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.codePostal}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    Estado
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.state}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                                  style={{
+                                    padding: "5px",
+                                  }}
+                                >
+                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                                    Ciudad
+                                  </span>
+                                  <span
+                                    className="text-[15px] font-medium text-gray-800 block text-center"
+                                    style={{
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {b.city}
+                                  </span>
+                                </div>
                               </div>
                             );
                           }
@@ -258,7 +440,8 @@ const GridDashboard = ({
               }}
             >
               <div className="w-full flex flex-col">
-                {Number(params.row.totalAmount) <= 1000 ? (
+                {params.value == "" ||
+                Number(params.row.totalAmount) <= 1000 ? (
                   <span className="text-[#808080] font-bold text-center">
                     {"Entrega en sucursal"}
                   </span>
@@ -363,12 +546,13 @@ const GridDashboard = ({
                   </span>
                 ) : params.value == "oxxo" ? (
                   <span className="flex gap-2">
-                    <img
+                    {/* <img
                       src={"/oxxo.png"}
                       width={50}
                       height={50}
                       className="object-contain"
-                    />{" "}
+                    />{" "} */}
+                    Efectivo <MdMoney size={22} />
                   </span>
                 ) : params.value == "tarjeta_sucursal" ? (
                   <span className="flex gap-2">
@@ -383,6 +567,14 @@ const GridDashboard = ({
                       objectFit: "contain",
                     }}
                   />
+                ) : params.value == "transferencia_bancaria" ? (
+                  <span className="flex gap-2">
+                    Transferencia <MdAccountBalance size={22} />{" "}
+                  </span>
+                ) : params.value == "esperando" ? (
+                  <span>
+                    Esperando <MdAccessTime size={22} />
+                  </span>
                 ) : (
                   params.value
                 )}

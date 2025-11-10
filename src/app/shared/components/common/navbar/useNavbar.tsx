@@ -20,6 +20,10 @@ const useNavbar = () => {
         ? "/dashboard"
         : label == "Proveedores"
         ? "/proveedores"
+        : label == "Clientes"
+        ? "/customer"
+        : label == "Ajustes"
+        ? "/settings"
         : ""
     );
   };

@@ -615,13 +615,16 @@ const RegisterProduct = () => {
             })}
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr_auto] grid-flow-row gap-2 max-h-[150px] overflow-y-auto overflow-x-hidden py-3">
+          <div className="grid grid-cols-[1fr] grid-flow-row gap-2 max-h-[150px] overflow-y-auto overflow-x-hidden py-3">
             {dataNewPcGamer.caracteristicas &&
             dataNewPcGamer.caracteristicas.length > 0
               ? dataNewPcGamer.caracteristicas.map(
                   (car: any, indexCar: number) => {
                     return (
-                      <>
+                      <div
+                        key={indexCar}
+                        className="w-[100%] grid grid-cols-[1fr_1fr_auto] gap-2"
+                      >
                         <TextField
                           label="Caracteristica"
                           variant="outlined"
@@ -663,15 +666,15 @@ const RegisterProduct = () => {
                           onClick={() => {
                             setDataNewPcGamer((prev) => ({
                               ...prev,
-                              caracteristecas: prev.caracteristicas.filter(
-                                (_, indexP) => indexP != indexCar
+                              caracteristicas: prev.caracteristicas.filter(
+                                (_, indexP) => indexP !== indexCar
                               ),
                             }));
                           }}
                         >
                           <MdRemove size={26} />
                         </Button>
-                      </>
+                      </div>
                     );
                   }
                 )

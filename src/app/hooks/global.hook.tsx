@@ -59,6 +59,8 @@ interface ContextProps {
   setDataMarca: Dispatch<SetStateAction<any>>;
   dataCategoria: any;
   setDataCategoria: Dispatch<SetStateAction<any>>;
+  tableKey: number;
+  setTableKey: Dispatch<SetStateAction<number>>;
 }
 
 const CreateContext = createContext<ContextProps>({
@@ -92,6 +94,8 @@ const CreateContext = createContext<ContextProps>({
   setDataMarca: () => {},
   dataCategoria: [],
   setDataCategoria: () => {},
+  tableKey: 0,
+  setTableKey: () => {},
 });
 
 export const GlobalProvider = ({ children }: { children: any }) => {
@@ -127,6 +131,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   const socketPagos = useRef<Socket | null>(null);
 
   const [dataMarca, setDataMarca] = useState([]);
+  const [tableKey, setTableKey] = useState(0);
 
   const [dataCategoria, setDataCategoria] = useState([]);
   const { requestGetProveedores } = ProveedoresUtils();
@@ -188,6 +193,8 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setDataMarca,
         dataProductProveedor,
         setProductsProveedor,
+        tableKey,
+        setTableKey,
       }}
     >
       {children}
