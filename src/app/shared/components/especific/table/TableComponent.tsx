@@ -13,6 +13,7 @@ const TableComponent = ({
     rowsDataGrid.length > 0 &&
     columnsDataGrid.length > 0 && (
       <DataGrid
+        loading={false}
         rows={rowsDataGrid || []}
         columns={columnsDataGrid || []}
         localeText={{
@@ -44,7 +45,7 @@ const TableComponent = ({
           },
         }}
         getRowHeight={() => "auto"}
-        getRowId={(row) => row.idOrder}
+        getRowId={(row) => row.idOrder || row.idUser}
       />
     )
   );
