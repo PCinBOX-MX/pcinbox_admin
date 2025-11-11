@@ -163,7 +163,13 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   };
 
   useEffect(() => {
-    socketPagos.current = io(process.env.NEXT_PUBLIC_SOCKET_PAGOS || "");
+    socketPagos.current = io(process.env.NEXT_PUBLIC_SOCKET_PAGOS || "", {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+    });
 
     return () => {
       socketPagos.current?.disconnect();
