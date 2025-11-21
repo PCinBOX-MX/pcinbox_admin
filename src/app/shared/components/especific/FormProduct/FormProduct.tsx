@@ -56,6 +56,7 @@ const FormProduct = ({
           {
             idProduct: dataProductProp.idProduct,
             stock: event.stock,
+            price: event.price,
           },
           "/editProductPcinbox"
         );
@@ -112,6 +113,27 @@ const FormProduct = ({
                 data: prev.data.map((item) => {
                   if (item.idProduct === dataProductProp.idProduct) {
                     return { ...item, stock: event.target.value };
+                  }
+                  return item;
+                }),
+              }));
+            },
+          })}
+        />
+      </div>
+      <div className="w-full grid grid-cols-[1fr]">
+        <TextField
+          label="Precio"
+          type="number"
+          {...register("price", {
+            required: "Se requiere el Precio",
+            value: dataProductProp?.price,
+            onChange(event) {
+              setProductsProveedor((prev) => ({
+                ...prev,
+                data: prev.data.map((item) => {
+                  if (item.idProduct === dataProductProp.idProduct) {
+                    return { ...item, price: event.target.value };
                   }
                   return item;
                 }),
