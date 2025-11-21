@@ -56,6 +56,7 @@ const Navbar = () => {
                   alt="Logo"
                   width={150}
                   height={150}
+                  loading="lazy"
                 />
               </div>
             </div>
