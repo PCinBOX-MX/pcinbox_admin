@@ -39,7 +39,7 @@ interface DataNewProductI {
   image_url: File[];
 }
 
-const RegisterProduct = () => {
+export const RegisterProduct = () => {
   const {
     setDataModal,
     dataMarca,
@@ -712,5 +712,3 @@ const RegisterProduct = () => {
     </Box>
   );
 };
-
-export default RegisterProduct;

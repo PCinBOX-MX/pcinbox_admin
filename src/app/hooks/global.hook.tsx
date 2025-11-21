@@ -44,11 +44,16 @@ interface ContextProps {
     }>
   >;
   dataProductProveedor: {
+    copyData?: ProductsI[];
     loading: boolean;
     data: ProductsI[];
   };
   setProductsProveedor: Dispatch<
-    SetStateAction<{ loading: boolean; data: ProductsI[] }>
+    SetStateAction<{
+      loading: boolean;
+      data: ProductsI[];
+      copyData?: ProductsI[];
+    }>
   >;
   socketPagos: RefObject<Socket | null>;
   rowsVentas: SalesI[];
@@ -83,6 +88,7 @@ const CreateContext = createContext<ContextProps>({
   dataProductProveedor: {
     loading: false,
     data: [],
+    copyData: [],
   },
   setProductsProveedor: () => {},
   socketPagos: { current: null },
@@ -119,9 +125,11 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   const [dataProductProveedor, setProductsProveedor] = useState<{
     loading: boolean;
     data: ProductsI[];
+    copyData?: ProductsI[];
   }>({
     loading: false,
     data: [],
+    copyData: [],
   });
 
   const [rowsVentas, setRowsVentas] = useState<SalesI[]>([]);
