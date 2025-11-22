@@ -29,17 +29,35 @@ const ModalComponent = ({
 }) => {
   const [isVisible, setIsVisible] = useState(false);
 
+  // useEffect(() => {
+  //   if (isOpen) {
+  //     setIsVisible(true);
+  //     document.body.style.overflow = "hidden";
+  //   } else {
+  //     document.body.style.overflow = "unset";
+  //   }
+
+  //   return () => {
+  //     document.body.style.overflow = "unset";
+  //   };
+  // }, [isOpen, type]);
+
   useEffect(() => {
     if (isOpen) {
+      const scrollY = window.scrollY;
       setIsVisible(true);
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.position = "fixed";
+      document.documentElement.style.top = `-${scrollY}px`;
+      document.documentElement.style.width = "100%";
 
-    return () => {
-      document.body.style.overflow = "unset";
-    };
+      return () => {
+        document.documentElement.style.overflow = "";
+        document.documentElement.style.position = "";
+        document.documentElement.style.top = "";
+        window.scrollTo(0, scrollY);
+      };
+    }
   }, [isOpen, type]);
 
   const handleClose = () => {

@@ -9,6 +9,9 @@ export interface ProductsI {
   rating: number;
   image_url: string[];
   categoryId: number;
+  marcaId?: number;
   providerId: number;
   createdat: string;
+  nameMarca?: string;
+  nameCategory?: string;
 }
