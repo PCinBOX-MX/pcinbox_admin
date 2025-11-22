@@ -165,7 +165,7 @@ const UploadImgProductProvider2 = ({
               );
               formData.append("nameMarca", dataProductProp.nameMarca!);
               formData.append("nameCategory", dataProductProp.nameCategory!);
-              formData.append("isManual", "false");
+              formData.append("isPc", "false");
 
               files.forEach((file) => formData.append("files", file));
 
