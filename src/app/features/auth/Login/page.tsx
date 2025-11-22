@@ -19,6 +19,7 @@ const LoginComponent = () => {
             height={150}
             className="object-contain"
             alt="Logo"
+            loading="lazy"
           />
         </div>
         <div className={style.logo}>

@@ -566,6 +566,7 @@ const GridDashboard = ({
                       height: "100px",
                       objectFit: "contain",
                     }}
+                    loading="lazy"
                   />
                 ) : params.value == "transferencia_bancaria" ? (
                   <span className="flex gap-2">

@@ -98,7 +98,11 @@ const CardComponent = ({
                 className="flex justify-center"
                 style={{ height: "150px" }}
               >
-                <img src={img} style={{ objectFit: "contain" }} />
+                <img
+                  src={img}
+                  style={{ objectFit: "contain" }}
+                  loading="lazy"
+                />
               </div>
             ))
           : [<div key="no-img">Sin imágenes</div>]}
