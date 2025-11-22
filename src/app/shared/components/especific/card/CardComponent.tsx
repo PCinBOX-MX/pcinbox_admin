@@ -3,11 +3,21 @@
 import { useTheContext } from "@/app/hooks/global.hook";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import UtilsService from "@/app/services/utils";
-import { Card, CardActions, CardContent, Typography } from "@mui/material";
-import { MdEdit } from "react-icons/md";
+import {
+  Card,
+  CardActions,
+  CardContent,
+  CardMedia,
+  IconButton,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { MdEdit, MdFileUpload } from "react-icons/md";
 import { Carousel } from "react-responsive-carousel";
 import FormProduct from "../FormProduct/FormProduct";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
+import { Trash2 } from "lucide-react";
+import UploadImgProductProvider2 from "../registerProduct/UploadImgProvider2";
 
 const CardComponent = ({
   dataProduct,
@@ -53,12 +63,33 @@ const CardComponent = ({
     });
   };
 
+  const handleAltaProduct = async (dataProductProp: ProductsI) => {
+    if (dataProductProp?.providerId == 2) {
+      setDataModal({
+        isOpen: true,
+        title: "Ingresa imagenes y precio",
+        content: (
+          <UploadImgProductProvider2 dataProductProp={dataProductProp} />
+        ),
+        type: "success",
+        showActions: false,
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onConfirm: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+    }
+  };
+
   return (
     <Card
       key={dataProduct.idProduct}
       sx={{ minWidth: 300, maxWidth: 300, padding: "10px" }}
       className="shadow rounded"
     >
+      {/* {console.log(dataProduct)} */}
       <Carousel showIndicators={true} showThumbs={false} showStatus={false}>
         {dataProduct.image_url && dataProduct.image_url.length > 0
           ? dataProduct.image_url.map((img, i) => (
@@ -127,7 +158,7 @@ const CardComponent = ({
           gap: "10px",
         }}
       >
-        {/* <button
+        <button
           onClick={() => handleAltaProduct(dataProduct)}
           className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
           style={{
@@ -136,7 +167,7 @@ const CardComponent = ({
         >
           Dar de alta al sistema
           <MdFileUpload size={26} />
-        </button> */}
+        </button>
 
         <button
           className="bg-[#808080] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"

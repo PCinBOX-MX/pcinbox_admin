@@ -7,7 +7,7 @@ import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
 import { useForm } from "react-hook-form";
-import RegisterProduct from "../shared/components/especific/registerProduct/RegisterProduct";
+import { RegisterProduct } from "../shared/components/especific/registerProduct/RegisterProduct";
 
 const useProveedores = () => {
   const { reset } = useForm();
@@ -59,7 +59,11 @@ const useProveedores = () => {
 
       if (resp?.status == 200) {
         const data = resp.data;
-        setProductsProveedor((prev) => ({ ...prev, data: data.data.data }));
+        setProductsProveedor((prev) => ({
+          ...prev,
+          data: data.data.data,
+          copyData: data.data.data,
+        }));
       }
     } catch (error) {
       setProductsProveedor((prev) => ({ ...prev, loading: false }));
