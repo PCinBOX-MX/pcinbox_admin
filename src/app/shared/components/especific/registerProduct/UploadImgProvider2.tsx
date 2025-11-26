@@ -13,9 +13,9 @@ import {
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import { Trash2 } from "lucide-react";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheContext } from "@/app/hooks/global.hook";
-import { MdAutorenew } from "react-icons/md";
+import { MdAutorenew, MdRemove } from "react-icons/md";
 import useProveedores from "@/app/proveedores/useProveedores";
 
 const UploadImgProductProvider2 = ({
@@ -23,6 +23,8 @@ const UploadImgProductProvider2 = ({
 }: {
   dataProductProp: ProductsI;
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const [loadingUploadImgProvider, setLoadingUploadImgProvider] =
     useState<boolean>(false);
   const { setDataModal } = useTheContext();
@@ -32,6 +34,10 @@ const UploadImgProductProvider2 = ({
   const { handleGetProductsByProveedor } = useProveedores();
   const [price, setPrice] = useState<any>();
   const [files, setFiles] = useState<File[]>([]);
+  const [caracteristicas, setCaracteristicas] = useState<
+    { prop: any; value: any }[]
+  >([{ prop: "", value: "" }]);
+
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
   useEffect(() => {
@@ -42,8 +48,14 @@ const UploadImgProductProvider2 = ({
     };
   }, [files]);
 
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [caracteristicas]);
+
   return (
-    <div className="grid grid-col-[auto] gap-2 w-full">
+    <div className="grid grid-col-[auto] gap-2">
       <div className="w-full">
         <TextField
           label="Precio"
@@ -139,6 +151,85 @@ const UploadImgProductProvider2 = ({
           );
         })}
       </div>
+      <div
+        className="flex flex-wrap gap-3 w-full overflow-x-hidden overflow-y-auto max-h-[200px]"
+        ref={containerRef}
+      >
+        {caracteristicas && caracteristicas.length > 0
+          ? caracteristicas.map((car, indexCar) => {
+              return (
+                <div
+                  key={indexCar}
+                  className="w-[100%] grid grid-cols-[1fr_1fr_auto] gap-2"
+                >
+                  <TextField
+                    label="Caracteristica"
+                    variant="outlined"
+                    name="prop"
+                    value={car.prop}
+                    onChange={(event) => {
+                      setCaracteristicas((prev) => {
+                        return prev.map((item, indexPrevCar) =>
+                          indexPrevCar === indexCar
+                            ? { ...item, prop: event.target.value }
+                            : item
+                        );
+                      });
+                    }}
+                  />
+
+                  <TextField
+                    label="Valor"
+                    variant="outlined"
+                    name="value"
+                    value={car.value}
+                    onChange={(event) => {
+                      setCaracteristicas((prev) => {
+                        return prev.map((item, indexPrevCar) =>
+                          indexPrevCar === indexCar
+                            ? { ...item, value: event.target.value }
+                            : item
+                        );
+                      });
+                    }}
+                  />
+
+                  <Button
+                    style={{ background: "red", color: "white" }}
+                    onClick={() => {
+                      // setDataNewPcGamer((prev) => ({
+                      //   ...prev,
+                      //   caracteristicas: prev.caracteristicas.filter(
+                      //     (_, indexP) => indexP !== indexCar
+                      //   ),
+                      // }));
+                      setCaracteristicas((prev) => {
+                        return prev.filter(
+                          (item, indexPrevCar) => indexPrevCar !== indexCar
+                        );
+                      });
+                    }}
+                  >
+                    <MdRemove size={26} />
+                  </Button>
+                </div>
+              );
+            })
+          : ""}
+      </div>
+
+      <div className="flex flex-wrap gap-3 w-full">
+        <Button
+          type="button"
+          variant="contained"
+          color="success"
+          onClick={() => {
+            setCaracteristicas((prev) => [...prev, { prop: "", value: "" }]);
+          }}
+        >
+          +
+        </Button>
+      </div>
 
       <div className="w-full flex justify-center gap-1">
         <Button
@@ -166,6 +257,11 @@ const UploadImgProductProvider2 = ({
               formData.append("nameMarca", dataProductProp.nameMarca!);
               formData.append("nameCategory", dataProductProp.nameCategory!);
               formData.append("isPc", "false");
+              formData.append(
+                "caracteristicas",
+                JSON.stringify(caracteristicas)
+              );
+              formData.append("upc", dataProductProp?.upc!.toString());
 
               files.forEach((file) => formData.append("files", file));
 
