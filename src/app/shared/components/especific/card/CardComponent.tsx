@@ -67,7 +67,7 @@ const CardComponent = ({
     if (dataProductProp?.providerId == 2) {
       setDataModal({
         isOpen: true,
-        title: "Ingresa imagenes y precio",
+        title: "Ingresa los datos (TechSmart)",
         content: (
           <UploadImgProductProvider2 dataProductProp={dataProductProp} />
         ),
@@ -132,6 +132,16 @@ const CardComponent = ({
           <span className="text-black font-bold text-[17px]">SKU:</span>{" "}
           {dataProduct.sku}
         </Typography>
+
+        {dataProduct?.upc && (
+          <Typography
+            variant="body2"
+            sx={{ color: "text.secondary", margin: "10px 0px" }}
+          >
+            <span className="text-black font-bold text-[17px]">UPC:</span>{" "}
+            {dataProduct?.upc}
+          </Typography>
+        )}
 
         <Typography
           variant="body2"
