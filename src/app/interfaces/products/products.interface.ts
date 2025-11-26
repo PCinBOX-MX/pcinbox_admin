@@ -14,4 +14,5 @@ export interface ProductsI {
   createdat: string;
   nameMarca?: string;
   nameCategory?: string;
+  upc?: string;
 }
