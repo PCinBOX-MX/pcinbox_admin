@@ -37,12 +37,6 @@ const Proveedores = () => {
     startIndex + itemsPerPage
   );
 
-  // useEffect(() => {
-  //   if (slcProveedor) {
-  //     handleGetProductsByProveedor(slcProveedor);
-  //   }
-  // }, [slcProveedor]);
-
   return (
     <section className="w-full">
       <div className="w-full flex justify-center items-center">
@@ -150,11 +144,14 @@ const Proveedores = () => {
                       const name = item.name?.toLowerCase() || "";
                       const description = item.description?.toLowerCase() || "";
                       const upc = String((item as any).upc || "").toLowerCase();
+                      const idProductExt =
+                        item?.idProductExt?.toLowerCase() || "";
 
                       return (
                         name.includes(search) ||
                         description.includes(search) ||
-                        upc.includes(search)
+                        upc.includes(search) ||
+                        idProductExt.includes(search)
                       );
                     });
 
