@@ -50,7 +50,7 @@ const FormProduct = ({
 
   const { register, handleSubmit, reset, control } = useForm();
 
-  const handleRegisterProveedores = async (event: any) => {
+  const handleEditProduct = async (event: any) => {
     if (event) {
       setLoadingUpdateProduct(true);
 
@@ -66,6 +66,7 @@ const FormProduct = ({
             stock: event.stock,
             price: event.price,
             sku: event.sku,
+            isPc: dataProductProp?.isPC,
           },
           "/editProductPcinbox"
         );
@@ -99,7 +100,7 @@ const FormProduct = ({
   return (
     <Box
       component="form"
-      onSubmit={handleSubmit(handleRegisterProveedores)}
+      onSubmit={handleSubmit(handleEditProduct)}
       className="w-full flex gap-2 flex-col"
     >
       <div className=" w-full grid grid-cols-[1fr_1fr] gap-2">
