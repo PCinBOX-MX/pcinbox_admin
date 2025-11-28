@@ -1,6 +1,6 @@
 export interface ProductsI {
   idProduct: number;
-  idProductExt: number;
+  idProductExt: any;
   name: string;
   description: string;
   price: number;
@@ -15,4 +15,5 @@ export interface ProductsI {
   nameMarca?: string;
   nameCategory?: string;
   upc?: string;
+  isPC?: any;
 }
