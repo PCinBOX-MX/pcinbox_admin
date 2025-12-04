@@ -67,7 +67,7 @@ const CardComponent = ({
     if (dataProductProp?.providerId == 2) {
       setDataModal({
         isOpen: true,
-        title: "Ingresa los datos (TechSmart)",
+        title: "Ingresa los datos",
         content: (
           <UploadImgProductProvider2 dataProductProp={dataProductProp} />
         ),
