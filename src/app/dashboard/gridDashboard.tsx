@@ -584,137 +584,6 @@ const GridDashboard = ({
           );
         },
       },
-      // {
-      //   field: "statusPay",
-      //   minWidth: 200,
-      //   headerName: "Estado de pago",
-      //   renderCell: (params) => {
-      //     return (
-      //       <div
-      //         className="flex justify-center items-center min-h-[100%]"
-      //         style={{
-      //           padding: "10px",
-      //         }}
-      //       >
-      //         <Stack>
-      //           <Chip
-      //             label={
-      //               params.value == "paid"
-      //                 ? "Pagado"
-      //                 : params.value == "pending" ||
-      //                   params.value == "payment_pending"
-      //                 ? "Pendiente"
-      //                 : params.value == "cancelled"
-      //                 ? "Cancelado"
-      //                 : params.value == "rejected"
-      //                 ? "Rechazado"
-      //                 : params.value == "refunded"
-      //                 ? "Reembolsado"
-      //                 : params.value == "charged_back"
-      //                 ? "Retornado"
-      //                 : "Desconocido"
-      //             }
-      //             color={
-      //               params.value == "paid"
-      //                 ? "success"
-      //                 : params.value == "pending" ||
-      //                   params.value == "payment_pending"
-      //                 ? "primary"
-      //                 : params.value == "cancelled"
-      //                 ? "error"
-      //                 : params.value == "rejected"
-      //                 ? "error"
-      //                 : params.value == "refunded"
-      //                 ? "info"
-      //                 : params.value == "charged_back"
-      //                 ? "error"
-      //                 : "info"
-      //             }
-      //           />
-      //         </Stack>
-      //       </div>
-      //     );
-      //   },
-      // },
-      // {
-      //   field: "statusShip",
-      //   minWidth: 200,
-      //   headerName: "Estado de envío",
-      //   renderCell: (params) => {
-      //     return (
-      //       <div
-      //         className="flex justify-center items-center min-h-[100%]"
-      //         style={{
-      //           padding: "10px",
-      //         }}
-      //       >
-      //         <Stack direction="row" spacing={1}>
-      //           <Chip
-      //             label={params.value}
-      //             color={
-      //               params.value == "entregado"
-      //                 ? "success"
-      //                 : params.value == "cancelado"
-      //                 ? "error"
-      //                 : params.value == "enviado"
-      //                 ? "info"
-      //                 : params.value == "procesando"
-      //                 ? "info"
-      //                 : "default"
-      //             }
-      //           />
-      //         </Stack>
-      //       </div>
-      //     );
-      //   },
-      // },
-      // {
-      //   field: "actionsPay",
-      //   headerName: "Acciones de Pago",
-      //   width: 300,
-      //   renderCell: (params) => {
-      //     const currentRow = rows.find(
-      //       (row: any) => row.idShipment === params.row.idShipment
-      //     );
-      //     const currentStatusPay = currentRow?.statusPay || "";
-
-      //     return (
-      //       <div
-      //         className="flex justify-center items-center min-h-[100%]"
-      //         style={{
-      //           padding: "10px",
-      //         }}
-      //       >
-      //         <FormControl fullWidth>
-      //           <Select
-      //             labelId="demo-simple-select-label"
-      //             id="demo-simple-select"
-      //             value={currentStatusPay}
-      //             onChange={(event) => {
-      //               handleChangeStatusPay(
-      //                 event,
-      //                 params.row.idOrder,
-      //                 params.row.idUser
-      //               );
-      //               // handleChangeStatusShip(
-      //               //   event,
-      //               //   params.row.idShipment,
-      //               //   params.row.idUser
-      //               // )
-      //             }}
-      //           >
-      //             <MenuItem value={"paid"}>Pagado</MenuItem>
-      //             <MenuItem value={"pending"}>Pendiente</MenuItem>
-      //             <MenuItem value={"cancelled"}>Cancelado</MenuItem>
-      //             <MenuItem value={"rejected"}>Rechazado</MenuItem>
-      //             <MenuItem value={"refunded"}>Reembolsado</MenuItem>
-      //             <MenuItem value={"charged_back"}>Desconocido</MenuItem>
-      //           </Select>
-      //         </FormControl>
-      //       </div>
-      //     );
-      //   },
-      // },
       {
         field: "actionsShipment",
         headerName: "Acciones",
@@ -772,6 +641,7 @@ const GridDashboard = ({
                     }}
                   >
                     <MenuItem value={"paid"}>Pagado</MenuItem>
+                    <MenuItem value={"failed"}>Fallido</MenuItem>
                     <MenuItem value={"pending"}>Pendiente</MenuItem>
                     <MenuItem value={"cancelled"}>Cancelado</MenuItem>
                     <MenuItem value={"rejected"}>Rechazado</MenuItem>
