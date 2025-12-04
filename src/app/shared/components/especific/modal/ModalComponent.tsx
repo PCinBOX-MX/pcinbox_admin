@@ -29,17 +29,35 @@ const ModalComponent = ({
 }) => {
   const [isVisible, setIsVisible] = useState(false);
 
+  // useEffect(() => {
+  //   if (isOpen) {
+  //     setIsVisible(true);
+  //     document.body.style.overflow = "hidden";
+  //   } else {
+  //     document.body.style.overflow = "unset";
+  //   }
+
+  //   return () => {
+  //     document.body.style.overflow = "unset";
+  //   };
+  // }, [isOpen, type]);
+
   useEffect(() => {
     if (isOpen) {
+      const scrollY = window.scrollY;
       setIsVisible(true);
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.position = "fixed";
+      document.documentElement.style.top = `-${scrollY}px`;
+      document.documentElement.style.width = "100%";
 
-    return () => {
-      document.body.style.overflow = "unset";
-    };
+      return () => {
+        document.documentElement.style.overflow = "";
+        document.documentElement.style.position = "";
+        document.documentElement.style.top = "";
+        window.scrollTo(0, scrollY);
+      };
+    }
   }, [isOpen, type]);
 
   const handleClose = () => {
@@ -100,7 +118,7 @@ const ModalComponent = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 flex items-center justify-center`}>
+    <div className={`fixed inset-0 flex items-center justify-center w-auto`}>
       {/* <div
         className={`absolute inset-0 bg-black transition-opacity duration-300 z-50 ${
           isVisible
@@ -128,9 +146,8 @@ const ModalComponent = ({
           onClick={(e) => e.stopPropagation()}
           sx={{
             background: "white",
-            // width: "500px",
-            minWidth: "500px",
-            // maxWidth: "800px",
+            width: "auto",
+            maxWidth: "800px",
             padding: "10px",
             borderRadius: "10px",
           }}

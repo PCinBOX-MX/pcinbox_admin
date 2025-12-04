@@ -372,6 +372,24 @@ const GridDashboard = ({
                           </span>
                         </div>
 
+                        {item?.upc && (
+                          <div className="flex gap-2">
+                            <span className="text-[#808080] font-bold">
+                              UPC:
+                            </span>
+                            <span>{item.upc}</span>
+                          </div>
+                        )}
+
+                        {item?.sku && (
+                          <div className="flex gap-2">
+                            <span className="text-[#808080] font-bold">
+                              SKU:
+                            </span>
+                            <span>{item.sku}</span>
+                          </div>
+                        )}
+
                         <div className="flex gap-2">
                           <span className="text-[#808080] font-bold">
                             Cantidad:
