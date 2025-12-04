@@ -51,16 +51,14 @@ const useLogin = () => {
     try {
       setLoadingLogin(true);
       const resp = await requestPost(dataLogin, "/user/login");
-      setLoadingLogin(false);
-
       if (resp && resp.status == 200) {
         const data = resp.data;
-        console.log(data);
 
         localStorage.setItem("email", email || "");
         localStorage.setItem("token", data?.data?.token || data?.token || "");
 
         onRouterPush("/dashboard");
+        setLoadingLogin(false);
       }
     } catch (error) {
       setLoadingLogin(false);

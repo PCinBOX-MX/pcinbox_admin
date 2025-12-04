@@ -39,7 +39,7 @@ interface DataNewProductI {
   image_url: File[];
 }
 
-const RegisterProduct = () => {
+export const RegisterProduct = () => {
   const {
     setDataModal,
     dataMarca,
@@ -122,6 +122,8 @@ const RegisterProduct = () => {
 
         const filesArray = Array.from(files || []);
         filesArray.forEach((file) => formData.append("files", file));
+        formData.append("providerId", "1");
+        formData.append("isPc", "true");
       } else if (typeProduct?.toLowerCase() === "pcgamer") {
         formData.append("name", dataNewPcGamer.name);
         formData.append("description", dataNewPcGamer.description);
@@ -135,6 +137,8 @@ const RegisterProduct = () => {
 
         const filesArray = Array.from(files || []);
         filesArray.forEach((file) => formData.append("files", file));
+        formData.append("providerId", "1");
+        formData.append("isPc", "true");
       }
 
       const resp = await requestPostProveedores(formData, "/newProductPcinbox");
@@ -712,5 +716,3 @@ const RegisterProduct = () => {
     </Box>
   );
 };
-
-export default RegisterProduct;

@@ -1,6 +1,6 @@
 export interface ProductsI {
   idProduct: number;
-  idProductExt: number;
+  idProductExt: any;
   name: string;
   description: string;
   price: number;
@@ -9,6 +9,11 @@ export interface ProductsI {
   rating: number;
   image_url: string[];
   categoryId: number;
+  marcaId?: number;
   providerId: number;
   createdat: string;
+  nameMarca?: string;
+  nameCategory?: string;
+  upc?: string;
+  isPC?: any;
 }

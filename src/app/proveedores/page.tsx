@@ -11,12 +11,14 @@ import {
 } from "@mui/material";
 import CardComponent from "../shared/components/especific/card/CardComponent";
 import useProveedores from "./useProveedores";
-import { useEffect } from "react";
+import { useState } from "react";
 import { MdAdd, MdAutorenew } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
+import PaginatorComponent from "../shared/components/common/paginator/Paginator";
 
 const Proveedores = () => {
-  const { dataProveedores, dataProductProveedor } = useTheContext();
+  const { dataProveedores, dataProductProveedor, setProductsProveedor } =
+    useTheContext();
   const {
     slcProveedor,
 
@@ -24,14 +26,16 @@ const Proveedores = () => {
     handleOnChange,
     showModalRegisterProveedor,
     handleAddProduct,
-    setProductsProveedor,
   } = useProveedores();
 
-  // useEffect(() => {
-  //   if (slcProveedor) {
-  //     handleGetProductsByProveedor(slcProveedor);
-  //   }
-  // }, [slcProveedor]);
+  const itemsPerPage = 8;
+  const [page, setPage] = useState(1);
+
+  const startIndex = (page - 1) * itemsPerPage;
+  const visibleDataProveedores = dataProductProveedor.copyData!.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
   return (
     <section className="w-full">
@@ -122,6 +126,42 @@ const Proveedores = () => {
                 id="outlined-basic"
                 label="Buscar producto"
                 variant="outlined"
+                onChange={(event) => {
+                  //  if (event.target.value != "") {
+                  const search = event.target.value.toLowerCase();
+
+                  setProductsProveedor((prev) => {
+                    // si el usuario borra todo, restauramos los datos completos
+                    if (search === "") {
+                      return {
+                        ...prev,
+                        copyData: prev.data, // <<--- restaurar todo
+                      };
+                    }
+
+                    // filtrar cuando SI hay texto
+                    const filtered = prev.data?.filter((item) => {
+                      const name = item.name?.toLowerCase() || "";
+                      const description = item.description?.toLowerCase() || "";
+                      const upc = String((item as any).upc || "").toLowerCase();
+                      const idProductExt =
+                        item?.idProductExt?.toLowerCase() || "";
+
+                      return (
+                        name.includes(search) ||
+                        description.includes(search) ||
+                        upc.includes(search) ||
+                        idProductExt.includes(search)
+                      );
+                    });
+
+                    return {
+                      ...prev,
+                      copyData: filtered,
+                    };
+                  });
+                  //}
+                }}
               />
             </div>
           </div>
@@ -140,9 +180,8 @@ const Proveedores = () => {
           >
             {/* {!loadingDataProveedores ? <CardComponent /> : "cargando...."} */}
             {!dataProductProveedor.loading ? (
-              dataProductProveedor.data &&
-              dataProductProveedor.data.length > 0 ? (
-                dataProductProveedor.data.map((product, index) => {
+              visibleDataProveedores && visibleDataProveedores.length > 0 ? (
+                visibleDataProveedores.map((product, index) => {
                   return (
                     <CardComponent
                       key={index}
@@ -160,6 +199,13 @@ const Proveedores = () => {
                 <span>Cargando...</span>
               </>
             )}
+            <div className="flex justify-end w-full">
+              <PaginatorComponent
+                totalItems={dataProductProveedor.data.length}
+                itemsPerPage={8}
+                onPageChange={setPage}
+              />
+            </div>
           </div>
         </div>
       </div>
