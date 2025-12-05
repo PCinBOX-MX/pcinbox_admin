@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "./dashboard.module.css";
 import { GridColDef, GridRowsProp } from "@mui/x-data-grid";
 import UtilsService from "../services/utils";
 import {
@@ -40,12 +41,10 @@ const GridDashboard = ({
       {
         field: "idOrder",
         headerName: "No.Orden",
-        width: 100,
-        maxWidth: 250,
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%] flex-wrap"
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
               style={{
                 padding: "10px",
               }}
@@ -67,7 +66,7 @@ const GridDashboard = ({
       {
         field: "requiredFactura",
         headerName: "¿Requiere factura?",
-        width: 200,
+        flex: 1,
         renderCell: (params) => {
           return (
             <div
@@ -308,9 +307,7 @@ const GridDashboard = ({
       {
         field: "name",
         headerName: "Nombre del Cliente",
-        width: 240,
-        minWidth: 240,
-        maxWidth: 250,
+        flex: 1,
 
         renderCell: (params) => {
           return (
@@ -336,11 +333,13 @@ const GridDashboard = ({
       },
       {
         field: "products",
+        maxWidth: 250,
+        minWidth: 250,
         headerName: "Productos",
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center flex-col items-center min-h-[100%] overflow-y-auto"
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
               style={{
                 padding: "10px",
               }}
@@ -414,18 +413,16 @@ const GridDashboard = ({
             </div>
           );
         },
-        minWidth: 500,
-        maxWidth: 520,
       },
 
       {
         field: "totalAmount",
         headerName: "Pago Total",
-        minWidth: 200,
+        flex: 1,
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%]"
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
               style={{
                 padding: "10px",
               }}
@@ -447,8 +444,8 @@ const GridDashboard = ({
       {
         field: "address",
         headerName: "Dirección",
-        minWidth: 300,
-        maxWidth: 400,
+        maxWidth: 200,
+        minWidth: 200,
         renderCell: (params) => {
           return (
             <div
@@ -535,8 +532,7 @@ const GridDashboard = ({
       {
         field: "method_pay",
         headerName: "Metodo de pago",
-        minWidth: 200,
-        maxWidth: 300,
+        flex: 1,
         renderCell: (params) => {
           return (
             <div
@@ -603,9 +599,35 @@ const GridDashboard = ({
         },
       },
       {
+        field: "createdAt",
+        headerName: "Fecha de compra",
+        flex: 1,
+        renderCell: (params) => {
+          return (
+            <div
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              style={{
+                padding: "10px",
+              }}
+            >
+              <span
+                className="text-[black] block text-center font-bold"
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  wordBreak: "break-word",
+                }}
+              >
+                {new Date(params.value).toLocaleString()}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
         field: "actionsShipment",
         headerName: "Acciones",
-        width: 300,
+        flex: 1,
         renderCell: (params) => {
           const currentRow = rows.find(
             (row: any) => row.idShipment === params.row.idShipment
@@ -671,9 +693,6 @@ const GridDashboard = ({
             </div>
           );
         },
-      },
-      {
-        field: "",
       },
     ],
     [rows]

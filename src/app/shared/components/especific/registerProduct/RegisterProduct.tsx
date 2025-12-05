@@ -40,13 +40,8 @@ interface DataNewProductI {
 }
 
 export const RegisterProduct = () => {
-  const {
-    setDataModal,
-    dataMarca,
-    dataCategoria,
-    dataProductProveedor,
-    setProductsProveedor,
-  } = useTheContext();
+  const { setDataModal, dataMarca, dataCategoria, setProductsProveedor } =
+    useTheContext();
   const [files, setFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<number>(0);
@@ -245,7 +240,7 @@ export const RegisterProduct = () => {
         </MenuItem>
 
         <MenuItem value="pcgamer">
-          <em>PC GAMER</em>
+          <em>PC GAMER (Laptops, WorkStation, PC etc...)</em>
         </MenuItem>
       </Select>
 
@@ -505,18 +500,18 @@ export const RegisterProduct = () => {
                 }))
               }
             />
-
             <TextField
               required
               label="Precio"
               type="number"
               variant="outlined"
               name="price"
-              value={dataNewPcGamer.price}
+              value={dataNewPcGamer.price === 0 ? "" : dataNewPcGamer.price}
               onChange={(event) =>
                 setDataNewPcGamer((prev) => ({
                   ...prev,
-                  price: Number(event.target.value),
+                  price:
+                    event.target.value === "" ? 0 : Number(event.target.value),
                 }))
               }
             />
