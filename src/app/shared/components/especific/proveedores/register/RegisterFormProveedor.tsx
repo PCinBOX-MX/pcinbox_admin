@@ -9,16 +9,21 @@ const RegisterFormProovedor = () => {
   const {
     register,
     handleSubmit,
-
     formState: { errors },
+    reset,
   } = useForm();
 
   const { handleRegisterProveedores, registerProveedores } = useProveedores();
 
+  const onSubmit = (data: any) => {
+    handleRegisterProveedores(data); // manejar registro
+    reset(); // luego resetea el formulario
+  };
+
   return (
     <Box
       component="form"
-      onSubmit={handleSubmit(handleRegisterProveedores)}
+      onSubmit={handleSubmit(onSubmit)}
       sx={{
         width: "100%",
         mx: "auto",
