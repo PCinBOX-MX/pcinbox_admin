@@ -21,7 +21,6 @@ import {
   MdMoney,
 } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
-import { DataGrid } from "@mui/x-data-grid";
 
 const GridDashboard = ({
   handleChangeStatusShip,
@@ -668,6 +667,7 @@ const GridDashboard = ({
                     }}
                   >
                     <MenuItem value={"paid"}>Pagado</MenuItem>
+                    <MenuItem value={"failed"}>Fallido</MenuItem>
                     <MenuItem value={"pending"}>Pendiente</MenuItem>
                     <MenuItem value={"cancelled"}>Cancelado</MenuItem>
                     <MenuItem value={"rejected"}>Rechazado</MenuItem>
