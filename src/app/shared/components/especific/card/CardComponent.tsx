@@ -170,8 +170,8 @@ const CardComponent = ({
       >
         <button
           onClick={() => {
-            console.log(dataProduct);
-            //handleAltaProduct(dataProduct)
+            //console.log(dataProduct);
+            handleAltaProduct(dataProduct);
           }}
           className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
           style={{
