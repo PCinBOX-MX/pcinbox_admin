@@ -305,8 +305,8 @@ const GridDashboard = ({
         },
       },
       {
-        field: "name",
-        headerName: "Nombre del Cliente",
+        field: "dataUser",
+        headerName: "Datos Cliente",
         flex: 1,
 
         renderCell: (params) => {
@@ -315,6 +315,100 @@ const GridDashboard = ({
               className="flex justify-center items-center min-h-[100%]"
               style={{
                 padding: "10px",
+              }}
+              onClick={() => {
+                setDataModal({
+                  isOpen: true,
+                  type: "success",
+                  content: (
+                    <div className="max-w-[900px] grid grid-cols-[1fr] gap-2">
+                      <div
+                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                        style={{
+                          padding: "5px",
+                        }}
+                      >
+                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                          Nombre
+                        </span>
+                        <span
+                          className="text-[15px] font-medium text-gray-800 block text-center"
+                          style={{
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {params.value?.[0]?.name}{" "}
+                          {params?.value?.[0]?.lastname}
+                        </span>
+                      </div>
+
+                      <div
+                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                        style={{
+                          padding: "5px",
+                        }}
+                      >
+                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                          Correo
+                        </span>
+                        <span
+                          className="text-[15px] font-medium text-gray-800 block text-center"
+                          style={{
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {params.value?.[0]?.email}
+                        </span>
+                      </div>
+
+                      <div
+                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                        style={{
+                          padding: "5px",
+                        }}
+                      >
+                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                          Teléfono(1)
+                        </span>
+                        <span
+                          className="text-[15px] font-medium text-gray-800 block text-center"
+                          style={{
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {params.value?.[0]?.phone1}
+                        </span>
+                      </div>
+
+                      <div
+                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                        style={{
+                          padding: "5px",
+                        }}
+                      >
+                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                          Teléfono(2)
+                        </span>
+                        <span
+                          className="text-[15px] font-medium text-gray-800 block text-center"
+                          style={{
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {params.value?.[0]?.phone2}
+                        </span>
+                      </div>
+                    </div>
+                  ),
+                  title: "Datos del usuario",
+                  showActions: true,
+                  onClose: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                  onConfirm: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                });
               }}
             >
               <span
@@ -325,7 +419,7 @@ const GridDashboard = ({
                   wordBreak: "break-word",
                 }}
               >
-                {params.value}
+                {params.value?.[0]?.name}
               </span>
             </div>
           );
