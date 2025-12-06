@@ -321,7 +321,7 @@ const GridDashboard = ({
                   isOpen: true,
                   type: "success",
                   content: (
-                    <div className="max-w-[900px] grid grid-cols-[1fr] gap-2">
+                    <div className="min-w-[550px] max-w-[900px] grid grid-cols-[1fr] gap-2">
                       <div
                         className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
                         style={{
