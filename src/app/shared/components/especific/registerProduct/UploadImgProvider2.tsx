@@ -262,6 +262,15 @@ const UploadImgProductProvider2 = ({
                 JSON.stringify(caracteristicas)
               );
               formData.append("upc", dataProductProp?.upc!.toString());
+              formData.append(
+                "stockBranches",
+                JSON.stringify(dataProductProp?.stockBranches!)
+              );
+
+              formData.append("width", dataProductProp?.width);
+              formData.append("height", dataProductProp?.height);
+              formData.append("largo", dataProductProp?.largo);
+              formData.append("peso", dataProductProp?.peso);
 
               files.forEach((file) => formData.append("files", file));
 

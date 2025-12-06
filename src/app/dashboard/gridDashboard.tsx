@@ -22,7 +22,6 @@ import {
   MdMoney,
 } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
-import { DataGrid } from "@mui/x-data-grid";
 
 const GridDashboard = ({
   handleChangeStatusShip,
@@ -473,6 +472,14 @@ const GridDashboard = ({
                             <span>{item.upc}</span>
                           </div>
                         )}
+                        {item?.clave && (
+                          <div className="flex gap-2">
+                            <span className="text-[#808080] font-bold">
+                              Clave:
+                            </span>
+                            <span>{item.clave}</span>
+                          </div>
+                        )}
 
                         {item?.sku && (
                           <div className="flex gap-2">
@@ -692,32 +699,7 @@ const GridDashboard = ({
           );
         },
       },
-      {
-        field: "createdAt",
-        headerName: "Fecha de compra",
-        flex: 1,
-        renderCell: (params) => {
-          return (
-            <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
-              style={{
-                padding: "10px",
-              }}
-            >
-              <span
-                className="text-[black] block text-center font-bold"
-                style={{
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  wordBreak: "break-word",
-                }}
-              >
-                {new Date(params.value).toLocaleString()}
-              </span>
-            </div>
-          );
-        },
-      },
+
       {
         field: "actionsShipment",
         headerName: "Acciones",

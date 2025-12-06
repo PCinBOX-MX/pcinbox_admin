@@ -96,6 +96,7 @@ const useDashboard = () => {
         "/stripe/updateStatusPayByOrden"
       );
       if (resp.status == 200) {
+        console.log(resp);
         setRowsVentas((prev) => {
           return prev.map((item) => {
             if (item.idOrder == idOrder) {

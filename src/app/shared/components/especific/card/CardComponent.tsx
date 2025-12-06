@@ -67,7 +67,7 @@ const CardComponent = ({
     if (dataProductProp?.providerId == 2) {
       setDataModal({
         isOpen: true,
-        title: "Ingresa los datos (TechSmart)",
+        title: "Ingresa los datos",
         content: (
           <UploadImgProductProvider2 dataProductProp={dataProductProp} />
         ),
@@ -169,7 +169,10 @@ const CardComponent = ({
         }}
       >
         <button
-          onClick={() => handleAltaProduct(dataProduct)}
+          onClick={() => {
+            console.log(dataProduct);
+            //handleAltaProduct(dataProduct)
+          }}
           className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
           style={{
             padding: "10px",

@@ -16,4 +16,9 @@ export interface ProductsI {
   nameCategory?: string;
   upc?: string;
   isPC?: any;
+  stockBranches?: any;
+  width?: any;
+  height?: any;
+  largo?: any;
+  peso?: any;
 }
