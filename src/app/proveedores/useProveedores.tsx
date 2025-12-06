@@ -6,11 +6,11 @@ import { SelectChangeEvent } from "@mui/material";
 import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
-import { useForm } from "react-hook-form";
+// import { useForm } from "react-hook-form";
 import { RegisterProduct } from "../shared/components/especific/registerProduct/RegisterProduct";
 
 const useProveedores = () => {
-  const { reset } = useForm();
+  // const { reset } = useForm();
   const { setDataModal, setDataProveedores, setProductsProveedor } =
     useTheContext();
   const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
@@ -130,7 +130,7 @@ const useProveedores = () => {
         setSlcProveedor(
           data.data.data[data.data.data.length - 1].idProvider.toString()
         );
-        reset();
+        //reset();
       }
     } catch (error) {
       setRegisterProveedores((prev) => ({ ...prev, loading: false }));

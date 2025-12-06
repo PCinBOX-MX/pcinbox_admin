@@ -9,7 +9,6 @@ import { Alert } from "@mui/material";
 
 const DashBoard = () => {
   const { rowsVentas, tableKey } = useTheContext();
-
   const { handleChangeStatusShip, handleChangeStatusPay } = useDashboard();
 
   const { columns } = GridDashboard({

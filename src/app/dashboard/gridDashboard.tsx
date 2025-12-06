@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "./dashboard.module.css";
 import { GridColDef, GridRowsProp } from "@mui/x-data-grid";
 import UtilsService from "../services/utils";
 import {
@@ -39,12 +40,10 @@ const GridDashboard = ({
       {
         field: "idOrder",
         headerName: "No.Orden",
-        width: 100,
-        maxWidth: 250,
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%] flex-wrap"
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
               style={{
                 padding: "10px",
               }}
@@ -66,7 +65,7 @@ const GridDashboard = ({
       {
         field: "requiredFactura",
         headerName: "¿Requiere factura?",
-        width: 200,
+        flex: 1,
         renderCell: (params) => {
           return (
             <div
@@ -305,11 +304,9 @@ const GridDashboard = ({
         },
       },
       {
-        field: "name",
-        headerName: "Nombre del Cliente",
-        width: 240,
-        minWidth: 240,
-        maxWidth: 250,
+        field: "dataUser",
+        headerName: "Datos Cliente",
+        flex: 1,
 
         renderCell: (params) => {
           return (
@@ -317,6 +314,100 @@ const GridDashboard = ({
               className="flex justify-center items-center min-h-[100%]"
               style={{
                 padding: "10px",
+              }}
+              onClick={() => {
+                setDataModal({
+                  isOpen: true,
+                  type: "success",
+                  content: (
+                    <div className="min-w-[550px] max-w-[900px] grid grid-cols-[1fr] gap-2">
+                      <div
+                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                        style={{
+                          padding: "5px",
+                        }}
+                      >
+                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                          Nombre
+                        </span>
+                        <span
+                          className="text-[15px] font-medium text-gray-800 block text-center"
+                          style={{
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {params.value?.[0]?.name}{" "}
+                          {params?.value?.[0]?.lastName}
+                        </span>
+                      </div>
+
+                      <div
+                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                        style={{
+                          padding: "5px",
+                        }}
+                      >
+                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                          Correo
+                        </span>
+                        <span
+                          className="text-[15px] font-medium text-gray-800 block text-center"
+                          style={{
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {params.value?.[0]?.email}
+                        </span>
+                      </div>
+
+                      <div
+                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                        style={{
+                          padding: "5px",
+                        }}
+                      >
+                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                          Teléfono(1)
+                        </span>
+                        <span
+                          className="text-[15px] font-medium text-gray-800 block text-center"
+                          style={{
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {params.value?.[0]?.phone1}
+                        </span>
+                      </div>
+
+                      <div
+                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
+                        style={{
+                          padding: "5px",
+                        }}
+                      >
+                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                          Teléfono(2)
+                        </span>
+                        <span
+                          className="text-[15px] font-medium text-gray-800 block text-center"
+                          style={{
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {params.value?.[0]?.phone2}
+                        </span>
+                      </div>
+                    </div>
+                  ),
+                  title: "Datos del usuario",
+                  showActions: true,
+                  onClose: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                  onConfirm: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                });
               }}
             >
               <span
@@ -327,7 +418,7 @@ const GridDashboard = ({
                   wordBreak: "break-word",
                 }}
               >
-                {params.value}
+                {params.value?.[0]?.name}
               </span>
             </div>
           );
@@ -335,11 +426,13 @@ const GridDashboard = ({
       },
       {
         field: "products",
+        maxWidth: 250,
+        minWidth: 250,
         headerName: "Productos",
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center flex-col items-center min-h-[100%] overflow-y-auto"
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
               style={{
                 padding: "10px",
               }}
@@ -421,18 +514,16 @@ const GridDashboard = ({
             </div>
           );
         },
-        minWidth: 500,
-        maxWidth: 520,
       },
 
       {
         field: "totalAmount",
         headerName: "Pago Total",
-        minWidth: 200,
+        flex: 1,
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%]"
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
               style={{
                 padding: "10px",
               }}
@@ -454,8 +545,8 @@ const GridDashboard = ({
       {
         field: "address",
         headerName: "Dirección",
-        minWidth: 300,
-        maxWidth: 400,
+        maxWidth: 200,
+        minWidth: 200,
         renderCell: (params) => {
           return (
             <div
@@ -542,8 +633,7 @@ const GridDashboard = ({
       {
         field: "method_pay",
         headerName: "Metodo de pago",
-        minWidth: 200,
-        maxWidth: 300,
+        flex: 1,
         renderCell: (params) => {
           return (
             <div
@@ -613,7 +703,7 @@ const GridDashboard = ({
       {
         field: "actionsShipment",
         headerName: "Acciones",
-        width: 300,
+        flex: 1,
         renderCell: (params) => {
           const currentRow = rows.find(
             (row: any) => row.idShipment === params.row.idShipment
@@ -679,9 +769,6 @@ const GridDashboard = ({
             </div>
           );
         },
-      },
-      {
-        field: "",
       },
     ],
     [rows]
