@@ -338,7 +338,7 @@ const GridDashboard = ({
                           }}
                         >
                           {params.value?.[0]?.name}{" "}
-                          {params?.value?.[0]?.lastname}
+                          {params?.value?.[0]?.lastName}
                         </span>
                       </div>
 
