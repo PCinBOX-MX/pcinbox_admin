@@ -15,10 +15,14 @@ export interface ProductsI {
   nameMarca?: string;
   nameCategory?: string;
   upc?: string;
-  isPC?: any;
+  isPc?: any;
   stockBranches?: any;
   width?: any;
   height?: any;
   largo?: any;
   peso?: any;
+  caracteristicas?: {
+    prop: string;
+    value: string;
+  }[];
 }

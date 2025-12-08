@@ -160,7 +160,7 @@ const UploadImgProductProvider2 = ({
               return (
                 <div
                   key={indexCar}
-                  className="w-[100%] grid grid-cols-[1fr_1fr_auto] gap-2"
+                  className="w-full grid grid-cols-[1fr_1fr_auto] gap-2"
                 >
                   <TextField
                     label="Caracteristica"
