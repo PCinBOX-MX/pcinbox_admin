@@ -74,7 +74,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             price: event.price,
             sku: event.sku,
             providerId: dataProductProp?.providerId,
-            isPc: dataProductProp?.isPC,
+            isPc: dataProductProp?.isPc,
             caracteristicas: findDataProduct
               ? findDataProduct?.caracteristicas
               : [],
