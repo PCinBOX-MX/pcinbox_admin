@@ -4,6 +4,7 @@ import { useTheContext } from "@/app/hooks/global.hook";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import UtilsService from "@/app/services/utils";
 import {
+  Button,
   Card,
   CardActions,
   CardContent,
@@ -12,44 +13,25 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { MdEdit, MdFileUpload } from "react-icons/md";
+import { MdEdit, MdFileUpload, MdRemove } from "react-icons/md";
 import { Carousel } from "react-responsive-carousel";
 import FormProduct from "../FormProduct/FormProduct";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import UploadImgProductProvider2 from "../registerProduct/UploadImgProvider2";
 
-const CardComponent = ({
-  dataProduct,
-  setProductsProveedor,
-}: {
-  dataProduct: ProductsI;
-  setProductsProveedor: Dispatch<
-    SetStateAction<{
-      loading: boolean;
-      data: ProductsI[];
-    }>
-  >;
-}) => {
+const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   const { formatCurrency } = UtilsService();
   const { setDataModal } = useTheContext();
 
-  const handleEditProduct = async (
-    dataProductProp: ProductsI,
-    setProductsProveedor: Dispatch<
-      SetStateAction<{
-        loading: boolean;
-        data: ProductsI[];
-      }>
-    >
-  ) => {
+  const handleEditProduct = async (dataProductProp: ProductsI) => {
     setDataModal({
       isOpen: true,
       title: "Editar producto",
       content: (
         <FormProduct
           dataProductProp={dataProductProp}
-          setProductsProveedor={setProductsProveedor}
+          // setProductsProveedor={setProductsProveedor}
         />
       ),
       type: "info",
@@ -170,7 +152,6 @@ const CardComponent = ({
       >
         <button
           onClick={() => {
-            //console.log(dataProduct);
             handleAltaProduct(dataProduct);
           }}
           className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
@@ -188,7 +169,7 @@ const CardComponent = ({
             padding: "10px",
             marginLeft: "0px",
           }}
-          onClick={() => handleEditProduct(dataProduct, setProductsProveedor)}
+          onClick={() => handleEditProduct(dataProduct)}
         >
           Editar producto
           <MdEdit size={26} />

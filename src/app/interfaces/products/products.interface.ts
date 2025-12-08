@@ -21,4 +21,8 @@ export interface ProductsI {
   height?: any;
   largo?: any;
   peso?: any;
+  caracteristicas?: {
+    prop: string;
+    value: string;
+  }[];
 }
