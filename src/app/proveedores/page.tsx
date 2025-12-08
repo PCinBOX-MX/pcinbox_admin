@@ -182,13 +182,7 @@ const Proveedores = () => {
             {!dataProductProveedor.loading ? (
               visibleDataProveedores && visibleDataProveedores.length > 0 ? (
                 visibleDataProveedores.map((product, index) => {
-                  return (
-                    <CardComponent
-                      key={index}
-                      dataProduct={product}
-                      setProductsProveedor={setProductsProveedor}
-                    />
-                  );
+                  return <CardComponent key={index} dataProduct={product} />;
                 })
               ) : (
                 <Alert severity="info">Sin contenido disponible</Alert>

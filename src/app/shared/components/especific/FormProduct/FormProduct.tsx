@@ -16,7 +16,14 @@ import {
   Typography,
 } from "@mui/material";
 import { Trash2 } from "lucide-react";
-import { Dispatch, SetStateAction, useState } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Controller,
   FieldValues,
@@ -24,33 +31,33 @@ import {
   SubmitHandler,
   useForm,
 } from "react-hook-form";
-import { MdAutorenew } from "react-icons/md";
+import { MdAutorenew, MdRemove } from "react-icons/md";
 
-const FormProduct = ({
-  dataProductProp,
-  setProductsProveedor,
-}: {
-  dataProductProp: ProductsI;
-  setProductsProveedor: Dispatch<
-    SetStateAction<{
-      loading: boolean;
-      data: ProductsI[];
-    }>
-  >;
-}) => {
+const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const { requestPostProveedores } = ProveedoresUtils();
-  const { setDataModal, dataMarca, dataCategoria, dataProductProveedor } =
-    useTheContext();
+  const {
+    setDataModal,
+    dataMarca,
+    dataCategoria,
+    dataProductProveedor,
+    setProductsProveedor,
+  } = useTheContext();
 
   const [loadingUpdateProduct, setLoadingUpdateProduct] =
     useState<boolean>(false);
 
   const [loadingRemoveProduct, setLoadingRemoveProduct] =
     useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { register, handleSubmit, reset, control } = useForm();
 
   const handleEditProduct = async (event: any) => {
+    const findDataProduct = dataProductProveedor?.data?.find(
+      (prevProductProveedor) =>
+        prevProductProveedor.idProduct == dataProductProp.idProduct
+    );
+
     if (event) {
       setLoadingUpdateProduct(true);
 
@@ -66,7 +73,12 @@ const FormProduct = ({
             stock: event.stock,
             price: event.price,
             sku: event.sku,
-            isPc: dataProductProp?.isPC,
+            providerId: dataProductProp?.providerId,
+            isPc: dataProductProp?.isPc,
+            caracteristicas: findDataProduct
+              ? findDataProduct?.caracteristicas
+              : [],
+            image_url: findDataProduct ? findDataProduct?.image_url : [],
           },
           "/editProductPcinbox"
         );
@@ -97,13 +109,46 @@ const FormProduct = ({
     }
   };
 
+  const currentProduct = dataProductProveedor.data.find(
+    (p) => p.idProduct == dataProductProp.idProduct
+  );
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [currentProduct?.caracteristicas]);
+
+  const caracteristicasArray = useMemo(() => {
+    const currentProduct = dataProductProveedor.data.find(
+      (p) => p.idProduct === dataProductProp.idProduct
+    );
+
+    if (!currentProduct) return [];
+
+    if (typeof currentProduct.caracteristicas === "string") {
+      try {
+        const parsed = JSON.parse(currentProduct.caracteristicas);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    if (Array.isArray(currentProduct.caracteristicas)) {
+      return currentProduct.caracteristicas;
+    }
+
+    return [];
+  }, [dataProductProveedor, dataProductProp.idProduct]);
+
   return (
     <Box
       component="form"
       onSubmit={handleSubmit(handleEditProduct)}
-      className="w-full flex gap-2 flex-col"
+      className="w-full flex gap-1 flex-col"
     >
-      <div className=" w-full grid grid-cols-[1fr_1fr] gap-2">
+      <div className=" w-full grid grid-cols-[1fr_1fr_1fr] gap-2">
         <TextField
           label="Nombre"
           variant="outlined"
@@ -149,9 +194,6 @@ const FormProduct = ({
             },
           })}
         />
-      </div>
-
-      <div className="grid grid-cols-[auto] gap-2">
         <FormControl fullWidth>
           <Controller
             name="categoria"
@@ -197,7 +239,7 @@ const FormProduct = ({
         </FormControl>
       </div>
 
-      <div className="grid grid-cols-[1fr_1fr] gap-2">
+      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
         <FormControl fullWidth>
           <Controller
             name="marca"
@@ -263,8 +305,6 @@ const FormProduct = ({
           })}
           required
         />
-      </div>
-      <div className="grid grid-cols-[1fr_1fr] gap-2">
         <TextField
           required
           label="Precio"
@@ -292,6 +332,8 @@ const FormProduct = ({
             },
           })}
         />
+      </div>
+      <div className="grid grid-cols-[1fr_1fr] gap-2">
         <TextField
           required
           label="SKU"
@@ -315,26 +357,40 @@ const FormProduct = ({
             },
           })}
         />
-      </div>
-
-      <div className="grid grid-cols-[auto] gap-2">
         <TextField
           label=""
           type="file"
           variant="outlined"
           name="image_url"
           onChange={(event) => {
-            const imgs = (event.target as any).files;
+            const files = (event.target as HTMLInputElement).files;
+            if (!files) return;
 
-            const fileList: File[] = Array.isArray(imgs)
-              ? imgs
-              : Array.from(imgs);
-            // setDataNewComponent((prev) => ({
-            //   ...prev,
-            //   image_url: fileList as any,
-            // }));
-            // setFiles((prev) => [...prev, ...fileList]);
-            // event.target.value = "";
+            // Iteramos uno por uno
+            for (let i = 0; i < files.length; i++) {
+              const file = files[i];
+
+              // Si quieres, puedes crear un preview de cada imagen
+              const previewUrl = URL.createObjectURL(file);
+
+              // O agregarlas individualmente al estado
+              setProductsProveedor((prev) => ({
+                ...prev,
+                data: prev.data.map((item) => {
+                  if (
+                    item.idProduct === dataProductProp.idProduct ||
+                    item.idProductExt === dataProductProp.idProductExt
+                  ) {
+                    return {
+                      ...item,
+                      image_url: [...(item.image_url || []), previewUrl],
+                    };
+                  }
+                  return item;
+                }),
+              }));
+            }
+            event.target.value = "";
           }}
           slotProps={{
             htmlInput: {
@@ -343,99 +399,225 @@ const FormProduct = ({
               accept: "image/*",
             },
           }}
-          // value={dataNewProduct.image_url}
-          // // onChange={handleChange}
         />
       </div>
 
       <div className="flex flex-wrap gap-3">
-        {dataProductProp.image_url && dataProductProp.image_url.length > 0
-          ? dataProductProp.image_url.map((img: string, indexImg: number) => {
-              return (
-                <Card key={indexImg} sx={{ position: "relative", width: 130 }}>
-                  <CardMedia
-                    component="img"
-                    image={img}
-                    alt={""}
-                    sx={{ height: 50, objectFit: "cover" }}
-                  />
-                  <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: 100,
-                      }}
-                    >
-                      {/* {file.name} */}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => {
-                        const currentProduct = dataProductProveedor.data.find(
-                          (p) =>
-                            p.idProduct === dataProductProp.idProduct ||
-                            p.idProductExt === dataProductProp.idProductExt
-                        );
+        {dataProductProveedor.data
+          .find(
+            (p) =>
+              p.idProduct === dataProductProp.idProduct ||
+              p.idProductExt === dataProductProp.idProductExt
+          )
+          ?.image_url?.map((img: string, indexImg: number) => (
+            <Card key={indexImg} sx={{ position: "relative", width: 130 }}>
+              <CardMedia
+                component="img"
+                image={img}
+                alt={""}
+                sx={{ height: 50, objectFit: "cover" }}
+              />
+              <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: 100,
+                  }}
+                >
+                  {/* Nombre o info opcional */}
+                </Typography>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => {
+                    setProductsProveedor((prev) => ({
+                      ...prev,
+                      data: prev.data.map((item) => {
+                        if (
+                          item.idProduct === dataProductProp.idProduct ||
+                          item.idProductExt === dataProductProp.idProductExt
+                        ) {
+                          return {
+                            ...item,
+                            image_url: item.image_url.filter(
+                              (_: any, i: number) => i !== indexImg
+                            ), // eliminamos todas
+                          };
+                        }
+                        return item;
+                      }),
+                    }));
+                  }}
+                >
+                  <Trash2 size={16} />
+                </IconButton>
+              </CardActions>
+            </Card>
+          ))}
+      </div>
 
-                        setProductsProveedor((prev) => ({
-                          ...prev,
-                          data: prev.data.map((item) => {
-                            if (currentProduct) {
-                              console.log("localizado");
+      <div
+        className="flex flex-wrap gap-3 w-full overflow-x-hidden overflow-y-auto max-h-[150px] mt-2 py-2"
+        ref={containerRef}
+      >
+        {caracteristicasArray && caracteristicasArray.length > 0
+          ? caracteristicasArray.map((car: any, indexCar: number) => {
+              return (
+                <div
+                  key={indexCar}
+                  className="w-full grid grid-cols-[1fr_1fr_auto] gap-2"
+                >
+                  <Controller
+                    name={`caracteristicas.${indexCar}.prop`}
+                    control={control}
+                    defaultValue={car.prop}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Caracteristica"
+                        variant="outlined"
+                        onChange={(e) => {
+                          field.onChange(e);
+                          const newValue = e.target.value;
+                          setProductsProveedor((prev) => ({
+                            ...prev,
+                            data: prev.data.map((prod) => {
+                              if (prod.idProduct != dataProductProp.idProduct) {
+                                return prod;
+                              }
+
                               return {
-                                ...item,
-                                image_url: [],
+                                ...prod,
+                                caracteristicas: (Array.isArray(
+                                  prod.caracteristicas
+                                )
+                                  ? prod.caracteristicas
+                                  : JSON.parse(prod.caracteristicas || "[]")
+                                ).map((c: any, i: number) => {
+                                  if (i !== indexCar) return c;
+
+                                  return {
+                                    ...c,
+                                    prop: newValue,
+                                  };
+                                }),
                               };
-                            }
-                            return item;
-                          }),
-                        }));
-                      }}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </CardActions>
-                </Card>
+                            }),
+                          }));
+                        }}
+                      />
+                    )}
+                  />
+
+                  <Controller
+                    name={`caracteristicas.${indexCar}.value`}
+                    control={control}
+                    defaultValue={car.value}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Valor"
+                        variant="outlined"
+                        onChange={(e) => {
+                          field.onChange(e);
+                          const newValue = e.target.value;
+                          setProductsProveedor((prev) => ({
+                            ...prev,
+                            data: prev.data.map((prod) => {
+                              if (prod.idProduct != dataProductProp.idProduct) {
+                                return prod;
+                              }
+
+                              return {
+                                ...prod,
+                                caracteristicas: (Array.isArray(
+                                  prod.caracteristicas
+                                )
+                                  ? prod.caracteristicas
+                                  : JSON.parse(prod.caracteristicas || "[]")
+                                ).map((c: any, i: number) => {
+                                  if (i !== indexCar) return c;
+
+                                  return {
+                                    ...c,
+                                    value: newValue,
+                                  };
+                                }),
+                              };
+                            }),
+                          }));
+                        }}
+                      />
+                    )}
+                  />
+
+                  <Button
+                    style={{ background: "red", color: "white" }}
+                    onClick={() => {
+                      setProductsProveedor((prev) => ({
+                        ...prev,
+                        data: prev.data.map((prod) => {
+                          if (prod.idProduct !== dataProductProp.idProduct)
+                            return prod;
+
+                          const caracteristicasArray = Array.isArray(
+                            prod.caracteristicas
+                          )
+                            ? prod.caracteristicas
+                            : JSON.parse(prod.caracteristicas || "[]");
+
+                          return {
+                            ...prod,
+                            caracteristicas: caracteristicasArray.filter(
+                              (_: any, i: number) => i !== indexCar
+                            ),
+                          };
+                        }),
+                      }));
+                    }}
+                  >
+                    <MdRemove size={26} />
+                  </Button>
+                </div>
               );
             })
-          : null}
-        {/* {files.map((file, indexFile) => {
-              const imageUrl = URL.createObjectURL(file);
-              return (
-                <Card key={indexFile} sx={{ position: "relative", width: 130 }}>
-                  <CardMedia
-                    component="img"
-                    image={imageUrl}
-                    alt={file.name}
-                    sx={{ height: 50, objectFit: "cover" }}
-                  />
-                  <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: 100,
-                      }}
-                    >
-                      {file.name}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      // onClick={() => handleRemoveFile(indexFile)}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-              );
-            })} */}
+          : ""}
+      </div>
+
+      <div className="flex flex-wrap gap-3 w-full">
+        <Button
+          type="button"
+          variant="contained"
+          color="success"
+          onClick={() => {
+            setProductsProveedor((prev) => ({
+              ...prev,
+              data: prev.data.map((prod) => {
+                if (prod.idProduct !== dataProductProp.idProduct) return prod;
+
+                // Asegurarnos de tener un array
+                const caracteristicasArray = Array.isArray(prod.caracteristicas)
+                  ? prod.caracteristicas
+                  : prod.caracteristicas
+                  ? JSON.parse(prod.caracteristicas)
+                  : [];
+
+                return {
+                  ...prod,
+                  caracteristicas: [
+                    ...caracteristicasArray,
+                    { prop: "", value: "" },
+                  ],
+                };
+              }),
+            }));
+          }}
+        >
+          +
+        </Button>
       </div>
 
       <Button

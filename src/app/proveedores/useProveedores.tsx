@@ -59,7 +59,7 @@ const useProveedores = () => {
 
       if (resp?.status == 200) {
         const data = resp.data;
-        console.log(data.data.data);
+
         setProductsProveedor((prev) => ({
           ...prev,
           data: data.data.data,
