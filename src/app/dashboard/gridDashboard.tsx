@@ -737,6 +737,7 @@ const GridDashboard = ({
                     <MenuItem value={"cancelado"}>Cancelado</MenuItem>
                     <MenuItem value={"enviado"}>Enviado</MenuItem>
                     <MenuItem value={"procesando"}>Procesando</MenuItem>
+                    <MenuItem value={"disponible"}>Disponible</MenuItem>
                   </Select>
                 </FormControl>
               </div>
