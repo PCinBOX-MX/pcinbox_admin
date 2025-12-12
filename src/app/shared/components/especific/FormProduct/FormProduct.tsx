@@ -50,7 +50,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { register, handleSubmit, reset, control } = useForm();
+  const { register, handleSubmit, control } = useForm();
 
   const handleEditProduct = async (event: any) => {
     const findDataProduct = dataProductProveedor?.data?.find(
@@ -60,7 +60,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
     if (event) {
       setLoadingUpdateProduct(true);
-      console.log(dataProductProp);
+
       try {
         const resp = await requestPostProveedores(
           {
@@ -75,9 +75,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             sku: event.sku,
             providerId: dataProductProp?.providerId,
             isPc: dataProductProp?.isPc || (dataProductProp as any)?.isPC,
-            caracteristicas: findDataProduct
-              ? findDataProduct?.caracteristicas
-              : [],
+            caracteristicas: findDataProduct?.caracteristicas,
             image_url: findDataProduct ? findDataProduct?.image_url : [],
           },
           "/editProductPcinbox"
@@ -86,7 +84,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         setLoadingUpdateProduct(false);
         if (resp.status == 200) {
           const data = resp.data;
-          reset();
+
           setDataModal((prev) => ({ ...prev, isOpen: false }));
 
           setDataModal({
