@@ -71,7 +71,6 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
       sx={{ minWidth: 300, maxWidth: 300, padding: "10px" }}
       className="shadow rounded"
     >
-      {/* {console.log(dataProduct)} */}
       <Carousel showIndicators={true} showThumbs={false} showStatus={false}>
         {dataProduct.image_url && dataProduct.image_url.length > 0
           ? dataProduct.image_url.map((img, i) => (
@@ -169,7 +168,9 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             padding: "10px",
             marginLeft: "0px",
           }}
-          onClick={() => handleEditProduct(dataProduct)}
+          onClick={() => {
+            handleEditProduct(dataProduct);
+          }}
         >
           Editar producto
           <MdEdit size={26} />

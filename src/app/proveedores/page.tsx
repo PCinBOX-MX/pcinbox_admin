@@ -21,7 +21,6 @@ const Proveedores = () => {
     useTheContext();
   const {
     slcProveedor,
-
     handleGetProductsByProveedor,
     handleOnChange,
     showModalRegisterProveedor,
@@ -178,7 +177,6 @@ const Proveedores = () => {
               boxShadow: "rgba(99, 99, 99, 0.2) 0px 2px 8px 0px",
             }}
           >
-            {/* {!loadingDataProveedores ? <CardComponent /> : "cargando...."} */}
             {!dataProductProveedor.loading ? (
               visibleDataProveedores && visibleDataProveedores.length > 0 ? (
                 visibleDataProveedores.map((product, index) => {
