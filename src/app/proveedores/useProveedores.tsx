@@ -59,7 +59,6 @@ const useProveedores = () => {
 
       if (resp?.status == 200) {
         const data = resp.data;
-        console.log(data.data.dataExist);
 
         setProductsProveedor((prev) => {
           const originals = data.data.data; // array base
