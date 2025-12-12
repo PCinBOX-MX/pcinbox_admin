@@ -195,7 +195,7 @@ const Proveedores = () => {
             )}
             <div className="flex justify-end w-full">
               <PaginatorComponent
-                totalItems={dataProductProveedor.data.length}
+                totalItems={dataProductProveedor.copyData!.length}
                 itemsPerPage={8}
                 onPageChange={setPage}
               />
