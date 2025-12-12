@@ -56,6 +56,7 @@ interface ContextProps {
     }>
   >;
   socketPagos: RefObject<Socket | null>;
+  socketServer: RefObject<Socket | null>;
   rowsVentas: SalesI[];
   setRowsVentas: Dispatch<SetStateAction<SalesI[]>>;
   showSpinner: boolean;
@@ -92,6 +93,7 @@ const CreateContext = createContext<ContextProps>({
   },
   setProductsProveedor: () => {},
   socketPagos: { current: null },
+  socketServer: { current: null },
   rowsVentas: [],
   setRowsVentas: () => {},
   showSpinner: false,
@@ -137,6 +139,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   const [showSpinner, setShowSpinner] = useState<boolean>(false);
 
   const socketPagos = useRef<Socket | null>(null);
+  const socketServer = useRef<Socket | null>(null);
 
   const [dataMarca, setDataMarca] = useState([]);
   const [tableKey, setTableKey] = useState(0);
@@ -179,8 +182,16 @@ export const GlobalProvider = ({ children }: { children: any }) => {
       timeout: 20000,
     });
 
+    socketServer.current = io(process.env.NEXT_PUBLIC_SOCKET_PROVEEDOR || "", {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+    });
     return () => {
       socketPagos.current?.disconnect();
+      socketServer.current?.disconnect();
     };
   }, []);
 
@@ -197,6 +208,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         dataProveedores,
         setDataProveedores,
         socketPagos,
+        socketServer,
         rowsVentas,
         setRowsVentas,
         showSpinner,

@@ -60,7 +60,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
     if (event) {
       setLoadingUpdateProduct(true);
-
+      console.log(dataProductProp);
       try {
         const resp = await requestPostProveedores(
           {
@@ -74,7 +74,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             price: event.price,
             sku: event.sku,
             providerId: dataProductProp?.providerId,
-            isPc: dataProductProp?.isPc,
+            isPc: dataProductProp?.isPc || (dataProductProp as any)?.isPC,
             caracteristicas: findDataProduct
               ? findDataProduct?.caracteristicas
               : [],
