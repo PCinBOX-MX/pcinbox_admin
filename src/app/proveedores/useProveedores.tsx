@@ -60,31 +60,31 @@ const useProveedores = () => {
       if (resp?.status == 200) {
         const data = resp.data;
 
-        setProductsProveedor((prev) => {
-          const originals = data.data.data; // array base
-          const updates = data.data.dataExist; // array a fusionar
+ setProductsProveedor((prev) => {
+  const originals = data.data.data ?? [];
+  const updates = data.data.dataExist ?? [];
 
-          const merged = originals.map((item: ProductsI) => {
-            const match = updates.find(
-              (u: ProductsI) => Number(u.idProduct) === Number(item.idProduct)
-            );
-            return match ? { ...item, ...match } : item;
-          });
+  const merged = originals.map((item: ProductsI) => {
+    const match = updates.find(
+      (u: ProductsI) => Number(u.idProduct) === Number(item.idProduct)
+    );
+    return match ? { ...item, ...match } : item;
+  });
 
-          // agrega elementos nuevos que no existían
-          const newOnes = updates.filter(
-            (u: ProductsI) =>
-              !originals.some(
-                (o: ProductsI) => Number(o.idProduct) === Number(u.idProduct)
-              )
-          );
+  const newOnes = updates.filter(
+    (u: ProductsI) =>
+      !originals.some(
+        (o: ProductsI) => Number(o.idProduct) === Number(u.idProduct)
+      )
+  );
 
-          return {
-            ...prev,
-            data: [...merged, ...newOnes],
-            copyData: [...merged, ...newOnes],
-          };
-        });
+  return {
+    ...prev,
+    data: [...merged, ...newOnes],
+    copyData: [...merged, ...newOnes],
+  };
+});
+
       }
     } catch (error) {
       setProductsProveedor((prev) => ({ ...prev, loading: false }));
