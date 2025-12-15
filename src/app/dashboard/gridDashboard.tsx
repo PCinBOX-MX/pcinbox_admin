@@ -699,6 +699,36 @@ const GridDashboard = ({
           );
         },
       },
+      {
+        field: "createdAt",
+        headerName: "Fecha de compra",
+        flex: 1,
+        renderCell: (params) => {
+          if (params.value) {
+            return (
+              <div
+                className="flex justify-center flex-col items-center min-h-full"
+                style={{
+                  padding: "10px",
+                }}
+              >
+                <div className="w-full">
+                  <span
+                    className="text-[black] block text-center font-bold"
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {new Date(params.value).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+        },
+      },
 
       {
         field: "actionsShipment",
@@ -713,7 +743,7 @@ const GridDashboard = ({
 
           return (
             <div
-              className="flex justify-center flex-col items-center min-h-[100%]"
+              className="flex justify-center flex-col items-center min-h-full"
               style={{
                 padding: "10px",
               }}
