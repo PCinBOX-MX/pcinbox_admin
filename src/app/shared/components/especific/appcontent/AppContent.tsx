@@ -12,6 +12,7 @@ import SpinnerComponent from "../spinner/Spinner";
 import useProveedores from "@/app/proveedores/useProveedores";
 import useDashboard from "@/app/dashboard/useDashboard";
 import { SnackbarProvider, useSnackbar } from "notistack";
+import { ProductsI } from "@/app/interfaces/products/products.interface";
 
 export default function AppContent({
   children,
@@ -20,8 +21,14 @@ export default function AppContent({
 }) {
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
 
-  const { dataModal, socketPagos, setRowsVentas, setTableKey } =
-    useTheContext();
+  const {
+    dataModal,
+    socketPagos,
+    socketServer,
+    setRowsVentas,
+    setTableKey,
+    setProductsProveedor,
+  } = useTheContext();
   const pathName = usePathname();
   const play = useSound("/audio/notification.mp3");
 
@@ -32,7 +39,7 @@ export default function AppContent({
 
   // Manejo de sockets
   useEffect(() => {
-    if (!socketPagos.current) return;
+    if (!socketPagos.current || !socketServer.current) return;
 
     const handleNewOrder = (data: any) => {
       enqueueSnackbar(`Se generó la orden #${data.idOrder}`, {
@@ -136,16 +143,59 @@ export default function AppContent({
       );
     };
 
+    const handlerUpdateProduct = (data: ProductsI) => {
+      setProductsProveedor((prev) => ({
+        ...prev,
+
+        data: prev.data.map((item) => {
+          const match = Number(item.idProduct) === Number(data.idProduct);
+
+          return match
+            ? {
+                ...item,
+                name: data.name,
+                description: data.description,
+                caracteristicas: data.caracteristicas,
+                price: Number(data.price),
+                stock: Number(data.stock),
+                sku: data.sku,
+              }
+            : item;
+        }),
+        copyData: prev.data.map((item) => {
+          const match = Number(item.idProduct) === Number(data.idProduct);
+
+          return match
+            ? {
+                ...item,
+                name: data.name,
+                description: data.description,
+                caracteristicas: data.caracteristicas,
+                price: Number(data.price),
+                stock: Number(data.stock),
+                sku: data.sku,
+              }
+            : item;
+        }),
+      }));
+    };
+
     socketPagos.current.on("newOrder", handleNewOrder);
     socketPagos.current.on("updateOrder", handleUpdateOrder);
     socketPagos.current.on("paidOxxo", handlePayOxxo);
     socketPagos.current.on("cancelledCompra", handleCancelledCompra);
+    socketServer.current.on("updateProductComponent", handlerUpdateProduct);
+
+    socketServer.current.on("updateProduct", handlerUpdateProduct);
 
     return () => {
       socketPagos.current!.off("newOrder", handleNewOrder);
       socketPagos.current!.off("updateOrder", handleUpdateOrder);
       socketPagos.current!.off("paidOxxo", handlePayOxxo);
       socketPagos.current!.off("cancelledCompra", handleCancelledCompra);
+      socketServer.current!.off("updateProductComponent", handlerUpdateProduct);
+
+      socketServer.current!.off("updateProduct", handlerUpdateProduct);
     };
   }, [socketPagos.current]);
 
