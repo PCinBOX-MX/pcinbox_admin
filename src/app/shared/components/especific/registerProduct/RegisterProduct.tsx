@@ -42,6 +42,7 @@ interface DataNewProductI {
   image_url: File[];
   upc?: string;
   providerId: number;
+  caracteristicas: { prop: string; value: string }[];
 }
 
 export const RegisterProduct = () => {
@@ -49,6 +50,7 @@ export const RegisterProduct = () => {
     useTheContext();
   const [files, setFiles] = useState<File[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef2 = useRef<HTMLDivElement>(null);
 
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<number>(0);
@@ -69,6 +71,7 @@ export const RegisterProduct = () => {
     price: 0,
     image_url: [],
     providerId: 1,
+    caracteristicas: [],
   });
 
   const [dataNewPcGamer, setDataNewPcGamer] = useState<{
@@ -98,7 +101,11 @@ export const RegisterProduct = () => {
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [dataNewPcGamer.caracteristicas]);
+
+    if (containerRef2.current) {
+      containerRef2.current.scrollTop = containerRef2.current.scrollHeight;
+    }
+  }, [dataNewPcGamer.caracteristicas, dataNewComponent.caracteristicas]);
 
   const handleRemoveFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
@@ -146,6 +153,10 @@ export const RegisterProduct = () => {
         filesArray.forEach((file) => formData.append("files", file));
         formData.append("providerId", dataNewComponent.providerId.toString());
         formData.append("isPc", "0");
+        formData.append(
+          "caracteristicas",
+          JSON.stringify(dataNewComponent.caracteristicas)
+        );
       } else if (typeProduct?.toLowerCase() === "pcgamer") {
         formData.append("name", dataNewPcGamer.name);
         formData.append("description", dataNewPcGamer.description);
@@ -193,28 +204,13 @@ export const RegisterProduct = () => {
 
         setProductsProveedor((prev) => ({ ...prev, data: data.data.data }));
       }
-    } catch (error: any) {
+    } catch (error) {
       setLoadingNewProduct(false);
-
-      setDataModal({
-        isOpen: true,
-        type: "error",
-        title: "Error",
-        content: error?.response?.data?.message || error?.message,
-        showActions: true,
-        onClose: () => {
-          setDataModal((prev) => ({
-            ...prev,
-            isOpen: false,
-          }));
-        },
-        onConfirm: () => {
-          setDataModal((prev) => ({
-            ...prev,
-            isOpen: false,
-          }));
-        },
-      });
+      alert(
+        typeProduct?.toLowerCase() === "component"
+          ? `La clave ${dataNewComponent.clave} ya existe u ocurrió un error inesperado `
+          : "Ocurrió un error"
+      );
     }
   };
 
@@ -369,12 +365,11 @@ export const RegisterProduct = () => {
               type="number"
               variant="outlined"
               name="stock"
-              value={dataNewPcGamer.stock === 0 ? "" : dataNewPcGamer.stock}
+              value={dataNewComponent.stock || ""}
               onChange={(event) => {
-                setDataNewPcGamer((prev) => ({
+                setDataNewComponent((prev) => ({
                   ...prev,
-                  stock:
-                    event.target.value === "" ? 0 : Number(event.target.value),
+                  stock: Number(event.target.value),
                 }));
               }}
               required
@@ -546,6 +541,90 @@ export const RegisterProduct = () => {
                 }))
               }
             />
+          </div>
+          <div
+            className="grid grid-cols-[1fr] grid-flow-row gap-2 max-h-[150px] overflow-y-auto overflow-x-hidden py-3"
+            ref={containerRef2}
+          >
+            {dataNewComponent.caracteristicas &&
+            dataNewComponent.caracteristicas.length > 0
+              ? dataNewComponent.caracteristicas.map(
+                  (car: any, indexCar: number) => {
+                    return (
+                      <div
+                        key={indexCar}
+                        className="w-full grid grid-cols-[1fr_1fr_auto] gap-2"
+                      >
+                        <TextField
+                          label="Caracteristica"
+                          variant="outlined"
+                          name="prop"
+                          value={car.prop}
+                          onChange={(event) => {
+                            setDataNewComponent((prev) => ({
+                              ...prev,
+                              caracteristicas: prev.caracteristicas.map(
+                                (item, indexPrevCar) =>
+                                  indexPrevCar === indexCar
+                                    ? { ...item, prop: event.target.value } // actualiza solo ese item
+                                    : item
+                              ),
+                            }));
+                          }}
+                        />
+
+                        <TextField
+                          label="Valor"
+                          variant="outlined"
+                          name="value"
+                          value={car.value}
+                          onChange={(event) => {
+                            setDataNewComponent((prev) => ({
+                              ...prev,
+                              caracteristicas: prev.caracteristicas.map(
+                                (item, indexPrevCar) =>
+                                  indexPrevCar === indexCar
+                                    ? { ...item, value: event.target.value } // actualiza solo ese item
+                                    : item
+                              ),
+                            }));
+                          }}
+                        />
+
+                        <Button
+                          style={{ background: "red", color: "white" }}
+                          onClick={() => {
+                            setDataNewComponent((prev) => ({
+                              ...prev,
+                              caracteristicas: prev.caracteristicas.filter(
+                                (_, indexP) => indexP !== indexCar
+                              ),
+                            }));
+                          }}
+                        >
+                          <MdRemove size={26} />
+                        </Button>
+                      </div>
+                    );
+                  }
+                )
+              : ""}
+          </div>
+          <div className="flex justify-start">
+            <Button
+              style={{ background: "green", color: "white" }}
+              onClick={() => {
+                setDataNewComponent((prev) => ({
+                  ...prev,
+                  caracteristicas: [
+                    ...prev.caracteristicas,
+                    { prop: "", value: "" },
+                  ],
+                }));
+              }}
+            >
+              <MdAdd size={26} />
+            </Button>
           </div>
         </>
       ) : typeProduct == "pcgamer" ? (
