@@ -40,6 +40,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     dataMarca,
     dataCategoria,
     dataProductProveedor,
+    dataProveedores,
     setProductsProveedor,
   } = useTheContext();
 
@@ -73,9 +74,12 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             stock: event.stock,
             price: event.price,
             sku: event.sku,
-            providerId: dataProductProp?.providerId,
+            upc: event.upc,
+            providerId: findDataProduct?.providerId,
             isPc: dataProductProp?.isPc || (dataProductProp as any)?.isPC,
-            caracteristicas: findDataProduct?.caracteristicas,
+            caracteristicas: findDataProduct
+              ? findDataProduct?.caracteristicas
+              : [],
             image_url: findDataProduct ? findDataProduct?.image_url : [],
           },
           "/editProductPcinbox"
@@ -455,6 +459,77 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
               </CardActions>
             </Card>
           ))}
+      </div>
+
+      <div className="grid grid-cols-[1fr_1fr] gap-2">
+        <TextField
+          label="UPC"
+          type="text"
+          variant="outlined"
+          {...register("upc", {
+            value: dataProductProp?.upc,
+            onChange(event) {
+              setProductsProveedor((prev) => ({
+                ...prev,
+                data: prev.data.map((item) => {
+                  if (
+                    item.idProduct === dataProductProp.idProduct ||
+                    item.idProductExt == dataProductProp.idProductExt
+                  ) {
+                    return { ...item, upc: event.target.value };
+                  }
+                  return item;
+                }),
+              }));
+            },
+          })}
+        />
+
+        <FormControl fullWidth>
+          <Controller
+            name="Proveedor"
+            control={control}
+            defaultValue={dataProductProp.providerId}
+            render={({ field }) => (
+              <Autocomplete
+                fullWidth
+                options={
+                  dataProveedores.data && dataProveedores.data.length > 0
+                    ? dataProveedores.data
+                    : []
+                }
+                value={
+                  dataProveedores.data?.find(
+                    (p: any) => p.idProvider == field.value
+                  ) || null
+                }
+                onChange={(event, newValue) => {
+                  const id = newValue ? newValue.idProvider : null;
+
+                  field.onChange(id);
+
+                  setProductsProveedor((prev) => ({
+                    ...prev,
+                    data: prev.data.map((item) =>
+                      item.idProduct === dataProductProp.idProduct ||
+                      item.idProductExt === dataProductProp.idProductExt
+                        ? { ...item, providerId: Number(id) }
+                        : item
+                    ),
+                  }));
+                }}
+                getOptionLabel={(option) => `${option.companyName}`}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Proveedor"
+                    placeholder="Buscar Proveedor"
+                  />
+                )}
+              />
+            )}
+          />
+        </FormControl>
       </div>
 
       <div
