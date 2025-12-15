@@ -13,7 +13,6 @@ const ProveedoresUtils = () => {
     (response) => response,
     (er) => {
       setShowSpinner(false);
-      setDataModal((prev) => ({ ...prev, isOpen: false }));
 
       if (er.response?.status == 401) {
         setDataModal({
@@ -33,22 +32,23 @@ const ProveedoresUtils = () => {
           type: "info",
           showActions: true,
         });
-        return;
-      } else if (er.response?.status != 401) {
-        setDataModal({
-          isOpen: true,
-          content: er?.response?.data?.message,
-          title: "Error",
-          onClose: () => {
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          onConfirm: async () => {
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          type: "info",
-          showActions: true,
-        });
+        return Promise.reject(er);
       }
+
+      // setDataModal({
+      //   isOpen: true,
+      //   content: er?.response?.data?.message,
+      //   title: "Error",
+      //   onClose: () => {
+      //     setDataModal((prev) => ({ ...prev, isOpen: false }));
+      //   },
+      //   onConfirm: async () => {
+      //     setDataModal((prev) => ({ ...prev, isOpen: false }));
+      //   },
+      //   type: "info",
+      //   showActions: true,
+      // });
+      // return Promise.reject(er);
     }
   );
 
