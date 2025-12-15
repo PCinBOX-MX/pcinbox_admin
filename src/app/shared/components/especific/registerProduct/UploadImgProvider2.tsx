@@ -31,7 +31,6 @@ const UploadImgProductProvider2 = ({
 
   const { requestPostProveedores } = ProveedoresUtils();
 
-  const { handleGetProductsByProveedor } = useProveedores();
   const [price, setPrice] = useState<any>();
   const [files, setFiles] = useState<File[]>([]);
   const [caracteristicas, setCaracteristicas] = useState<
@@ -282,7 +281,6 @@ const UploadImgProductProvider2 = ({
               );
               setLoadingUploadImgProvider(false);
               if (resp.status == 200) {
-                await handleGetProductsByProveedor(dataProductProp.providerId);
                 setDataModal((prev) => ({ ...prev, isOpen: false }));
                 setDataModal({
                   isOpen: true,
@@ -300,6 +298,7 @@ const UploadImgProductProvider2 = ({
               }
             } catch (error: any) {
               setLoadingUploadImgProvider(false);
+
               console.log("error al registrar producto");
               console.log(error.message);
             }

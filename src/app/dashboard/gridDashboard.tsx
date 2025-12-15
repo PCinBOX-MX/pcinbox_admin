@@ -432,12 +432,100 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%]`}
               style={{
                 padding: "10px",
               }}
+              onClick={() => {
+                setDataModal({
+                  isOpen: true,
+                  type: "success",
+                  content: (
+                    <div className="flex flex-col gap-3 min-w-[500px] max-w-[700px] max-h-[500px] overflow-y-auto pr-2">
+                      {Array.isArray(params.value) &&
+                        params.value.map((item: any, index: number) => (
+                          <div
+                            key={index}
+                            style={{
+                              padding: "10px",
+                            }}
+                            className="rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex flex-col gap-3 p-2">
+                              <div>
+                                <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                  Nombre:
+                                </span>
+                                <p className="text-gray-900 font-medium">
+                                  {item.productName}
+                                </p>
+                              </div>
+
+                              <div className="p-2">
+                                <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                  Descripción:
+                                </span>
+                                <p className="text-gray-700">
+                                  {item.description}
+                                </p>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 p-2">
+                                {item?.sku && (
+                                  <div className="p-2">
+                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                      SKU:
+                                    </span>
+                                    <p className="text-gray-700">{item.sku}</p>
+                                  </div>
+                                )}
+
+                                {item?.upc && (
+                                  <div className="p-2">
+                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                      UPC:
+                                    </span>
+                                    <p className="text-gray-700">{item.upc}</p>
+                                  </div>
+                                )}
+
+                                {item?.clave && (
+                                  <div className="p-2">
+                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                      Clave:
+                                    </span>
+                                    <p className="text-gray-700">
+                                      {item.clave}
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div className="px-2 py-2">
+                                  <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                    Cantidad:
+                                  </span>
+                                  <p className="text-gray-700 font-semibold">
+                                    {item.quantity}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  ),
+                  title: "Productos",
+                  showActions: true,
+                  onClose: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                  onConfirm: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                });
+              }}
             >
-              <div className="w-full flex flex-col">
+              {/* <div className="w-full flex flex-col">
                 {Array.isArray(params.value) &&
                   params.value.map((item, index) => {
                     return (
@@ -500,17 +588,22 @@ const GridDashboard = ({
                       </div>
                     );
                   })}
-              </div>
-              {/* <span
-              className="text-[#808080] block"
-              style={{
-                fontSize: "18px",
-                fontWeight: "600",
-                wordBreak: "break-word",
-              }}
-            >
-              {JSON.stringify(params.value)}
-            </span> */}
+              </div> */}
+              <span
+                className="text-[black] block text-center font-bold"
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  wordBreak: "break-word",
+                }}
+              >
+                {Array.isArray(params.value) &&
+                  `${
+                    params.value.length == 1
+                      ? `1 Producto`
+                      : `${params.value.length} Productos`
+                  }`}
+              </span>
             </div>
           );
         },
@@ -699,6 +792,36 @@ const GridDashboard = ({
           );
         },
       },
+      {
+        field: "createdAt",
+        headerName: "Fecha de compra",
+        flex: 1,
+        renderCell: (params) => {
+          if (params.value) {
+            return (
+              <div
+                className="flex justify-center flex-col items-center min-h-full"
+                style={{
+                  padding: "10px",
+                }}
+              >
+                <div className="w-full">
+                  <span
+                    className="text-[black] block text-center font-bold"
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {new Date(params.value).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+        },
+      },
 
       {
         field: "actionsShipment",
@@ -713,7 +836,7 @@ const GridDashboard = ({
 
           return (
             <div
-              className="flex justify-center flex-col items-center min-h-[100%]"
+              className="flex justify-center flex-col items-center min-h-full"
               style={{
                 padding: "10px",
               }}
@@ -737,6 +860,7 @@ const GridDashboard = ({
                     <MenuItem value={"cancelado"}>Cancelado</MenuItem>
                     <MenuItem value={"enviado"}>Enviado</MenuItem>
                     <MenuItem value={"procesando"}>Procesando</MenuItem>
+                    <MenuItem value={"disponible"}>Disponible</MenuItem>
                   </Select>
                 </FormControl>
               </div>
