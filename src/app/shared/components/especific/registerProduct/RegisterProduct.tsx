@@ -4,6 +4,7 @@ import {
   FormEventHandler,
   SetStateAction,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import {
@@ -27,9 +28,11 @@ import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { MdAdd, MdRemove } from "react-icons/md";
+import { Controller, useForm } from "react-hook-form";
 
 interface DataNewProductI {
   name: string;
+  clave?: string;
   description: string;
   marca: number;
   categoria: number;
@@ -37,26 +40,38 @@ interface DataNewProductI {
   sku: string;
   price: number;
   image_url: File[];
+  upc?: string;
+  providerId: number;
+  caracteristicas: { prop: string; value: string }[];
 }
 
 export const RegisterProduct = () => {
   const { setDataModal, dataMarca, dataCategoria, setProductsProveedor } =
     useTheContext();
   const [files, setFiles] = useState<File[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef2 = useRef<HTMLDivElement>(null);
+
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<number>(0);
 
   const [selectedCategoria, setSelectedCategoria] = useState<number>(0);
+  const { dataProveedores } = useTheContext();
+
+  const { control } = useForm();
 
   const [dataNewComponent, setDataNewComponent] = useState<DataNewProductI>({
     name: "",
     description: "",
+    clave: "",
     marca: 0,
     categoria: 0,
     stock: 0,
     sku: "",
     price: 0,
     image_url: [],
+    providerId: 1,
+    caracteristicas: [],
   });
 
   const [dataNewPcGamer, setDataNewPcGamer] = useState<{
@@ -82,12 +97,29 @@ export const RegisterProduct = () => {
 
   const { requestPostProveedores } = ProveedoresUtils();
 
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+
+    if (containerRef2.current) {
+      containerRef2.current.scrollTop = containerRef2.current.scrollHeight;
+    }
+  }, [dataNewPcGamer.caracteristicas, dataNewComponent.caracteristicas]);
+
   const handleRemoveFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (event: any) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const form = event.currentTarget;
+
+    if (!form.checkValidity()) {
+      alert("Completa los campos");
+      return;
+    }
 
     if (
       (typeProduct == "component" &&
@@ -108,23 +140,32 @@ export const RegisterProduct = () => {
 
       if (typeProduct?.toLowerCase() === "component") {
         formData.append("name", dataNewComponent.name);
+        formData.append("clave", dataNewComponent?.clave || "");
         formData.append("description", dataNewComponent.description);
         formData.append("price", dataNewComponent.price.toString());
         formData.append("sku", dataNewComponent.sku);
         formData.append("categoryId", dataNewComponent.categoria.toString());
         formData.append("marcaId", dataNewComponent.marca.toString());
         formData.append("stock", dataNewComponent.stock.toString());
+        formData.append("upc", dataNewComponent?.upc || "");
 
         const filesArray = Array.from(files || []);
         filesArray.forEach((file) => formData.append("files", file));
-        formData.append("providerId", "1");
-        formData.append("isPc", "true");
+        formData.append("providerId", dataNewComponent.providerId.toString());
+        formData.append("isPc", "0");
+        formData.append(
+          "caracteristicas",
+          JSON.stringify(dataNewComponent.caracteristicas)
+        );
       } else if (typeProduct?.toLowerCase() === "pcgamer") {
         formData.append("name", dataNewPcGamer.name);
         formData.append("description", dataNewPcGamer.description);
         formData.append("price", dataNewPcGamer.price.toString());
         formData.append("sku", dataNewPcGamer.sku);
         formData.append("stock", dataNewPcGamer.stock.toString());
+        formData.append("clave", dataNewComponent?.clave || "");
+        formData.append("upc", dataNewComponent?.upc || "");
+
         formData.append(
           "caracteristicas",
           JSON.stringify(dataNewPcGamer.caracteristicas)
@@ -132,68 +173,44 @@ export const RegisterProduct = () => {
 
         const filesArray = Array.from(files || []);
         filesArray.forEach((file) => formData.append("files", file));
-        formData.append("providerId", "1");
-        formData.append("isPc", "true");
+        formData.append("providerId", dataNewComponent.providerId.toString());
+        formData.append("isPc", "1");
       }
 
       const resp = await requestPostProveedores(formData, "/newProductPcinbox");
       setLoadingNewProduct(false);
-      setDataModal((prev) => ({
-        ...prev,
-        isOpen: false,
-      }));
-
-      setDataModal({
-        isOpen: true,
-        type: "success",
-        title: "Correcto",
-        content: "Producto dado de alta correctamente",
-        showActions: true,
-        onClose: () => {
-          setDataModal((prev) => ({
-            ...prev,
-            isOpen: false,
-          }));
-        },
-        onConfirm: () => {
-          setDataModal((prev) => ({
-            ...prev,
-            isOpen: false,
-          }));
-        },
-      });
 
       if (resp.status == 200) {
         const data = resp.data;
+        setDataModal({
+          isOpen: true,
+          type: "success",
+          title: "Correcto",
+          content: "Producto dado de alta correctamente",
+          showActions: true,
+          onClose: () => {
+            setDataModal((prev) => ({
+              ...prev,
+              isOpen: false,
+            }));
+          },
+          onConfirm: () => {
+            setDataModal((prev) => ({
+              ...prev,
+              isOpen: false,
+            }));
+          },
+        });
 
         setProductsProveedor((prev) => ({ ...prev, data: data.data.data }));
       }
-    } catch (error: any) {
+    } catch (error) {
       setLoadingNewProduct(false);
-      setDataModal((prev) => ({
-        ...prev,
-        isOpen: false,
-      }));
-
-      setDataModal({
-        isOpen: true,
-        type: "error",
-        title: "Error",
-        content: error?.response?.data?.message || error?.message,
-        showActions: true,
-        onClose: () => {
-          setDataModal((prev) => ({
-            ...prev,
-            isOpen: false,
-          }));
-        },
-        onConfirm: () => {
-          setDataModal((prev) => ({
-            ...prev,
-            isOpen: false,
-          }));
-        },
-      });
+      alert(
+        typeProduct?.toLowerCase() === "component"
+          ? `La clave ${dataNewComponent.clave} ya existe u ocurrió un error inesperado `
+          : "Ocurrió un error"
+      );
     }
   };
 
@@ -246,7 +263,7 @@ export const RegisterProduct = () => {
 
       {typeProduct == "component" ? (
         <>
-          <div className="grid grid-cols-[1fr_1fr] gap-2">
+          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
             <TextField
               label="Nombre"
               variant="outlined"
@@ -274,9 +291,7 @@ export const RegisterProduct = () => {
                 }));
               }}
             />
-          </div>
 
-          <div className="grid grid-cols-[auto] gap-2">
             <FormControl fullWidth>
               <Autocomplete
                 fullWidth
@@ -305,13 +320,14 @@ export const RegisterProduct = () => {
                     label="Categoria"
                     name="categoria"
                     placeholder="Buscar categoría"
+                    required
                   />
                 )}
               />
             </FormControl>
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr] gap-2">
+          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
             <FormControl fullWidth>
               <Autocomplete
                 fullWidth
@@ -339,6 +355,7 @@ export const RegisterProduct = () => {
                     label="Marca"
                     name="marca"
                     placeholder="Buscar marca"
+                    required
                   />
                 )}
               />
@@ -348,24 +365,22 @@ export const RegisterProduct = () => {
               type="number"
               variant="outlined"
               name="stock"
-              value={dataNewPcGamer.stock === 0 ? "" : dataNewPcGamer.stock}
+              value={dataNewComponent.stock || ""}
               onChange={(event) => {
-                setDataNewPcGamer((prev) => ({
+                setDataNewComponent((prev) => ({
                   ...prev,
-                  stock:
-                    event.target.value === "" ? 0 : Number(event.target.value),
+                  stock: Number(event.target.value),
                 }));
               }}
               required
             />
-          </div>
-          <div className="grid grid-cols-[1fr_1fr] gap-2">
             <TextField
               required
               label="Precio"
               type="number"
               variant="outlined"
               name="price"
+              value={dataNewComponent?.price || ""}
               onChange={(event) =>
                 setDataNewComponent((prev) => ({
                   ...prev,
@@ -373,6 +388,8 @@ export const RegisterProduct = () => {
                 }))
               }
             />
+          </div>
+          <div className="grid grid-cols-[1fr_1fr] gap-2">
             <TextField
               required
               label="SKU"
@@ -386,9 +403,7 @@ export const RegisterProduct = () => {
                 }))
               }
             />
-          </div>
 
-          <div className="grid grid-cols-[auto] gap-2">
             <TextField
               label=""
               type="file"
@@ -453,6 +468,163 @@ export const RegisterProduct = () => {
                 </Card>
               );
             })}
+          </div>
+
+          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
+            <TextField
+              required
+              label="UPC"
+              type="text"
+              variant="outlined"
+              name="upc"
+              value={dataNewComponent?.upc}
+              onChange={(event) =>
+                setDataNewComponent((prev) => ({
+                  ...prev,
+                  upc: event.target.value,
+                }))
+              }
+            />
+
+            <FormControl fullWidth>
+              <Controller
+                name="Proveedor"
+                control={control}
+                defaultValue={1}
+                render={({ field }) => (
+                  <Autocomplete
+                    fullWidth
+                    options={
+                      dataProveedores.data && dataProveedores.data.length > 0
+                        ? dataProveedores.data
+                        : []
+                    }
+                    value={
+                      dataProveedores.data?.find(
+                        (p: any) => p.idProvider == field.value
+                      ) || null
+                    }
+                    onChange={(event, newValue) => {
+                      const id = newValue ? newValue.idProvider : null;
+
+                      field.onChange(id);
+
+                      setDataNewComponent((prev) => ({
+                        ...prev,
+                        providerId: Number(id),
+                      }));
+                    }}
+                    getOptionLabel={(option) => `${option.companyName}`}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Proveedor"
+                        placeholder="Buscar Proveedor"
+                      />
+                    )}
+                  />
+                )}
+              />
+            </FormControl>
+
+            <TextField
+              required
+              label="Clave"
+              type="text"
+              variant="outlined"
+              name="calve"
+              value={dataNewComponent?.clave}
+              onChange={(event) =>
+                setDataNewComponent((prev) => ({
+                  ...prev,
+                  clave: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div
+            className="grid grid-cols-[1fr] grid-flow-row gap-2 max-h-[150px] overflow-y-auto overflow-x-hidden py-3"
+            ref={containerRef2}
+          >
+            {dataNewComponent.caracteristicas &&
+            dataNewComponent.caracteristicas.length > 0
+              ? dataNewComponent.caracteristicas.map(
+                  (car: any, indexCar: number) => {
+                    return (
+                      <div
+                        key={indexCar}
+                        className="w-full grid grid-cols-[1fr_1fr_auto] gap-2"
+                      >
+                        <TextField
+                          label="Caracteristica"
+                          variant="outlined"
+                          name="prop"
+                          value={car.prop}
+                          onChange={(event) => {
+                            setDataNewComponent((prev) => ({
+                              ...prev,
+                              caracteristicas: prev.caracteristicas.map(
+                                (item, indexPrevCar) =>
+                                  indexPrevCar === indexCar
+                                    ? { ...item, prop: event.target.value } // actualiza solo ese item
+                                    : item
+                              ),
+                            }));
+                          }}
+                        />
+
+                        <TextField
+                          label="Valor"
+                          variant="outlined"
+                          name="value"
+                          value={car.value}
+                          onChange={(event) => {
+                            setDataNewComponent((prev) => ({
+                              ...prev,
+                              caracteristicas: prev.caracteristicas.map(
+                                (item, indexPrevCar) =>
+                                  indexPrevCar === indexCar
+                                    ? { ...item, value: event.target.value } // actualiza solo ese item
+                                    : item
+                              ),
+                            }));
+                          }}
+                        />
+
+                        <Button
+                          style={{ background: "red", color: "white" }}
+                          onClick={() => {
+                            setDataNewComponent((prev) => ({
+                              ...prev,
+                              caracteristicas: prev.caracteristicas.filter(
+                                (_, indexP) => indexP !== indexCar
+                              ),
+                            }));
+                          }}
+                        >
+                          <MdRemove size={26} />
+                        </Button>
+                      </div>
+                    );
+                  }
+                )
+              : ""}
+          </div>
+          <div className="flex justify-start">
+            <Button
+              style={{ background: "green", color: "white" }}
+              onClick={() => {
+                setDataNewComponent((prev) => ({
+                  ...prev,
+                  caracteristicas: [
+                    ...prev.caracteristicas,
+                    { prop: "", value: "" },
+                  ],
+                }));
+              }}
+            >
+              <MdAdd size={26} />
+            </Button>
           </div>
         </>
       ) : typeProduct == "pcgamer" ? (
@@ -562,6 +734,123 @@ export const RegisterProduct = () => {
             />
           </div>
 
+          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
+            <TextField
+              label="UPC"
+              variant="outlined"
+              name="name"
+              value={dataNewComponent.upc}
+              onChange={(event) => {
+                setDataNewComponent((prev) => ({
+                  ...prev,
+                  upc: event.target.value,
+                }));
+              }}
+            />
+
+            <FormControl fullWidth>
+              <Controller
+                name="Proveedor"
+                control={control}
+                defaultValue={1}
+                render={({ field }) => (
+                  <Autocomplete
+                    fullWidth
+                    options={
+                      dataProveedores.data && dataProveedores.data.length > 0
+                        ? dataProveedores.data
+                        : []
+                    }
+                    value={
+                      dataProveedores.data?.find(
+                        (p: any) => p.idProvider == field.value
+                      ) || null
+                    }
+                    onChange={(event, newValue) => {
+                      const id = newValue ? newValue.idProvider : null;
+
+                      field.onChange(id);
+
+                      setDataNewComponent((prev) => ({
+                        ...prev,
+                        providerId: Number(id),
+                      }));
+                    }}
+                    getOptionLabel={(option) => `${option.companyName}`}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Proveedor"
+                        placeholder="Buscar Proveedor"
+                      />
+                    )}
+                  />
+                )}
+              />
+            </FormControl>
+
+            <FormControl fullWidth>
+              <Controller
+                name="Tipo"
+                control={control}
+                render={({ field }) => (
+                  <Autocomplete
+                    fullWidth
+                    options={[
+                      {
+                        tipo: "Oficina y Gaming",
+                        label: "Laptops, Escritorios y sillas Gamer",
+                      },
+                      { tipo: "workStation", label: "PC Estación de trabajo" },
+                      // { tipo: "", label: "" },
+                      { tipo: "pro", label: "Pc Gamer Pro" },
+                      { tipo: "intermedia", label: "Pc Gamer Intermedio" },
+                      { tipo: "entrada", label: "Pc Gamer de entrada" },
+                    ]}
+                    value={
+                      [
+                        {
+                          tipo: "Oficina y Gaming",
+                          label: "Laptops, Escritorios y sillas Gamer",
+                        },
+                        {
+                          tipo: "workStation",
+                          label: "PC Estación de trabajo",
+                        },
+                        // { tipo: "", label: "" },
+                        { tipo: "pro", label: "Pc Gamer Pro" },
+                        { tipo: "intermedia", label: "Pc Gamer Intermedio" },
+                        { tipo: "entrada", label: "Pc Gamer de entrada" },
+                      ].find((p: any) => p.tipo == field.value) || null
+                    }
+                    onChange={(event, newValue) => {
+                      const id = newValue ? newValue.tipo : null;
+
+                      field.onChange(id);
+
+                      dataNewPcGamer.caracteristicas = [
+                        {
+                          prop: "tipo",
+                          value: id || "",
+                        },
+                        ...dataNewPcGamer.caracteristicas,
+                      ];
+                    }}
+                    getOptionLabel={(option) => `${option.label}`}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Tipo de PC"
+                        placeholder="Buscar Tipo de PC"
+                        required
+                      />
+                    )}
+                  />
+                )}
+              />
+            </FormControl>
+          </div>
+
           <div className="flex flex-wrap gap-3">
             {files.map((file, indexFile) => {
               const fileUrl = previewUrls[indexFile];
@@ -614,7 +903,10 @@ export const RegisterProduct = () => {
             })}
           </div>
 
-          <div className="grid grid-cols-[1fr] grid-flow-row gap-2 max-h-[150px] overflow-y-auto overflow-x-hidden py-3">
+          <div
+            className="grid grid-cols-[1fr] grid-flow-row gap-2 max-h-[150px] overflow-y-auto overflow-x-hidden py-3"
+            ref={containerRef}
+          >
             {dataNewPcGamer.caracteristicas &&
             dataNewPcGamer.caracteristicas.length > 0
               ? dataNewPcGamer.caracteristicas.map(
