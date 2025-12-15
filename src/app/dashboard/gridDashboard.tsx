@@ -441,55 +441,77 @@ const GridDashboard = ({
                   isOpen: true,
                   type: "success",
                   content: (
-                    <div className="min-w-[500px] max-w-[700px] flex justify-center">
-                      {params.value.map((item: any, index: number) => (
-                        <div key={index} className="mb-4 p-3 rounded">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <span className="text-gray-500 font-bold">
-                                Nombre:
-                              </span>
-                              <p>{item.productName}</p>
-                            </div>
-                            <div>
-                              <span className="text-gray-500 font-bold">
-                                Descripción:
-                              </span>
-                              <p>{item.description}</p>
-                            </div>
-                            {item?.upc && (
+                    <div className="flex flex-col gap-3 min-w-[500px] max-w-[700px] max-h-[500px] overflow-y-auto pr-2">
+                      {Array.isArray(params.value) &&
+                        params.value.map((item: any, index: number) => (
+                          <div
+                            key={index}
+                            style={{
+                              padding: "10px",
+                            }}
+                            className="rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex flex-col gap-3 p-2">
                               <div>
-                                <span className="text-gray-500 font-bold">
-                                  UPC:
+                                <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                  Nombre:
                                 </span>
-                                <p>{item.upc}</p>
+                                <p className="text-gray-900 font-medium">
+                                  {item.productName}
+                                </p>
                               </div>
-                            )}
-                            {item?.clave && (
-                              <div>
-                                <span className="text-gray-500 font-bold">
-                                  Clave:
+
+                              <div className="p-2">
+                                <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                  Descripción:
                                 </span>
-                                <p>{item.clave}</p>
+                                <p className="text-gray-700">
+                                  {item.description}
+                                </p>
                               </div>
-                            )}
-                            {item?.sku && (
-                              <div>
-                                <span className="text-gray-500 font-bold">
-                                  SKU:
-                                </span>
-                                <p>{item.sku}</p>
+
+                              <div className="grid grid-cols-2 gap-3 p-2">
+                                {item?.sku && (
+                                  <div className="p-2">
+                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                      SKU:
+                                    </span>
+                                    <p className="text-gray-700">{item.sku}</p>
+                                  </div>
+                                )}
+
+                                {item?.upc && (
+                                  <div className="p-2">
+                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                      UPC:
+                                    </span>
+                                    <p className="text-gray-700">{item.upc}</p>
+                                  </div>
+                                )}
+
+                                {item?.clave && (
+                                  <div className="p-2">
+                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                      Clave:
+                                    </span>
+                                    <p className="text-gray-700">
+                                      {item.clave}
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div className="px-2 py-2">
+                                  <span className="text-gray-500 text-sm font-semibold block mb-1">
+                                    Cantidad:
+                                  </span>
+                                  <p className="text-gray-700 font-semibold">
+                                    {item.quantity}
+                                  </p>
+                                </div>
                               </div>
-                            )}
-                            <div>
-                              <span className="text-gray-500 font-bold">
-                                Cantidad:
-                              </span>
-                              <p>{item.quantity}</p>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   ),
                   title: "Productos",
