@@ -432,12 +432,78 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%]`}
               style={{
                 padding: "10px",
               }}
+              onClick={() => {
+                setDataModal({
+                  isOpen: true,
+                  type: "success",
+                  content: (
+                    <div className="min-w-[500px] max-w-[700px] flex justify-center">
+                      {params.value.map((item: any, index: number) => (
+                        <div key={index} className="mb-4 p-3 rounded">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-gray-500 font-bold">
+                                Nombre:
+                              </span>
+                              <p>{item.productName}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 font-bold">
+                                Descripción:
+                              </span>
+                              <p>{item.description}</p>
+                            </div>
+                            {item?.upc && (
+                              <div>
+                                <span className="text-gray-500 font-bold">
+                                  UPC:
+                                </span>
+                                <p>{item.upc}</p>
+                              </div>
+                            )}
+                            {item?.clave && (
+                              <div>
+                                <span className="text-gray-500 font-bold">
+                                  Clave:
+                                </span>
+                                <p>{item.clave}</p>
+                              </div>
+                            )}
+                            {item?.sku && (
+                              <div>
+                                <span className="text-gray-500 font-bold">
+                                  SKU:
+                                </span>
+                                <p>{item.sku}</p>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-gray-500 font-bold">
+                                Cantidad:
+                              </span>
+                              <p>{item.quantity}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ),
+                  title: "Productos",
+                  showActions: true,
+                  onClose: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                  onConfirm: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                });
+              }}
             >
-              <div className="w-full flex flex-col">
+              {/* <div className="w-full flex flex-col">
                 {Array.isArray(params.value) &&
                   params.value.map((item, index) => {
                     return (
@@ -500,17 +566,22 @@ const GridDashboard = ({
                       </div>
                     );
                   })}
-              </div>
-              {/* <span
-              className="text-[#808080] block"
-              style={{
-                fontSize: "18px",
-                fontWeight: "600",
-                wordBreak: "break-word",
-              }}
-            >
-              {JSON.stringify(params.value)}
-            </span> */}
+              </div> */}
+              <span
+                className="text-[black] block text-center font-bold"
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  wordBreak: "break-word",
+                }}
+              >
+                {Array.isArray(params.value) &&
+                  `${
+                    params.value.length == 1
+                      ? `1 Producto`
+                      : `${params.value.length} Productos`
+                  }`}
+              </span>
             </div>
           );
         },
