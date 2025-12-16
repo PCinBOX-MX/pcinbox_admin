@@ -124,6 +124,16 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           </Typography>
         )}
 
+        {dataProduct?.idProductExt && (
+          <Typography
+            variant="body2"
+            sx={{ color: "text.secondary", margin: "10px 0px" }}
+          >
+            <span className="text-black font-bold text-[17px]">Clave:</span>{" "}
+            {dataProduct?.idProductExt}
+          </Typography>
+        )}
+
         <Typography
           variant="body2"
           sx={{ color: "text.secondary", margin: "10px 0px" }}
