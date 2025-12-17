@@ -266,10 +266,10 @@ const UploadImgProductProvider2 = ({
                 JSON.stringify(dataProductProp?.stockBranches!)
               );
 
-              formData.append("width", dataProductProp?.width);
-              formData.append("height", dataProductProp?.height);
-              formData.append("largo", dataProductProp?.largo);
-              formData.append("peso", dataProductProp?.peso);
+              // formData.append("width", dataProductProp?.width);
+              // formData.append("height", dataProductProp?.height);
+              // formData.append("largo", dataProductProp?.largo);
+              // formData.append("peso", dataProductProp?.peso);
 
               files.forEach((file) => formData.append("files", file));
 
