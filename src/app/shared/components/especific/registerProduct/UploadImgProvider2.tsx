@@ -240,10 +240,7 @@ const UploadImgProductProvider2 = ({
           onClick={async () => {
             try {
               let formData = new FormData();
-              formData.append(
-                "idProductExt",
-                dataProductProp.idProductExt.toString()
-              );
+              formData.append("clave", dataProductProp.idProductExt.toString());
               formData.append("name", dataProductProp.name);
               formData.append("description", dataProductProp.description);
               formData.append("price", price.toString());
