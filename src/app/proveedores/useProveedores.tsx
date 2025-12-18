@@ -6,7 +6,6 @@ import { SelectChangeEvent } from "@mui/material";
 import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
-// import { useForm } from "react-hook-form";
 import { RegisterProduct } from "../shared/components/especific/registerProduct/RegisterProduct";
 
 const useProveedores = () => {
@@ -60,31 +59,30 @@ const useProveedores = () => {
       if (resp?.status == 200) {
         const data = resp.data;
 
- setProductsProveedor((prev) => {
-  const originals = data.data.data ?? [];
-  const updates = data.data.dataExist ?? [];
+        setProductsProveedor((prev) => {
+          const originals = data.data.data ?? [];
+          const updates = data.data.dataExist ?? [];
 
-  const merged = originals.map((item: ProductsI) => {
-    const match = updates.find(
-      (u: ProductsI) => Number(u.idProduct) === Number(item.idProduct)
-    );
-    return match ? { ...item, ...match } : item;
-  });
+          const merged = originals.map((item: ProductsI) => {
+            const match = updates.find(
+              (u: ProductsI) => Number(u.idProduct) === Number(item.idProduct)
+            );
+            return match ? { ...item, ...match } : item;
+          });
 
-  const newOnes = updates.filter(
-    (u: ProductsI) =>
-      !originals.some(
-        (o: ProductsI) => Number(o.idProduct) === Number(u.idProduct)
-      )
-  );
+          const newOnes = updates.filter(
+            (u: ProductsI) =>
+              !originals.some(
+                (o: ProductsI) => Number(o.idProduct) === Number(u.idProduct)
+              )
+          );
 
-  return {
-    ...prev,
-    data: [...merged, ...newOnes],
-    copyData: [...merged, ...newOnes],
-  };
-});
-
+          return {
+            ...prev,
+            data: [...merged, ...newOnes],
+            copyData: [...merged, ...newOnes],
+          };
+        });
       }
     } catch (error) {
       setProductsProveedor((prev) => ({ ...prev, loading: false }));

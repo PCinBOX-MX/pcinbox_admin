@@ -81,6 +81,7 @@ export const RegisterProduct = () => {
     sku: string;
     price: number;
     image_url: File[];
+    upc?: string;
     caracteristicas: { prop: string; value: string }[];
   }>({
     name: "",
@@ -90,6 +91,7 @@ export const RegisterProduct = () => {
     price: 0,
     image_url: [],
     caracteristicas: [],
+    upc: "",
   });
   const [typeProduct, setTypeProduct] = useState("");
 
@@ -268,7 +270,7 @@ export const RegisterProduct = () => {
               label="Nombre"
               variant="outlined"
               name="name"
-              value={dataNewComponent.name}
+              value={dataNewComponent?.name || ""}
               onChange={(event) => {
                 setDataNewComponent((prev) => ({
                   ...prev,
@@ -283,7 +285,7 @@ export const RegisterProduct = () => {
               type="text"
               variant="outlined"
               name="description"
-              value={dataNewComponent.description}
+              value={dataNewComponent?.description || ""}
               onChange={(event) => {
                 setDataNewComponent((prev) => ({
                   ...prev,
@@ -365,7 +367,7 @@ export const RegisterProduct = () => {
               type="number"
               variant="outlined"
               name="stock"
-              value={dataNewComponent.stock || ""}
+              value={dataNewComponent?.stock || ""}
               onChange={(event) => {
                 setDataNewComponent((prev) => ({
                   ...prev,
@@ -396,6 +398,7 @@ export const RegisterProduct = () => {
               type="text"
               variant="outlined"
               name="sku"
+              value={dataNewComponent.sku || ""}
               onChange={(event) =>
                 setDataNewComponent((prev) => ({
                   ...prev,
@@ -477,7 +480,7 @@ export const RegisterProduct = () => {
               type="text"
               variant="outlined"
               name="upc"
-              value={dataNewComponent?.upc}
+              value={dataNewComponent?.upc || ""}
               onChange={(event) =>
                 setDataNewComponent((prev) => ({
                   ...prev,
@@ -533,7 +536,7 @@ export const RegisterProduct = () => {
               type="text"
               variant="outlined"
               name="calve"
-              value={dataNewComponent?.clave}
+              value={dataNewComponent?.clave || ""}
               onChange={(event) =>
                 setDataNewComponent((prev) => ({
                   ...prev,
@@ -634,7 +637,7 @@ export const RegisterProduct = () => {
               label="Nombre"
               variant="outlined"
               name="name"
-              value={dataNewPcGamer.name}
+              value={dataNewPcGamer?.name || ""}
               onChange={(event) => {
                 setDataNewPcGamer((prev) => ({
                   ...prev,
@@ -649,7 +652,7 @@ export const RegisterProduct = () => {
               type="text"
               variant="outlined"
               name="description"
-              value={dataNewPcGamer.description}
+              value={dataNewPcGamer?.description || ""}
               onChange={(event) => {
                 setDataNewPcGamer((prev) => ({
                   ...prev,
@@ -664,7 +667,7 @@ export const RegisterProduct = () => {
               type="text"
               variant="outlined"
               name="sku"
-              value={dataNewPcGamer.sku}
+              value={dataNewPcGamer?.sku || ""}
               onChange={(event) =>
                 setDataNewPcGamer((prev) => ({
                   ...prev,
@@ -739,9 +742,9 @@ export const RegisterProduct = () => {
               label="UPC"
               variant="outlined"
               name="name"
-              value={dataNewComponent.upc}
+              value={dataNewPcGamer?.upc || ""}
               onChange={(event) => {
-                setDataNewComponent((prev) => ({
+                setDataNewPcGamer((prev) => ({
                   ...prev,
                   upc: event.target.value,
                 }));
@@ -771,7 +774,7 @@ export const RegisterProduct = () => {
 
                       field.onChange(id);
 
-                      setDataNewComponent((prev) => ({
+                      setDataNewPcGamer((prev) => ({
                         ...prev,
                         providerId: Number(id),
                       }));
