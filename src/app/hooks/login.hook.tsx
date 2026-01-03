@@ -55,10 +55,13 @@ const useLogin = () => {
       if (resp && resp.status == 200) {
         const data = resp.data;
 
-        localStorage.setItem("email", email || "");
-        localStorage.setItem("token", data?.data?.token || data?.token || "");
-
-        onRouterPush("/dashboard");
+        if (data?.data?.role == "admin") {
+          localStorage.setItem("email", email || "");
+          localStorage.setItem("token", data?.data?.token || data?.token || "");
+          onRouterPush("/dashboard");
+        } else {
+          alert("Cuenta no permitida");
+        }
       }
     } catch (error) {
       setLoadingLogin(false);
