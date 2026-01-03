@@ -24,6 +24,19 @@ const PagosUtils = () => {
     (error) => Promise.reject(error)
   );
 
+  api.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem("token");
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+
   api.interceptors.response.use(
     (response) => response,
     (er) => {
@@ -59,11 +72,7 @@ const PagosUtils = () => {
   const requestGetPagos = async (endPoint: string) => {
     try {
       setShowSpinner(true);
-      const resp = await api.get(endPoint, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const resp = await api.get(endPoint);
       setShowSpinner(false);
       return resp;
     } catch (error) {
@@ -75,11 +84,7 @@ const PagosUtils = () => {
   const requestPostPagos = async (data: any, endPoint: string) => {
     try {
       setShowSpinner(true);
-      const resp = await api.post(endPoint, data, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const resp = await api.post(endPoint, data);
       setShowSpinner(false);
       return resp;
     } catch (error) {
