@@ -83,8 +83,8 @@ const useLinkPagos = () => {
       setShowSpinner(false);
 
       if (resp.ok) {
-        const blob = await resp.blob();
-        const url = window.URL.createObjectURL(blob);
+        const data = await resp.json();
+        const url = data.link;
         window.open(url, "_blank");
         setDataLinkPago({
           chargeId: "",
