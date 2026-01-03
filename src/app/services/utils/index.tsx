@@ -2,8 +2,11 @@
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useTheContext } from "@/app/hooks/global.hook";
+import { usePathname } from "next/navigation";
 
 const UtilsService = () => {
+  const pathName = usePathname();
+
   const { setDataModal, setShowSpinner } = useTheContext();
 
   const router = useRouter();
@@ -28,7 +31,10 @@ const UtilsService = () => {
     (response) => response,
     (er) => {
       setShowSpinner(false);
-      if (er.response?.status == 401) {
+      if (
+        (er.response?.status == 401 && pathName != "/features/auth/Login") ||
+        (pathName as any) != "/"
+      ) {
         setDataModal({
           isOpen: true,
           content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
