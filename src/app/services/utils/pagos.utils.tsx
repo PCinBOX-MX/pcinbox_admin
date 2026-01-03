@@ -1,8 +1,10 @@
 "use client";
 import { useTheContext } from "@/app/hooks/global.hook";
 import axios from "axios";
+import { usePathname } from "next/navigation";
 
 const PagosUtils = () => {
+  const pathName = usePathname();
   const { setDataModal, setShowSpinner } = useTheContext();
 
   const api = axios.create({
@@ -15,13 +17,16 @@ const PagosUtils = () => {
       setShowSpinner(false);
       setDataModal((prev) => ({ ...prev, isOpen: false }));
 
-      if (er.response?.status == 401) {
+      if (
+        er.response?.status == 401 &&
+        (pathName != "/features/auth/Login" || (pathName as any) != "/")
+      ) {
         setDataModal({
           isOpen: true,
           content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
           title: "Sesión expirada",
           onClose: () => {
-            location.href = "/";
+            location.href = "/features/auth/Login";
             localStorage.clear();
             setDataModal((prev) => ({ ...prev, isOpen: false }));
           },
@@ -33,21 +38,7 @@ const PagosUtils = () => {
           type: "info",
           showActions: true,
         });
-        return;
-      } else if (er.response?.status != 401) {
-        setDataModal({
-          isOpen: true,
-          content: er?.response?.data?.message,
-          title: "Error",
-          onClose: () => {
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          onConfirm: async () => {
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          type: "info",
-          showActions: true,
-        });
+        return Promise.reject(er);
       }
     }
   );
@@ -55,7 +46,11 @@ const PagosUtils = () => {
   const requestGetPagos = async (endPoint: string) => {
     try {
       setShowSpinner(true);
-      const resp = await api.get(endPoint);
+      const resp = await api.get(endPoint, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
       setShowSpinner(false);
       return resp;
     } catch (error) {
@@ -67,7 +62,11 @@ const PagosUtils = () => {
   const requestPostPagos = async (data: any, endPoint: string) => {
     try {
       setShowSpinner(true);
-      const resp = await api.post(endPoint, data);
+      const resp = await api.post(endPoint, data, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
       setShowSpinner(false);
       return resp;
     } catch (error) {

@@ -59,8 +59,12 @@ interface ContextProps {
   socketServer: RefObject<Socket | null>;
   rowsVentas: SalesI[];
   setRowsVentas: Dispatch<SetStateAction<SalesI[]>>;
+  rowsVentasInvitados: any[];
+  setRowsVentasInvitados: Dispatch<SetStateAction<any[]>>;
   showSpinner: boolean;
   setShowSpinner: Dispatch<SetStateAction<boolean>>;
+  dataProducts: ProductsI[];
+  setDataProducts: Dispatch<SetStateAction<ProductsI[]>>;
   dataMarca: any;
   setDataMarca: Dispatch<SetStateAction<any>>;
   dataCategoria: any;
@@ -98,12 +102,16 @@ const CreateContext = createContext<ContextProps>({
   setRowsVentas: () => {},
   showSpinner: false,
   setShowSpinner: () => {},
+  dataProducts: [],
+  setDataProducts: () => {},
   dataMarca: [],
   setDataMarca: () => {},
   dataCategoria: [],
   setDataCategoria: () => {},
   tableKey: 0,
   setTableKey: () => {},
+  rowsVentasInvitados: [],
+  setRowsVentasInvitados: () => {},
 });
 
 export const GlobalProvider = ({ children }: { children: any }) => {
@@ -135,6 +143,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   });
 
   const [rowsVentas, setRowsVentas] = useState<SalesI[]>([]);
+  const [rowsVentasInvitados, setRowsVentasInvitados] = useState<any[]>([]);
 
   const [showSpinner, setShowSpinner] = useState<boolean>(false);
 
@@ -145,6 +154,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   const [tableKey, setTableKey] = useState(0);
 
   const [dataCategoria, setDataCategoria] = useState([]);
+  const [dataProducts, setDataProducts] = useState<ProductsI[]>([]);
   const { requestGetProveedores } = ProveedoresUtils();
 
   const handleGetMarcas = async () => {
@@ -196,6 +206,27 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+
+    const getListProducts = async () => {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL_PROVEEDOR}/getAllProduct`).then(
+        async (res) => {
+          const data = await res.json();
+
+          setDataProducts(data.data);
+          if (mounted) setDataProducts(data.data);
+        }
+      );
+    };
+
+    getListProducts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     handleGetCategorias();
     handleGetMarcas();
   }, [dataCategoria.length, dataMarca.length]);
@@ -211,6 +242,8 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         socketServer,
         rowsVentas,
         setRowsVentas,
+        rowsVentasInvitados,
+        setRowsVentasInvitados,
         showSpinner,
         setShowSpinner,
         dataCategoria,
@@ -221,6 +254,8 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setProductsProveedor,
         tableKey,
         setTableKey,
+        dataProducts,
+        setDataProducts,
       }}
     >
       {children}

@@ -1,8 +1,11 @@
 "use client";
 import { useTheContext } from "@/app/hooks/global.hook";
 import axios from "axios";
+import { usePathname } from "next/navigation";
 
 const ProveedoresUtils = () => {
+  const pathName = usePathname();
+
   const { setDataModal, setShowSpinner } = useTheContext();
 
   const api = axios.create({
@@ -14,18 +17,21 @@ const ProveedoresUtils = () => {
     (er) => {
       setShowSpinner(false);
 
-      if (er.response?.status == 401) {
+      if (
+        er.response?.status == 401 &&
+        (pathName != "/features/auth/Login" || (pathName as any) != "/")
+      ) {
         setDataModal({
           isOpen: true,
           content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
           title: "Sesión expirada",
           onClose: () => {
-            location.href = "/";
+            location.href = "/features/auth/Login";
             localStorage.clear();
             setDataModal((prev) => ({ ...prev, isOpen: false }));
           },
           onConfirm: async () => {
-            location.href = "/";
+            location.href = "/features/auth/Login";
             localStorage.clear();
             setDataModal((prev) => ({ ...prev, isOpen: false }));
           },
@@ -55,7 +61,11 @@ const ProveedoresUtils = () => {
   const requestGetProveedores = async (endPoint: string) => {
     try {
       setShowSpinner(true);
-      const resp = await api.get(endPoint);
+      const resp = await api.get(endPoint, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
       setShowSpinner(false);
       return resp;
     } catch (error) {
@@ -67,7 +77,11 @@ const ProveedoresUtils = () => {
   const requestPostProveedores = async (data: any, endPoint: string) => {
     try {
       setShowSpinner(true);
-      const resp = await api.post(endPoint, data);
+      const resp = await api.post(endPoint, data, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
       setShowSpinner(false);
       return resp;
     } catch (error) {
