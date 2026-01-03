@@ -32,8 +32,9 @@ const UtilsService = () => {
     (er) => {
       setShowSpinner(false);
       if (
-        (er.response?.status == 401 && pathName != "/features/auth/Login") ||
-        (pathName as any) != "/"
+        er.response?.status == 401 &&
+        pathName !== "/features/auth/Login" &&
+        pathName !== "/"
       ) {
         setDataModal({
           isOpen: true,

@@ -32,7 +32,8 @@ const PagosUtils = () => {
 
       if (
         er.response?.status == 401 &&
-        (pathName != "/features/auth/Login" || (pathName as any) != "/")
+        pathName !== "/features/auth/Login" &&
+        pathName !== "/"
       ) {
         setDataModal({
           isOpen: true,
