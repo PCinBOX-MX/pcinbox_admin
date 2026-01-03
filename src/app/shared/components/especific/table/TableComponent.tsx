@@ -45,7 +45,7 @@ const TableComponent = ({
           },
         }}
         getRowHeight={() => "auto"}
-        getRowId={(row) => row.idOrder || row.idUser}
+        getRowId={(row) => row.idOrder || row.idUser || row.id}
       />
     )
   );
