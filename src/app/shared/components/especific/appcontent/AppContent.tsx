@@ -13,6 +13,7 @@ import useProveedores from "@/app/proveedores/useProveedores";
 import useDashboard from "@/app/dashboard/useDashboard";
 import { SnackbarProvider, useSnackbar } from "notistack";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
+import useVentasInvitados from "@/app/ventasInvitados/useVentasInvitados";
 
 export default function AppContent({
   children,
@@ -26,6 +27,7 @@ export default function AppContent({
     socketPagos,
     socketServer,
     setRowsVentas,
+    setRowsVentasInvitados,
     setTableKey,
     setProductsProveedor,
   } = useTheContext();
@@ -34,6 +36,7 @@ export default function AppContent({
 
   const { handleGetProveedores } = useProveedores();
   const { handleGetAllSales } = useDashboard();
+  const { handleGetAllSalesInvitados } = useVentasInvitados();
 
   useProtected(pathName);
 
@@ -56,6 +59,26 @@ export default function AppContent({
       });
       play.play();
       setRowsVentas((prev) => [data, ...prev]);
+      setTableKey((prev) => prev + 1);
+    };
+
+    const handleNewOrderInvitacion = (data: any) => {
+      enqueueSnackbar(`Se generó la orden #${data.idOrder}`, {
+        variant: "info",
+        action: (snackbarId) => (
+          <IconButton
+            size="small"
+            onClick={() => closeSnackbar(snackbarId)}
+            style={{ color: "white" }}
+          >
+            Cerrar
+          </IconButton>
+        ),
+      });
+      play.play();
+
+      setRowsVentasInvitados((prev) => [data, ...prev]);
+
       setTableKey((prev) => prev + 1);
     };
 
@@ -143,6 +166,35 @@ export default function AppContent({
       );
     };
 
+    const handleUpdateOrderInvitacion = (data: any) => {
+      enqueueSnackbar(`La orden #${data.idOrder} fue actualizada`, {
+        variant: "info",
+        action: (snackbarId) => (
+          <IconButton
+            size="small"
+            onClick={() => closeSnackbar(snackbarId)}
+            style={{ color: "white" }}
+          >
+            Cerrar
+          </IconButton>
+        ),
+      });
+      play.play();
+      setRowsVentasInvitados((prev) =>
+        prev.map((item) =>
+          item.id == data.id || item.referencia == data.idOrder
+            ? {
+                ...item,
+                pay_method: data.pay_method,
+                statusPay: data.statusPay,
+                statusShip: data.statusShip,
+                updatedAt: data.updatedAt,
+              }
+            : item
+        )
+      );
+    };
+
     const handlerUpdateProduct = (data: ProductsI) => {
       setProductsProveedor((prev) => ({
         ...prev,
@@ -180,19 +232,67 @@ export default function AppContent({
       }));
     };
 
+    const handleUpdatedStock = (data: any) => {
+      setProductsProveedor((prev) => {
+        return {
+          ...prev,
+          data: prev?.data.map((product) => {
+            if (Number(product.idProduct) == Number(data.idProduct)) {
+              return {
+                ...product,
+                stock:
+                  product.stock == 0
+                    ? 0
+                    : Number(product.stock) - Number(data.stock),
+              };
+            } else {
+              return product;
+            }
+          }),
+          copyData: prev?.copyData!.map((product) => {
+            if (Number(product.idProduct) == Number(data.idProduct)) {
+              return {
+                ...product,
+                stock:
+                  product.stock == 0
+                    ? 0
+                    : Number(product?.stock) - Number(data?.stock),
+              };
+            } else {
+              return product;
+            }
+          }),
+        };
+      });
+    };
+
     socketPagos.current.on("newOrder", handleNewOrder);
+    socketPagos.current.on("newOrderInvitacion", handleNewOrderInvitacion);
     socketPagos.current.on("updateOrder", handleUpdateOrder);
+    socketPagos.current.on(
+      "updateOrderInvitacion",
+      handleUpdateOrderInvitacion
+    );
     socketPagos.current.on("paidOxxo", handlePayOxxo);
     socketPagos.current.on("cancelledCompra", handleCancelledCompra);
     socketServer.current.on("updateProductComponent", handlerUpdateProduct);
 
     socketServer.current.on("updateProduct", handlerUpdateProduct);
 
+    socketPagos.current.on("updatedStock", handleUpdatedStock);
+
     return () => {
       socketPagos.current!.off("newOrder", handleNewOrder);
+      socketPagos.current!.off("newOrderInvitacion", handleNewOrderInvitacion);
       socketPagos.current!.off("updateOrder", handleUpdateOrder);
+      socketPagos.current!.off(
+        "updateOrderInvitacion",
+        handleUpdateOrderInvitacion
+      );
       socketPagos.current!.off("paidOxxo", handlePayOxxo);
       socketPagos.current!.off("cancelledCompra", handleCancelledCompra);
+      socketPagos.current!.off("updatedStock", handleUpdatedStock);
+
       socketServer.current!.off("updateProductComponent", handlerUpdateProduct);
 
       socketServer.current!.off("updateProduct", handlerUpdateProduct);
@@ -200,9 +300,22 @@ export default function AppContent({
   }, [socketPagos.current]);
 
   useEffect(() => {
-    handleGetAllSales();
-    handleGetProveedores();
-  }, []);
+    let mounted = true;
+
+    if (pathName) {
+      if (pathName == "/dashboard") {
+        handleGetAllSales();
+      } else if (pathName == "/proveedores") {
+        handleGetProveedores();
+      } else if (pathName == "/ventasInvitados") {
+        handleGetAllSalesInvitados();
+      }
+
+      return () => {
+        mounted = false;
+      };
+    }
+  }, [pathName]);
 
   return (
     <SnackbarProvider
