@@ -647,6 +647,138 @@ const GridDashboard = ({
               style={{
                 padding: "10px",
               }}
+              onClick={() => {
+                if (
+                  params.value != "" &&
+                  Number(params.row.totalAmount) >= 1000 &&
+                  params.value[0].street != null
+                ) {
+                  setDataModal({
+                    isOpen: true,
+                    type: "success",
+                    content: (
+                      <div className="min-w-[550px] max-w-[900px]">
+                        <div
+                          className=" grid grid-cols-[1fr_1fr] border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition"
+                          style={{
+                            padding: "5px",
+                            marginBottom: "10px",
+                          }}
+                        >
+                          <div>
+                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                              Calle
+                            </span>
+                            <span
+                              className="text-[15px] font-medium text-gray-800 block text-center"
+                              style={{
+                                wordBreak: "break-word",
+                                padding: "5px",
+                              }}
+                            >
+                              {params.value?.[0]?.street}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                              No. Ext
+                            </span>
+                            <span
+                              className="text-[15px] font-medium text-gray-800 block text-center"
+                              style={{
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {params.value?.[0]?.noExt}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div
+                          className=" grid grid-cols-[1fr_1fr] border border-gray-200 rounded-lg  bg-gray-50 hover:bg-gray-100 transition"
+                          style={{
+                            padding: "5px",
+                            marginBottom: "10px",
+                          }}
+                        >
+                          <div>
+                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                              No.Int
+                            </span>
+                            <span
+                              className="text-[15px] font-medium text-gray-800 block text-center"
+                              style={{
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {params.value?.[0]?.noInt}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                              Colonia
+                            </span>
+                            <span
+                              className="text-[15px] font-medium text-gray-800 block text-center"
+                              style={{
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {params.value?.[0]?.cologne}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div
+                          className=" grid grid-cols-[1fr_1fr] border border-gray-200 rounded-lgbg-gray-50 hover:bg-gray-100 transition"
+                          style={{
+                            padding: "5px",
+                            marginBottom: "10px",
+                          }}
+                        >
+                          <div>
+                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                              Estado
+                            </span>
+                            <span
+                              className="text-[15px] font-medium text-gray-800 block text-center"
+                              style={{
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {params.value?.[0]?.state}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
+                              Ciudad
+                            </span>
+                            <span
+                              className="text-[15px] font-medium text-gray-800 block text-center"
+                              style={{
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {params.value?.[0]?.city}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ),
+                    showActions: true,
+                    title: "Domicilio",
+                    onConfirm: () => {
+                      setDataModal((prev) => ({ ...prev, isOpen: false }));
+                    },
+                    onClose: () => {
+                      setDataModal((prev) => ({ ...prev, isOpen: false }));
+                    },
+                  });
+                }
+              }}
             >
               <div className="w-full flex flex-col">
                 {params.value == "" ||
@@ -657,65 +789,31 @@ const GridDashboard = ({
                 ) : (
                   Array.isArray(params.value) &&
                   params.value.slice(0, 1).map((item, index) => {
-                    return item.street == null ? (
-                      <div
-                        className="w-full flex justify-center gap-1"
-                        key={index}
-                        style={{ marginTop: "5px", marginBottom: "5px" }}
-                      >
-                        <span className="text-[#808080] font-bold">
-                          {"Entrega en sucursal"}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        className="w-full flex flex-col gap-1"
-                        key={index}
-                        style={{ marginTop: "5px", marginBottom: "5px" }}
-                      >
-                        <div className="flex gap-2">
+                    if (item.street == null) {
+                      return (
+                        <div
+                          className="w-full flex justify-center gap-1"
+                          key={index}
+                          style={{ marginTop: "5px", marginBottom: "5px" }}
+                        >
                           <span className="text-[#808080] font-bold">
-                            Calle:
+                            {"Entrega en sucursal"}
                           </span>
-                          <span>{item.street}</span>
                         </div>
-
-                        <div className="flex gap-2">
+                      );
+                    } else {
+                      return (
+                        <div
+                          className="w-full flex justify-center gap-1"
+                          key={index}
+                          style={{ marginTop: "5px", marginBottom: "5px" }}
+                        >
                           <span className="text-[#808080] font-bold">
-                            No.Ext:
+                            {"Entrega a domicilio"}
                           </span>
-                          <span>{item.noExt}</span>
                         </div>
-
-                        <div className="flex gap-2">
-                          <span className="text-[#808080] font-bold">
-                            No.Int:
-                          </span>
-                          <span>{item.noInt}</span>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <span className="text-[#808080] font-bold">
-                            Colonia:
-                          </span>
-                          <span>{item.cologne}</span>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <span className="text-[#808080] font-bold">
-                            Estado:
-                          </span>
-                          <span>{item.state}</span>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <span className="text-[#808080] font-bold">
-                            Ciudad:
-                          </span>
-                          <span>{item.city}</span>
-                        </div>
-                      </div>
-                    );
+                      );
+                    }
                   })
                 )}
               </div>
