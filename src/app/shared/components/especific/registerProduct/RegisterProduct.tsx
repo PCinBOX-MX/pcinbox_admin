@@ -45,7 +45,7 @@ interface DataNewProductI {
   caracteristicas: { prop: string; value: string }[];
 }
 
-export const RegisterProduct = () => {
+const RegisterProduct = () => {
   const { setDataModal, dataMarca, dataCategoria, setProductsProveedor } =
     useTheContext();
   const [files, setFiles] = useState<File[]>([]);
@@ -1006,3 +1006,5 @@ export const RegisterProduct = () => {
     </Box>
   );
 };
+
+export default RegisterProduct;
