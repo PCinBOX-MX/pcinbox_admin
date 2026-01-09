@@ -266,6 +266,10 @@ const UploadImgProductProvider2 = ({
               formData.append("width", dataProductProp?.width);
               formData.append("height", dataProductProp?.height);
               formData.append("length", dataProductProp?.largo);
+              formData.append(
+                "branches",
+                JSON.stringify(dataProductProp?.branches)
+              );
               // formData.append("peso", dataProductProp?.peso);
 
               files.forEach((file) => formData.append("files", file));
