@@ -926,11 +926,11 @@ const GridDashboard = ({
         headerName: "Acciones",
         flex: 1,
         renderCell: (params) => {
-          const currentRow = rows.find(
-            (row: any) => row.idShipment === params.row.idShipment
-          );
-          const currentStatus = currentRow?.statusShip || "";
-          const currentStatusPay = currentRow?.statusPay || "";
+          // const currentRow = rows.find(
+          //   (row: any) => row.idShipment === params.row.idShipment
+          // );
+          const currentStatus = params?.row?.statusShip || "";
+          const currentStatusPay = params?.row?.statusPay || "";
 
           return (
             <div
@@ -949,7 +949,7 @@ const GridDashboard = ({
                     onChange={(event) =>
                       handleChangeStatusShip(
                         event,
-                        params.row.idShipment,
+                        params.row.idOrder,
                         params.row.idUser
                       )
                     }
@@ -969,7 +969,11 @@ const GridDashboard = ({
                   <Select
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"
-                    value={currentStatusPay}
+                    value={
+                      currentStatusPay == "pending"
+                        ? "payment_pending"
+                        : currentStatusPay
+                    }
                     onChange={(event) => {
                       handleChangeStatusPay(
                         event,
@@ -980,7 +984,7 @@ const GridDashboard = ({
                   >
                     <MenuItem value={"paid"}>Pagado</MenuItem>
                     <MenuItem value={"failed"}>Fallido</MenuItem>
-                    <MenuItem value={"pending"}>Pendiente</MenuItem>
+                    <MenuItem value={"payment_pending"}>Pendiente</MenuItem>
                     <MenuItem value={"cancelled"}>Cancelado</MenuItem>
                     <MenuItem value={"rejected"}>Rechazado</MenuItem>
                     <MenuItem value={"refunded"}>Reembolsado</MenuItem>
