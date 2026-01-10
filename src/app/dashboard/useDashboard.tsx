@@ -61,12 +61,12 @@ const useDashboard = () => {
 
   const handleChangeStatusShip = async (
     event: any,
-    idShipment: number,
+    idOrder: number,
     idUser: any
   ) => {
     try {
       const resp = await requestPostPagos(
-        { idShipment, status: event.target.value, idUser },
+        { idOrder, status: event.target.value, idUser },
         "/stripe/updateStatusShipByOrden"
       );
 
@@ -74,7 +74,7 @@ const useDashboard = () => {
         // const data = await resp.data;
         setRowsVentas((prev) => {
           return prev.map((item) => {
-            if (item.idShipment == idShipment) {
+            if (Number(item.idOrder) == Number(idOrder)) {
               return { ...item, statusShip: event.target.value };
             }
             return item;
