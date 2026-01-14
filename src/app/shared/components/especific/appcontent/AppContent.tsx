@@ -157,6 +157,7 @@ export default function AppContent({
           item.idOrder === data.idOrder
             ? {
                 ...item,
+                updatedAt: data.updatedAt,
                 method_pay: data.method_pay,
                 statusPay: data.statusPay,
                 statusShip: data.statusShip,
