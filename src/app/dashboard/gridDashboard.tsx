@@ -891,19 +891,30 @@ const GridDashboard = ({
         },
       },
       {
-        field: "createdAt",
+        field: "updatedAt",
         headerName: "Fecha de compra",
         flex: 1,
         renderCell: (params) => {
-          if (params.value) {
-            return (
-              <div
-                className="flex justify-center flex-col items-center min-h-full"
-                style={{
-                  padding: "10px",
-                }}
-              >
-                <div className="w-full">
+          return (
+            <div
+              className="flex justify-center flex-col items-center min-h-full"
+              style={{
+                padding: "10px",
+              }}
+            >
+              <div className="w-full">
+                {params.value == "" || params.value == null ? (
+                  <span
+                    className="text-[black] block text-center font-bold"
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    Esperando <MdAccessTime size={22} />
+                  </span>
+                ) : (
                   <span
                     className="text-[black] block text-center font-bold"
                     style={{
@@ -914,10 +925,10 @@ const GridDashboard = ({
                   >
                     {new Date(params.value).toLocaleString()}
                   </span>
-                </div>
+                )}
               </div>
-            );
-          }
+            </div>
+          );
         },
       },
 
