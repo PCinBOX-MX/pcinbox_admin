@@ -908,7 +908,7 @@ const GridDashboard = ({
               }}
             >
               <div className="w-full">
-                {params.value == "" || params.value == null ? (
+                {/* {params.value == "" || params.value == null ? (
                   <span
                     className="text-[black] block text-center font-bold"
                     style={{
@@ -919,18 +919,18 @@ const GridDashboard = ({
                   >
                     Esperando <MdAccessTime size={22} />
                   </span>
-                ) : (
-                  <span
-                    className="text-[black] block text-center font-bold"
-                    style={{
-                      fontSize: "18px",
-                      fontWeight: "600",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {new Date(date).toLocaleString()}
-                  </span>
-                )}
+                ) : ( */}
+                <span
+                  className="text-[black] block text-center font-bold"
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {new Date(date).toLocaleString()}
+                </span>
+                {/* )} */}
               </div>
             </div>
           );
