@@ -895,6 +895,11 @@ const GridDashboard = ({
         headerName: "Fecha de compra",
         flex: 1,
         renderCell: (params) => {
+          const date =
+            params?.row?.updatedAt ||
+            params?.row?.createdAt ||
+            params?.row?.createdAT;
+
           return (
             <div
               className="flex justify-center flex-col items-center min-h-full"
@@ -923,7 +928,7 @@ const GridDashboard = ({
                       wordBreak: "break-word",
                     }}
                   >
-                    {new Date(params.value).toLocaleString()}
+                    {new Date(date).toLocaleString()}
                   </span>
                 )}
               </div>
