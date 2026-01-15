@@ -6,12 +6,10 @@ const TableComponent = ({
   rowsDataGrid,
   columnsDataGrid,
   rowCount,
-  handleOnPaginationModelChange,
 }: {
   rowsDataGrid: GridRowsProp;
   columnsDataGrid: GridColDef[];
   rowCount?: number;
-  handleOnPaginationModelChange: (page: number) => void;
 }) => {
   return (
     rowsDataGrid.length > 0 &&
