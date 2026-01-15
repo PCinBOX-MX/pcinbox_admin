@@ -52,7 +52,6 @@ const DashBoard = () => {
               columnsDataGrid={columns}
               rowCount={rowsVentas?.totalSales}
               rowsDataGrid={rowsVentas?.data}
-              handleOnPaginationModelChange={handleOnPaginationModelChange}
             />
           ) : (
             <Alert severity="info">Sin contenido disponible</Alert>
