@@ -11,9 +11,9 @@ const useDashboard = () => {
 
   const { requestPostPagos } = PagosUtils();
 
-  const handleGetAllSales = async () => {
+  const handleGetAllSales = async (page?: number) => {
     try {
-      const resp = await requestGetProveedores("/getAllSales");
+      const resp = await requestGetProveedores(`/getAllSales?page=${page}`);
 
       if (resp.status == 200) {
         const data = resp.data;
@@ -50,10 +50,13 @@ const useDashboard = () => {
             }
           });
 
-          return Array.from(grouped.values()).map((item, index) => ({
-            ...item,
-            id: index,
-          }));
+          return {
+            totalSales: data.data.totalSales,
+            data: Array.from(grouped.values()).map((item, index) => ({
+              ...item,
+              id: index,
+            })),
+          };
         });
       }
     } catch (error) {}
@@ -73,12 +76,15 @@ const useDashboard = () => {
       if (resp.status == 200) {
         // const data = await resp.data;
         setRowsVentas((prev) => {
-          return prev.map((item) => {
-            if (Number(item.idOrder) == Number(idOrder)) {
-              return { ...item, statusShip: event.target.value };
-            }
-            return item;
-          });
+          return {
+            ...prev,
+            data: prev.data.map((item) => {
+              if (Number(item.idOrder) == Number(idOrder)) {
+                return { ...item, statusShip: event.target.value };
+              }
+              return item;
+            }),
+          };
         });
       }
     } catch (error) {}
@@ -96,12 +102,15 @@ const useDashboard = () => {
       );
       if (resp.status == 200) {
         setRowsVentas((prev) => {
-          return prev.map((item) => {
-            if (item.idOrder == idOrder) {
-              return { ...item, statusPay: event.target.value };
-            }
-            return item;
-          });
+          return {
+            ...prev,
+            data: prev.data.map((item) => {
+              if (item.idOrder == idOrder) {
+                return { ...item, statusPay: event.target.value };
+              }
+              return item;
+            }),
+          };
         });
 
         // setTableKey((prev) => prev + 1); // Forzar re-render

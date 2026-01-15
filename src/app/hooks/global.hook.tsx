@@ -57,8 +57,16 @@ interface ContextProps {
   >;
   socketPagos: RefObject<Socket | null>;
   socketServer: RefObject<Socket | null>;
-  rowsVentas: SalesI[];
-  setRowsVentas: Dispatch<SetStateAction<SalesI[]>>;
+  rowsVentas: {
+    totalSales: number;
+    data: SalesI[];
+  };
+  setRowsVentas: Dispatch<
+    SetStateAction<{
+      totalSales: number;
+      data: SalesI[];
+    }>
+  >;
   rowsVentasInvitados: any[];
   setRowsVentasInvitados: Dispatch<SetStateAction<any[]>>;
   showSpinner: boolean;
@@ -98,7 +106,10 @@ const CreateContext = createContext<ContextProps>({
   setProductsProveedor: () => {},
   socketPagos: { current: null },
   socketServer: { current: null },
-  rowsVentas: [],
+  rowsVentas: {
+    totalSales: 0,
+    data: [],
+  },
   setRowsVentas: () => {},
   showSpinner: false,
   setShowSpinner: () => {},
@@ -142,7 +153,13 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     copyData: [],
   });
 
-  const [rowsVentas, setRowsVentas] = useState<SalesI[]>([]);
+  const [rowsVentas, setRowsVentas] = useState<{
+    totalSales: number;
+    data: SalesI[];
+  }>({
+    totalSales: 0,
+    data: [],
+  });
   const [rowsVentasInvitados, setRowsVentasInvitados] = useState<any[]>([]);
 
   const [showSpinner, setShowSpinner] = useState<boolean>(false);

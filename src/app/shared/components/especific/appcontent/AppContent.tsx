@@ -58,7 +58,10 @@ export default function AppContent({
         ),
       });
       play.play();
-      setRowsVentas((prev) => [data, ...prev]);
+      setRowsVentas((prev) => ({
+        ...prev,
+        data: [data, ...prev.data],
+      }));
       setTableKey((prev) => prev + 1);
     };
 
@@ -97,16 +100,19 @@ export default function AppContent({
       });
       play.play();
       setRowsVentas((prev) => {
-        return prev.map((item) => {
-          if (item.idOrder == data.idOrder) {
-            return {
-              ...item,
-              statusPay: "paid",
-            } as any;
-          }
+        return {
+          ...prev,
+          data: prev.data?.map((item) => {
+            if (item.idOrder == data.idOrder) {
+              return {
+                ...item,
+                statusPay: "paid",
+              } as any;
+            }
 
-          return item;
-        });
+            return item;
+          }),
+        };
       });
     };
 
@@ -125,16 +131,19 @@ export default function AppContent({
       });
       play.play();
       setRowsVentas((prev) => {
-        return prev.map((item) => {
-          if (item.idOrder == data.idOrder) {
-            return {
-              ...item,
-              statusPay: "cancelled",
-              statusShip: "cancelado",
-            } as any;
-          }
-          return item;
-        });
+        return {
+          ...prev,
+          data: prev.data?.map((item) => {
+            if (item.idOrder == data.idOrder) {
+              return {
+                ...item,
+                statusPay: "cancelled",
+                statusShip: "cancelado",
+              } as any;
+            }
+            return item;
+          }),
+        };
       });
     };
 
@@ -152,8 +161,9 @@ export default function AppContent({
         ),
       });
       play.play();
-      setRowsVentas((prev) =>
-        prev.map((item) =>
+      setRowsVentas((prev) => ({
+        ...prev,
+        data: prev.data?.map((item) =>
           item.idOrder === data.idOrder
             ? {
                 ...item,
@@ -163,8 +173,8 @@ export default function AppContent({
                 statusShip: data.statusShip,
               }
             : item
-        )
-      );
+        ),
+      }));
     };
 
     const handleUpdateOrderInvitacion = (data: any) => {
