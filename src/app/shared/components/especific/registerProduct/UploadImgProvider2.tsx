@@ -28,6 +28,7 @@ const UploadImgProductProvider2 = ({
   const [loadingUploadImgProvider, setLoadingUploadImgProvider] =
     useState<boolean>(false);
   const { setDataModal } = useTheContext();
+  const { setProductsProveedor } = useProveedores();
 
   const { requestPostProveedores } = ProveedoresUtils();
 
@@ -171,7 +172,7 @@ const UploadImgProductProvider2 = ({
                         return prev.map((item, indexPrevCar) =>
                           indexPrevCar === indexCar
                             ? { ...item, prop: event.target.value }
-                            : item
+                            : item,
                         );
                       });
                     }}
@@ -187,7 +188,7 @@ const UploadImgProductProvider2 = ({
                         return prev.map((item, indexPrevCar) =>
                           indexPrevCar === indexCar
                             ? { ...item, value: event.target.value }
-                            : item
+                            : item,
                         );
                       });
                     }}
@@ -204,7 +205,7 @@ const UploadImgProductProvider2 = ({
                       // }));
                       setCaracteristicas((prev) => {
                         return prev.filter(
-                          (item, indexPrevCar) => indexPrevCar !== indexCar
+                          (item, indexPrevCar) => indexPrevCar !== indexCar,
                         );
                       });
                     }}
@@ -248,14 +249,14 @@ const UploadImgProductProvider2 = ({
               formData.append("stock", dataProductProp.stock.toString());
               formData.append(
                 "providerId",
-                dataProductProp.providerId.toString()
+                dataProductProp.providerId.toString(),
               );
               formData.append("nameMarca", dataProductProp.nameMarca!);
               formData.append("nameCategory", dataProductProp.nameCategory!);
               formData.append("isPc", "false");
               formData.append(
                 "caracteristicas",
-                JSON.stringify(caracteristicas)
+                JSON.stringify(caracteristicas),
               );
               formData.append("upc", dataProductProp?.upc!.toString());
               // formData.append(
@@ -268,7 +269,7 @@ const UploadImgProductProvider2 = ({
               formData.append("length", dataProductProp?.largo);
               formData.append(
                 "branches",
-                JSON.stringify(dataProductProp?.branches)
+                JSON.stringify(dataProductProp?.branches),
               );
               // formData.append("peso", dataProductProp?.peso);
 
@@ -278,11 +279,50 @@ const UploadImgProductProvider2 = ({
 
               const resp = await requestPostProveedores(
                 formData,
-                "/newProductPcinbox"
+                "/newProductPcinbox",
               );
               setLoadingUploadImgProvider(false);
               if (resp.status == 200) {
-                setDataModal((prev) => ({ ...prev, isOpen: false }));
+                const data = resp?.data?.data;
+
+                setProductsProveedor((prev) => {
+                  const updateItem = (prevItem: any) => {
+                    if (prevItem.idProductExt == data?.data?.idProductExt) {
+                      return {
+                        ...prevItem,
+                        idProduct: Number(data?.data?.idProduct),
+                        idProductExt: data?.data?.idProductExt,
+                        name: data?.data?.name,
+                        description: data?.data?.description,
+                        caracteristicas: data?.data?.caracteristicas,
+                        price: Number(data?.data?.price),
+                        stock: Number(data?.data?.stock),
+                        sku: data?.data?.sku,
+                        upc: data?.data?.upc,
+                        width: Number(data?.data?.width),
+                        height: Number(data?.data?.height),
+                        largo: Number(data?.data?.largo),
+                        peso: data?.data?.peso,
+                        rating: Number(data?.data?.rating),
+                        image_url: data?.data?.image_url,
+                        categoryId: Number(data?.data?.categoryId),
+                        marcaId: Number(data?.data?.marcaId),
+                        providerId: Number(data?.data?.providerId),
+                        isPC: Number(data?.data?.isPC),
+                        createdAt: data?.data?.createdAt,
+                        active: Number(data?.data?.active),
+                      };
+                    }
+                    return prevItem;
+                  };
+                  return {
+                    ...prev,
+                    loading: false,
+                    data: prev.data.map(updateItem),
+                    copyData: prev.copyData!.map(updateItem),
+                  };
+                });
+
                 setDataModal({
                   isOpen: true,
                   type: "success",
@@ -299,9 +339,6 @@ const UploadImgProductProvider2 = ({
               }
             } catch (error: any) {
               setLoadingUploadImgProvider(false);
-
-              console.log("error al registrar producto");
-              console.log(error.message);
             }
           }}
         >
