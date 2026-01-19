@@ -46,7 +46,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   };
 
   const handleAltaProduct = async (dataProductProp: ProductsI) => {
-    if (dataProductProp?.providerId == 2) {
+    if (dataProductProp?.providerId != 1) {
       setDataModal({
         isOpen: true,
         title: "Ingresa los datos",

@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import CardComponent from "../shared/components/especific/card/CardComponent";
 import useProveedores from "./useProveedores";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MdAdd, MdAutorenew } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
 import PaginatorComponent from "../shared/components/common/paginator/Paginator";
@@ -27,13 +27,44 @@ const Proveedores = () => {
     handleAddProduct,
   } = useProveedores();
 
+  const [search, setSearch] = useState<string>("");
+
   const itemsPerPage = 8;
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setProductsProveedor((prev) => {
+      if (!search) {
+        return { ...prev, copyData: prev.data };
+      }
+
+      const filtered = prev.data.filter((item) => {
+        const name = item.name?.toLowerCase()?.trim() || "";
+        const description = item.description?.toLowerCase()?.trim() || "";
+        const upc = String((item as any).upc || "")
+          .toLowerCase()
+          ?.trim();
+        const idProductExt = item?.idProductExt?.toLowerCase()?.trim() || "";
+
+        return (
+          name.includes(search) ||
+          description.includes(search) ||
+          upc.includes(search) ||
+          idProductExt.includes(search)
+        );
+      });
+
+      return {
+        ...prev,
+        copyData: filtered,
+      };
+    });
+  }, [search, dataProductProveedor.data]);
 
   const startIndex = (page - 1) * itemsPerPage;
   const visibleDataProveedores = dataProductProveedor.copyData!.slice(
     startIndex,
-    startIndex + itemsPerPage
+    startIndex + itemsPerPage,
   );
 
   return (
@@ -119,50 +150,57 @@ const Proveedores = () => {
               <MdAdd size={22} />
               Agregar Producto
             </button>
+            {!dataProductProveedor.loading &&
+            visibleDataProveedores &&
+            visibleDataProveedores.length > 0 ? (
+              <div className="absolute right-0 top-0">
+                <TextField
+                  id="outlined-basic"
+                  label="Buscar producto"
+                  variant="outlined"
+                  onChange={(event) => {
+                    const value = event.target.value.toLowerCase().trim();
+                    setSearch(value);
+                    //  if (event.target.value != "") {
+                    // const search = event.target.value.toLowerCase();
 
-            <div className="absolute right-0 top-0">
-              <TextField
-                id="outlined-basic"
-                label="Buscar producto"
-                variant="outlined"
-                onChange={(event) => {
-                  //  if (event.target.value != "") {
-                  const search = event.target.value.toLowerCase();
+                    // setProductsProveedor((prev) => {
+                    //   // si el usuario borra todo, restauramos los datos completos
+                    //   if (search === "") {
+                    //     return {
+                    //       ...prev,
+                    //       copyData: prev.data, // <<--- restaurar todo
+                    //     };
+                    //   }
 
-                  setProductsProveedor((prev) => {
-                    // si el usuario borra todo, restauramos los datos completos
-                    if (search === "") {
-                      return {
-                        ...prev,
-                        copyData: prev.data, // <<--- restaurar todo
-                      };
-                    }
+                    //   // filtrar cuando SI hay texto
+                    //   const filtered = prev.data?.filter((item) => {
+                    //     const name = item.name?.toLowerCase() || "";
+                    //     const description = item.description?.toLowerCase() || "";
+                    //     const upc = String((item as any).upc || "").toLowerCase();
+                    //     const idProductExt =
+                    //       item?.idProductExt?.toLowerCase() || "";
 
-                    // filtrar cuando SI hay texto
-                    const filtered = prev.data?.filter((item) => {
-                      const name = item.name?.toLowerCase() || "";
-                      const description = item.description?.toLowerCase() || "";
-                      const upc = String((item as any).upc || "").toLowerCase();
-                      const idProductExt =
-                        item?.idProductExt?.toLowerCase() || "";
+                    //     return (
+                    //       name.includes(search) ||
+                    //       description.includes(search) ||
+                    //       upc.includes(search) ||
+                    //       idProductExt.includes(search)
+                    //     );
+                    //   });
 
-                      return (
-                        name.includes(search) ||
-                        description.includes(search) ||
-                        upc.includes(search) ||
-                        idProductExt.includes(search)
-                      );
-                    });
-
-                    return {
-                      ...prev,
-                      copyData: filtered,
-                    };
-                  });
-                  //}
-                }}
-              />
-            </div>
+                    //   return {
+                    //     ...prev,
+                    //     copyData: filtered,
+                    //   };
+                    // });
+                    //}
+                  }}
+                />
+              </div>
+            ) : (
+              ""
+            )}
           </div>
 
           <div
