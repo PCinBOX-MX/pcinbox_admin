@@ -215,7 +215,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
 
           setDataProducts(data.data);
           if (mounted) setDataProducts(data.data);
-        }
+        },
       );
     };
 
