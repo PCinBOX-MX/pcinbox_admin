@@ -21,6 +21,7 @@ export interface ProductsI {
   height?: any;
   largo?: any;
   peso?: any;
+  profitMargin?: any;
   branches?: any;
   caracteristicas?: {
     prop: string;

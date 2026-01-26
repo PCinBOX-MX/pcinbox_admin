@@ -33,6 +33,7 @@ const UploadImgProductProvider2 = ({
   const { requestPostProveedores } = ProveedoresUtils();
 
   const [price, setPrice] = useState<any>();
+  const [profitMargin, setProfitMargin] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   const [caracteristicas, setCaracteristicas] = useState<
     { prop: any; value: any }[]
@@ -56,18 +57,34 @@ const UploadImgProductProvider2 = ({
 
   return (
     <div className="grid grid-col-[auto] gap-2">
-      <div className="w-full">
-        <TextField
-          label="Precio"
-          type="number"
-          variant="outlined"
-          name="price"
-          className="w-full"
-          onChange={(event) => {
-            setPrice(Number(event.target.value));
-          }}
-        />
-      </div>
+      {dataProductProp && Number(dataProductProp?.providerId) !== 3 && (
+        <div className="w-full">
+          <TextField
+            label="Precio"
+            type="number"
+            variant="outlined"
+            name="newPrice"
+            className="w-full"
+            onChange={(event) => {
+              setPrice(Number(event.target.value));
+            }}
+          />
+        </div>
+      )}
+      {dataProductProp && Number(dataProductProp?.providerId) === 3 && (
+        <div className="w-full">
+          <TextField
+            label="Margen de Utilidad"
+            type="number"
+            variant="outlined"
+            name="profitMargin"
+            className="w-full"
+            onChange={(event) => {
+              setProfitMargin(Number(event.target.value));
+            }}
+          />
+        </div>
+      )}
       <div className="w-full">
         <TextField
           label=""
@@ -244,7 +261,17 @@ const UploadImgProductProvider2 = ({
               formData.append("clave", dataProductProp.idProductExt.toString());
               formData.append("name", dataProductProp.name);
               formData.append("description", dataProductProp.description);
-              formData.append("price", price.toString());
+              if (Number(dataProductProp.providerId) !== 3) {
+                formData.append("newPrice", price?.toString() ?? "0");
+              } else {
+                formData.append("newPrice", dataProductProp.price.toString());
+              }
+
+              formData?.append(
+                "originPrice",
+                dataProductProp?.price?.toString(),
+              );
+              formData?.append("profitMargin", profitMargin?.toString());
               formData.append("sku", dataProductProp.sku);
               formData.append("stock", dataProductProp.stock.toString());
               formData.append(
@@ -259,10 +286,6 @@ const UploadImgProductProvider2 = ({
                 JSON.stringify(caracteristicas),
               );
               formData.append("upc", dataProductProp?.upc!.toString());
-              // formData.append(
-              //   "stockBranches",
-              //   JSON.stringify(dataProductProp?.stockBranches!)
-              // );
 
               formData.append("width", dataProductProp?.width);
               formData.append("height", dataProductProp?.height);
@@ -271,7 +294,10 @@ const UploadImgProductProvider2 = ({
                 "branches",
                 JSON.stringify(dataProductProp?.branches),
               );
-              // formData.append("peso", dataProductProp?.peso);
+              formData.append(
+                "peso",
+                dataProductProp?.peso?.toString() ?? "null",
+              );
 
               files.forEach((file) => formData.append("files", file));
 
