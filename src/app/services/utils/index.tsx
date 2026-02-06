@@ -25,7 +25,7 @@ const UtilsService = () => {
 
       return config;
     },
-    (error) => Promise.reject(error)
+    (error) => Promise.reject(error),
   );
   api.interceptors.response.use(
     (response) => response,
@@ -71,7 +71,7 @@ const UtilsService = () => {
           showActions: true,
         });
       }
-    }
+    },
   );
 
   const onRouterPush = async (route: string) => {
@@ -114,7 +114,7 @@ const UtilsService = () => {
 
   const requestGet = async (
     endPoint: string,
-    showErrorSesion: boolean = false
+    showErrorSesion: boolean = false,
   ) => {
     try {
       setShowSpinner(true);
@@ -154,12 +154,24 @@ const UtilsService = () => {
       currency: "MXN",
     }).format(value);
 
+  const BRANCHES_DICO: { id: number; name: string }[] = [
+    { id: 4, name: "Arboledas" },
+    { id: 1, name: "dicotech" },
+    { id: 3, name: "Zacatecas" },
+    { id: 16, name: "gdl" },
+    { id: 26, name: "dicoags2" },
+    { id: 7, name: "leon" },
+    { id: 22, name: "talentland" },
+    { id: 35, name: "pn" },
+  ];
+
   return {
     onRouterPush,
     requestPost,
     requestGet,
     requestDelete,
     formatCurrency,
+    BRANCHES_DICO,
   };
 };
 

@@ -5,17 +5,27 @@ import { DataGrid, GridColDef, GridRowsProp } from "@mui/x-data-grid";
 const TableComponent = ({
   rowsDataGrid,
   columnsDataGrid,
+  totalRows,
+  paginationModel,
+  handlePaginationChange,
 }: {
   rowsDataGrid: GridRowsProp;
   columnsDataGrid: GridColDef[];
+  totalRows: number;
+  paginationModel: { page: number; pageSize: number };
+  handlePaginationChange: (model: any) => void;
 }) => {
   return (
     rowsDataGrid.length > 0 &&
     columnsDataGrid.length > 0 && (
       <DataGrid
         loading={false}
+        paginationMode="server"
+        rowCount={totalRows || 0}
         rows={rowsDataGrid || []}
         columns={columnsDataGrid || []}
+        paginationModel={paginationModel}
+        onPaginationModelChange={handlePaginationChange}
         localeText={{
           noRowsLabel: "Sin datos para mostrar",
           paginationRowsPerPage: "Número de pagina",
