@@ -139,7 +139,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           sx={{ color: "text.secondary", margin: "10px 0px" }}
         >
           <span className="text-black font-bold text-[17px]">Disponible:</span>{" "}
-          {dataProduct.stock} piezas.
+          {dataProduct.stock || 0} piezas.
         </Typography>
 
         <Typography
