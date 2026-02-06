@@ -56,63 +56,100 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const handleEditProduct = async (event: any) => {
     const findDataProduct = dataProductProveedor?.data?.find(
       (prevProductProveedor) =>
-        prevProductProveedor.idProduct == dataProductProp.idProduct
+        prevProductProveedor.idProduct == dataProductProp.idProduct,
     );
-
-    if (event) {
+    // if (event) {
+    try {
       setLoadingUpdateProduct(true);
-
-      try {
-        const resp = await requestPostProveedores(
-          {
-            idProduct: dataProductProp.idProduct,
-            idProductExt: dataProductProp.idProductExt,
-            name: event.name,
-            description: event.description,
-            categoryId: event.categoria,
-            marcaId: event.marca,
-            stock: event.stock,
-            price: event.price,
-            sku: event.sku,
-            upc: event.upc,
-            providerId: findDataProduct?.providerId,
-            isPc: dataProductProp?.isPc || (dataProductProp as any)?.isPC,
-            caracteristicas: findDataProduct
-              ? findDataProduct?.caracteristicas
-              : [],
-            image_url: findDataProduct ? findDataProduct?.image_url : [],
-          },
-          "/editProductPcinbox"
-        );
-
-        setLoadingUpdateProduct(false);
-        if (resp.status == 200) {
-          const data = resp.data;
-
+      const resp = await requestPostProveedores(
+        {
+          idProduct: dataProductProp.idProduct,
+          idProductExt: dataProductProp.idProductExt,
+          name: event.name,
+          description: event.description,
+          categoryId: event.categoria,
+          marcaId: event.marca,
+          stock: event.stock,
+          price: event.price,
+          sku: event.sku,
+          upc: event.upc,
+          providerId: findDataProduct?.providerId,
+          profitMargin:
+            Number(findDataProduct?.providerId) === 3 ? event?.profitMargin : 0,
+          isPc: dataProductProp?.isPc || (dataProductProp as any)?.isPC,
+          caracteristicas: findDataProduct
+            ? findDataProduct?.caracteristicas
+            : [],
+          image_url: findDataProduct ? findDataProduct?.image_url : [],
+        },
+        "/editProductPcinbox",
+      );
+      //     setLoadingUpdateProduct(false);
+      //     if (resp.status == 200) {
+      const data = resp.data;
+      setDataModal({
+        isOpen: true,
+        type: "success",
+        content: data.message,
+        title: "Correcto",
+        showActions: true,
+        onClose: () => {
           setDataModal((prev) => ({ ...prev, isOpen: false }));
-
-          setDataModal({
-            isOpen: true,
-            type: "success",
-            content: data.message,
-            title: "Correcto",
-            showActions: true,
-            onClose: () => {
-              setDataModal((prev) => ({ ...prev, isOpen: false }));
-            },
-            onConfirm: () => {
-              setDataModal((prev) => ({ ...prev, isOpen: false }));
-            },
-          });
-        }
-      } catch (error) {
-        setLoadingUpdateProduct(false);
-      }
+        },
+        onConfirm: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+      //       setProductsProveedor((prev) => {
+      //         const updateItem = (prevItem: any) => {
+      //           if (
+      //             Number(prevItem.idProduct) === Number(data?.data?.idProduct)
+      //           ) {
+      //             return {
+      //               ...prevItem,
+      //               idProduct: Number(data?.data?.idProduct),
+      //               idProductExt: data?.data?.idProductExt,
+      //               name: data?.data?.name,
+      //               description: data?.data?.description,
+      //               caracteristicas: data?.data?.caracteristicas,
+      //               price: Number(data?.data?.price),
+      //               stock: Number(data?.data?.stock),
+      //               sku: data?.data?.sku,
+      //               upc: data?.data?.upc,
+      //               width: Number(data?.data?.width),
+      //               height: Number(data?.data?.height),
+      //               largo: Number(data?.data?.largo),
+      //               peso: data?.data?.peso,
+      //               rating: Number(data?.data?.rating),
+      //               image_url: data?.data?.image_url,
+      //               categoryId: Number(data?.data?.categoryId),
+      //               marcaId: Number(data?.data?.marcaId),
+      //               providerId: Number(data?.data?.providerId),
+      //               isPC: Number(data?.data?.isPC),
+      //               createdAt: data?.data?.createdAt,
+      //               active: Number(data?.data?.active),
+      //             };
+      //           }
+      //           return prevItem;
+      //         };
+      //         return {
+      //           ...prev,
+      //           loading: false,
+      //           data: prev.data.map(updateItem),
+      //           copyData: prev.copyData!.map(updateItem), // 🔥 ESTA LÍNEA ES LA CLAVE
+      //         };
+      //       });
+      //     }
+    } catch (error) {
+      setLoadingUpdateProduct(false);
+    } finally {
+      setLoadingUpdateProduct(false);
     }
+    // }
   };
 
   const currentProduct = dataProductProveedor.data.find(
-    (p) => p.idProduct == dataProductProp.idProduct
+    (p) => p.idProduct == dataProductProp.idProduct,
   );
 
   useEffect(() => {
@@ -123,7 +160,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
   const caracteristicasArray = useMemo(() => {
     const currentProduct = dataProductProveedor.data.find(
-      (p) => p.idProduct === dataProductProp.idProduct
+      (p) => p.idProduct === dataProductProp.idProduct,
     );
 
     if (!currentProduct) return [];
@@ -207,7 +244,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 options={dataCategoria || []}
                 value={
                   dataCategoria?.find(
-                    (c: any) => c.idCategorie == field.value
+                    (c: any) => c.idCategorie == field.value,
                   ) || null
                 }
                 onChange={(event, newValue) => {
@@ -221,7 +258,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                       item.idProduct === dataProductProp.idProduct ||
                       item.idProductExt === dataProductProp.idProductExt
                         ? { ...item, categoryId: id }
-                        : item
+                        : item,
                     ),
                   }));
                 }}
@@ -265,7 +302,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                       item.idProduct === dataProductProp.idProduct ||
                       item.idProductExt === dataProductProp.idProductExt
                         ? { ...item, marcaId: id }
-                        : item
+                        : item,
                     ),
                   }));
                 }}
@@ -409,7 +446,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           .find(
             (p) =>
               p.idProduct === dataProductProp.idProduct ||
-              p.idProductExt === dataProductProp.idProductExt
+              p.idProductExt === dataProductProp.idProductExt,
           )
           ?.image_url?.map((img: string, indexImg: number) => (
             <Card key={indexImg} sx={{ position: "relative", width: 130 }}>
@@ -445,7 +482,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                           return {
                             ...item,
                             image_url: item.image_url.filter(
-                              (_: any, i: number) => i !== indexImg
+                              (_: any, i: number) => i !== indexImg,
                             ), // eliminamos todas
                           };
                         }
@@ -461,7 +498,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           ))}
       </div>
 
-      <div className="grid grid-cols-[1fr_1fr] gap-2">
+      <div
+        className={`grid grid-cols-[1fr_1fr${Number(dataProductProp?.providerId) === 3 ? "_1fr" : ""}] gap-2`}
+      >
         <TextField
           label="UPC"
           type="text"
@@ -500,7 +539,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 }
                 value={
                   dataProveedores.data?.find(
-                    (p: any) => p.idProvider == field.value
+                    (p: any) => p.idProvider == field.value,
                   ) || null
                 }
                 onChange={(event, newValue) => {
@@ -514,7 +553,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                       item.idProduct === dataProductProp.idProduct ||
                       item.idProductExt === dataProductProp.idProductExt
                         ? { ...item, providerId: Number(id) }
-                        : item
+                        : item,
                     ),
                   }));
                 }}
@@ -530,6 +569,31 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             )}
           />
         </FormControl>
+
+        {Number(dataProductProp?.providerId) === 3 && (
+          <TextField
+            label="Margen de Utilidad"
+            type="number"
+            variant="outlined"
+            {...register("profitMargin", {
+              value: dataProductProp?.profitMargin,
+              onChange(event) {
+                setProductsProveedor((prev) => ({
+                  ...prev,
+                  data: prev.data.map((item) => {
+                    if (
+                      item.idProduct === dataProductProp.idProduct ||
+                      item.idProductExt == dataProductProp.idProductExt
+                    ) {
+                      return { ...item, profitMargin: event.target.value };
+                    }
+                    return item;
+                  }),
+                }));
+              },
+            })}
+          />
+        )}
       </div>
 
       <div
@@ -565,7 +629,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                               return {
                                 ...prod,
                                 caracteristicas: (Array.isArray(
-                                  prod.caracteristicas
+                                  prod.caracteristicas,
                                 )
                                   ? prod.caracteristicas
                                   : JSON.parse(prod.caracteristicas || "[]")
@@ -607,7 +671,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                               return {
                                 ...prod,
                                 caracteristicas: (Array.isArray(
-                                  prod.caracteristicas
+                                  prod.caracteristicas,
                                 )
                                   ? prod.caracteristicas
                                   : JSON.parse(prod.caracteristicas || "[]")
@@ -637,7 +701,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                             return prod;
 
                           const caracteristicasArray = Array.isArray(
-                            prod.caracteristicas
+                            prod.caracteristicas,
                           )
                             ? prod.caracteristicas
                             : JSON.parse(prod.caracteristicas || "[]");
@@ -645,7 +709,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                           return {
                             ...prod,
                             caracteristicas: caracteristicasArray.filter(
-                              (_: any, i: number) => i !== indexCar
+                              (_: any, i: number) => i !== indexCar,
                             ),
                           };
                         }),
@@ -675,8 +739,8 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 const caracteristicasArray = Array.isArray(prod.caracteristicas)
                   ? prod.caracteristicas
                   : prod.caracteristicas
-                  ? JSON.parse(prod.caracteristicas)
-                  : [];
+                    ? JSON.parse(prod.caracteristicas)
+                    : [];
 
                 return {
                   ...prod,
@@ -730,7 +794,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                     idProduct: dataProductProp.idProduct,
                     idProductExt: dataProductProp.idProductExt,
                   },
-                  "/removeProductPcinbox"
+                  "/removeProductPcinbox",
                 );
 
                 setLoadingRemoveProduct(false);

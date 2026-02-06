@@ -28,10 +28,12 @@ const UploadImgProductProvider2 = ({
   const [loadingUploadImgProvider, setLoadingUploadImgProvider] =
     useState<boolean>(false);
   const { setDataModal } = useTheContext();
+  const { setProductsProveedor } = useProveedores();
 
   const { requestPostProveedores } = ProveedoresUtils();
 
   const [price, setPrice] = useState<any>();
+  const [profitMargin, setProfitMargin] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   const [caracteristicas, setCaracteristicas] = useState<
     { prop: any; value: any }[]
@@ -55,18 +57,34 @@ const UploadImgProductProvider2 = ({
 
   return (
     <div className="grid grid-col-[auto] gap-2">
-      <div className="w-full">
-        <TextField
-          label="Precio"
-          type="number"
-          variant="outlined"
-          name="price"
-          className="w-full"
-          onChange={(event) => {
-            setPrice(Number(event.target.value));
-          }}
-        />
-      </div>
+      {dataProductProp && Number(dataProductProp?.providerId) !== 3 && (
+        <div className="w-full">
+          <TextField
+            label="Precio"
+            type="number"
+            variant="outlined"
+            name="newPrice"
+            className="w-full"
+            onChange={(event) => {
+              setPrice(Number(event.target.value));
+            }}
+          />
+        </div>
+      )}
+      {dataProductProp && Number(dataProductProp?.providerId) === 3 && (
+        <div className="w-full">
+          <TextField
+            label="Margen de Utilidad"
+            type="number"
+            variant="outlined"
+            name="profitMargin"
+            className="w-full"
+            onChange={(event) => {
+              setProfitMargin(Number(event.target.value));
+            }}
+          />
+        </div>
+      )}
       <div className="w-full">
         <TextField
           label=""
@@ -171,7 +189,7 @@ const UploadImgProductProvider2 = ({
                         return prev.map((item, indexPrevCar) =>
                           indexPrevCar === indexCar
                             ? { ...item, prop: event.target.value }
-                            : item
+                            : item,
                         );
                       });
                     }}
@@ -187,7 +205,7 @@ const UploadImgProductProvider2 = ({
                         return prev.map((item, indexPrevCar) =>
                           indexPrevCar === indexCar
                             ? { ...item, value: event.target.value }
-                            : item
+                            : item,
                         );
                       });
                     }}
@@ -204,7 +222,7 @@ const UploadImgProductProvider2 = ({
                       // }));
                       setCaracteristicas((prev) => {
                         return prev.filter(
-                          (item, indexPrevCar) => indexPrevCar !== indexCar
+                          (item, indexPrevCar) => indexPrevCar !== indexCar,
                         );
                       });
                     }}
@@ -243,30 +261,43 @@ const UploadImgProductProvider2 = ({
               formData.append("clave", dataProductProp.idProductExt.toString());
               formData.append("name", dataProductProp.name);
               formData.append("description", dataProductProp.description);
-              formData.append("price", price.toString());
+              if (Number(dataProductProp.providerId) !== 3) {
+                formData.append("newPrice", price?.toString() ?? "0");
+              } else {
+                formData.append("newPrice", dataProductProp.price.toString());
+              }
+
+              formData?.append(
+                "originPrice",
+                dataProductProp?.price?.toString(),
+              );
+              formData?.append("profitMargin", profitMargin?.toString());
               formData.append("sku", dataProductProp.sku);
               formData.append("stock", dataProductProp.stock.toString());
               formData.append(
                 "providerId",
-                dataProductProp.providerId.toString()
+                dataProductProp.providerId.toString(),
               );
               formData.append("nameMarca", dataProductProp.nameMarca!);
               formData.append("nameCategory", dataProductProp.nameCategory!);
               formData.append("isPc", "false");
               formData.append(
                 "caracteristicas",
-                JSON.stringify(caracteristicas)
+                JSON.stringify(caracteristicas),
               );
               formData.append("upc", dataProductProp?.upc!.toString());
-              formData.append(
-                "stockBranches",
-                JSON.stringify(dataProductProp?.stockBranches!)
-              );
 
-              // formData.append("width", dataProductProp?.width);
-              // formData.append("height", dataProductProp?.height);
-              // formData.append("largo", dataProductProp?.largo);
-              // formData.append("peso", dataProductProp?.peso);
+              formData.append("width", dataProductProp?.width);
+              formData.append("height", dataProductProp?.height);
+              formData.append("length", dataProductProp?.largo);
+              formData.append(
+                "branches",
+                JSON.stringify(dataProductProp?.branches),
+              );
+              formData.append(
+                "peso",
+                dataProductProp?.peso?.toString() ?? "null",
+              );
 
               files.forEach((file) => formData.append("files", file));
 
@@ -274,11 +305,50 @@ const UploadImgProductProvider2 = ({
 
               const resp = await requestPostProveedores(
                 formData,
-                "/newProductPcinbox"
+                "/newProductPcinbox",
               );
               setLoadingUploadImgProvider(false);
               if (resp.status == 200) {
-                setDataModal((prev) => ({ ...prev, isOpen: false }));
+                const data = resp?.data?.data;
+
+                setProductsProveedor((prev) => {
+                  const updateItem = (prevItem: any) => {
+                    if (prevItem.idProductExt == data?.data?.idProductExt) {
+                      return {
+                        ...prevItem,
+                        idProduct: Number(data?.data?.idProduct),
+                        idProductExt: data?.data?.idProductExt,
+                        name: data?.data?.name,
+                        description: data?.data?.description,
+                        caracteristicas: data?.data?.caracteristicas,
+                        price: Number(data?.data?.price),
+                        stock: Number(data?.data?.stock),
+                        sku: data?.data?.sku,
+                        upc: data?.data?.upc,
+                        width: Number(data?.data?.width),
+                        height: Number(data?.data?.height),
+                        largo: Number(data?.data?.largo),
+                        peso: data?.data?.peso,
+                        rating: Number(data?.data?.rating),
+                        image_url: data?.data?.image_url,
+                        categoryId: Number(data?.data?.categoryId),
+                        marcaId: Number(data?.data?.marcaId),
+                        providerId: Number(data?.data?.providerId),
+                        isPC: Number(data?.data?.isPC),
+                        createdAt: data?.data?.createdAt,
+                        active: Number(data?.data?.active),
+                      };
+                    }
+                    return prevItem;
+                  };
+                  return {
+                    ...prev,
+                    loading: false,
+                    data: prev.data.map(updateItem),
+                    copyData: prev.copyData!.map(updateItem),
+                  };
+                });
+
                 setDataModal({
                   isOpen: true,
                   type: "success",
@@ -295,9 +365,6 @@ const UploadImgProductProvider2 = ({
               }
             } catch (error: any) {
               setLoadingUploadImgProvider(false);
-
-              console.log("error al registrar producto");
-              console.log(error.message);
             }
           }}
         >
