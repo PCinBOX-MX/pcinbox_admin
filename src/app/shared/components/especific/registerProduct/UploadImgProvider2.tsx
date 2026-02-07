@@ -321,8 +321,6 @@ const UploadImgProductProvider2 = ({
 
               setLoadingUploadImgProvider(true);
 
-              console.log(formData);
-
               const resp = await requestPostProveedores(
                 formData,
                 "/newProductPcinbox",

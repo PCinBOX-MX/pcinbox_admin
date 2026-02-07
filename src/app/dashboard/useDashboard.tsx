@@ -66,26 +66,32 @@ const useDashboard = () => {
 
   const handleChangeStatusShip = async (
     event: any,
-    idOrder: number,
+    idShipment: number,
     idUser: any,
   ) => {
     try {
       const resp = await requestPostPagos(
-        { idOrder, status: event.target.value, idUser },
+        { idShipment: Number(idShipment), status: event.target.value, idUser },
         "/openpay/updateStatusShipByOrden",
       );
 
       if (resp.status == 200) {
-        // const data = await resp.data;
-        // setRowsVentas((prev) => {
-        //   return prev.map((item) => {
-        //     console.log(item.idOrder === resp.data.data.data.idOrder);
-        //     if (item.idOrder === resp.data.data.data.idOrder) {
-        //       return { ...item, statusShip: resp.data.data.data.status };
-        //     }
-        //     return item;
-        //   });
-        // });
+        setRowsVentas((prev) => ({
+          ...prev,
+          data: prev.data.map((order) => ({
+            ...order,
+            products: order.products.map((product) => {
+              if (
+                Number(product.idShipment) ===
+                Number(resp.data.data.data.idShipment)
+              ) {
+                // Actualizamos el status
+                return { ...product, statusShip: resp.data.data.data.status };
+              }
+              return product;
+            }),
+          })),
+        }));
       }
     } catch (error) {}
   };
