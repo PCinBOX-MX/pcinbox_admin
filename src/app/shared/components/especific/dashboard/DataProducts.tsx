@@ -31,6 +31,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
 
   return (
     <div className="flex flex-col gap-3 min-w-[500px] max-w-[700px] max-h-[500px] overflow-y-auto pr-2">
+      {console.log(params)}
       {products.map((item: any, index: number) => {
         // Info del producto
         const productInfo = {
@@ -44,25 +45,26 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
         };
 
         // Info de dirección
-        const addressInfo = item.address
-          ? {
-              delivery: "Domicilio",
-              street: item.address.street,
-              noExt: item.address.noExt,
-              noInt: item.address.noInt || "",
-              cp: item.address.cp,
-              cologne: item.address.cologne,
-              city: item.address.city,
-              state: item.address.state,
-              country: item.address.country,
-              requireInsurance: item.address.requireInsurance === 1,
-              branch: BRANCHES_DICO.find(
-                (bd) => bd.name === item.address.branche,
-              )?.name,
-              shippingMethod: item.address.shipping_method,
-              trackingNumber: item.address.trackingNumber,
-            }
-          : { delivery: "PCinBOX-LEON" };
+        const addressInfo =
+          item.address && item?.address?.street != null
+            ? {
+                delivery: "Domicilio",
+                street: item.address.street,
+                noExt: item.address.noExt,
+                noInt: item.address.noInt || "",
+                cp: item.address.cp,
+                cologne: item.address.cologne,
+                city: item.address.city,
+                state: item.address.state,
+                country: item.address.country,
+                requireInsurance: item.address.requireInsurance === 1,
+                branch: BRANCHES_DICO.find(
+                  (bd) => bd.name === item.address.branche,
+                )?.name,
+                shippingMethod: item.address.shipping_method,
+                trackingNumber: item.address.trackingNumber,
+              }
+            : { delivery: "PCinBOX-LEON" };
 
         return (
           <div
@@ -169,25 +171,42 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
-                      <span className="text-amber-700 font-bold text-sm">
-                        Paquetería
-                      </span>
-                      <span className="text-green-700 font-bold text-sm">
-                        {addressInfo.shippingMethod === "estafeta"
-                          ? "Estafeta"
-                          : "Paquete Express"}
-                      </span>
-                    </div>
+                    {addressInfo.shippingMethod === "estafeta" ||
+                    addressInfo?.shippingMethod === "paqueteexpress" ? (
+                      <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
+                        <span className="text-amber-700 font-bold text-sm">
+                          Paquetería
+                        </span>
+                        <span className="text-green-700 font-bold text-sm">
+                          {addressInfo.shippingMethod === "estafeta"
+                            ? "Estafeta"
+                            : "Paquete Expres"}
+                        </span>
+                      </div>
+                    ) : addressInfo?.shippingMethod === "envioLeon" ? (
+                      <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
+                        <span className="text-amber-700 font-bold text-sm">
+                          Envío:
+                        </span>
+                        <span className="text-green-700 font-bold text-sm">
+                          Personalizado PCinBOX
+                        </span>
+                      </div>
+                    ) : (
+                      "Desconocido"
+                    )}
 
-                    <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
-                      <span className="text-amber-700 font-bold text-sm">
-                        NO. Guía
-                      </span>
-                      <span className="text-green-700 font-bold text-sm">
-                        {addressInfo.trackingNumber}
-                      </span>
-                    </div>
+                    {(addressInfo.shippingMethod === "estafeta" ||
+                      addressInfo?.shippingMethod === "paqueteexpress") && (
+                      <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
+                        <span className="text-amber-700 font-bold text-sm">
+                          NO. Guía
+                        </span>
+                        <span className="text-green-700 font-bold text-sm">
+                          {addressInfo.trackingNumber}
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
 
