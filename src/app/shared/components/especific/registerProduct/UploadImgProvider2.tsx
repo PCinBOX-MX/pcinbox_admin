@@ -257,10 +257,18 @@ const UploadImgProductProvider2 = ({
           disabled={loadingUploadImgProvider}
           onClick={async () => {
             try {
+              if (!dataProductProp) {
+                return;
+              }
+
               let formData = new FormData();
+
               formData.append("clave", dataProductProp.idProductExt.toString());
+
               formData.append("name", dataProductProp.name);
+
               formData.append("description", dataProductProp.description);
+
               if (Number(dataProductProp.providerId) !== 3) {
                 formData.append("newPrice", price?.toString() ?? "0");
               } else {
@@ -271,20 +279,30 @@ const UploadImgProductProvider2 = ({
                 "originPrice",
                 dataProductProp?.price?.toString(),
               );
-              formData?.append("profitMargin", profitMargin?.toString());
+              if (Number(dataProductProp.providerId) === 3) {
+                formData?.append("profitMargin", profitMargin?.toString());
+              }
+
               formData.append("sku", dataProductProp.sku);
-              formData.append("stock", dataProductProp.stock.toString());
+
+              formData.append("stock", (dataProductProp.stock ?? 0).toString());
+
               formData.append(
                 "providerId",
-                dataProductProp.providerId.toString(),
+                dataProductProp.providerId?.toString(),
               );
+
               formData.append("nameMarca", dataProductProp.nameMarca!);
+
               formData.append("nameCategory", dataProductProp.nameCategory!);
+
               formData.append("isPc", "false");
+
               formData.append(
                 "caracteristicas",
                 JSON.stringify(caracteristicas),
               );
+
               formData.append("upc", dataProductProp?.upc!.toString());
 
               formData.append("width", dataProductProp?.width);

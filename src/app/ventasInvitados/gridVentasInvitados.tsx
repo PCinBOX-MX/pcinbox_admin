@@ -453,7 +453,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                     onChange={(event) => {
                       handleChangeStatusShip(
                         params?.row?.id,
-                        event.target.value
+                        event.target.value,
                       );
                     }}
                   >
@@ -496,7 +496,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
         },
       },
     ],
-    [rows]
+    [rows],
   );
 
   return {

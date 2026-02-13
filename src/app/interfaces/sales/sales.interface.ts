@@ -16,14 +16,46 @@ enum statusPay {
 }
 
 export interface SalesI {
-  idShipment: number;
-  idUser: number;
   idOrder: number;
-  name: string;
-  method_pay: string;
-  products: { quantity: number; description: string; productName: string }[];
-  totalAmount: string;
-  address: string;
-  statusPay: statusPay;
-  statusShip: statusShip;
+  dataUser: {
+    name: string;
+    lastName: any;
+    email: string;
+    phone1: any;
+    phone2: any;
+  };
+  method_pay: any;
+  idUser: any;
+  products: {
+    productName: string;
+    description: string;
+    quantity: number;
+    upc: string;
+    sku: string;
+    statusShip: any;
+    idShipment: number;
+    address: null | {
+      street: string;
+      noExt: string;
+      noInt: any;
+      cologne: string;
+      cp: string;
+      city: string;
+      state: string;
+      country: string;
+      storeId: number;
+      shipping_method: any;
+      requireInsurance: number;
+      trackingNumber: any;
+      branche: any;
+    };
+  }[];
+  totalAmount: any;
+  statusPay: any;
+  statusShip: any;
+  billing: any;
+  requiredFactura: number;
+  createdAt: string;
+  updatedAt: string;
+  id: number;
 }

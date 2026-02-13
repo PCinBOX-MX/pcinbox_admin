@@ -60,7 +60,7 @@ export default function AppContent({
       play.play();
       setRowsVentas((prev) => ({
         ...prev,
-        data: [data, ...prev.data],
+        data: [...prev.data, data],
       }));
       setTableKey((prev) => prev + 1);
     };
@@ -133,7 +133,7 @@ export default function AppContent({
       setRowsVentas((prev) => {
         return {
           ...prev,
-          data: prev.data?.map((item) => {
+          data: prev.data.map((item) => {
             if (item.idOrder == data.idOrder) {
               return {
                 ...item,
@@ -161,20 +161,21 @@ export default function AppContent({
         ),
       });
       play.play();
-      setRowsVentas((prev) => ({
-        ...prev,
-        data: prev.data?.map((item) =>
-          item.idOrder === data.idOrder
-            ? {
-                ...item,
-                updatedAt: data.updatedAt,
-                method_pay: data.method_pay,
-                statusPay: data.statusPay,
-                statusShip: data.statusShip,
-              }
-            : item
-        ),
-      }));
+      setRowsVentas((prev) => {
+        return {
+          ...prev,
+          data: prev.data.map((item) =>
+            item.idOrder === data.idOrder
+              ? {
+                  ...item,
+                  method_pay: data.method_pay,
+                  statusPay: data.statusPay,
+                  statusShip: data.statusShip,
+                }
+              : item,
+          ),
+        };
+      });
     };
 
     const handleUpdateOrderInvitacion = (data: any) => {
@@ -201,8 +202,8 @@ export default function AppContent({
                 statusShip: data.statusShip,
                 updatedAt: data.updatedAt,
               }
-            : item
-        )
+            : item,
+        ),
       );
     };
 
@@ -282,7 +283,7 @@ export default function AppContent({
     socketPagos.current.on("updateOrder", handleUpdateOrder);
     socketPagos.current.on(
       "updateOrderInvitacion",
-      handleUpdateOrderInvitacion
+      handleUpdateOrderInvitacion,
     );
     socketPagos.current.on("paidOxxo", handlePayOxxo);
     socketPagos.current.on("cancelledCompra", handleCancelledCompra);
@@ -298,7 +299,7 @@ export default function AppContent({
       socketPagos.current!.off("updateOrder", handleUpdateOrder);
       socketPagos.current!.off(
         "updateOrderInvitacion",
-        handleUpdateOrderInvitacion
+        handleUpdateOrderInvitacion,
       );
       socketPagos.current!.off("paidOxxo", handlePayOxxo);
       socketPagos.current!.off("cancelledCompra", handleCancelledCompra);

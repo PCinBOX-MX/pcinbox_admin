@@ -58,12 +58,12 @@ interface ContextProps {
   socketPagos: RefObject<Socket | null>;
   socketServer: RefObject<Socket | null>;
   rowsVentas: {
-    totalSales: number;
+    totalRows: number;
     data: SalesI[];
   };
   setRowsVentas: Dispatch<
     SetStateAction<{
-      totalSales: number;
+      totalRows: number;
       data: SalesI[];
     }>
   >;
@@ -107,7 +107,7 @@ const CreateContext = createContext<ContextProps>({
   socketPagos: { current: null },
   socketServer: { current: null },
   rowsVentas: {
-    totalSales: 0,
+    totalRows: 0,
     data: [],
   },
   setRowsVentas: () => {},
@@ -154,10 +154,10 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   });
 
   const [rowsVentas, setRowsVentas] = useState<{
-    totalSales: number;
+    totalRows: number;
     data: SalesI[];
   }>({
-    totalSales: 0,
+    totalRows: 0,
     data: [],
   });
   const [rowsVentasInvitados, setRowsVentasInvitados] = useState<any[]>([]);

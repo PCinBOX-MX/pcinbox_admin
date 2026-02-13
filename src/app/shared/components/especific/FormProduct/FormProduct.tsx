@@ -326,7 +326,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           type="number"
           variant="outlined"
           {...register("stock", {
-            value: dataProductProp?.stock,
+            value: dataProductProp?.stock || 0,
             onChange(event) {
               setProductsProveedor((prev) => ({
                 ...prev,

@@ -3,6 +3,7 @@
 import TableComponent from "../shared/components/especific/table/TableComponent";
 import GridDashboard from "./gridDashboard";
 import useDashboard from "./useDashboard";
+import React, { useEffect, useState } from "react";
 import { LucideStepBack, LucideStepForward } from "lucide-react";
 
 import { useTheContext } from "../hooks/global.hook";
@@ -49,6 +50,9 @@ const DashBoard = () => {
           {rowsVentas && rowsVentas.data?.length > 0 ? (
             <TableComponent
               key={tableKey}
+              paginationModel={paginationModel}
+              handlePaginationChange={handlePaginationChange}
+              totalRows={rowsVentas?.totalRows}
               columnsDataGrid={columns}
               rowCount={rowsVentas?.totalSales}
               rowsDataGrid={rowsVentas?.data}
