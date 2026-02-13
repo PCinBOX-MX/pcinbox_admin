@@ -19,16 +19,16 @@ const useNavbar = () => {
       label == "Ventas"
         ? "/dashboard"
         : label == "Proveedores"
-        ? "/proveedores"
-        : label == "Clientes"
-        ? "/customer"
-        : label == "Ajustes"
-        ? "/settings"
-        : label == "Links de Pagos"
-        ? "/linkPagos"
-        : label == "Ventas (Invitados)"
-        ? "/ventasInvitados"
-        : ""
+          ? "/proveedores"
+          : label == "Clientes"
+            ? "/customer"
+            : label == "Ajustes"
+              ? "/settings"
+              : // : label == "Links de Pagos"
+                // ? "/linkPagos"
+                // : label == "Ventas (Invitados)"
+                // ? "/ventasInvitados"
+                "",
     );
   };
 
