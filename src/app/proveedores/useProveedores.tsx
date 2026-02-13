@@ -6,8 +6,12 @@ import { SelectChangeEvent } from "@mui/material";
 import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
-import { RegisterProduct } from "../shared/components/especific/registerProduct/RegisterProduct";
-
+import dynamic from "next/dynamic";
+const RegisterProduct = dynamic(
+  () =>
+    import("../shared/components/especific/registerProduct/RegisterProduct"),
+  { ssr: false }
+);
 const useProveedores = () => {
   // const { reset } = useForm();
   const { setDataModal, setDataProveedores, setProductsProveedor } =
