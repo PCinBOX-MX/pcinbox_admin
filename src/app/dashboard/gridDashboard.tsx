@@ -508,192 +508,7 @@ const GridDashboard = ({
           );
         },
       },
-      {
-        field: "address",
-        headerName: "Dirección",
-        maxWidth: 200,
-        minWidth: 200,
-        renderCell: (params) => {
-          return (
-            <div
-              className="flex justify-center flex-col items-center min-h-[100%] overflow-y-auto"
-              style={{
-                padding: "10px",
-              }}
-              onClick={() => {
-                if (
-                  params.value != "" &&
-                  Number(params.row.totalAmount) >= 1000 &&
-                  params.value[0].street != null
-                ) {
-                  setDataModal({
-                    isOpen: true,
-                    type: "success",
-                    content: (
-                      <div className="min-w-[550px] max-w-[900px]">
-                        <div
-                          className=" grid grid-cols-[1fr_1fr] border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition"
-                          style={{
-                            padding: "5px",
-                            marginBottom: "10px",
-                          }}
-                        >
-                          <div>
-                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                              Calle
-                            </span>
-                            <span
-                              className="text-[15px] font-medium text-gray-800 block text-center"
-                              style={{
-                                wordBreak: "break-word",
-                                padding: "5px",
-                              }}
-                            >
-                              {params.value?.[0]?.street}
-                            </span>
-                          </div>
 
-                          <div>
-                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                              No. Ext
-                            </span>
-                            <span
-                              className="text-[15px] font-medium text-gray-800 block text-center"
-                              style={{
-                                wordBreak: "break-word",
-                              }}
-                            >
-                              {params.value?.[0]?.noExt}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div
-                          className=" grid grid-cols-[1fr_1fr] border border-gray-200 rounded-lg  bg-gray-50 hover:bg-gray-100 transition"
-                          style={{
-                            padding: "5px",
-                            marginBottom: "10px",
-                          }}
-                        >
-                          <div>
-                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                              No.Int
-                            </span>
-                            <span
-                              className="text-[15px] font-medium text-gray-800 block text-center"
-                              style={{
-                                wordBreak: "break-word",
-                              }}
-                            >
-                              {params.value?.[0]?.noInt}
-                            </span>
-                          </div>
-
-                          <div>
-                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                              Colonia
-                            </span>
-                            <span
-                              className="text-[15px] font-medium text-gray-800 block text-center"
-                              style={{
-                                wordBreak: "break-word",
-                              }}
-                            >
-                              {params.value?.[0]?.cologne}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div
-                          className=" grid grid-cols-[1fr_1fr] border border-gray-200 rounded-lgbg-gray-50 hover:bg-gray-100 transition"
-                          style={{
-                            padding: "5px",
-                            marginBottom: "10px",
-                          }}
-                        >
-                          <div>
-                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                              Estado
-                            </span>
-                            <span
-                              className="text-[15px] font-medium text-gray-800 block text-center"
-                              style={{
-                                wordBreak: "break-word",
-                              }}
-                            >
-                              {params.value?.[0]?.state}
-                            </span>
-                          </div>
-
-                          <div>
-                            <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                              Ciudad
-                            </span>
-                            <span
-                              className="text-[15px] font-medium text-gray-800 block text-center"
-                              style={{
-                                wordBreak: "break-word",
-                              }}
-                            >
-                              {params.value?.[0]?.city}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ),
-                    showActions: true,
-                    title: "Domicilio",
-                    onConfirm: () => {
-                      setDataModal((prev) => ({ ...prev, isOpen: false }));
-                    },
-                    onClose: () => {
-                      setDataModal((prev) => ({ ...prev, isOpen: false }));
-                    },
-                  });
-                }
-              }}
-            >
-              <div className="w-full flex flex-col">
-                {params.value == "" ||
-                Number(params.row.totalAmount) <= 1000 ? (
-                  <span className="text-[#808080] font-bold text-center">
-                    {"Entrega en sucursal"}
-                  </span>
-                ) : (
-                  Array.isArray(params.value) &&
-                  params.value.slice(0, 1).map((item, index) => {
-                    if (item.street == null) {
-                      return (
-                        <div
-                          className="w-full flex justify-center gap-1"
-                          key={index}
-                          style={{ marginTop: "5px", marginBottom: "5px" }}
-                        >
-                          <span className="text-[#808080] font-bold">
-                            {"Entrega en sucursal"}
-                          </span>
-                        </div>
-                      );
-                    } else {
-                      return (
-                        <div
-                          className="w-full flex justify-center gap-1"
-                          key={index}
-                          style={{ marginTop: "5px", marginBottom: "5px" }}
-                        >
-                          <span className="text-[#808080] font-bold">
-                            {"Entrega a domicilio"}
-                          </span>
-                        </div>
-                      );
-                    }
-                  })
-                )}
-              </div>
-            </div>
-          );
-        },
-      },
       {
         field: "method_pay",
         headerName: "Metodo de pago",
@@ -764,24 +579,19 @@ const GridDashboard = ({
         },
       },
       {
-        field: "updatedAt",
+        field: "createdAt",
         headerName: "Fecha de compra",
         flex: 1,
         renderCell: (params) => {
-          const date =
-            params?.row?.updatedAt ||
-            params?.row?.createdAt ||
-            params?.row?.createdAT;
-
-          return (
-            <div
-              className="flex justify-center flex-col items-center min-h-full"
-              style={{
-                padding: "10px",
-              }}
-            >
-              <div className="w-full">
-                {/* {params.value == "" || params.value == null ? (
+          if (params.value) {
+            return (
+              <div
+                className="flex justify-center flex-col items-center min-h-full"
+                style={{
+                  padding: "10px",
+                }}
+              >
+                <div className="w-full">
                   <span
                     className="text-[black] block text-center font-bold"
                     style={{
@@ -790,23 +600,12 @@ const GridDashboard = ({
                       wordBreak: "break-word",
                     }}
                   >
-                    Esperando <MdAccessTime size={22} />
+                    {new Date(params.value).toLocaleString()}
                   </span>
-                ) : ( */}
-                <span
-                  className="text-[black] block text-center font-bold"
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: "600",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {new Date(date).toLocaleString()}
-                </span>
-                {/* )} */}
+                </div>
               </div>
-            </div>
-          );
+            );
+          }
         },
       },
 
@@ -815,11 +614,10 @@ const GridDashboard = ({
         headerName: "Acciones",
         flex: 1,
         renderCell: (params) => {
-          // const currentRow = rows.find(
-          //   (row: any) => row.idShipment === params.row.idShipment
-          // );
-          const currentStatus = params?.row?.statusShip || "";
-          const currentStatusPay = params?.row?.statusPay || "";
+          const currentRow = rows.data?.find(
+            (row: any) => row.idShipment === params.row.idShipment,
+          );
+          const currentStatus = currentRow?.statusShip || "";
 
           return (
             <div
@@ -834,16 +632,16 @@ const GridDashboard = ({
                   <Select
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"
-                   value={params?.row?.statusPay ?? "pending"}
+                    value={currentStatus}
                     onChange={(event) => {
                       console.log(params.row);
 
                       handleChangeStatusShip(
                         event,
                         params.row.idOrder,
-                        params.row.idUser
-                      )
-                    }
+                        params.row.idUser,
+                      );
+                    }}
                   >
                     <MenuItem value={"entregado"}>Entregado</MenuItem>
                     <MenuItem value={"cancelado"}>Cancelado</MenuItem>
@@ -871,7 +669,7 @@ const GridDashboard = ({
                   >
                     <MenuItem value={"paid"}>Pagado</MenuItem>
                     <MenuItem value={"failed"}>Fallido</MenuItem>
-                    <MenuItem value={"payment_pending"}>Pendiente</MenuItem>
+                    <MenuItem value={"pending"}>Pendiente</MenuItem>
                     <MenuItem value={"cancelled"}>Cancelado</MenuItem>
                     <MenuItem value={"rejected"}>Rechazado</MenuItem>
                     <MenuItem value={"refunded"}>Reembolsado</MenuItem>
