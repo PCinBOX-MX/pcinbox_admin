@@ -11,9 +11,9 @@ const TableComponent = ({
 }: {
   rowsDataGrid: GridRowsProp;
   columnsDataGrid: GridColDef[];
-  totalRows: number;
-  paginationModel: { page: number; pageSize: number };
-  handlePaginationChange: (model: any) => void;
+  totalRows?: number;
+  paginationModel?: { page: number; pageSize: number };
+  handlePaginationChange?: (model: any) => void;
 }) => {
   return (
     rowsDataGrid.length > 0 &&

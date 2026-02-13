@@ -618,7 +618,6 @@ const GridDashboard = ({
             (row: any) => row.idShipment === params.row.idShipment,
           );
           const currentStatus = currentRow?.statusShip || "";
-          const currentStatusPay = currentRow?.statusPay || "";
 
           return (
             <div
@@ -659,7 +658,7 @@ const GridDashboard = ({
                   <Select
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"
-                    value={currentStatusPay}
+                    value={params?.row?.statusPay ?? "pending"}
                     onChange={(event) => {
                       handleChangeStatusPay(
                         event,
