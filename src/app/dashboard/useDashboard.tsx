@@ -20,19 +20,22 @@ const useDashboard = () => {
         setRowsVentas(() => {
           const grouped = new Map<number, SalesI>();
 
-          data.data.data.forEach((item: SalesI) => {
+          data.data.data.forEach((item: any) => {
+            const products =
+              typeof item.products === "string"
+                ? JSON.parse(item.products)
+                : (item.products ?? []);
+
             const existing = grouped.get(item.idOrder);
 
             if (existing) {
-              // Sumar totalAmount
               existing.totalAmount = (
                 parseFloat(existing.totalAmount) + parseFloat(item.totalAmount)
               ).toFixed(2);
 
-              // Unir productos
-              item.products.forEach((product) => {
+              products.forEach((product: any) => {
                 const existingProduct = existing.products.find(
-                  (p) => p.productName === product.productName
+                  (p) => p.productName === product.productName,
                 );
 
                 if (existingProduct) {
@@ -42,16 +45,15 @@ const useDashboard = () => {
                 }
               });
             } else {
-              // Nuevo idOrder
               grouped.set(item.idOrder, {
                 ...item,
-                products: [...item.products],
+                products: [...products],
               });
             }
           });
 
           return {
-            totalSales: data.data.totalSales,
+            totalRows: data?.data?.totalSales,
             data: Array.from(grouped.values()).map((item, index) => ({
               ...item,
               id: index,
@@ -64,28 +66,32 @@ const useDashboard = () => {
 
   const handleChangeStatusShip = async (
     event: any,
-    idOrder: number,
-    idUser: any
+    idShipment: number,
+    idUser: any,
   ) => {
     try {
       const resp = await requestPostPagos(
-        { idOrder, status: event.target.value, idUser },
-        "/stripe/updateStatusShipByOrden"
+        { idShipment: Number(idShipment), status: event.target.value, idUser },
+        "/openpay/updateStatusShipByOrden",
       );
 
       if (resp.status == 200) {
-        // const data = await resp.data;
-        setRowsVentas((prev) => {
-          return {
-            ...prev,
-            data: prev.data.map((item) => {
-              if (Number(item.idOrder) == Number(idOrder)) {
-                return { ...item, statusShip: event.target.value };
+        setRowsVentas((prev) => ({
+          ...prev,
+          data: prev.data.map((order) => ({
+            ...order,
+            products: order.products.map((product) => {
+              if (
+                Number(product.idShipment) ===
+                Number(resp.data.data.data.idShipment)
+              ) {
+                // Actualizamos el status
+                return { ...product, statusShip: resp.data.data.data.status };
               }
-              return item;
+              return product;
             }),
-          };
-        });
+          })),
+        }));
       }
     } catch (error) {}
   };
@@ -93,26 +99,22 @@ const useDashboard = () => {
   const handleChangeStatusPay = async (
     event: any,
     idOrder: number,
-    idUser: any
+    idUser: any,
   ) => {
     try {
       const resp = await requestPostPagos(
         { status: event.target.value, idUser, idOrder },
-        "/stripe/updateStatusPayByOrden"
+        "/stripe/updateStatusPayByOrden",
       );
       if (resp.status == 200) {
-        setRowsVentas((prev) => {
-          return {
-            ...prev,
-            data: prev.data.map((item) => {
-              if (item.idOrder == idOrder) {
-                return { ...item, statusPay: event.target.value };
-              }
-              return item;
-            }),
-          };
-        });
-
+        // setRowsVentas((prev) => {
+        //   return prev.map((item) => {
+        //     if (item.idOrder == idOrder) {
+        //       return { ...item, statusPay: event.target.value };
+        //     }
+        //     return item;
+        //   });
+        // });
         // setTableKey((prev) => prev + 1); // Forzar re-render
       }
     } catch (error) {}

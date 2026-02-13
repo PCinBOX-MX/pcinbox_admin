@@ -29,16 +29,16 @@ const Navbar = () => {
       pathName === "/dashboard"
         ? "ventas"
         : pathName === "/proveedores"
-        ? "proveedores"
-        : pathName === "/customer"
-        ? "clientes"
-        : pathName === "/settings"
-        ? "ajustes"
-        : pathName === "/linkPagos"
-        ? "linkPago"
-        : pathName == "/ventasInvitados"
-        ? "ventasInvitados"
-        : ""
+          ? "proveedores"
+          : pathName === "/customer"
+            ? "clientes"
+            : pathName === "/settings"
+              ? "ajustes"
+              : // : pathName === "/linkPagos"
+                // ? "linkPago"
+                // : pathName == "/ventasInvitados"
+                // ? "ventasInvitados"
+                "",
     );
   }, [pathName]);
 

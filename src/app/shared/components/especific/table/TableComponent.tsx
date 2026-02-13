@@ -5,36 +5,36 @@ import { DataGrid, GridColDef, GridRowsProp } from "@mui/x-data-grid";
 const TableComponent = ({
   rowsDataGrid,
   columnsDataGrid,
-  rowCount,
+  totalRows,
+  paginationModel,
+  handlePaginationChange,
 }: {
   rowsDataGrid: GridRowsProp;
   columnsDataGrid: GridColDef[];
-  rowCount?: number;
+  totalRows?: number;
+  paginationModel?: { page: number; pageSize: number };
+  handlePaginationChange?: (model: any) => void;
 }) => {
   return (
     rowsDataGrid.length > 0 &&
     columnsDataGrid.length > 0 && (
-      <>
-        <DataGrid
-          hideFooter
-          hideFooterPagination
-          hideFooterSelectedRowCount
-          rowCount={rowCount}
-          paginationMode="server"
-          // onPaginationModelChange={(m) => handleOnPaginationModelChange!(m.page)}
-          loading={false}
-          rows={rowsDataGrid || []}
-          columns={columnsDataGrid || []}
-          localeText={{
-            noRowsLabel: "Sin datos para mostrar",
-            paginationRowsPerPage: "Número de pagina",
-          }}
-          initialState={{
-            pagination: {
-              paginationModel: {
-                pageSize: 25,
-                page: 0,
-              },
+      <DataGrid
+        loading={false}
+        paginationMode="server"
+        rowCount={totalRows || 0}
+        rows={rowsDataGrid || []}
+        columns={columnsDataGrid || []}
+        paginationModel={paginationModel}
+        onPaginationModelChange={handlePaginationChange}
+        localeText={{
+          noRowsLabel: "Sin datos para mostrar",
+          paginationRowsPerPage: "Número de pagina",
+        }}
+        initialState={{
+          pagination: {
+            paginationModel: {
+              pageSize: 10,
+              page: 0,
             },
           }}
           rowHeight={80}

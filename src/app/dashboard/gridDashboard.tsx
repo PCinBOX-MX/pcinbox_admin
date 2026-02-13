@@ -22,6 +22,8 @@ import {
   MdMoney,
 } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
+import { SalesI } from "../interfaces/sales/sales.interface";
+import DataProducts from "../shared/components/especific/dashboard/DataProducts";
 
 const GridDashboard = ({
   handleChangeStatusShip,
@@ -30,10 +32,13 @@ const GridDashboard = ({
 }: {
   handleChangeStatusShip: any;
   handleChangeStatusPay: any;
-  rows: any;
+  rows: {
+    totalRows: number;
+    data: SalesI[];
+  };
 }) => {
   const { formatCurrency } = UtilsService();
-  const { setDataModal } = useTheContext();
+  const { setDataModal, rowsVentas } = useTheContext();
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -336,8 +341,7 @@ const GridDashboard = ({
                             wordBreak: "break-word",
                           }}
                         >
-                          {params.value?.[0]?.name}{" "}
-                          {params?.value?.[0]?.lastName}
+                          {params.value?.name} {params?.value?.lastName}
                         </span>
                       </div>
 
@@ -356,7 +360,7 @@ const GridDashboard = ({
                             wordBreak: "break-word",
                           }}
                         >
-                          {params.value?.[0]?.email}
+                          {params.value?.email}
                         </span>
                       </div>
 
@@ -375,7 +379,7 @@ const GridDashboard = ({
                             wordBreak: "break-word",
                           }}
                         >
-                          {params.value?.[0]?.phone1}
+                          {params.value?.phone1}
                         </span>
                       </div>
 
@@ -394,7 +398,7 @@ const GridDashboard = ({
                             wordBreak: "break-word",
                           }}
                         >
-                          {params.value?.[0]?.phone2}
+                          {params.value?.phone2}
                         </span>
                       </div>
                     </div>
@@ -418,7 +422,7 @@ const GridDashboard = ({
                   wordBreak: "break-word",
                 }}
               >
-                {params.value?.[0]?.name}
+                {params.value?.name}
               </span>
             </div>
           );
@@ -433,162 +437,31 @@ const GridDashboard = ({
           return (
             <div
               className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%]`}
-              style={{
-                padding: "10px",
-              }}
+              style={{ padding: "10px" }}
               onClick={() => {
                 setDataModal({
                   isOpen: true,
                   type: "success",
-                  content: (
-                    <div className="flex flex-col gap-3 min-w-[500px] max-w-[700px] max-h-[500px] overflow-y-auto pr-2">
-                      {Array.isArray(params.value) &&
-                        params.value.map((item: any, index: number) => (
-                          <div
-                            key={index}
-                            style={{
-                              padding: "10px",
-                            }}
-                            className="rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex flex-col gap-3 p-2">
-                              <div>
-                                <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                  Nombre:
-                                </span>
-                                <p className="text-gray-900 font-medium">
-                                  {item.productName}
-                                </p>
-                              </div>
-
-                              <div className="p-2">
-                                <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                  Descripción:
-                                </span>
-                                <p className="text-gray-700">
-                                  {item.description}
-                                </p>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3 p-2">
-                                {item?.sku && (
-                                  <div className="p-2">
-                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                      SKU:
-                                    </span>
-                                    <p className="text-gray-700">{item.sku}</p>
-                                  </div>
-                                )}
-
-                                {item?.upc && (
-                                  <div className="p-2">
-                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                      UPC:
-                                    </span>
-                                    <p className="text-gray-700">{item.upc}</p>
-                                  </div>
-                                )}
-
-                                {item?.clave && (
-                                  <div className="p-2">
-                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                      Clave:
-                                    </span>
-                                    <p className="text-gray-700">
-                                      {item.clave}
-                                    </p>
-                                  </div>
-                                )}
-
-                                <div className="px-2 py-2">
-                                  <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                    Cantidad:
-                                  </span>
-                                  <p className="text-gray-700 font-semibold">
-                                    {item.quantity}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  ),
                   title: "Productos",
                   showActions: true,
-                  onClose: () => {
-                    setDataModal((prev) => ({ ...prev, isOpen: false }));
-                  },
-                  onConfirm: () => {
-                    setDataModal((prev) => ({ ...prev, isOpen: false }));
-                  },
+                  onClose: () =>
+                    setDataModal((prev) => ({ ...prev, isOpen: false })),
+                  onConfirm: () =>
+                    setDataModal((prev) => ({ ...prev, isOpen: false })),
+                  content: (
+                    <DataProducts
+                      params={{
+                        value: rowsVentas.data.find(
+                          (o) => o.idOrder === params.row.idOrder,
+                        )?.products,
+                        row: params.row,
+                      }}
+                      handleChangeStatusShip={handleChangeStatusShip}
+                    />
+                  ),
                 });
               }}
             >
-              {/* <div className="w-full flex flex-col">
-                {Array.isArray(params.value) &&
-                  params.value.map((item, index) => {
-                    return (
-                      <div
-                        className="w-full flex flex-col gap-1"
-                        key={index}
-                        style={{ marginTop: "5px", marginBottom: "5px" }}
-                      >
-                        <div className="flex gap-2">
-                          <span className="text-[#808080] font-bold">
-                            Nombre:
-                          </span>
-                          <span>{item.productName}</span>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <span className="text-[#808080] font-bold">
-                            Descripcion:
-                          </span>
-                          <span title={item.description}>
-                            {item.description && item.description.length > 30
-                              ? `${item.description.slice(0, 30)}...`
-                              : item.description}
-                          </span>
-                        </div>
-
-                        {item?.upc && (
-                          <div className="flex gap-2">
-                            <span className="text-[#808080] font-bold">
-                              UPC:
-                            </span>
-                            <span>{item.upc}</span>
-                          </div>
-                        )}
-                        {item?.clave && (
-                          <div className="flex gap-2">
-                            <span className="text-[#808080] font-bold">
-                              Clave:
-                            </span>
-                            <span>{item.clave}</span>
-                          </div>
-                        )}
-
-                        {item?.sku && (
-                          <div className="flex gap-2">
-                            <span className="text-[#808080] font-bold">
-                              SKU:
-                            </span>
-                            <span>{item.sku}</span>
-                          </div>
-                        )}
-
-                        <div className="flex gap-2">
-                          <span className="text-[#808080] font-bold">
-                            Cantidad:
-                          </span>
-                          <span>{item.quantity}</span>
-                        </div>
-                        {params.value.length > 1 && <hr />}
-                      </div>
-                    );
-                  })}
-              </div> */}
               <span
                 className="text-[black] block text-center font-bold"
                 style={{
@@ -955,14 +828,16 @@ const GridDashboard = ({
                 padding: "10px",
               }}
             >
-              <div className="w-full">
+              {/* <div className="w-full">
                 <span>Estatus Envío</span>
                 <FormControl fullWidth>
                   <Select
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"
-                    value={currentStatus}
-                    onChange={(event) =>
+                   value={params?.row?.statusPay ?? "pending"}
+                    onChange={(event) => {
+                      console.log(params.row);
+
                       handleChangeStatusShip(
                         event,
                         params.row.idOrder,
@@ -977,7 +852,7 @@ const GridDashboard = ({
                     <MenuItem value={"disponible"}>Disponible</MenuItem>
                   </Select>
                 </FormControl>
-              </div>
+              </div> */}
 
               <div className="w-full" style={{ marginTop: "5px" }}>
                 <span>Estatus Pago</span>
@@ -985,16 +860,12 @@ const GridDashboard = ({
                   <Select
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"
-                    value={
-                      currentStatusPay == "pending"
-                        ? "payment_pending"
-                        : currentStatusPay
-                    }
+                    value={params?.row?.statusPay ?? "pending"}
                     onChange={(event) => {
                       handleChangeStatusPay(
                         event,
                         params.row.idOrder,
-                        params.row.idUser
+                        params.row.idUser,
                       );
                     }}
                   >
@@ -1013,7 +884,7 @@ const GridDashboard = ({
         },
       },
     ],
-    [rows]
+    [rows],
   );
 
   return {
