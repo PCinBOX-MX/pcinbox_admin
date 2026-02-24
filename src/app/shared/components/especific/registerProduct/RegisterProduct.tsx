@@ -45,7 +45,7 @@ interface DataNewProductI {
   caracteristicas: { prop: string; value: string }[];
 }
 
-export const RegisterProduct = () => {
+const RegisterProduct = () => {
   const { setDataModal, dataMarca, dataCategoria, setProductsProveedor } =
     useTheContext();
   const [files, setFiles] = useState<File[]>([]);
@@ -144,7 +144,7 @@ export const RegisterProduct = () => {
         formData.append("name", dataNewComponent.name);
         formData.append("clave", dataNewComponent?.clave || "");
         formData.append("description", dataNewComponent.description);
-        formData.append("price", dataNewComponent.price.toString());
+        formData.append("newPrice", dataNewComponent.price.toString());
         formData.append("sku", dataNewComponent.sku);
         formData.append("categoryId", dataNewComponent.categoria.toString());
         formData.append("marcaId", dataNewComponent.marca.toString());
@@ -157,12 +157,12 @@ export const RegisterProduct = () => {
         formData.append("isPc", "0");
         formData.append(
           "caracteristicas",
-          JSON.stringify(dataNewComponent.caracteristicas)
+          JSON.stringify(dataNewComponent.caracteristicas),
         );
       } else if (typeProduct?.toLowerCase() === "pcgamer") {
         formData.append("name", dataNewPcGamer.name);
         formData.append("description", dataNewPcGamer.description);
-        formData.append("price", dataNewPcGamer.price.toString());
+        formData.append("newPrice", dataNewPcGamer.price.toString());
         formData.append("sku", dataNewPcGamer.sku);
         formData.append("stock", dataNewPcGamer.stock.toString());
         formData.append("clave", dataNewComponent?.clave || "");
@@ -170,7 +170,7 @@ export const RegisterProduct = () => {
 
         formData.append(
           "caracteristicas",
-          JSON.stringify(dataNewPcGamer.caracteristicas)
+          JSON.stringify(dataNewPcGamer.caracteristicas),
         );
 
         const filesArray = Array.from(files || []);
@@ -211,7 +211,7 @@ export const RegisterProduct = () => {
       alert(
         typeProduct?.toLowerCase() === "component"
           ? `La clave ${dataNewComponent.clave} ya existe u ocurrió un error inesperado `
-          : "Ocurrió un error"
+          : "Ocurrió un error",
       );
     }
   };
@@ -305,7 +305,7 @@ export const RegisterProduct = () => {
                 } // cómo mostrar cada opción
                 value={
                   dataCategoria.find(
-                    (m: any) => m.idCategorie === selectedCategoria
+                    (m: any) => m.idCategorie === selectedCategoria,
                   ) || null
                 }
                 onChange={(_, newValue) => {
@@ -504,7 +504,7 @@ export const RegisterProduct = () => {
                     }
                     value={
                       dataProveedores.data?.find(
-                        (p: any) => p.idProvider == field.value
+                        (p: any) => p.idProvider == field.value,
                       ) || null
                     }
                     onChange={(event, newValue) => {
@@ -570,7 +570,7 @@ export const RegisterProduct = () => {
                                 (item, indexPrevCar) =>
                                   indexPrevCar === indexCar
                                     ? { ...item, prop: event.target.value } // actualiza solo ese item
-                                    : item
+                                    : item,
                               ),
                             }));
                           }}
@@ -588,7 +588,7 @@ export const RegisterProduct = () => {
                                 (item, indexPrevCar) =>
                                   indexPrevCar === indexCar
                                     ? { ...item, value: event.target.value } // actualiza solo ese item
-                                    : item
+                                    : item,
                               ),
                             }));
                           }}
@@ -600,7 +600,7 @@ export const RegisterProduct = () => {
                             setDataNewComponent((prev) => ({
                               ...prev,
                               caracteristicas: prev.caracteristicas.filter(
-                                (_, indexP) => indexP !== indexCar
+                                (_, indexP) => indexP !== indexCar,
                               ),
                             }));
                           }}
@@ -609,7 +609,7 @@ export const RegisterProduct = () => {
                         </Button>
                       </div>
                     );
-                  }
+                  },
                 )
               : ""}
           </div>
@@ -766,7 +766,7 @@ export const RegisterProduct = () => {
                     }
                     value={
                       dataProveedores.data?.find(
-                        (p: any) => p.idProvider == field.value
+                        (p: any) => p.idProvider == field.value,
                       ) || null
                     }
                     onChange={(event, newValue) => {
@@ -931,7 +931,7 @@ export const RegisterProduct = () => {
                                 (item, indexPrevCar) =>
                                   indexPrevCar === indexCar
                                     ? { ...item, prop: event.target.value } // actualiza solo ese item
-                                    : item
+                                    : item,
                               ),
                             }));
                           }}
@@ -949,7 +949,7 @@ export const RegisterProduct = () => {
                                 (item, indexPrevCar) =>
                                   indexPrevCar === indexCar
                                     ? { ...item, value: event.target.value } // actualiza solo ese item
-                                    : item
+                                    : item,
                               ),
                             }));
                           }}
@@ -961,7 +961,7 @@ export const RegisterProduct = () => {
                             setDataNewPcGamer((prev) => ({
                               ...prev,
                               caracteristicas: prev.caracteristicas.filter(
-                                (_, indexP) => indexP !== indexCar
+                                (_, indexP) => indexP !== indexCar,
                               ),
                             }));
                           }}
@@ -970,7 +970,7 @@ export const RegisterProduct = () => {
                         </Button>
                       </div>
                     );
-                  }
+                  },
                 )
               : ""}
           </div>
@@ -1006,3 +1006,5 @@ export const RegisterProduct = () => {
     </Box>
   );
 };
+
+export default RegisterProduct;

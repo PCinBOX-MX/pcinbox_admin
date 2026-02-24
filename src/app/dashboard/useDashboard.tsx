@@ -11,7 +11,7 @@ const useDashboard = () => {
 
   const { requestPostPagos } = PagosUtils();
 
-  const handleGetAllSales = async (page = 1) => {
+  const handleGetAllSales = async (page?: number) => {
     try {
       const resp = await requestGetProveedores(`/getAllSales?page=${page}`);
 

@@ -36,27 +36,27 @@ const TableComponent = ({
               pageSize: 10,
               page: 0,
             },
-          },
-        }}
-        rowHeight={80}
-        sx={{
-          "& .MuiDataGrid-cell": {
-            borderRight: "1px solid #e5e7eb",
-          },
-          "& .MuiDataGrid-columnHeaders": {
-            borderBottom: "1px solid #e5e7eb",
-          },
-          "& .MuiDataGrid-columnHeaderTitle": {
-            fontSize: "18px",
-            fontWeight: "500",
-            color: "#808080",
-            display: "block",
-            margin: "auto",
-          },
-        }}
-        getRowHeight={() => "auto"}
-        getRowId={(row) => row.idOrder || row.idUser || row.id}
-      />
+          }}
+          rowHeight={80}
+          sx={{
+            "& .MuiDataGrid-cell": {
+              borderRight: "1px solid #e5e7eb",
+            },
+            "& .MuiDataGrid-columnHeaders": {
+              borderBottom: "1px solid #e5e7eb",
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontSize: "18px",
+              fontWeight: "500",
+              color: "#808080",
+              display: "block",
+              margin: "auto",
+            },
+          }}
+          getRowHeight={() => "auto"}
+          getRowId={(row) => row.idOrder || row.idUser || row.id}
+        />
+      </>
     )
   );
 };
