@@ -51,7 +51,9 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
         isOpen: true,
         title: "Ingresa los datos",
         content: (
-          <UploadImgProductProvider2 dataProductProp={dataProductProp} />
+          <div className="w-[600px]">
+            <UploadImgProductProvider2 dataProductProp={dataProductProp} />
+          </div>
         ),
         type: "success",
         showActions: false,
