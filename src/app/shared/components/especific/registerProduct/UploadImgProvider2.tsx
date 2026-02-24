@@ -23,6 +23,7 @@ const UploadImgProductProvider2 = ({
 }: {
   dataProductProp: ProductsI;
 }) => {
+  const [bulkText, setBulkText] = useState<string>("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [loadingUploadImgProvider, setLoadingUploadImgProvider] =
@@ -36,8 +37,8 @@ const UploadImgProductProvider2 = ({
   const [profitMargin, setProfitMargin] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   const [caracteristicas, setCaracteristicas] = useState<
-    { prop: any; value: any }[]
-  >([{ prop: "", value: "" }]);
+    { prop: string; value: string }[]
+  >([]);
 
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
@@ -168,7 +169,27 @@ const UploadImgProductProvider2 = ({
           );
         })}
       </div>
-      <div
+      <div className="w-full flex flex-col gap-2">
+        <TextField
+          label="Pega aquí todas las características"
+          multiline
+          rows={5}
+          fullWidth
+          value={bulkText}
+          onChange={(e) => setBulkText(e.target.value)}
+        />
+
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={() => {
+            setBulkText("");
+          }}
+        >
+          Borrar Caracteriticas
+        </Button>
+      </div>
+      {/* <div
         className="flex flex-wrap gap-3 w-full overflow-x-hidden overflow-y-auto max-h-[200px]"
         ref={containerRef}
       >
@@ -214,12 +235,7 @@ const UploadImgProductProvider2 = ({
                   <Button
                     style={{ background: "red", color: "white" }}
                     onClick={() => {
-                      // setDataNewPcGamer((prev) => ({
-                      //   ...prev,
-                      //   caracteristicas: prev.caracteristicas.filter(
-                      //     (_, indexP) => indexP !== indexCar
-                      //   ),
-                      // }));
+                     
                       setCaracteristicas((prev) => {
                         return prev.filter(
                           (item, indexPrevCar) => indexPrevCar !== indexCar,
@@ -233,8 +249,8 @@ const UploadImgProductProvider2 = ({
               );
             })
           : ""}
-      </div>
-
+      </div> */}
+      {/* 
       <div className="flex flex-wrap gap-3 w-full">
         <Button
           type="button"
@@ -246,7 +262,7 @@ const UploadImgProductProvider2 = ({
         >
           +
         </Button>
-      </div>
+      </div> */}
 
       <div className="w-full flex justify-center gap-1">
         <Button
@@ -259,6 +275,43 @@ const UploadImgProductProvider2 = ({
             try {
               if (!dataProductProp) {
                 return;
+              }
+
+              let parsed;
+
+              if (bulkText && bulkText.trim().length > 0) {
+                parsed = bulkText
+                  .split(/\r?\n/)
+                  .map((line) => line.trim())
+                  .filter((line) => line.length > 0)
+                  .map((line) => {
+                    let prop = "";
+                    let value = "";
+
+                    // Caso 1: tiene :
+                    if (line.includes(":")) {
+                      const parts = line.split(":");
+
+                      // La primera parte es propiedad
+                      prop = parts.shift() || "";
+
+                      // El resto se vuelve a unir como valor
+                      value = parts.join(":");
+                    } else {
+                      // Caso 2: no tiene :, intenta separar último número/unidad
+                      const match = line.match(/^(.*?)(\d+.*)$/);
+                      if (match) {
+                        prop = match[1];
+                        value = match[2];
+                      }
+                    }
+
+                    return {
+                      prop: prop.trim(),
+                      value: value.trim(),
+                    };
+                  })
+                  .filter((item) => item.prop !== "" && item.value !== "");
               }
 
               let formData = new FormData();
@@ -300,7 +353,9 @@ const UploadImgProductProvider2 = ({
 
               formData.append(
                 "caracteristicas",
-                JSON.stringify(caracteristicas),
+                parsed === undefined
+                  ? JSON.stringify([])
+                  : JSON.stringify(parsed),
               );
 
               formData.append("upc", dataProductProp?.upc!.toString());
