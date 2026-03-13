@@ -58,7 +58,7 @@ const UploadImgProductProvider2 = ({
 
   return (
     <div className="grid grid-col-[auto] gap-2">
-      {dataProductProp && Number(dataProductProp?.providerId) !== 3 && (
+      {dataProductProp && Number(dataProductProp?.providerId) === 1 && (
         <div className="w-full">
           <TextField
             label="Precio"
@@ -72,20 +72,22 @@ const UploadImgProductProvider2 = ({
           />
         </div>
       )}
-      {dataProductProp && Number(dataProductProp?.providerId) === 3 && (
-        <div className="w-full">
-          <TextField
-            label="Margen de Utilidad"
-            type="number"
-            variant="outlined"
-            name="profitMargin"
-            className="w-full"
-            onChange={(event) => {
-              setProfitMargin(Number(event.target.value));
-            }}
-          />
-        </div>
-      )}
+      {dataProductProp &&
+        (Number(dataProductProp?.providerId) === 3 ||
+          Number(dataProductProp?.providerId) === 2) && (
+          <div className="w-full">
+            <TextField
+              label="Margen de Utilidad"
+              type="number"
+              variant="outlined"
+              name="profitMargin"
+              className="w-full"
+              onChange={(event) => {
+                setProfitMargin(Number(event.target.value));
+              }}
+            />
+          </div>
+        )}
       <div className="w-full">
         <TextField
           label=""
@@ -322,17 +324,27 @@ const UploadImgProductProvider2 = ({
 
               formData.append("description", dataProductProp.description);
 
-              if (Number(dataProductProp.providerId) !== 3) {
-                formData.append("newPrice", price?.toString() ?? "0");
-              } else {
+              // if (
+              //   Number(dataProductProp.providerId) !== 3 &&
+              //   Number(dataProductProp.providerId) !== 2
+              // ) {
+              // } else {
+              // }
+
+              if (
+                Number(dataProductProp.providerId) === 3 ||
+                Number(dataProductProp.providerId) === 2
+              ) {
                 formData.append("newPrice", dataProductProp.price.toString());
+              } else {
+                formData.append("newPrice", price?.toString() ?? "0");
               }
 
               formData?.append(
                 "originPrice",
                 dataProductProp?.price?.toString(),
               );
-              if (Number(dataProductProp.providerId) === 3) {
+              if (Number(dataProductProp.providerId) !== 1) {
                 formData?.append("profitMargin", profitMargin?.toString());
               }
 

@@ -40,7 +40,6 @@ const DashBoard = () => {
         <div className="w-[95%]">
           {rowsVentas?.data && rowsVentas.data?.length > 0 ? (
             <TableComponent
-              key={tableKey}
               paginationModel={paginationModel}
               handlePaginationChange={handlePaginationChange}
               totalRows={rowsVentas?.totalRows}
@@ -48,6 +47,14 @@ const DashBoard = () => {
               rowsDataGrid={rowsVentas?.data}
             />
           ) : (
+            // <TableComponent
+            //   key={tableKey}
+            //   paginationModel={paginationModel}
+            //   handlePaginationChange={handlePaginationChange}
+            //   totalRows={rowsVentas?.totalRows}
+            //   columnsDataGrid={columns}
+            //   rowsDataGrid={rowsVentas?.data}
+            // />
             <Alert severity="info">Sin contenido disponible</Alert>
           )}
         </div>
