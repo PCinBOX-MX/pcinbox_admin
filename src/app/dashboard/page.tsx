@@ -4,16 +4,19 @@ import TableComponent from "../shared/components/especific/table/TableComponent"
 import GridDashboard from "./gridDashboard";
 import useDashboard from "./useDashboard";
 import React, { useEffect, useState } from "react";
-import { LucideStepBack, LucideStepForward } from "lucide-react";
-
 import { useTheContext } from "../hooks/global.hook";
-import { Alert, Pagination, PaginationItem } from "@mui/material";
-import { useEffect, useState } from "react";
+import { Alert } from "@mui/material";
 
 const DashBoard = () => {
-  const [page, setPage] = useState<number>(1);
-
   const { rowsVentas, tableKey } = useTheContext();
+  const [paginationModel, setPaginationModel] = useState<{
+    page: number;
+    pageSize: number;
+  }>({
+    page: 0,
+    pageSize: 25,
+  });
+
   const { handleChangeStatusShip, handleChangeStatusPay, handleGetAllSales } =
     useDashboard();
 
@@ -23,68 +26,37 @@ const DashBoard = () => {
     handleChangeStatusPay,
   });
 
-  const handleOnPaginationModelChange = async (newPage: number) => {
-    setPage(newPage); // Actualiza el estado para re-render
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pageSales", newPage.toString());
-    }
+  const handlePaginationChange = (model: any) => {
+    setPaginationModel(model);
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPage = localStorage.getItem("pageSales");
-      if (savedPage) {
-        setPage(Number(savedPage));
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    handleGetAllSales(page);
-  }, [page]);
+    handleGetAllSales(paginationModel?.page + 1);
+  }, [paginationModel]);
 
   return (
     <section className="w-full">
-      <div className="w-full flex justify-center items-center flex-col">
+      <div className="w-full flex justify-center items-center">
         <div className="w-[95%]">
-          {rowsVentas && rowsVentas.data?.length > 0 ? (
+          {rowsVentas?.data && rowsVentas.data?.length > 0 ? (
             <TableComponent
-              key={tableKey}
               paginationModel={paginationModel}
               handlePaginationChange={handlePaginationChange}
               totalRows={rowsVentas?.totalRows}
               columnsDataGrid={columns}
-              rowCount={rowsVentas?.totalSales}
               rowsDataGrid={rowsVentas?.data}
             />
           ) : (
+            // <TableComponent
+            //   key={tableKey}
+            //   paginationModel={paginationModel}
+            //   handlePaginationChange={handlePaginationChange}
+            //   totalRows={rowsVentas?.totalRows}
+            //   columnsDataGrid={columns}
+            //   rowsDataGrid={rowsVentas?.data}
+            // />
             <Alert severity="info">Sin contenido disponible</Alert>
           )}
-        </div>
-
-        <div
-          className="w-full flex justify-end items-center"
-          style={{
-            marginTop: "15px",
-          }}
-        >
-          <Pagination
-            page={page}
-            count={
-              rowsVentas?.totalSales
-                ? Math.ceil(rowsVentas?.totalSales / 25)
-                : 0
-            }
-            onChange={(_, page) => {
-              handleOnPaginationModelChange(page);
-            }}
-            renderItem={(item) => (
-              <PaginationItem
-                slots={{ previous: LucideStepBack, next: LucideStepForward }}
-                {...item}
-              />
-            )}
-          />
         </div>
       </div>
     </section>
