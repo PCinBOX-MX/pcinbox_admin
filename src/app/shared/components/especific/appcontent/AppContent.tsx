@@ -45,6 +45,7 @@ export default function AppContent({
     if (!socketPagos.current || !socketServer.current) return;
 
     const handleNewOrder = (data: any) => {
+      console.log(`Nueva Orden`, data);
       enqueueSnackbar(`Se generó la orden #${data.idOrder}`, {
         variant: "info",
         action: (snackbarId) => (
@@ -60,6 +61,7 @@ export default function AppContent({
       play.play();
       setRowsVentas((prev) => ({
         ...prev,
+        totalRows: prev.totalRows + 1,
         data: [...prev.data, data],
       }));
       setTableKey((prev) => prev + 1);
@@ -139,7 +141,11 @@ export default function AppContent({
                 ...item,
                 statusPay: "cancelled",
                 statusShip: "cancelado",
-              } as any;
+                products: item.products.map((product) => ({
+                  ...product,
+                  statusShip: "cancelado",
+                })),
+              };
             }
             return item;
           }),
@@ -148,6 +154,8 @@ export default function AppContent({
     };
 
     const handleUpdateOrder = (data: any) => {
+      console.log("update orden");
+      console.log(data);
       enqueueSnackbar(`La orden #${data.idOrder} fue actualizada`, {
         variant: "info",
         action: (snackbarId) => (
@@ -309,7 +317,7 @@ export default function AppContent({
 
       socketServer.current!.off("updateProduct", handlerUpdateProduct);
     };
-  }, [socketPagos.current]);
+  }, [socketPagos.current, socketServer.current]);
 
   useEffect(() => {
     let mounted = true;
