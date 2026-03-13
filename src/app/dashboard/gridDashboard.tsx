@@ -764,24 +764,19 @@ const GridDashboard = ({
         },
       },
       {
-        field: "updatedAt",
+        field: "createdAt",
         headerName: "Fecha de compra",
         flex: 1,
         renderCell: (params) => {
-          const date =
-            params?.row?.updatedAt ||
-            params?.row?.createdAt ||
-            params?.row?.createdAT;
-
-          return (
-            <div
-              className="flex justify-center flex-col items-center min-h-full"
-              style={{
-                padding: "10px",
-              }}
-            >
-              <div className="w-full">
-                {/* {params.value == "" || params.value == null ? (
+          if (params.value) {
+            return (
+              <div
+                className="flex justify-center flex-col items-center min-h-full"
+                style={{
+                  padding: "10px",
+                }}
+              >
+                <div className="w-full">
                   <span
                     className="text-[black] block text-center font-bold"
                     style={{
@@ -790,23 +785,12 @@ const GridDashboard = ({
                       wordBreak: "break-word",
                     }}
                   >
-                    Esperando <MdAccessTime size={22} />
+                    {new Date(params.value).toLocaleString()}
                   </span>
-                ) : ( */}
-                <span
-                  className="text-[black] block text-center font-bold"
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: "600",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {new Date(date).toLocaleString()}
-                </span>
-                {/* )} */}
+                </div>
               </div>
-            </div>
-          );
+            );
+          }
         },
       },
 
@@ -815,11 +799,10 @@ const GridDashboard = ({
         headerName: "Acciones",
         flex: 1,
         renderCell: (params) => {
-          // const currentRow = rows.find(
-          //   (row: any) => row.idShipment === params.row.idShipment
-          // );
-          const currentStatus = params?.row?.statusShip || "";
-          const currentStatusPay = params?.row?.statusPay || "";
+          const currentRow = rows.data?.find(
+            (row: any) => row.idShipment === params.row.idShipment,
+          );
+          const currentStatus = currentRow?.statusShip || "";
 
           return (
             <div
@@ -834,16 +817,16 @@ const GridDashboard = ({
                   <Select
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"
-                   value={params?.row?.statusPay ?? "pending"}
+                    value={currentStatus}
                     onChange={(event) => {
                       console.log(params.row);
 
                       handleChangeStatusShip(
                         event,
                         params.row.idOrder,
-                        params.row.idUser
-                      )
-                    }
+                        params.row.idUser,
+                      );
+                    }}
                   >
                     <MenuItem value={"entregado"}>Entregado</MenuItem>
                     <MenuItem value={"cancelado"}>Cancelado</MenuItem>

@@ -59,7 +59,9 @@ const Proveedores = () => {
         copyData: filtered,
       };
     });
-  }, [search, dataProductProveedor.data]);
+  }, [search]);
+
+  //[search, dataProductProveedor.data]
 
   const startIndex = (page - 1) * itemsPerPage;
   const visibleDataProveedores = dataProductProveedor.copyData!.slice(
