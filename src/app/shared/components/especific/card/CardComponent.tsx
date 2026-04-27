@@ -13,16 +13,27 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { MdEdit, MdFileUpload, MdRemove } from "react-icons/md";
+import {
+  MdAutorenew,
+  MdDownload,
+  MdEdit,
+  MdFileUpload,
+  MdRemove,
+} from "react-icons/md";
 import { Carousel } from "react-responsive-carousel";
 import FormProduct from "../FormProduct/FormProduct";
 import { Dispatch, SetStateAction, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import UploadImgProductProvider2 from "../registerProduct/UploadImgProvider2";
+import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 
 const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   const { formatCurrency } = UtilsService();
   const { setDataModal } = useTheContext();
+  const { requestPostProveedores } = ProveedoresUtils();
+
+  const [loadingRemoveProduct, setLoadingRemoveProduct] =
+    useState<boolean>(false);
 
   const handleEditProduct = async (dataProductProp: ProductsI) => {
     setDataModal({
@@ -161,32 +172,100 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           gap: "10px",
         }}
       >
-        <button
-          onClick={() => {
-            handleAltaProduct(dataProduct);
-          }}
-          className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
-          style={{
-            padding: "10px",
-          }}
-        >
-          Dar de alta al sistema
-          <MdFileUpload size={26} />
-        </button>
+        {dataProduct && dataProduct?.image_url?.length === 0 && (
+          <button
+            onClick={() => {
+              handleAltaProduct(dataProduct);
+            }}
+            className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
+            style={{
+              padding: "10px",
+            }}
+          >
+            Dar de alta al sistema
+            <MdFileUpload size={26} />
+          </button>
+        )}
 
-        <button
-          className="bg-[#808080] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
-          style={{
-            padding: "10px",
-            marginLeft: "0px",
-          }}
-          onClick={() => {
-            handleEditProduct(dataProduct);
-          }}
-        >
-          Editar producto
-          <MdEdit size={26} />
-        </button>
+        {dataProduct && dataProduct?.image_url.length > 0 && (
+          <button
+            className="bg-[#808080] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
+            style={{
+              padding: "10px",
+              marginLeft: "0px",
+            }}
+            onClick={() => {
+              handleEditProduct(dataProduct);
+            }}
+          >
+            Editar producto
+            <MdEdit size={26} />
+          </button>
+        )}
+        {dataProduct && dataProduct?.image_url?.length > 0 && (
+          <button
+            disabled={loadingRemoveProduct}
+            className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
+            style={{
+              padding: "10px",
+              marginLeft: "0px",
+            }}
+            onClick={async () => {
+              setDataModal({
+                isOpen: true,
+                type: "info",
+                content: `¿Seguro que deseas dar de baja el producto ${dataProduct.name}?`,
+                showActions: true,
+                onClose: () => {
+                  setDataModal((prev) => ({ ...prev, isOpen: false }));
+                },
+                onConfirm: async () => {
+                  try {
+                    setLoadingRemoveProduct(true);
+
+                    const resp = await requestPostProveedores(
+                      {
+                        idProduct: dataProduct.idProduct,
+                        idProductExt: dataProduct.idProductExt,
+                      },
+                      "/removeProductPcinbox",
+                    );
+
+                    setLoadingRemoveProduct(false);
+
+                    if (resp.status == 200) {
+                      setDataModal({
+                        isOpen: true,
+                        title: "Correcto",
+                        type: "success",
+                        content: "Producto dado de baja correctamente",
+                        showActions: true,
+                        onClose: () => {
+                          setDataModal((prev) => ({ ...prev, isOpen: false }));
+                        },
+                        onConfirm: () => {
+                          setDataModal((prev) => ({ ...prev, isOpen: false }));
+                        },
+                      });
+                    }
+                  } catch (error) {
+                    setLoadingRemoveProduct(false);
+                  }
+                },
+                title: "Cuidado",
+              });
+            }}
+          >
+            {loadingRemoveProduct ? (
+              <MdAutorenew size={20} className="m-auto the-spinner" />
+            ) : (
+              <>
+                Dar de baja del sistema
+                <MdDownload size={26} />
+              </>
+            )}
+          </button>
+        )}
       </CardActions>
     </Card>
   );

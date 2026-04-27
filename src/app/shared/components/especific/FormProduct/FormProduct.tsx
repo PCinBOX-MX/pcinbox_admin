@@ -47,8 +47,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const [loadingUpdateProduct, setLoadingUpdateProduct] =
     useState<boolean>(false);
 
-  const [loadingRemoveProduct, setLoadingRemoveProduct] =
-    useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { register, handleSubmit, control } = useForm();
@@ -762,70 +760,15 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         type="submit"
         variant="contained"
         color="primary"
+        style={{
+          padding: "10px",
+          borderRadius: "10px",
+        }}
       >
         {loadingUpdateProduct ? (
           <MdAutorenew size={20} className="m-auto the-spinner" />
         ) : (
           <>Actualizar</>
-        )}
-      </Button>
-
-      <Button
-        disabled={loadingRemoveProduct}
-        type="button"
-        variant="contained"
-        color="error"
-        className="my-2"
-        onClick={async () => {
-          setDataModal({
-            isOpen: true,
-            type: "info",
-            content: `¿Seguro que deseas dar de baja el producto ${dataProductProp.name}?`,
-            showActions: true,
-            onClose: () => {
-              setDataModal((prev) => ({ ...prev, isOpen: false }));
-            },
-            onConfirm: async () => {
-              try {
-                setLoadingRemoveProduct(true);
-
-                const resp = await requestPostProveedores(
-                  {
-                    idProduct: dataProductProp.idProduct,
-                    idProductExt: dataProductProp.idProductExt,
-                  },
-                  "/removeProductPcinbox",
-                );
-
-                setLoadingRemoveProduct(false);
-
-                if (resp.status == 200) {
-                  setDataModal({
-                    isOpen: true,
-                    title: "Correcto",
-                    type: "success",
-                    content: "Producto dado de baja correctamente",
-                    showActions: true,
-                    onClose: () => {
-                      setDataModal((prev) => ({ ...prev, isOpen: false }));
-                    },
-                    onConfirm: () => {
-                      setDataModal((prev) => ({ ...prev, isOpen: false }));
-                    },
-                  });
-                }
-              } catch (error) {
-                setLoadingRemoveProduct(false);
-              }
-            },
-            title: "Cuidado",
-          });
-        }}
-      >
-        {loadingRemoveProduct ? (
-          <MdAutorenew size={20} className="m-auto the-spinner" />
-        ) : (
-          <>Dar de baja del sistema</>
         )}
       </Button>
     </Box>
