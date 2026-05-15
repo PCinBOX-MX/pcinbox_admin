@@ -8,7 +8,7 @@ import { useTheContext } from "../hooks/global.hook";
 import { Alert } from "@mui/material";
 
 const DashBoard = () => {
-  const { rowsVentas, tableKey } = useTheContext();
+  const { rowsVentas } = useTheContext();
   const [paginationModel, setPaginationModel] = useState<{
     page: number;
     pageSize: number;
