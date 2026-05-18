@@ -205,7 +205,7 @@ export default function Settings() {
               >
                 {slot.preview ? (
                   <Image
-                    src={banners[index]}
+                    src={slot.preview}
                     alt={`Banner ${slotNumber}`}
                     fill
                     priority
