@@ -30,6 +30,7 @@ export default function Settings() {
   const [globalMessage, setGlobalMessage] = useState<{
     type: "success" | "error";
     text: string;
+    show: boolean;
   } | null>(null);
 
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -110,19 +111,20 @@ export default function Settings() {
           }),
         );
 
-        setGlobalMessage({ type: "success", text: data.message });
+        setGlobalMessage({ type: "success", text: data.message, show: true });
 
         // ⏱️ 2. pequeño delay opcional para que se vea el "uploaded"
         setTimeout(() => {
           resetSlots();
         }, 800);
       } else {
-        setGlobalMessage({ type: "error", text: data.message });
+        setGlobalMessage({ type: "error", text: data.message, show: true });
       }
     } catch {
       setGlobalMessage({
         type: "error",
         text: "Error de red al conectar con el servidor.",
+        show: true,
       });
     } finally {
       setIsSubmitting(false);
@@ -131,14 +133,27 @@ export default function Settings() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       setBanners([
-        `https://ik.imagekit.io/pcinboxkit/local/carrusel-principal/banner_prin_01.png?v=${Date.now()}`,
-        `https://ik.imagekit.io/pcinboxkit/local/carrusel-principal/banner_prin_02.png?v=${Date.now()}`,
-        `https://ik.imagekit.io/pcinboxkit/local/carrusel-principal/banner_prin_03.png?v=${Date.now()}`,
-        `https://ik.imagekit.io/pcinboxkit/local/carrusel-principal/banner_prin_04.png?v=${Date.now()}`,
-        `https://ik.imagekit.io/pcinboxkit/local/carrusel-principal/banner_prin_05.png?v=${Date.now()}`,
+        `https://ik.imagekit.io/pcinboxkit/${process.env.NEXT_PUBLIC_NODE_ENV === "local" ? "local" : "prod"}/carrusel-principal/banner_prin_01.png?v=${Date.now()}`,
+        `https://ik.imagekit.io/pcinboxkit/${process.env.NEXT_PUBLIC_NODE_ENV === "local" ? "local" : "prod"}/carrusel-principal/banner_prin_02.png?v=${Date.now()}`,
+        `https://ik.imagekit.io/pcinboxkit/${process.env.NEXT_PUBLIC_NODE_ENV === "local" ? "local" : "prod"}/carrusel-principal/banner_prin_03.png?v=${Date.now()}`,
+        `https://ik.imagekit.io/pcinboxkit/${process.env.NEXT_PUBLIC_NODE_ENV === "local" ? "local" : "prod"}/carrusel-principal/banner_prin_04.png?v=${Date.now()}`,
+        `https://ik.imagekit.io/pcinboxkit/${process.env.NEXT_PUBLIC_NODE_ENV === "local" ? "local" : "prod"}/carrusel-principal/banner_prin_05.png?v=${Date.now()}`,
       ]);
     }
   }, []);
+
+  useEffect(() => {
+    if (globalMessage?.show === true) {
+      setTimeout(() => {
+        setGlobalMessage((prev) => ({
+          ...prev,
+          type: "success",
+          show: false,
+          text: "",
+        }));
+      }, 3000);
+    }
+  }, [globalMessage]);
 
   return (
     <section className="min-h-screen bg-white dark:bg-[#111] text-gray-900 dark:text-white px-6 py-10 font-sans">
@@ -317,8 +332,11 @@ export default function Settings() {
       </div>
       {/* Mensaje global */}
       {globalMessage && (
-        <div className="max-w-5xl mx-auto mb-6">
+        <div className="max-w-5xl mx-auto mb-6" style={{ margin: "auto" }}>
           <div
+            style={{
+              padding: "10px",
+            }}
             className={`rounded-xl px-4 py-3 text-sm border ${
               globalMessage.type === "success"
                 ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-700/40 dark:text-emerald-300"
