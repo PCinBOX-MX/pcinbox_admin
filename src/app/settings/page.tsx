@@ -206,19 +206,19 @@ export default function Settings() {
                 {slot.preview ? (
                   <Image
                     src={slot.preview}
-                    alt={`Nueva imagen para banner ${slotNumber}`}
+                    alt={`Banner ${slotNumber}`}
                     fill
+                    priority
                     className="object-cover"
-                    unoptimized
                   />
                 ) : (
                   banners[index] && (
                     <Image
                       src={banners[index]}
-                      alt={`Banner actual ${slotNumber}`}
+                      alt={`Banner ${slotNumber}`}
                       fill
+                      priority
                       className="object-cover"
-                      unoptimized
                     />
                   )
                 )}
