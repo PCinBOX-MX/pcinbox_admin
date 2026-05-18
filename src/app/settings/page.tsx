@@ -94,22 +94,34 @@ export default function Settings() {
       const data = await res.data;
 
       if (res.status === 200) {
-        const uploadedSet = new Set<number>(
-          (data.data as { slot: number }[]).map((u) => u.slot),
-        );
+        setBanners((prev) => {
+          const updated = [...prev];
 
-        // 🔥 1. actualizar estados (opcional, antes del reset)
-        setSlots((prev) =>
-          prev.map((s, i) => {
-            const slot = i + 1;
-
-            if (uploadedSet.has(slot)) {
-              return { ...s, status: "uploaded" as const };
+          data.data.forEach(({ slot, url }: { slot: any; url: any }) => {
+            const index = slot - 1;
+            if (updated[index] !== undefined) {
+              updated[index] = url;
             }
+          });
 
-            return s;
-          }),
-        );
+          return updated;
+        });
+        // const uploadedSet = new Set<number>(
+        //   (data.data as { slot: number }[]).map((u) => u.slot),
+        // );
+
+        // // 🔥 1. actualizar estados (opcional, antes del reset)
+        // setSlots((prev) =>
+        //   prev.map((s, i) => {
+        //     const slot = i + 1;
+
+        //     if (uploadedSet.has(slot)) {
+        //       return { ...s, status: "uploaded" as const };
+        //     }
+
+        //     return s;
+        //   }),
+        // );
 
         setGlobalMessage({ type: "success", text: data.message, show: true });
 
