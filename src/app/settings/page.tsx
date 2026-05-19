@@ -331,7 +331,7 @@ export default function Settings() {
                     fileInputRefs.current[index] = el;
                   }}
                   type="file"
-                  accept="image/png,image/jpeg,image/webp"
+                  accept="image/png"
                   className="hidden"
                   onChange={(e) =>
                     handleFileChange(index, e.target.files?.[0] ?? null)
