@@ -597,7 +597,7 @@ export default function Settings() {
                 <option value="">Selecciona una categoría</option>
                 {BANNERS_X_CATEGORY.map((cat, index) => (
                   <option key={index} value={cat.category}>
-                    {cat.category}
+                    {cat.name}
                   </option>
                 ))}
               </select>
