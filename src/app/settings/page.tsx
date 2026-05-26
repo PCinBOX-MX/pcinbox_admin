@@ -594,7 +594,9 @@ export default function Settings() {
                 }}
                 className="text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-white/20"
               >
-                <option value="">Selecciona una categoría</option>
+                <option value="" disabled>
+                  Selecciona una categoría
+                </option>
                 {BANNERS_X_CATEGORY.map((cat, index) => (
                   <option key={index} value={cat.category}>
                     {cat.name}
