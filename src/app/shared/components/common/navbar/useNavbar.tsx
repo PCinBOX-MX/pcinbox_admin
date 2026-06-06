@@ -24,11 +24,9 @@ const useNavbar = () => {
             ? "/customer"
             : label == "Ajustes"
               ? "/settings"
-              : // : label == "Links de Pagos"
-                // ? "/linkPagos"
-                // : label == "Ventas (Invitados)"
-                // ? "/ventasInvitados"
-                "",
+              : label == "Reservas"
+                ? "/reservas"
+                : "",
     );
   };
 
