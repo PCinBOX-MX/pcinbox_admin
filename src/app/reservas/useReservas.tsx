@@ -96,15 +96,14 @@ const useReservas = () => {
       type: "info",
       title: "Confirmar Cambio de Estatus",
       showActions: true,
-      content: `¿Estás seguro de cambiar el estatus de la reserva ${reference} a "${
-        newStatus === "pending"
-          ? "Pendiente"
-          : newStatus === "in_process"
-            ? "En Proceso"
-            : newStatus === "completed"
-              ? "Completada"
-              : "Cancelada"
-      }"? Se enviará una notificación por correo al cliente.`,
+      content: `¿Estás seguro de cambiar el estatus de la reserva ${reference} a "${newStatus === "pending"
+        ? "Pendiente"
+        : newStatus === "in_process"
+          ? "En Proceso"
+          : newStatus === "completed"
+            ? "Completada"
+            : "Cancelada"
+        }"? Se enviará una notificación por correo al cliente.`,
       onClose: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
@@ -122,15 +121,17 @@ const useReservas = () => {
               type: "info",
               title: "Estatus Actualizado",
               showActions: false,
-              content: `El estatus de la reserva se actualizó a "${
-                newStatus === "pending"
-                  ? "Pendiente"
-                  : newStatus === "in_process"
-                    ? "En Proceso"
-                    : newStatus === "completed"
-                      ? "Completada"
-                      : "Cancelada"
-              }" correctamente y se le notificó al cliente.`,
+              content: `El estatus de la reserva se actualizó a "${newStatus === "pending"
+                ? "Pendiente"
+                : newStatus === "in_process"
+                  ? "En Proceso"
+                  : newStatus === "completed"
+                    ? "Completada"
+                    : "Cancelada"
+                }" correctamente y se le notificó al cliente.`,
+              onConfirm: () => {
+                setDataModal((prev) => ({ ...prev, isOpen: false }));
+              },
               onClose: () => {
                 setDataModal((prev) => ({ ...prev, isOpen: false }));
               },
