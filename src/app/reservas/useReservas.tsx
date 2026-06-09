@@ -12,6 +12,7 @@ export interface Reservation {
   brand: string;
   model: string;
   description: string;
+  cancelReason?: string;
   date: string;
   time: string;
   status: string;
@@ -21,6 +22,75 @@ export interface Reservation {
   createdAt?: string;
   updatedAt?: string;
 }
+
+const CancelModalContent = ({
+  reference,
+  onConfirm,
+  onCancel,
+}: {
+  reference: string;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+}) => {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = () => {
+    if (!reason.trim()) {
+      setError("El motivo de la cancelación es requerido.");
+      return;
+    }
+    onConfirm(reason.trim());
+  };
+
+  return (
+    <div className="flex flex-col gap-4 w-full min-w-[280px] sm:min-w-[400px] text-left">
+      <p className="text-sm text-gray-600">
+        ¿Estás seguro de cambiar el estatus de la reserva <strong className="text-gray-950 font-semibold">{reference}</strong> a <strong className="text-red-600 font-semibold">"Cancelada"</strong>? Se enviará una notificación por correo al cliente.
+      </p>
+      
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+          Motivo de la cancelación *
+        </label>
+        <textarea
+          className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#bb3d4b]/20 transition-all ${
+            error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#bb3d4b]"
+          }`}
+          placeholder="Por favor, describe detalladamente la razón de la cancelación..."
+          rows={4}
+          value={reason}
+          onChange={(e) => {
+            setReason(e.target.value);
+            if (e.target.value.trim()) {
+              setError("");
+            }
+          }}
+        />
+        {error && <span className="text-xs text-red-500 font-medium">{error}</span>}
+      </div>
+
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          type="button"
+          className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg cursor-pointer transition-colors text-sm"
+          style={{ padding: "8px 16px" }}
+          onClick={onCancel}
+        >
+          Cerrar
+        </button>
+        <button
+          type="button"
+          className="bg-[#bb3d4b] hover:bg-[#bb3d4b]/95 text-white font-bold rounded-lg cursor-pointer transition-colors text-sm"
+          style={{ padding: "8px 16px" }}
+          onClick={handleSubmit}
+        >
+          Confirmar Cancelación
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const useReservas = () => {
   const { requestGet, requestPost } = UtilsService();
@@ -91,6 +161,54 @@ const useReservas = () => {
 
   // Actualizar el estatus de una reserva
   const updateReservationStatus = async (reference: string, newStatus: string) => {
+    if (newStatus === "cancelled") {
+      setDataModal({
+        isOpen: true,
+        type: "warning",
+        title: "Cancelar Reserva",
+        showActions: false,
+        content: (
+          <CancelModalContent
+            reference={reference}
+            onCancel={() => setDataModal((prev) => ({ ...prev, isOpen: false }))}
+            onConfirm={async (reason) => {
+              setDataModal((prev) => ({ ...prev, isOpen: false }));
+              try {
+                const res = await requestPost(
+                  { reference, status: newStatus, cancelReason: reason },
+                  "/reservas/admin/updateStatus"
+                );
+
+                if (res && res.status === 200) {
+                  setDataModal({
+                    isOpen: true,
+                    type: "info",
+                    title: "Estatus Actualizado",
+                    showActions: false,
+                    content: `La reserva se canceló correctamente y se le notificó al cliente.`,
+                    onConfirm: () => {
+                      setDataModal((prev) => ({ ...prev, isOpen: false }));
+                    },
+                    onClose: () => {
+                      setDataModal((prev) => ({ ...prev, isOpen: false }));
+                    },
+                  });
+                  fetchReservations();
+                }
+              } catch (error: any) {
+                console.error("Error updating reservation status:", error);
+              }
+            }}
+          />
+        ),
+        onConfirm: () => {},
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+      return;
+    }
+
     setDataModal({
       isOpen: true,
       type: "info",
