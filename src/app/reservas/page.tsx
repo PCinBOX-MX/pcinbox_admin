@@ -578,6 +578,25 @@ const ReservasAdminPage = () => {
                   {selectedRes.description || "Sin descripción proporcionada."}
                 </div>
               </div>
+
+              {/* Motivo de Cancelación */}
+              {selectedRes.status === "cancelled" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <h4 
+                    className="text-xs font-bold text-red-500 uppercase tracking-wider flex items-center"
+                    style={{ gap: "4px" }}
+                  >
+                    <AlertCircle size={14} className="text-red-500" />
+                    Motivo de Cancelación
+                  </h4>
+                  <div 
+                    className="bg-red-50 rounded-xl border border-red-100 text-sm text-red-800 whitespace-pre-line leading-relaxed"
+                    style={{ padding: "16px" }}
+                  >
+                    {selectedRes.cancelReason || "Sin motivo de cancelación registrado."}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
