@@ -406,21 +406,41 @@ const ReservasAdminPage = () => {
                         {/* Estatus */}
                         <td style={{ padding: "16px 24px" }}>
                           <div className="flex items-center" style={{ gap: "8px" }}>
-                            <select
-                              value={res.status}
-                              onChange={(e) => updateReservationStatus(res.reference, e.target.value)}
-                              className={`text-xs font-semibold rounded-full border cursor-pointer outline-none transition-all duration-200 ${getStatusBadgeClass(
-                                res.status
-                              )}`}
-                              style={{
-                                padding: "6px 12px",
-                              }}
-                            >
-                              <option value="pending" className="text-amber-800 bg-white">Pendiente</option>
-                              <option value="in_process" className="text-blue-800 bg-white">En Proceso</option>
-                              <option value="completed" className="text-green-800 bg-white">Completada</option>
-                              <option value="cancelled" className="text-red-800 bg-white">Cancelada</option>
-                            </select>
+                            {res.status === "cancelled" ? (
+                              <Tooltip title="No se puede cambiar el estatus de una reserva cancelada" arrow>
+                                <span className="inline-block">
+                                  <select
+                                    value={res.status}
+                                    onChange={(e) => updateReservationStatus(res.reference, e.target.value)}
+                                    disabled={true}
+                                    className={`text-xs font-semibold rounded-full border outline-none transition-all duration-200 ${getStatusBadgeClass(
+                                      res.status
+                                    )} opacity-75 cursor-not-allowed`}
+                                    style={{
+                                      padding: "6px 12px",
+                                    }}
+                                  >
+                                    <option value="cancelled" className="text-red-800 bg-white">Cancelada</option>
+                                  </select>
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <select
+                                value={res.status}
+                                onChange={(e) => updateReservationStatus(res.reference, e.target.value)}
+                                className={`text-xs font-semibold rounded-full border cursor-pointer outline-none transition-all duration-200 ${getStatusBadgeClass(
+                                  res.status
+                                )}`}
+                                style={{
+                                  padding: "6px 12px",
+                                }}
+                              >
+                                <option value="pending" className="text-amber-800 bg-white">Pendiente</option>
+                                <option value="in_process" className="text-blue-800 bg-white">En Proceso</option>
+                                <option value="completed" className="text-green-800 bg-white">Completada</option>
+                                <option value="cancelled" className="text-red-800 bg-white">Cancelada</option>
+                              </select>
+                            )}
                           </div>
                         </td>
 
