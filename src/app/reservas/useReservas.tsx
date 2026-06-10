@@ -94,7 +94,7 @@ const CancelModalContent = ({
 
 const useReservas = () => {
   const { requestGet, requestPost } = UtilsService();
-  const { setDataModal } = useTheContext();
+  const { setDataModal, socketServer } = useTheContext();
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [totalReservations, setTotalReservations] = useState(0);
@@ -180,6 +180,11 @@ const useReservas = () => {
                 );
 
                 if (res && res.status === 200) {
+                  socketServer.current?.emit("updateReservationStatus", {
+                    reference,
+                    status: newStatus,
+                    cancelReason: reason
+                  });
                   setDataModal({
                     isOpen: true,
                     type: "info",
@@ -234,6 +239,10 @@ const useReservas = () => {
           );
 
           if (res && res.status === 200) {
+            socketServer.current?.emit("updateReservationStatus", {
+              reference,
+              status: newStatus
+            });
             setDataModal({
               isOpen: true,
               type: "info",
