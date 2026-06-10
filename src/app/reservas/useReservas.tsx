@@ -105,6 +105,9 @@ const useReservas = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [date, setDate] = useState("");
+  const [filterType, setFilterType] = useState<"single" | "range">("single");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Paginación
   const [page, setPage] = useState(1);
@@ -135,8 +138,15 @@ const useReservas = () => {
       if (debouncedSearch.trim()) {
         queryParams.append("search", debouncedSearch.trim());
       }
-      if (date) {
+      if (filterType === "single" && date) {
         queryParams.append("date", date);
+      } else if (filterType === "range") {
+        if (startDate) {
+          queryParams.append("startDate", startDate);
+        }
+        if (endDate) {
+          queryParams.append("endDate", endDate);
+        }
       }
 
       const res = await requestGet(`/reservas/admin/getAll?${queryParams.toString()}`);
@@ -157,7 +167,7 @@ const useReservas = () => {
   useEffect(() => {
     fetchReservations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status, debouncedSearch, date]);
+  }, [page, status, debouncedSearch, date, startDate, endDate, filterType]);
 
   // Actualizar el estatus de una reserva
   const updateReservationStatus = async (reference: string, newStatus: string) => {
@@ -282,6 +292,12 @@ const useReservas = () => {
     setStatus,
     date,
     setDate,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    filterType,
+    setFilterType,
     page,
     setPage,
     limit,

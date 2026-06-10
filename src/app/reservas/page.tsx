@@ -41,6 +41,12 @@ const ReservasAdminPage = () => {
     setStatus,
     date,
     setDate,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    filterType,
+    setFilterType,
     page,
     setPage,
     limit,
@@ -66,6 +72,9 @@ const ReservasAdminPage = () => {
     setSearch("");
     setStatus("all");
     setDate("");
+    setStartDate("");
+    setEndDate("");
+    setFilterType("single");
     setPage(1);
   };
 
@@ -151,11 +160,11 @@ const ReservasAdminPage = () => {
               Filtros de búsqueda
             </h2>
             <div 
-              className="grid grid-cols-1 md:grid-cols-4 items-center"
+              className="grid grid-cols-1 md:grid-cols-12 items-center"
               style={{ gap: "16px" }}
             >
               {/* Buscador */}
-              <div>
+              <div className={filterType === "single" ? "md:col-span-3" : "md:col-span-2"}>
                 <TextField
                   fullWidth
                   label="Buscar folio, cliente, equipo..."
@@ -173,7 +182,7 @@ const ReservasAdminPage = () => {
               </div>
 
               {/* Selector de Estado */}
-              <div>
+              <div className="md:col-span-2">
                 <FormControl fullWidth size="small">
                   <InputLabel id="status-filter-label">Estatus</InputLabel>
                   <Select
@@ -195,30 +204,89 @@ const ReservasAdminPage = () => {
                 </FormControl>
               </div>
 
-              {/* Selector de Fecha */}
-              <div>
-                <TextField
-                  fullWidth
-                  label="Fecha de la cita"
-                  type="date"
-                  size="small"
-                  variant="outlined"
-                  value={date}
-                  onChange={(e) => {
-                    setDate(e.target.value);
-                    setPage(1);
-                  }}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
+              {/* Tipo de Fecha */}
+              <div className="md:col-span-2">
+                <FormControl fullWidth size="small">
+                  <InputLabel id="date-type-filter-label">Tipo de Fecha</InputLabel>
+                  <Select
+                    labelId="date-type-filter-label"
+                    id="date-type-filter"
+                    value={filterType}
+                    label="Tipo de Fecha"
+                    onChange={(e) => {
+                      setFilterType(e.target.value as "single" | "range");
+                      setPage(1);
+                    }}
+                  >
+                    <MenuItem value="single">Fecha específica</MenuItem>
+                    <MenuItem value="range">Rango de fechas</MenuItem>
+                  </Select>
+                </FormControl>
               </div>
 
+              {/* Selector de Fecha */}
+              {filterType === "single" ? (
+                <div className="md:col-span-3">
+                  <TextField
+                    fullWidth
+                    label="Fecha de la cita"
+                    type="date"
+                    size="small"
+                    variant="outlined"
+                    value={date}
+                    onChange={(e) => {
+                      setDate(e.target.value);
+                      setPage(1);
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="md:col-span-2">
+                    <TextField
+                      fullWidth
+                      label="Fecha inicial"
+                      type="date"
+                      size="small"
+                      variant="outlined"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        setPage(1);
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <TextField
+                      fullWidth
+                      label="Fecha final"
+                      type="date"
+                      size="small"
+                      variant="outlined"
+                      value={endDate}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        setPage(1);
+                      }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+
               {/* Botón limpiar */}
-              <div className="flex" style={{ gap: "8px" }}>
+              <div className="md:col-span-2 flex" style={{ gap: "8px" }}>
                 <button
                   onClick={clearFilters}
-                  disabled={!search && status === "all" && !date}
+                  disabled={!search && status === "all" && !date && !startDate && !endDate && filterType === "single"}
                   className="w-full flex items-center justify-center border border-gray-200 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-gray-600 font-medium rounded-lg transition-all duration-200 cursor-pointer"
                   style={{
                     padding: "8px 16px",
