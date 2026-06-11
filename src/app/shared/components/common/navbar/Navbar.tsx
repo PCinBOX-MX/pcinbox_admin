@@ -34,11 +34,9 @@ const Navbar = () => {
             ? "clientes"
             : pathName === "/settings"
               ? "ajustes"
-              : // : pathName === "/linkPagos"
-                // ? "linkPago"
-                // : pathName == "/ventasInvitados"
-                // ? "ventasInvitados"
-                "",
+              : pathName === "/reservas"
+                ? "reservas"
+                : "",
     );
   }, [pathName]);
 
