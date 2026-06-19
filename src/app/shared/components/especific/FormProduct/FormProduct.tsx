@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheContext } from "@/app/hooks/global.hook";
+import { providerUsesProfitMargin } from "@/app/constants/providers.constants";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import {
@@ -72,8 +73,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           sku: event.sku,
           upc: event.upc,
           providerId: findDataProduct?.providerId,
-          profitMargin:
-            Number(findDataProduct?.providerId) === 3 ? event?.profitMargin : 0,
+          profitMargin: providerUsesProfitMargin(findDataProduct?.providerId)
+            ? event?.profitMargin
+            : 0,
           isPc: dataProductProp?.isPc || (dataProductProp as any)?.isPC,
           caracteristicas: findDataProduct
             ? findDataProduct?.caracteristicas
@@ -497,7 +499,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       </div>
 
       <div
-        className={`grid grid-cols-[1fr_1fr${Number(dataProductProp?.providerId) === 3 ? "_1fr" : ""}] gap-2`}
+        className={`grid grid-cols-[1fr_1fr${providerUsesProfitMargin(dataProductProp?.providerId) ? "_1fr" : ""}] gap-2`}
       >
         <TextField
           label="UPC"
@@ -568,7 +570,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           />
         </FormControl>
 
-        {Number(dataProductProp?.providerId) === 3 && (
+        {providerUsesProfitMargin(dataProductProp?.providerId) && (
           <TextField
             label="Margen de Utilidad"
             type="number"

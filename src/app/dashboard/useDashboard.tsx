@@ -107,15 +107,14 @@ const useDashboard = () => {
         "/stripe/updateStatusPayByOrden",
       );
       if (resp.status == 200) {
-        // setRowsVentas((prev) => {
-        //   return prev.map((item) => {
-        //     if (item.idOrder == idOrder) {
-        //       return { ...item, statusPay: event.target.value };
-        //     }
-        //     return item;
-        //   });
-        // });
-        // setTableKey((prev) => prev + 1); // Forzar re-render
+        setRowsVentas((prev) => ({
+          ...prev,
+          data: prev.data.map((order) =>
+            order.idOrder === idOrder
+              ? { ...order, statusPay: event.target.value }
+              : order,
+          ),
+        }));
       }
     } catch (error) {}
   };

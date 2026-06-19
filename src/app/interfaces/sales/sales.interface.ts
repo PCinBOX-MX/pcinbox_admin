@@ -32,6 +32,7 @@ export interface SalesI {
     quantity: number;
     upc: string;
     sku: string;
+    providerId?: number;
     statusShip: any;
     idShipment: number;
     address: null | {
@@ -58,4 +59,19 @@ export interface SalesI {
   createdAt: string;
   updatedAt: string;
   id: number;
+  hasTechsmartProducts?: boolean;
+  techsmartOrder?: {
+    idTechsmartOrder: number;
+    idOrder: number;
+    folioPedido: string | null;
+    guiaPedido: string | null;
+    nombrePaqueteria: string | null;
+    folioFactura: string | null;
+    fechaFactura: string | null;
+    plazoFactura: string | null;
+    status: string;
+    wsError: string | null;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
 }

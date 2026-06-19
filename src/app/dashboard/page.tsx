@@ -35,10 +35,16 @@ const DashBoard = () => {
   }, [paginationModel]);
 
   return (
-    <section className="w-full">
-      <div className="w-full flex justify-center items-center">
-        <div className="w-[95%]">
-          {rowsVentas?.data && rowsVentas.data?.length > 0 ? (
+    <section className="w-full no-padding-top">
+      <div className="admin-panel">
+        <div className="admin-panel__header">
+          <h2 className="admin-panel__title">Órdenes de venta</h2>
+          <p className="admin-panel__subtitle">
+            Gestiona pagos, envíos y pedidos TechSmart
+          </p>
+        </div>
+        <div className="admin-panel__body">
+          {rowsVentas?.data && rowsVentas.data.length > 0 ? (
             <TableComponent
               paginationModel={paginationModel}
               handlePaginationChange={handlePaginationChange}
@@ -47,15 +53,9 @@ const DashBoard = () => {
               rowsDataGrid={rowsVentas?.data}
             />
           ) : (
-            // <TableComponent
-            //   key={tableKey}
-            //   paginationModel={paginationModel}
-            //   handlePaginationChange={handlePaginationChange}
-            //   totalRows={rowsVentas?.totalRows}
-            //   columnsDataGrid={columns}
-            //   rowsDataGrid={rowsVentas?.data}
-            // />
-            <Alert severity="info">Sin contenido disponible</Alert>
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              Sin ventas registradas en esta página
+            </Alert>
           )}
         </div>
       </div>

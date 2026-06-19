@@ -26,7 +26,7 @@ const useNavbar = () => {
               ? "/settings"
               : label == "Reservas"
                 ? "/reservas"
-                : "",
+                : "/dashboard",
     );
   };
 

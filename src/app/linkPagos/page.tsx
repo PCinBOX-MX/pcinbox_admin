@@ -19,18 +19,7 @@ import { useTheContext } from "../hooks/global.hook";
 import { MdAdd, MdAutorenew } from "react-icons/md";
 import UtilsService from "../services/utils";
 
-import dynamic from "next/dynamic";
-
-const LinkPagos = dynamic(() => import("./page"), {
-  ssr: false,
-  loading: () => <div>Cargando...</div>,
-});
-
-export default function Page() {
-  return <LinkPagosPage />;
-}
-
-const LinkPagosPage = () => {
+export default function LinkPagosPage() {
   const {
     quantity,
     dataLinkPago,

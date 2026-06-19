@@ -36,7 +36,11 @@ const Navbar = () => {
               ? "ajustes"
               : pathName === "/reservas"
                 ? "reservas"
-                : "",
+                : pathName === "/linkPagos"
+                  ? "linkPago"
+                  : pathName === "/ventasInvitados"
+                    ? "ventasInvitados"
+                    : "",
     );
   }, [pathName]);
 
@@ -127,11 +131,7 @@ const Navbar = () => {
               return (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    localStorage.setItem("activeTab", String(item.id));
-                    setActiveTab(item.id);
-                    setIsOpen(false);
-                  }}
+                  onClick={() => handleActiveTab(item.label, item.id)}
                   className={`w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 flex items-center gap-3 ${
                     activeTab === item.id
                       ? "bg-blue-600 text-white"
