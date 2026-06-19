@@ -4,16 +4,18 @@ import ModalComponent from "../modal/ModalComponent";
 import { useTheContext } from "@/app/hooks/global.hook";
 import useProtected from "@/app/hooks/protectedRoute.hook";
 import { usePathname } from "next/navigation";
-import Navbar from "../../common/navbar/Navbar";
+import AdminLayout from "../../common/layout/AdminLayout";
 import React, { useEffect } from "react";
 import { useSound } from "react-sounds";
 import { IconButton } from "@mui/material";
 import SpinnerComponent from "../spinner/Spinner";
 import useProveedores from "@/app/proveedores/useProveedores";
 import useDashboard from "@/app/dashboard/useDashboard";
-import { SnackbarProvider, useSnackbar } from "notistack";
+import { useSnackbar } from "notistack";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import useVentasInvitados from "@/app/ventasInvitados/useVentasInvitados";
+
+const AUTH_ROUTES = ["/", "/features/auth/Login", "/features/auth/Register"];
 
 export default function AppContent({
   children,
@@ -337,34 +339,26 @@ export default function AppContent({
     }
   }, [pathName]);
 
+  const isAuthRoute = AUTH_ROUTES.includes(pathName);
+
   return (
-    <SnackbarProvider
-      maxSnack={3}
-      anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      preventDuplicate
-      autoHideDuration={null}
-    >
-      <div>
-        <main className="min-h-[100%]">
-          {pathName !== "/features/auth/Login" &&
-            pathName !== "/" &&
-            pathName !== "/features/auth/Register" && <Navbar />}
-          {children}
+    <>
+      <main className="min-h-screen">
+        {isAuthRoute ? children : <AdminLayout>{children}</AdminLayout>}
 
-          <ModalComponent
-            isOpen={dataModal.isOpen}
-            title={dataModal.title}
-            content={dataModal.content}
-            onConfirm={() => dataModal.onConfirm()}
-            onClose={() => dataModal.onClose()}
-            type={dataModal.type}
-            children={dataModal.children}
-            showActions={dataModal.showActions}
-          />
+        <ModalComponent
+          isOpen={dataModal.isOpen}
+          title={dataModal.title}
+          content={dataModal.content}
+          onConfirm={() => dataModal.onConfirm()}
+          onClose={() => dataModal.onClose()}
+          type={dataModal.type}
+          children={dataModal.children}
+          showActions={dataModal.showActions}
+        />
 
-          <SpinnerComponent />
-        </main>
-      </div>
-    </SnackbarProvider>
+        <SpinnerComponent />
+      </main>
+    </>
   );
 }

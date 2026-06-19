@@ -48,20 +48,23 @@ const Customer = () => {
   });
 
   return (
-    <section className="w-full">
-      <div
-        className="flex justify-center items-center w-[80%]"
-        style={{
-          margin: "auto",
-        }}
-      >
-        <TableComponent
-          paginationModel={paginationModel}
-          handlePaginationChange={handlePaginationChange}
-          totalRows={totalRows}
-          columnsDataGrid={columns}
-          rowsDataGrid={dataRows}
-        />
+    <section className="w-full no-padding-top">
+      <div className="admin-panel">
+        <div className="admin-panel__header">
+          <h2 className="admin-panel__title">Clientes</h2>
+          <p className="admin-panel__subtitle">
+            Usuarios registrados en la plataforma
+          </p>
+        </div>
+        <div className="admin-panel__body">
+          <TableComponent
+            paginationModel={paginationModel}
+            handlePaginationChange={handlePaginationChange}
+            totalRows={totalRows}
+            columnsDataGrid={columns}
+            rowsDataGrid={dataRows}
+          />
+        </div>
       </div>
     </section>
   );

@@ -39,8 +39,8 @@ const useProveedores = () => {
         const data = resp.data;
         setDataProveedores((prev) => ({ ...prev, data: data.data.data }));
 
-        if (data.length > 0) {
-          setSlcProveedor(data[0].idProveedor.toString());
+        if (data.data.data?.length > 0) {
+          setSlcProveedor(String(data.data.data[0].idProvider));
         }
       }
     } catch (error) {

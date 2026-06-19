@@ -41,12 +41,12 @@ const UtilsService = () => {
           content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
           title: "Sesión expirada",
           onClose: () => {
-            location.href = "/principal";
+            location.href = "/features/auth/Login";
             localStorage.clear();
             setDataModal((prev) => ({ ...prev, isOpen: false }));
           },
           onConfirm: async () => {
-            location.href = "/principal";
+            location.href = "/features/auth/Login";
             localStorage.clear();
 
             setDataModal((prev) => ({ ...prev, isOpen: false }));

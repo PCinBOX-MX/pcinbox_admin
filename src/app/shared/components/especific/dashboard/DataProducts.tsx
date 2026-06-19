@@ -31,7 +31,6 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
 
   return (
     <div className="flex flex-col gap-3 min-w-[500px] max-w-[700px] max-h-[500px] overflow-y-auto pr-2">
-      {console.log(params)}
       {products.map((item: any, index: number) => {
         // Info del producto
         const productInfo = {

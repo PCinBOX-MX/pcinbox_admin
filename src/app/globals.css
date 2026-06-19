@@ -6,6 +6,13 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --admin-primary: #bb3d4b;
+  --admin-primary-dark: #9a3139;
+  --admin-primary-soft: #fdf2f3;
+  --admin-surface: #ffffff;
+  --admin-border: #e8e8ec;
+  --admin-muted: #6b7280;
+  --admin-sidebar-width: 260px;
 }
 
 input::-webkit-outer-spin-button,
@@ -28,20 +35,279 @@ input[type="number"] {
 html,
 body {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  background: #f4f5f7;
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+section.no-padding-top {
+  padding-top: 0;
+}
+
+/* ── Admin shell ── */
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f4f5f7;
+}
+
+.admin-shell__main {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--admin-sidebar-width);
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-shell__content {
+  flex: 1;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--admin-border);
+  padding: 1rem 1.5rem;
+}
+
+.admin-topbar__eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-primary);
+  margin-bottom: 0.15rem;
+}
+
+.admin-topbar__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+/* ── Sidebar ── */
+.admin-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--admin-sidebar-width);
+  background: linear-gradient(180deg, #1a1d24 0%, #12151a 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+}
+
+.admin-sidebar__brand {
+  padding: 1.25rem 1rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-sidebar__logo {
+  width: 130px;
+  height: auto;
+  object-fit: contain;
+  filter: brightness(1.05);
+}
+
+.admin-sidebar__badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--admin-primary);
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+}
+
+.admin-sidebar__nav {
+  flex: 1;
+  padding: 1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
   overflow-y: auto;
-  background: #f7f7f7;
 }
 
-/* CAMBIA ESTO - quita el padding-top general */
-section {
-  height: 100%;
-  /* padding-top: 140px; */ /* <-- Comenta o elimina esto */
+.admin-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  text-align: left;
 }
 
-/* Y agrega esto para las secciones que SÍ necesitan el padding */
-section:not(.no-padding-top) {
-  padding-top: 140px;
+.admin-sidebar__link:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.admin-sidebar__link--active {
+  background: linear-gradient(135deg, var(--admin-primary) 0%, var(--admin-primary-dark) 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(187, 61, 75, 0.35);
+}
+
+.admin-sidebar__link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-sidebar__footer {
+  padding: 1rem 0.75rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-sidebar__logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-sidebar__logout:hover {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
+/* ── Admin cards / tables ── */
+.admin-panel {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.admin-panel__header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--admin-border);
+  background: linear-gradient(180deg, #fff 0%, #fafafa 100%);
+}
+
+.admin-panel__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.admin-panel__subtitle {
+  font-size: 0.85rem;
+  color: var(--admin-muted);
+  margin-top: 0.15rem;
+}
+
+.admin-panel__body {
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.admin-btn {
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease,
+    background 0.2s ease;
+}
+
+.admin-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.admin-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.admin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.admin-btn--primary {
+  background: linear-gradient(135deg, var(--admin-primary) 0%, var(--admin-primary-dark) 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(187, 61, 75, 0.25);
+}
+
+.admin-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 6px 16px rgba(187, 61, 75, 0.35);
+}
+
+.admin-btn--secondary {
+  background: #fff;
+  color: #374151;
+  border: 1px solid var(--admin-border);
+}
+
+.admin-btn--secondary:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.admin-data-grid {
+  min-height: 420px;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --admin-sidebar-width: 72px;
+  }
+
+  .admin-sidebar__logo,
+  .admin-sidebar__badge,
+  .admin-sidebar__link span,
+  .admin-sidebar__logout span {
+    display: none;
+  }
+
+  .admin-sidebar__link,
+  .admin-sidebar__logout {
+    justify-content: center;
+    padding: 0.75rem;
+  }
+
+  .admin-topbar__title {
+    font-size: 1.2rem;
+  }
+
+  .admin-shell__content {
+    padding: 1rem;
+  }
 }
 
 .carousel .control-arrow {

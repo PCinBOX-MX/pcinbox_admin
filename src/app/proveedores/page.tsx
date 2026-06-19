@@ -70,11 +70,17 @@ const Proveedores = () => {
   );
 
   return (
-    <section className="w-full">
-      <div className="w-full flex justify-center items-center">
-        <div className="w-[95%]">
+    <section className="w-full no-padding-top">
+      <div className="admin-panel">
+        <div className="admin-panel__header">
+          <h2 className="admin-panel__title">Catálogo por proveedor</h2>
+          <p className="admin-panel__subtitle">
+            Consulta, registra y edita productos de PCInbox, TechSmart y Dicotech
+          </p>
+        </div>
+        <div className="admin-panel__body">
           {!dataProveedores.loading ? (
-            <div className="w-full flex justify-between gap-2">
+            <div className="w-full flex flex-col sm:flex-row justify-between gap-3 mb-4">
               <FormControl fullWidth>
                 <InputLabel id="demo-simple-select-label">
                   Selecciona un proveedor
@@ -106,7 +112,8 @@ const Proveedores = () => {
               </FormControl>
               <button
                 type="button"
-                className="bg-[#bb3d4b] text-[white] rounded font-bold px-2 w-[100px] cursor-pointer"
+                disabled={!slcProveedor}
+                className="admin-btn admin-btn--primary shrink-0 min-w-[110px]"
                 onClick={() => {
                   if (slcProveedor) {
                     handleGetProductsByProveedor(slcProveedor);
@@ -132,10 +139,8 @@ const Proveedores = () => {
             className="flex justify-start relative gap-4"
           >
             <button
-              className="bg-[#bb3d4b] text-[white] rounded font-bold cursor-pointer flex justify-center items-center gap-1"
-              style={{
-                padding: "10px",
-              }}
+              type="button"
+              className="admin-btn admin-btn--primary flex items-center gap-1"
               onClick={showModalRegisterProveedor}
             >
               <MdAdd size={22} />
@@ -143,11 +148,9 @@ const Proveedores = () => {
             </button>
 
             <button
-              style={{
-                padding: "10px",
-              }}
+              type="button"
               onClick={handleAddProduct}
-              className="bg-white border rounded font-bold cursor-pointer flex justify-center items-center gap-1"
+              className="admin-btn admin-btn--secondary flex items-center gap-1"
             >
               <MdAdd size={22} />
               Agregar Producto

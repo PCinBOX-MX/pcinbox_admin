@@ -246,7 +246,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   useEffect(() => {
     handleGetCategorias();
     handleGetMarcas();
-  }, [dataCategoria.length, dataMarca.length]);
+  }, []);
 
   return (
     <CreateContext.Provider

@@ -24,6 +24,7 @@ import {
 import { useTheContext } from "../hooks/global.hook";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import DataProducts from "../shared/components/especific/dashboard/DataProducts";
+import TechsmartOrderPanel from "../shared/components/especific/dashboard/TechsmartOrderPanel";
 
 const GridDashboard = ({
   handleChangeStatusShip,
@@ -64,6 +65,55 @@ const GridDashboard = ({
                 #{params.value}
               </span>
             </div>
+          );
+        },
+      },
+      {
+        field: "techsmart",
+        headerName: "TechSmart",
+        minWidth: 140,
+        maxWidth: 160,
+        sortable: false,
+        renderCell: (params) => {
+          const row = params.row as SalesI & {
+            hasTechsmartProducts?: boolean;
+            techsmartOrder?: SalesI["techsmartOrder"];
+          };
+
+          if (!row.hasTechsmartProducts) {
+            return (
+              <span className="text-gray-400 text-sm text-center block w-full">
+                N/A
+              </span>
+            );
+          }
+
+          return (
+            <button
+              type="button"
+              className="text-sm font-semibold text-blue-700 hover:text-blue-900 underline cursor-pointer"
+              onClick={() => {
+                setDataModal({
+                  isOpen: true,
+                  type: "info",
+                  title: `TechSmart — Orden #${row.idOrder}`,
+                  showActions: true,
+                  onClose: () =>
+                    setDataModal((prev) => ({ ...prev, isOpen: false })),
+                  onConfirm: () =>
+                    setDataModal((prev) => ({ ...prev, isOpen: false })),
+                  content: (
+                    <TechsmartOrderPanel
+                      idOrder={row.idOrder}
+                      initialOrder={row.techsmartOrder}
+                      statusPay={row.statusPay}
+                    />
+                  ),
+                });
+              }}
+            >
+              Gestionar
+            </button>
           );
         },
       },
