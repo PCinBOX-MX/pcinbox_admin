@@ -9,9 +9,9 @@ export default function RootLayout({
 }>) {
   return (
     <GlobalProvider>
-      <html>
+      <html lang="es">
         <body>
-          <AppWrapper children={children} />
+          <AppWrapper>{children}</AppWrapper>
         </body>
       </html>
     </GlobalProvider>

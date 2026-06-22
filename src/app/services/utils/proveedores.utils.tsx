@@ -1,100 +1,103 @@
 "use client";
+
 import { useTheContext } from "@/app/hooks/global.hook";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { usePathname } from "next/navigation";
+import { useCallback } from "react";
+import { RequestOptions } from "./request-options";
+
+export type { RequestOptions };
+
+export const proveedoresApi = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL_PROVEEDOR,
+});
+
+proveedoresApi.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
 
 const ProveedoresUtils = () => {
   const pathName = usePathname();
-
   const { setDataModal, setShowSpinner } = useTheContext();
 
-  const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL_PROVEEDOR,
-  });
+  const handleSessionExpired = useCallback(() => {
+    setDataModal({
+      isOpen: true,
+      content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
+      title: "Sesión expirada",
+      onClose: () => {
+        location.href = "/features/auth/Login";
+        localStorage.clear();
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      onConfirm: async () => {
+        location.href = "/features/auth/Login";
+        localStorage.clear();
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      type: "info",
+      showActions: true,
+    });
+  }, [setDataModal]);
 
-  api.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem("token");
+  const requestGetProveedores = useCallback(
+    async (endPoint: string, options?: RequestOptions) => {
+      const silent = options?.silent === true;
+      try {
+        if (!silent) setShowSpinner(true);
+        const resp = await proveedoresApi.get(endPoint);
+        if (!silent) setShowSpinner(false);
+        return resp;
+      } catch (error) {
+        if (!silent) setShowSpinner(false);
 
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+        const axiosError = error as AxiosError;
+        if (
+          axiosError.response?.status === 401 &&
+          pathName !== "/features/auth/Login" &&
+          pathName !== "/"
+        ) {
+          handleSessionExpired();
+        }
+
+        throw error;
       }
-
-      return config;
     },
-    (error) => Promise.reject(error)
+    [setShowSpinner, pathName, handleSessionExpired],
   );
 
-  api.interceptors.response.use(
-    (response) => response,
-    (er) => {
-      setShowSpinner(false);
+  const requestPostProveedores = useCallback(
+    async (data: unknown, endPoint: string, options?: RequestOptions) => {
+      const silent = options?.silent === true;
+      try {
+        if (!silent) setShowSpinner(true);
+        const resp = await proveedoresApi.post(endPoint, data);
+        if (!silent) setShowSpinner(false);
+        return resp;
+      } catch (error) {
+        if (!silent) setShowSpinner(false);
 
-      if (
-        er.response?.status == 401 &&
-        pathName !== "/features/auth/Login" &&
-        pathName !== "/"
-      ) {
-        setDataModal({
-          isOpen: true,
-          content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
-          title: "Sesión expirada",
-          onClose: () => {
-            location.href = "/features/auth/Login";
-            localStorage.clear();
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          onConfirm: async () => {
-            location.href = "/features/auth/Login";
-            localStorage.clear();
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          type: "info",
-          showActions: true,
-        });
-        return Promise.reject(er);
+        const axiosError = error as AxiosError;
+        if (
+          axiosError.response?.status === 401 &&
+          pathName !== "/features/auth/Login" &&
+          pathName !== "/"
+        ) {
+          handleSessionExpired();
+        }
+
+        throw error;
       }
-
-      // setDataModal({
-      //   isOpen: true,
-      //   content: er?.response?.data?.message,
-      //   title: "Error",
-      //   onClose: () => {
-      //     setDataModal((prev) => ({ ...prev, isOpen: false }));
-      //   },
-      //   onConfirm: async () => {
-      //     setDataModal((prev) => ({ ...prev, isOpen: false }));
-      //   },
-      //   type: "info",
-      //   showActions: true,
-      // });
-      // return Promise.reject(er);
-    }
+    },
+    [setShowSpinner, pathName, handleSessionExpired],
   );
-
-  const requestGetProveedores = async (endPoint: string) => {
-    try {
-      setShowSpinner(true);
-      const resp = await api.get(endPoint);
-      setShowSpinner(false);
-      return resp;
-    } catch (error) {
-      setShowSpinner(false);
-      throw error;
-    }
-  };
-
-  const requestPostProveedores = async (data: any, endPoint: string) => {
-    try {
-      setShowSpinner(true);
-      const resp = await api.post(endPoint, data);
-      setShowSpinner(false);
-      return resp;
-    } catch (error) {
-      setShowSpinner(false);
-      throw error;
-    }
-  };
 
   return {
     requestGetProveedores,

@@ -8,18 +8,13 @@ import {
   useState,
 } from "react";
 import {
-  Alert,
   Autocomplete,
-  Box,
   Button,
   Card,
   CardActions,
   CardMedia,
   FormControl,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
   TextField,
   Typography,
 } from "@mui/material";
@@ -233,39 +228,47 @@ const RegisterProduct = () => {
   }, [files]);
 
   return (
-    <Box
-      component="form"
+    <form
       onSubmit={handleSubmit}
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-        width: "1000px",
-        margin: "auto",
-      }}
+      className="flex w-full max-w-full flex-col"
+      style={{ margin: 0, padding: 0 }}
     >
-      <Select
-        labelId="label-tipo-producto"
-        id="select-tipo-producto"
-        value={typeProduct}
-        label="Tipo de producto"
-        name="type-product"
-        onChange={(event) => {
-          setTypeProduct(event.target.value);
-        }}
-      >
-        <MenuItem value="component">
-          <em>Componente</em>
-        </MenuItem>
-
-        <MenuItem value="pcgamer">
-          <em>PC GAMER (Laptops, WorkStation, PC etc...)</em>
-        </MenuItem>
-      </Select>
+      <div className="w-full" style={{ marginBottom: "20px", padding: 0 }}>
+        <label
+          htmlFor="select-tipo-producto"
+          className="block text-sm font-semibold text-gray-800"
+          style={{ marginBottom: "8px", padding: 0 }}
+        >
+          Tipo de producto{" "}
+          <span className="text-[#bb3d4b]" aria-hidden="true">
+            *
+          </span>
+        </label>
+        <select
+          id="select-tipo-producto"
+          name="type-product"
+          required
+          value={typeProduct}
+          onChange={(event) => setTypeProduct(event.target.value)}
+          className="w-full rounded-xl border border-gray-300 bg-white text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#bb3d4b] focus:ring-2 focus:ring-[#bb3d4b]/15"
+          style={{ padding: "11px 14px", margin: 0 }}
+        >
+          <option value="" disabled>
+            Selecciona una opción
+          </option>
+          <option value="component">Componente</option>
+          <option value="pcgamer">
+            PC GAMER (Laptops, WorkStation, PC, etc.)
+          </option>
+        </select>
+      </div>
 
       {typeProduct == "component" ? (
         <>
-          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
+          <div
+            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             <TextField
               label="Nombre"
               variant="outlined"
@@ -329,7 +332,10 @@ const RegisterProduct = () => {
             </FormControl>
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
+          <div
+            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             <FormControl fullWidth>
               <Autocomplete
                 fullWidth
@@ -391,7 +397,10 @@ const RegisterProduct = () => {
               }
             />
           </div>
-          <div className="grid grid-cols-[1fr_1fr] gap-2">
+          <div
+            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             <TextField
               required
               label="SKU"
@@ -437,7 +446,10 @@ const RegisterProduct = () => {
             />
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div
+            className="flex flex-wrap gap-3"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             {files.map((file, indexFile) => {
               const imageUrl = URL.createObjectURL(file);
               return (
@@ -473,7 +485,10 @@ const RegisterProduct = () => {
             })}
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
+          <div
+            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             <TextField
               required
               label="UPC"
@@ -546,7 +561,8 @@ const RegisterProduct = () => {
             />
           </div>
           <div
-            className="grid grid-cols-[1fr] grid-flow-row gap-2 max-h-[150px] overflow-y-auto overflow-x-hidden py-3"
+            className="grid max-h-[150px] w-full grid-flow-row grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden"
+            style={{ marginBottom: "12px", padding: "12px 0" }}
             ref={containerRef2}
           >
             {dataNewComponent.caracteristicas &&
@@ -613,7 +629,7 @@ const RegisterProduct = () => {
                 )
               : ""}
           </div>
-          <div className="flex justify-start">
+          <div className="flex justify-start" style={{ marginBottom: "16px", padding: 0 }}>
             <Button
               style={{ background: "green", color: "white" }}
               onClick={() => {
@@ -632,7 +648,10 @@ const RegisterProduct = () => {
         </>
       ) : typeProduct == "pcgamer" ? (
         <>
-          <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2">
+          <div
+            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             <TextField
               label="Nombre"
               variant="outlined"
@@ -692,7 +711,10 @@ const RegisterProduct = () => {
             />
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr] gap-2">
+          <div
+            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             <TextField
               label="Existencia"
               type="number"
@@ -737,7 +759,10 @@ const RegisterProduct = () => {
             />
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
+          <div
+            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             <TextField
               label="UPC"
               variant="outlined"
@@ -854,7 +879,10 @@ const RegisterProduct = () => {
             </FormControl>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div
+            className="flex flex-wrap gap-3"
+            style={{ marginBottom: "16px", padding: 0 }}
+          >
             {files.map((file, indexFile) => {
               const fileUrl = previewUrls[indexFile];
               const isVideo = file.type.startsWith("video/");
@@ -907,7 +935,8 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="grid grid-cols-[1fr] grid-flow-row gap-2 max-h-[150px] overflow-y-auto overflow-x-hidden py-3"
+            className="grid max-h-[150px] w-full grid-flow-row grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden"
+            style={{ marginBottom: "12px", padding: "12px 0" }}
             ref={containerRef}
           >
             {dataNewPcGamer.caracteristicas &&
@@ -974,7 +1003,7 @@ const RegisterProduct = () => {
                 )
               : ""}
           </div>
-          <div className="flex justify-start">
+          <div className="flex justify-start" style={{ marginBottom: "16px", padding: 0 }}>
             <Button
               style={{ background: "green", color: "white" }}
               onClick={() => {
@@ -995,15 +1024,22 @@ const RegisterProduct = () => {
         ""
       )}
 
-      <Button
-        disabled={loadinNewProduct}
-        type="submit"
-        variant="contained"
-        color="primary"
-      >
-        Agregar producto
-      </Button>
-    </Box>
+      {typeProduct ? (
+        <div
+          className="flex w-full items-center justify-end border-t border-gray-200"
+          style={{ marginTop: "24px", paddingTop: "20px" }}
+        >
+          <button
+            disabled={loadinNewProduct}
+            type="submit"
+            className="admin-btn admin-btn--primary rounded-xl text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ padding: "10px 22px", margin: 0 }}
+          >
+            {loadinNewProduct ? "Guardando..." : "Agregar producto"}
+          </button>
+        </div>
+      ) : null}
+    </form>
   );
 };
 

@@ -22,6 +22,11 @@ import {
 } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
 import useVentasInvitados from "./useVentasInvitados";
+import {
+  CustomerDetailsContent,
+  InvitadoProductsContent,
+  modalCloseOnly,
+} from "../shared/components/especific/modal/ModalContentHelpers";
 
 const GridVentasInvitados = ({ rows }: { rows?: any }) => {
   const { formatCurrency } = UtilsService();
@@ -74,89 +79,13 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
               onClick={() => {
                 setDataModal({
                   isOpen: true,
-                  type: "success",
+                  type: "info",
+                  title: "Datos del cliente",
+                  size: "md",
+                  ...modalCloseOnly,
                   content: (
-                    <div className="min-w-[550px] max-w-[900px] grid grid-cols-[1fr] gap-2">
-                      <div
-                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                        style={{
-                          padding: "5px",
-                        }}
-                      >
-                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                          Nombre
-                        </span>
-                        <span
-                          className="text-[15px] font-medium text-gray-800 block text-center"
-                          style={{
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {params.value?.[0]?.name}{" "}
-                          {params?.value?.[0]?.lastName}
-                        </span>
-                      </div>
-
-                      <div
-                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                        style={{
-                          padding: "5px",
-                        }}
-                      >
-                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                          Correo
-                        </span>
-                        <span
-                          className="text-[15px] font-medium text-gray-800 block text-center"
-                          style={{
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {params.value?.[0]?.email}
-                        </span>
-                      </div>
-
-                      <div
-                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                        style={{
-                          padding: "5px",
-                        }}
-                      >
-                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                          Teléfono(1)
-                        </span>
-                        <span
-                          className="text-[15px] font-medium text-gray-800 block text-center"
-                          style={{
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {params.value?.[0]?.phone1}
-                        </span>
-                      </div>
-
-                      <div
-                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                        style={{
-                          padding: "5px",
-                        }}
-                      >
-                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                          Teléfono(2)
-                        </span>
-                        <span
-                          className="text-[15px] font-medium text-gray-800 block text-center"
-                          style={{
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {params.value?.[0]?.phone2}
-                        </span>
-                      </div>
-                    </div>
+                    <CustomerDetailsContent data={params.value?.[0]} />
                   ),
-                  title: "Datos del usuario",
-                  showActions: true,
                   onClose: () => {
                     setDataModal((prev) => ({ ...prev, isOpen: false }));
                   },
@@ -195,83 +124,13 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
               onClick={() => {
                 setDataModal({
                   isOpen: true,
-                  type: "success",
+                  type: "info",
+                  title: "Productos de la orden",
+                  size: "xl",
+                  ...modalCloseOnly,
                   content: (
-                    <div className="flex flex-col gap-3 min-w-[500px] max-w-[700px] max-h-[500px] overflow-y-auto pr-2">
-                      {Array.isArray(params.value) &&
-                        params.value.map((item: any, index: number) => (
-                          <div
-                            key={item.idProduct}
-                            style={{
-                              padding: "10px",
-                            }}
-                            className="rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex flex-col gap-3 p-2">
-                              <div>
-                                <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                  Nombre:
-                                </span>
-                                <p className="text-gray-900 font-medium">
-                                  {item.name}
-                                </p>
-                              </div>
-
-                              <div className="p-2">
-                                <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                  Descripción:
-                                </span>
-                                <p className="text-gray-700">
-                                  {item.description}
-                                </p>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3 p-2">
-                                {item?.sku && (
-                                  <div className="p-2">
-                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                      SKU:
-                                    </span>
-                                    <p className="text-gray-700">{item.sku}</p>
-                                  </div>
-                                )}
-
-                                {item?.upc && (
-                                  <div className="p-2">
-                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                      UPC:
-                                    </span>
-                                    <p className="text-gray-700">{item.upc}</p>
-                                  </div>
-                                )}
-
-                                {item?.clave && (
-                                  <div className="p-2">
-                                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                      Clave:
-                                    </span>
-                                    <p className="text-gray-700">
-                                      {item.clave}
-                                    </p>
-                                  </div>
-                                )}
-
-                                <div className="px-2 py-2">
-                                  <span className="text-gray-500 text-sm font-semibold block mb-1">
-                                    Cantidad:
-                                  </span>
-                                  <p className="text-gray-700 font-semibold">
-                                    {item.quantity}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
+                    <InvitadoProductsContent products={params.value} />
                   ),
-                  title: "Productos",
-                  showActions: true,
                   onClose: () => {
                     setDataModal((prev) => ({ ...prev, isOpen: false }));
                   },
@@ -303,8 +162,9 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
 
       {
         field: "monto",
-        headerName: "Pago Total",
-        flex: 1,
+        headerName: "Pago total",
+        minWidth: 120,
+        width: 130,
         renderCell: (params) => {
           return (
             <div
@@ -330,22 +190,21 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
 
       {
         field: "pay_method",
-        headerName: "Metodo de pago",
-        flex: 1,
+        headerName: "Método de pago",
+        minWidth: 190,
+        width: 200,
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%] flex-wrap"
+              className="flex justify-center items-center min-h-[100%]"
               style={{
-                padding: "10px",
+                padding: "8px 4px",
               }}
             >
               <span
-                className="text-[black] block text-center font-bold"
+                className="text-[black] block text-center font-semibold whitespace-nowrap"
                 style={{
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  wordBreak: "break-word",
+                  fontSize: "0.9rem",
                 }}
               >
                 {params.value == "tarjeta_de_debito" ||
@@ -400,22 +259,21 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
       {
         field: "updatedAt",
         headerName: "Fecha de compra",
-        flex: 1,
+        minWidth: 180,
+        width: 190,
         renderCell: (params) => {
           return (
             <div
               className="flex justify-center flex-col items-center min-h-full"
               style={{
-                padding: "10px",
+                padding: "8px 4px",
               }}
             >
               <div className="w-full">
                 <span
-                  className="text-[black] block text-center font-bold"
+                  className="text-[black] block text-center font-medium whitespace-nowrap"
                   style={{
-                    fontSize: "18px",
-                    fontWeight: "600",
-                    wordBreak: "break-word",
+                    fontSize: "0.875rem",
                   }}
                 >
                   {params.value
@@ -431,6 +289,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
       {
         field: "actionsShipment",
         headerName: "Acciones",
+        minWidth: 240,
         flex: 1,
         renderCell: (params) => {
           const currentStatusShip = params?.row?.statusShip;

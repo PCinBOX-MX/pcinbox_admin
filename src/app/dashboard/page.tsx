@@ -17,8 +17,12 @@ const DashBoard = () => {
     pageSize: 25,
   });
 
-  const { handleChangeStatusShip, handleChangeStatusPay, handleGetAllSales } =
-    useDashboard();
+  const {
+    handleChangeStatusShip,
+    handleChangeStatusPay,
+    handleGetAllSales,
+    loading,
+  } = useDashboard();
 
   const { columns } = GridDashboard({
     handleChangeStatusShip,
@@ -26,13 +30,19 @@ const DashBoard = () => {
     handleChangeStatusPay,
   });
 
-  const handlePaginationChange = (model: any) => {
+  const handlePaginationChange = (model: {
+    page: number;
+    pageSize: number;
+  }) => {
     setPaginationModel(model);
   };
 
   useEffect(() => {
-    handleGetAllSales(paginationModel?.page + 1);
-  }, [paginationModel]);
+    handleGetAllSales(paginationModel);
+    // Solo re-fetch cuando cambia página o tamaño, no cuando cambia la referencia del handler
+  }, [paginationModel.page, paginationModel.pageSize]);
+
+  const hasRows = rowsVentas.totalRows > 0 || rowsVentas.data.length > 0;
 
   return (
     <section className="w-full no-padding-top">
@@ -40,21 +50,23 @@ const DashBoard = () => {
         <div className="admin-panel__header">
           <h2 className="admin-panel__title">Órdenes de venta</h2>
           <p className="admin-panel__subtitle">
-            Gestiona pagos, envíos y pedidos TechSmart
+            Gestiona pagos, envíos y pedidos por proveedor (PCInBOX, TechSmart, Dicotech)
           </p>
         </div>
         <div className="admin-panel__body">
-          {rowsVentas?.data && rowsVentas.data.length > 0 ? (
+          {hasRows || loading ? (
             <TableComponent
+              loading={loading}
+              fitColumns
               paginationModel={paginationModel}
               handlePaginationChange={handlePaginationChange}
-              totalRows={rowsVentas?.totalRows}
+              totalRows={rowsVentas.totalRows}
               columnsDataGrid={columns}
-              rowsDataGrid={rowsVentas?.data}
+              rowsDataGrid={rowsVentas.data}
             />
           ) : (
             <Alert severity="info" sx={{ borderRadius: 2 }}>
-              Sin ventas registradas en esta página
+              Sin ventas registradas
             </Alert>
           )}
         </div>

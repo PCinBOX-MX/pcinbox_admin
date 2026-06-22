@@ -14,10 +14,11 @@ import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
 import io, { Socket } from "socket.io-client";
 import { GridRowsProp } from "@mui/x-data-grid";
 import { SalesI } from "../interfaces/sales/sales.interface";
-import ProveedoresUtils from "../services/utils/proveedores.utils";
+import { proveedoresApi } from "../services/utils/proveedores.utils";
 import { ProductsI } from "../interfaces/products/products.interface";
 
 type ModalType = "success" | "error" | "warning" | "info";
+type ModalSize = "sm" | "md" | "lg" | "xl";
 
 interface ModalData {
   isOpen: boolean;
@@ -28,6 +29,9 @@ interface ModalData {
   onConfirm: () => void;
   children?: any;
   showActions: boolean;
+  size?: ModalSize;
+  confirmLabel?: string;
+  showCancel?: boolean;
 }
 
 interface ContextProps {
@@ -67,8 +71,16 @@ interface ContextProps {
       data: SalesI[];
     }>
   >;
-  rowsVentasInvitados: any[];
-  setRowsVentasInvitados: Dispatch<SetStateAction<any[]>>;
+  rowsVentasInvitados: {
+    totalRows: number;
+    data: any[];
+  };
+  setRowsVentasInvitados: Dispatch<
+    SetStateAction<{
+      totalRows: number;
+      data: any[];
+    }>
+  >;
   showSpinner: boolean;
   setShowSpinner: Dispatch<SetStateAction<boolean>>;
   dataProducts: ProductsI[];
@@ -79,6 +91,7 @@ interface ContextProps {
   setDataCategoria: Dispatch<SetStateAction<any>>;
   tableKey: number;
   setTableKey: Dispatch<SetStateAction<number>>;
+  socketsReady: boolean;
 }
 
 const CreateContext = createContext<ContextProps>({
@@ -91,6 +104,9 @@ const CreateContext = createContext<ContextProps>({
     onConfirm: () => {},
     children: "",
     showActions: false,
+    size: "md",
+    confirmLabel: "Aceptar",
+    showCancel: true,
   },
   setDataModal: () => {},
   dataProveedores: {
@@ -121,8 +137,12 @@ const CreateContext = createContext<ContextProps>({
   setDataCategoria: () => {},
   tableKey: 0,
   setTableKey: () => {},
-  rowsVentasInvitados: [],
+  rowsVentasInvitados: {
+    totalRows: 0,
+    data: [],
+  },
   setRowsVentasInvitados: () => {},
+  socketsReady: false,
 });
 
 export const GlobalProvider = ({ children }: { children: any }) => {
@@ -136,6 +156,9 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     onConfirm: () => {},
     children: "",
     showActions: false,
+    size: "md",
+    confirmLabel: "Aceptar",
+    showCancel: true,
   });
 
   const [dataProveedores, setDataProveedores] = useState<{
@@ -160,7 +183,13 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     totalRows: 0,
     data: [],
   });
-  const [rowsVentasInvitados, setRowsVentasInvitados] = useState<any[]>([]);
+  const [rowsVentasInvitados, setRowsVentasInvitados] = useState<{
+    totalRows: number;
+    data: any[];
+  }>({
+    totalRows: 0,
+    data: [],
+  });
 
   const [showSpinner, setShowSpinner] = useState<boolean>(false);
 
@@ -172,33 +201,44 @@ export const GlobalProvider = ({ children }: { children: any }) => {
 
   const [dataCategoria, setDataCategoria] = useState([]);
   const [dataProducts, setDataProducts] = useState<ProductsI[]>([]);
-  const { requestGetProveedores } = ProveedoresUtils();
+  const [socketsReady, setSocketsReady] = useState(false);
 
-  const handleGetMarcas = async () => {
-    try {
-      const resp = await requestGetProveedores("/getAllMarcaPrincipal");
-      const data = resp.data;
+  useEffect(() => {
+    let mounted = true;
 
-      if (resp.status == 200) {
-        setDataMarca(data.data.data);
+    const loadCatalogData = async () => {
+      try {
+        const [marcasRes, categoriasRes, productsRes] = await Promise.all([
+          proveedoresApi.get("/getAllMarcaPrincipal"),
+          proveedoresApi.get("/getAllCategoriPrincipal"),
+          proveedoresApi.get("/getAllProduct"),
+        ]);
+
+        if (!mounted) return;
+
+        if (marcasRes.status === 200) {
+          setDataMarca(marcasRes.data?.data?.data ?? []);
+        }
+        if (categoriasRes.status === 200) {
+          setDataCategoria(categoriasRes.data?.data?.data ?? []);
+        }
+        if (productsRes.status === 200) {
+          setDataProducts(productsRes.data?.data ?? []);
+        }
+      } catch {
+        if (!mounted) return;
+        setDataMarca([]);
+        setDataCategoria([]);
+        setDataProducts([]);
       }
-    } catch (error) {
-      setDataMarca([]);
-    }
-  };
+    };
 
-  const handleGetCategorias = async () => {
-    try {
-      const resp = await requestGetProveedores("/getAllCategoriPrincipal");
-      const data = resp.data;
+    loadCatalogData();
 
-      if (resp.status == 200) {
-        setDataCategoria(data.data.data);
-      }
-    } catch (error) {
-      setDataCategoria([]);
-    }
-  };
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     socketPagos.current = io(process.env.NEXT_PUBLIC_SOCKET_PAGOS || "", {
@@ -216,36 +256,13 @@ export const GlobalProvider = ({ children }: { children: any }) => {
       reconnectionDelayMax: 5000,
       timeout: 20000,
     });
+    setSocketsReady(true);
+
     return () => {
+      setSocketsReady(false);
       socketPagos.current?.disconnect();
       socketServer.current?.disconnect();
     };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const getListProducts = async () => {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL_PROVEEDOR}/getAllProduct`).then(
-        async (res) => {
-          const data = await res.json();
-
-          setDataProducts(data.data);
-          if (mounted) setDataProducts(data.data);
-        },
-      );
-    };
-
-    getListProducts();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    handleGetCategorias();
-    handleGetMarcas();
   }, []);
 
   return (
@@ -273,6 +290,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setTableKey,
         dataProducts,
         setDataProducts,
+        socketsReady,
       }}
     >
       {children}

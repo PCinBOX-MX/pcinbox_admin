@@ -5,7 +5,6 @@ import {
   User,
   FileText,
   RotateCcw,
-  CreditCard,
 } from "lucide-react";
 import {
   Alert,
@@ -50,36 +49,15 @@ export default function LinkPagosPage() {
   const calculateTotal = () => calculateSubtotal();
 
   return (
-    <section
-      className="w-full flex justify-center"
-      style={{
-        paddingBottom: "50px",
-      }}
-    >
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div
-          style={{
-            paddingTop: "5px",
-            paddingBottom: "5px",
-          }}
-          className="bg-gradient-to-r from-[#bb3d4b] to-[#9a3139] rounded-2xl shadow-2xl px-8 py-6 mb-8 transform hover:scale-[1.01] transition-transform duration-300"
-        >
-          <div className="flex items-center justify-center gap-3">
-            <CreditCard className="text-white" size={32} />
-            <h2 className="text-center font-bold text-white text-3xl">
-              Generador de Links de Pagos
-            </h2>
-          </div>
-          <p className="text-white/90 text-center mt-2 text-sm">
+    <section className="w-full no-padding-top">
+      <div className="admin-panel">
+        <div className="admin-panel__header">
+          <h2 className="admin-panel__title">Links de pago</h2>
+          <p className="admin-panel__subtitle">
             Crea órdenes de pago personalizadas y genera PDFs profesionales
           </p>
         </div>
-
-        <div
-          className="rounded-2xl  overflow-hidden"
-          style={{ marginTop: "15px" }}
-        >
+        <div className="admin-panel__body">
           <Box
             component="form"
             sx={{
@@ -534,38 +512,31 @@ export default function LinkPagosPage() {
                 </div>
               )}
 
-              {/* Botones de acción */}
               <div
-                className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8"
-                style={{ margin: "10px" }}
+                className="grid grid-cols-1 gap-4 md:grid-cols-2"
+                style={{ marginTop: "24px" }}
               >
                 <button
                   type="button"
-                  style={{
-                    padding: "10px",
-                    cursor: "pointer",
-                  }}
                   disabled={loading}
                   onClick={() => {
                     handleGeneratePDF();
                   }}
-                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl px-8 py-4 flex items-center justify-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                  className="admin-btn admin-btn--primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ padding: "12px 20px", margin: 0 }}
                 >
                   {loading ? (
-                    <MdAutorenew size={22} />
+                    <MdAutorenew size={22} className="the-spinner" />
                   ) : (
                     <>
                       <FileText size={22} />
-                      <span className="text-lg">Generar PDF</span>
+                      <span>Generar PDF</span>
                     </>
                   )}
                 </button>
 
                 <button
                   type="button"
-                  style={{
-                    cursor: "pointer",
-                  }}
                   onClick={() => {
                     setDataLinkPago({
                       chargeId: "",
@@ -582,10 +553,11 @@ export default function LinkPagosPage() {
                       status: "payment_pending",
                     });
                   }}
-                  className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold rounded-xl px-8 py-4 flex items-center justify-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                  className="admin-btn admin-btn--secondary flex items-center justify-center gap-2"
+                  style={{ padding: "12px 20px", margin: 0 }}
                 >
                   <RotateCcw size={22} />
-                  <span className="text-lg">Limpiar Todo</span>
+                  <span>Limpiar todo</span>
                 </button>
               </div>
             </div>

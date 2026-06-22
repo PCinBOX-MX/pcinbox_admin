@@ -4,23 +4,36 @@ import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import PagosUtils from "../services/utils/pagos.utils";
 import { useTheContext } from "../hooks/global.hook";
+import {
+  buildPaginatedUrl,
+  PaginationModel,
+  parsePaginatedResponse,
+} from "../utils/pagination.util";
+import { useCallback, useState } from "react";
 
 const useDashboard = () => {
   const { requestGetProveedores } = ProveedoresUtils();
   const { setRowsVentas } = useTheContext();
-
   const { requestPostPagos } = PagosUtils();
+  const [loading, setLoading] = useState(false);
 
-  const handleGetAllSales = async (page?: number) => {
-    try {
-      const resp = await requestGetProveedores(`/getAllSales?page=${page}`);
+  const handleGetAllSales = useCallback(
+    async (pagination: PaginationModel) => {
+      setLoading(true);
+      try {
+        const resp = await requestGetProveedores(
+          buildPaginatedUrl("/getAllSales", pagination),
+          { silent: true },
+        );
 
-      if (resp.status == 200) {
-        const data = resp.data;
-        setRowsVentas(() => {
+        if (resp.status == 200) {
+          const { rows, totalRows } = parsePaginatedResponse<SalesI>(
+            resp.data,
+          );
+
           const grouped = new Map<number, SalesI>();
 
-          data.data.data.forEach((item: any) => {
+          rows.forEach((item: any) => {
             const products =
               typeof item.products === "string"
                 ? JSON.parse(item.products)
@@ -52,17 +65,22 @@ const useDashboard = () => {
             }
           });
 
-          return {
-            totalRows: data?.data?.totalSales,
+          setRowsVentas({
+            totalRows,
             data: Array.from(grouped.values()).map((item, index) => ({
               ...item,
               id: index,
             })),
-          };
-        });
+          });
+        }
+      } catch (error) {
+        setRowsVentas({ totalRows: 0, data: [] });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {}
-  };
+    },
+    [requestGetProveedores, setRowsVentas],
+  );
 
   const handleChangeStatusShip = async (
     event: any,
@@ -73,6 +91,7 @@ const useDashboard = () => {
       const resp = await requestPostPagos(
         { idShipment: Number(idShipment), status: event.target.value, idUser },
         "/openpay/updateStatusShipByOrden",
+        { silent: true },
       );
 
       if (resp.status == 200) {
@@ -85,7 +104,6 @@ const useDashboard = () => {
                 Number(product.idShipment) ===
                 Number(resp.data.data.data.idShipment)
               ) {
-                // Actualizamos el status
                 return { ...product, statusShip: resp.data.data.data.status };
               }
               return product;
@@ -105,6 +123,7 @@ const useDashboard = () => {
       const resp = await requestPostPagos(
         { status: event.target.value, idUser, idOrder },
         "/stripe/updateStatusPayByOrden",
+        { silent: true },
       );
       if (resp.status == 200) {
         setRowsVentas((prev) => ({
@@ -123,6 +142,7 @@ const useDashboard = () => {
     handleGetAllSales,
     handleChangeStatusShip,
     handleChangeStatusPay,
+    loading,
   };
 };
 

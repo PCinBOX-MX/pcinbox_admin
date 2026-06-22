@@ -1,152 +1,158 @@
 "use client";
+
 import { useRouter } from "next/navigation";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { usePathname } from "next/navigation";
+import { useCallback } from "react";
+import { RequestOptions } from "./request-options";
+
+const mainApi = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+});
+
+mainApi.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
 
 const UtilsService = () => {
   const pathName = usePathname();
-
   const { setDataModal, setShowSpinner } = useTheContext();
-
   const router = useRouter();
 
-  const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
-  });
+  const handleSessionExpired = useCallback(() => {
+    setDataModal({
+      isOpen: true,
+      content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
+      title: "Sesión expirada",
+      onClose: () => {
+        location.href = "/features/auth/Login";
+        localStorage.clear();
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      onConfirm: async () => {
+        location.href = "/features/auth/Login";
+        localStorage.clear();
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      type: "info",
+      showActions: true,
+    });
+  }, [setDataModal]);
 
-  api.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem("token");
-
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-
-      return config;
-    },
-    (error) => Promise.reject(error),
-  );
-  api.interceptors.response.use(
-    (response) => response,
-    (er) => {
-      setShowSpinner(false);
-      if (
-        er.response?.status == 401 &&
-        pathName !== "/features/auth/Login" &&
-        pathName !== "/"
-      ) {
-        setDataModal({
-          isOpen: true,
-          content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
-          title: "Sesión expirada",
-          onClose: () => {
-            location.href = "/features/auth/Login";
-            localStorage.clear();
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          onConfirm: async () => {
-            location.href = "/features/auth/Login";
-            localStorage.clear();
-
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          type: "info",
-          showActions: true,
-        });
-
-        return;
-      } else if (er.response?.status != 401) {
-        setDataModal({
-          isOpen: true,
-          content: er.response?.data.message || er?.message,
-          title: "Error",
-          onClose: () => {
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          onConfirm: async () => {
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-          },
-          type: "error",
-          showActions: true,
-        });
-      }
-    },
-  );
-
-  const onRouterPush = async (route: string) => {
-    try {
-      await router.prefetch(route);
-      router.push(route);
-    } catch (error) {
+  const showRequestError = useCallback(
+    (message: string) => {
       setDataModal({
         isOpen: true,
+        content: message,
         title: "Error",
-        type: "error",
-        showActions: true,
-        content: "Error navegando a la ruta " + route,
-        onConfirm: () => {
-          setDataModal((prev) => ({ ...prev, isOpen: false }));
-        },
         onClose: () => {
           setDataModal((prev) => ({ ...prev, isOpen: false }));
         },
-      });
-      console.error("Error navegando a la ruta:", error);
-    }
-  };
-
-  const requestPost = async (data: any, endPoint: string) => {
-    try {
-      setShowSpinner(true);
-      const res = await api.post(endPoint, data, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        onConfirm: async () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
         },
+        type: "error",
+        showActions: true,
       });
-      setShowSpinner(false);
-      return res;
-    } catch (error: any) {
-      setShowSpinner(false);
-      throw error;
-    }
-  };
+    },
+    [setDataModal],
+  );
 
-  const requestGet = async (
-    endPoint: string,
-    showErrorSesion: boolean = false,
-  ) => {
-    try {
-      setShowSpinner(true);
-      const res = await api.get(endPoint, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      setShowSpinner(false);
+  const handleRequestError = useCallback(
+    (error: unknown, silent: boolean) => {
+      const axiosError = error as AxiosError<{ message?: string }>;
 
-      return res;
-    } catch (error: any) {
-      setShowSpinner(false);
-      throw error;
-    }
-  };
+      if (
+        axiosError.response?.status === 401 &&
+        pathName !== "/features/auth/Login" &&
+        pathName !== "/"
+      ) {
+        handleSessionExpired();
+        return;
+      }
 
-  const requestDelete = async (endPoint: string) => {
-    try {
-      setShowSpinner(true);
-      const res = await api.delete(endPoint, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      setShowSpinner(false);
-      return res;
-    } catch (error: any) {
-      setShowSpinner(false);
-      throw error;
-    }
-  };
+      if (!silent && axiosError.response?.status !== 401) {
+        showRequestError(
+          axiosError.response?.data?.message ||
+            axiosError.message ||
+            "Error en la solicitud",
+        );
+      }
+    },
+    [pathName, handleSessionExpired, showRequestError],
+  );
+
+  const onRouterPush = useCallback(
+    async (route: string) => {
+      try {
+        await router.prefetch(route);
+        router.push(route);
+      } catch (error) {
+        showRequestError("Error navegando a la ruta " + route);
+        console.error("Error navegando a la ruta:", error);
+      }
+    },
+    [router, showRequestError],
+  );
+
+  const requestPost = useCallback(
+    async (data: unknown, endPoint: string, options?: RequestOptions) => {
+      const silent = options?.silent === true;
+      try {
+        if (!silent) setShowSpinner(true);
+        const res = await mainApi.post(endPoint, data);
+        if (!silent) setShowSpinner(false);
+        return res;
+      } catch (error) {
+        if (!silent) setShowSpinner(false);
+        handleRequestError(error, silent);
+        throw error;
+      }
+    },
+    [setShowSpinner, handleRequestError],
+  );
+
+  const requestGet = useCallback(
+    async (endPoint: string, options?: RequestOptions) => {
+      const silent = options?.silent === true;
+      try {
+        if (!silent) setShowSpinner(true);
+        const res = await mainApi.get(endPoint);
+        if (!silent) setShowSpinner(false);
+        return res;
+      } catch (error) {
+        if (!silent) setShowSpinner(false);
+        handleRequestError(error, silent);
+        throw error;
+      }
+    },
+    [setShowSpinner, handleRequestError],
+  );
+
+  const requestDelete = useCallback(
+    async (endPoint: string, options?: RequestOptions) => {
+      const silent = options?.silent === true;
+      try {
+        if (!silent) setShowSpinner(true);
+        const res = await mainApi.delete(endPoint);
+        if (!silent) setShowSpinner(false);
+        return res;
+      } catch (error) {
+        if (!silent) setShowSpinner(false);
+        handleRequestError(error, silent);
+        throw error;
+      }
+    },
+    [setShowSpinner, handleRequestError],
+  );
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-MX", {

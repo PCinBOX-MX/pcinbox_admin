@@ -3,13 +3,17 @@
 import React, { useEffect, useState } from "react";
 import TableComponent from "../shared/components/especific/table/TableComponent";
 import GridCustomer from "./gridCustomer";
-import useProveedores from "../proveedores/useProveedores";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
+import {
+  buildPaginatedUrl,
+  parsePaginatedResponse,
+} from "../utils/pagination.util";
 
 const Customer = () => {
   const { requestGetProveedores } = ProveedoresUtils();
-  const [dataRows, setDataRows] = useState([]);
+  const [dataRows, setDataRows] = useState<any[]>([]);
   const [totalRows, setTotalRows] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [paginationModel, setPaginationModel] = useState<{
     page: number;
     pageSize: number;
@@ -19,27 +23,46 @@ const Customer = () => {
   });
 
   useEffect(() => {
+    let cancelled = false;
+
     async function getListUsers() {
+      setLoading(true);
       try {
         const resp = await requestGetProveedores(
-          `/listUsers?page=${paginationModel?.page == 0 ? 1 : paginationModel?.page + 1}`,
+          buildPaginatedUrl("/listUsers", paginationModel),
+          { silent: true },
         );
+        if (cancelled) return;
+
         if (resp.status === 200) {
-          setDataRows(resp.data.users);
-          setTotalRows(resp.data.totalUsers);
+          const { rows, totalRows: total } = parsePaginatedResponse(resp.data);
+          setDataRows(rows);
+          setTotalRows(total);
         }
       } catch (error) {
-        setDataRows([]);
-        setTotalRows(0);
+        if (!cancelled) {
+          setDataRows([]);
+          setTotalRows(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
     getListUsers();
-  }, [paginationModel?.page]);
 
-  const handlePaginationChange = (model: any) => {
+    return () => {
+      cancelled = true;
+    };
+  }, [paginationModel.page, paginationModel.pageSize]);
+
+  const handlePaginationChange = (model: {
+    page: number;
+    pageSize: number;
+  }) => {
     setPaginationModel(model);
   };
+
   const { columns } = GridCustomer({
     rows: {
       data: dataRows,
@@ -58,6 +81,8 @@ const Customer = () => {
         </div>
         <div className="admin-panel__body">
           <TableComponent
+            loading={loading}
+            fitColumns
             paginationModel={paginationModel}
             handlePaginationChange={handlePaginationChange}
             totalRows={totalRows}

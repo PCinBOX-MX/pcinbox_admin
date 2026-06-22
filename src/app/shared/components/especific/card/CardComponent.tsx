@@ -62,7 +62,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
         isOpen: true,
         title: "Ingresa los datos",
         content: (
-          <div className="w-[600px]">
+          <div className="w-full max-w-full">
             <UploadImgProductProvider2 dataProductProp={dataProductProp} />
           </div>
         ),
@@ -81,8 +81,8 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   return (
     <Card
       key={dataProduct.idProduct}
-      sx={{ minWidth: 300, maxWidth: 300, padding: "10px" }}
-      className="shadow rounded"
+      className="w-full max-w-[300px] rounded-xl shadow-sm"
+      style={{ padding: "10px" }}
     >
       <Carousel showIndicators={true} showThumbs={false} showStatus={false}>
         {dataProduct.image_url && dataProduct.image_url.length > 0
@@ -177,10 +177,8 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             onClick={() => {
               handleAltaProduct(dataProduct);
             }}
-            className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
-            style={{
-              padding: "10px",
-            }}
+            className="admin-btn admin-btn--primary flex w-full items-center justify-center gap-2"
+            style={{ padding: "10px", margin: 0 }}
           >
             Dar de alta al sistema
             <MdFileUpload size={26} />
@@ -189,11 +187,9 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
 
         {dataProduct && dataProduct?.image_url.length > 0 && (
           <button
-            className="bg-[#808080] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
-            style={{
-              padding: "10px",
-              marginLeft: "0px",
-            }}
+            type="button"
+            className="admin-btn admin-btn--secondary flex w-full items-center justify-center gap-2"
+            style={{ padding: "10px", margin: 0 }}
             onClick={() => {
               handleEditProduct(dataProduct);
             }}
@@ -204,12 +200,10 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
         )}
         {dataProduct && dataProduct?.image_url?.length > 0 && (
           <button
+            type="button"
             disabled={loadingRemoveProduct}
-            className="bg-[#bb3d4b] rounded text-white font-bold flex justify-center gap-2 cursor-pointer w-full"
-            style={{
-              padding: "10px",
-              marginLeft: "0px",
-            }}
+            className="admin-btn admin-btn--primary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ padding: "10px", margin: 0 }}
             onClick={async () => {
               setDataModal({
                 isOpen: true,

@@ -44,6 +44,7 @@ const useTechsmartOrder = () => {
     async (idOrder: number) => {
       const resp = await requestGetProveedores(
         `/getEstadoOrdenTechSmart/${idOrder}`,
+        { silent: true },
       );
       return resp.data?.data ?? null;
     },
@@ -57,6 +58,7 @@ const useTechsmartOrder = () => {
         const resp = await requestPostProveedores(
           {},
           `/previewPedidoOrdenTechSmart/${idOrder}`,
+          { silent: true },
         );
         return resp.data?.data ?? null;
       } catch (error: any) {
@@ -79,6 +81,7 @@ const useTechsmartOrder = () => {
         const resp = await requestPostProveedores(
           { idOrder },
           "/generarPedidoOrdenTechSmart",
+          { silent: true },
         );
         showSuccess("Pedido TechSmart generado correctamente");
         return (resp.data?.data?.techsmartOrder ?? null) as TechsmartOrderI | null;
@@ -106,6 +109,7 @@ const useTechsmartOrder = () => {
         const resp = await requestPostProveedores(
           payload,
           "/relacionarGuiaOrdenTechSmart",
+          { silent: true },
         );
         showSuccess("Guía vinculada correctamente en TechSmart");
         return (resp.data?.data?.techsmartOrder ?? null) as TechsmartOrderI | null;
@@ -129,6 +133,7 @@ const useTechsmartOrder = () => {
         const resp = await requestPostProveedores(
           { idOrder },
           "/facturarPedidoOrdenTechSmart",
+          { silent: true },
         );
         showSuccess("Pedido facturado correctamente en TechSmart");
         return (resp.data?.data?.techsmartOrder ?? null) as TechsmartOrderI | null;

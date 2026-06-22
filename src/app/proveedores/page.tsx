@@ -11,14 +11,14 @@ import {
 } from "@mui/material";
 import CardComponent from "../shared/components/especific/card/CardComponent";
 import useProveedores from "./useProveedores";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MdAdd, MdAutorenew } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
 import PaginatorComponent from "../shared/components/common/paginator/Paginator";
+import { productMatchesSearch } from "../utils/search.util";
 
 const Proveedores = () => {
-  const { dataProveedores, dataProductProveedor, setProductsProveedor } =
-    useTheContext();
+  const { dataProveedores, dataProductProveedor } = useTheContext();
   const {
     slcProveedor,
     handleGetProductsByProveedor,
@@ -32,39 +32,18 @@ const Proveedores = () => {
   const itemsPerPage = 8;
   const [page, setPage] = useState(1);
 
+  const filteredProducts = useMemo(() => {
+    const products = dataProductProveedor.data ?? [];
+    if (!search.trim()) return products;
+    return products.filter((item) => productMatchesSearch(item, search));
+  }, [search, dataProductProveedor.data]);
+
   useEffect(() => {
-    setProductsProveedor((prev) => {
-      if (!search) {
-        return { ...prev, copyData: prev.data };
-      }
-
-      const filtered = prev.data.filter((item) => {
-        const name = item.name?.toLowerCase()?.trim() || "";
-        const description = item.description?.toLowerCase()?.trim() || "";
-        const upc = String((item as any).upc || "")
-          .toLowerCase()
-          ?.trim();
-        const idProductExt = item?.idProductExt?.toLowerCase()?.trim() || "";
-
-        return (
-          name.includes(search) ||
-          description.includes(search) ||
-          upc.includes(search) ||
-          idProductExt.includes(search)
-        );
-      });
-
-      return {
-        ...prev,
-        copyData: filtered,
-      };
-    });
-  }, [search]);
-
-  //[search, dataProductProveedor.data]
+    setPage(1);
+  }, [search, dataProductProveedor.data]);
 
   const startIndex = (page - 1) * itemsPerPage;
-  const visibleDataProveedores = dataProductProveedor.copyData!.slice(
+  const visibleDataProveedores = filteredProducts.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
@@ -131,102 +110,71 @@ const Proveedores = () => {
           )}
 
           <div
-            style={{
-              marginTop: "10px",
-              marginBottom: "10px",
-              padding: "5px",
-            }}
-            className="flex justify-start relative gap-4"
+            className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between"
+            style={{ marginTop: "10px", marginBottom: "10px", padding: "5px 0" }}
           >
-            <button
-              type="button"
-              className="admin-btn admin-btn--primary flex items-center gap-1"
-              onClick={showModalRegisterProveedor}
-            >
-              <MdAdd size={22} />
-              Agregar proveedor
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary flex items-center gap-1"
+                onClick={showModalRegisterProveedor}
+              >
+                <MdAdd size={22} />
+                Agregar proveedor
+              </button>
 
-            <button
-              type="button"
-              onClick={handleAddProduct}
-              className="admin-btn admin-btn--secondary flex items-center gap-1"
-            >
-              <MdAdd size={22} />
-              Agregar Producto
-            </button>
-            {/* {!dataProductProveedor.loading &&
-            visibleDataProveedores &&
-            visibleDataProveedores.length > 0 ? ( */}
-            <div className="absolute right-0 top-0">
-              <TextField
-                id="outlined-basic"
-                label="Buscar producto"
-                variant="outlined"
-                onChange={(event) => {
-                  const value = event.target.value.toLowerCase().trim();
-                  setSearch(value);
-                  //  if (event.target.value != "") {
-                  // const search = event.target.value.toLowerCase();
-
-                  // setProductsProveedor((prev) => {
-                  //   // si el usuario borra todo, restauramos los datos completos
-                  //   if (search === "") {
-                  //     return {
-                  //       ...prev,
-                  //       copyData: prev.data, // <<--- restaurar todo
-                  //     };
-                  //   }
-
-                  //   // filtrar cuando SI hay texto
-                  //   const filtered = prev.data?.filter((item) => {
-                  //     const name = item.name?.toLowerCase() || "";
-                  //     const description = item.description?.toLowerCase() || "";
-                  //     const upc = String((item as any).upc || "").toLowerCase();
-                  //     const idProductExt =
-                  //       item?.idProductExt?.toLowerCase() || "";
-
-                  //     return (
-                  //       name.includes(search) ||
-                  //       description.includes(search) ||
-                  //       upc.includes(search) ||
-                  //       idProductExt.includes(search)
-                  //     );
-                  //   });
-
-                  //   return {
-                  //     ...prev,
-                  //     copyData: filtered,
-                  //   };
-                  // });
-                  //}
-                }}
-              />
+              <button
+                type="button"
+                onClick={handleAddProduct}
+                className="admin-btn admin-btn--secondary flex items-center gap-1"
+              >
+                <MdAdd size={22} />
+                Agregar Producto
+              </button>
             </div>
-            {/* // ) : (
-            //   ""
-            // )} */}
+
+            <TextField
+              id="proveedores-search"
+              label="Buscar producto"
+              placeholder="Nombre, UPC, SKU o ID externo"
+              variant="outlined"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              sx={{ width: { xs: "100%", lg: 320 } }}
+            />
           </div>
 
           <div
-            className="flex justify-center flex-wrap rounded gap-5 bg-white"
+            className="admin-product-grid w-full"
             style={{
-              marginTop: "30px",
-              marginBottom: "30px",
-              paddingLeft: "10px",
-              paddingTop: "20px",
-              paddingBottom: "20px",
-              paddingRight: "10px",
-              boxShadow: "rgba(99, 99, 99, 0.2) 0px 2px 8px 0px",
+              marginTop: "24px",
+              marginBottom: "24px",
+              padding: "20px 16px",
             }}
           >
+            {!dataProductProveedor.loading &&
+            filteredProducts.length > itemsPerPage ? (
+              <div className="flex justify-end w-full admin-table-pagination admin-table-pagination--top">
+                <PaginatorComponent
+                  totalItems={filteredProducts.length}
+                  itemsPerPage={itemsPerPage}
+                  currentPage={page}
+                  onPageChange={setPage}
+                />
+              </div>
+            ) : null}
+
             {!dataProductProveedor.loading ? (
               visibleDataProveedores && visibleDataProveedores.length > 0 ? (
                 visibleDataProveedores.map((product, index) => {
                   return <CardComponent key={index} dataProduct={product} />;
                 })
               ) : (
-                <Alert severity="info">Sin contenido disponible</Alert>
+                <Alert severity="info">
+                  {search.trim()
+                    ? "Sin productos que coincidan con la búsqueda"
+                    : "Sin contenido disponible"}
+                </Alert>
               )
             ) : (
               <>
@@ -236,8 +184,9 @@ const Proveedores = () => {
             )}
             <div className="flex justify-end w-full">
               <PaginatorComponent
-                totalItems={dataProductProveedor.copyData!.length}
-                itemsPerPage={8}
+                totalItems={filteredProducts.length}
+                itemsPerPage={itemsPerPage}
+                currentPage={page}
                 onPageChange={setPage}
               />
             </div>

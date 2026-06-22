@@ -1,237 +1,280 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import UtilsService from "@/app/services/utils";
-import { FormControl, MenuItem, Select } from "@mui/material";
+import { useState, useEffect, useMemo } from "react";
+import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
+import {
+  FormControl,
+  MenuItem,
+  Select,
+  Chip,
+  Skeleton,
+  Divider,
+} from "@mui/material";
+import {
+  getProviderLabel,
+  PROVIDER_DICOTECH,
+} from "@/app/constants/providers.constants";
+import {
+  ModalDetailField,
+  ModalDetailGrid,
+  ModalDetailSection,
+} from "../modal/ModalDetail";
+import {
+  MapPin,
+  Package,
+  ShieldCheck,
+  Store,
+  Truck,
+} from "lucide-react";
+
+type BranchOption = {
+  idBranche: number;
+  name: string;
+  externalStoreId?: number | null;
+};
+
+let dicotechBranchesCache: BranchOption[] | null = null;
+
+const SHIPPING_LABELS: Record<string, string> = {
+  estafeta: "Estafeta",
+  paqueteexpress: "Paquete Express",
+  envioLeon: "Envío personalizado PCinBOX",
+};
 
 const DataProducts = ({ params, handleChangeStatusShip }: any) => {
-  const { BRANCHES_DICO } = UtilsService();
+  const { requestGetProveedores } = ProveedoresUtils();
 
-  // Estado local para productos
   const [products, setProducts] = useState(params.value || []);
+  const [dicotechBranches, setDicotechBranches] = useState<BranchOption[]>(
+    dicotechBranchesCache ?? [],
+  );
+  const [branchesLoading, setBranchesLoading] = useState(!dicotechBranchesCache);
 
-  // Sincronizamos si params.value cambia
   useEffect(() => {
     setProducts(params.value || []);
   }, [params.value]);
 
+  useEffect(() => {
+    if (dicotechBranchesCache) {
+      setDicotechBranches(dicotechBranchesCache);
+      setBranchesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const resp = await requestGetProveedores(
+          `/getBranchesByProvider/${PROVIDER_DICOTECH}`,
+          { silent: true },
+        );
+        if (!cancelled && resp?.data?.data) {
+          dicotechBranchesCache = resp.data.data;
+          setDicotechBranches(resp.data.data);
+        }
+      } catch {
+        // Fallback silencioso
+      } finally {
+        if (!cancelled) setBranchesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const branchNameByStoreId = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const branch of dicotechBranches) {
+      if (branch.externalStoreId != null) {
+        map.set(Number(branch.externalStoreId), branch.name);
+      }
+      map.set(Number(branch.idBranche), branch.name);
+    }
+    return map;
+  }, [dicotechBranches]);
+
   const handleChange = (event: any, idShipment: number) => {
-    // Actualizamos estado local
     const newProducts = products.map((p: any) =>
       p.idShipment === idShipment
         ? { ...p, statusShip: event.target.value }
         : p,
     );
     setProducts(newProducts);
-
-    // Llamamos a la función que hace la petición
-
     handleChangeStatusShip(event, idShipment, params.row.idUser);
   };
 
-  return (
-    <div className="flex flex-col gap-3 min-w-[500px] max-w-[700px] max-h-[500px] overflow-y-auto pr-2">
-      {products.map((item: any, index: number) => {
-        // Info del producto
-        const productInfo = {
-          name: item.productName,
-          description: item.description,
-          sku: item.sku,
-          upc: item.upc,
-          clave: item.clave,
-          quantity: item.quantity,
-          statusShip: item.statusShip,
-        };
+  if (!products?.length) {
+    return (
+      <p className="admin-modal-empty">No hay productos en esta orden.</p>
+    );
+  }
 
-        // Info de dirección
-        const addressInfo =
-          item.address && item?.address?.street != null
-            ? {
-                delivery: "Domicilio",
-                street: item.address.street,
-                noExt: item.address.noExt,
-                noInt: item.address.noInt || "",
-                cp: item.address.cp,
-                cologne: item.address.cologne,
-                city: item.address.city,
-                state: item.address.state,
-                country: item.address.country,
-                requireInsurance: item.address.requireInsurance === 1,
-                branch: BRANCHES_DICO.find(
-                  (bd) => bd.name === item.address.branche,
-                )?.name,
-                shippingMethod: item.address.shipping_method,
-                trackingNumber: item.address.trackingNumber,
-              }
-            : { delivery: "PCinBOX-LEON" };
+  return (
+    <div className="admin-modal-products">
+      {products.map((item: any, index: number) => {
+        const providerLabel = getProviderLabel(item.providerId);
+        const providerChipColor =
+          Number(item.providerId) === PROVIDER_DICOTECH
+            ? "warning"
+            : Number(item.providerId) === 2
+              ? "info"
+              : "default";
+
+        const hasStreetAddress = item.address?.street != null;
+        const branchName =
+          item.address?.branche ||
+          branchNameByStoreId.get(Number(item.address?.storeId)) ||
+          (branchesLoading ? null : "PCinBOX-LEON");
+
+        const shippingLabel =
+          SHIPPING_LABELS[item.address?.shipping_method] ??
+          (item.address?.shipping_method ? "Desconocido" : null);
 
         return (
-          <div
-            key={index}
-            className="rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-4"
-            style={{
-              padding: "10px",
-            }}
-          >
-            {/* Información del producto */}
-            <div className="flex flex-col gap-3">
-              <div>
-                <span className="text-gray-500 text-sm font-semibold block mb-1">
-                  Nombre:
+          <article key={item.idShipment ?? index} className="admin-product-card">
+            <header className="admin-product-card__header">
+              <div className="admin-product-card__title-wrap">
+                <span className="admin-product-card__index">
+                  Producto {index + 1}
                 </span>
-                <p className="text-gray-900 font-medium">{productInfo.name}</p>
-              </div>
-
-              {productInfo.description && (
-                <div>
-                  <span className="text-gray-500 text-sm font-semibold block mb-1">
-                    Descripción:
-                  </span>
-                  <p className="text-gray-700">{productInfo.description}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                {productInfo.sku && (
-                  <div>
-                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                      SKU:
-                    </span>
-                    <p className="text-gray-700">{productInfo.sku}</p>
-                  </div>
-                )}
-                {productInfo.upc && (
-                  <div>
-                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                      UPC:
-                    </span>
-                    <p className="text-gray-700">{productInfo.upc}</p>
-                  </div>
-                )}
-                {productInfo.clave && (
-                  <div>
-                    <span className="text-gray-500 text-sm font-semibold block mb-1">
-                      Clave:
-                    </span>
-                    <p className="text-gray-700">{productInfo.clave}</p>
-                  </div>
-                )}
-                <div>
-                  <span className="text-gray-500 text-sm font-semibold block mb-1">
-                    Cantidad:
-                  </span>
-                  <p className="text-gray-700 font-semibold">
-                    {productInfo.quantity}
+                <h3 className="admin-product-card__name">
+                  {item.productName}
+                </h3>
+                {item.description ? (
+                  <p className="admin-product-card__description">
+                    {item.description}
                   </p>
-                </div>
+                ) : null}
               </div>
+              <div className="admin-product-card__badges">
+                <Chip
+                  size="small"
+                  label={providerLabel}
+                  color={providerChipColor}
+                  variant="outlined"
+                />
+                <span className="admin-product-card__qty">
+                  × {item.quantity}
+                </span>
+              </div>
+            </header>
 
-              {/* Información de entrega */}
-              <div className="bg-orange-50 rounded-lg border border-orange-200 p-2 space-y-2 mt-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-orange-700 font-bold text-sm">
-                    📦 Entrega:
-                  </span>
-                  <span className="text-gray-800 font-medium text-sm">
-                    {addressInfo.delivery}
-                  </span>
-                </div>
+            <ModalDetailGrid columns={2}>
+              {item.sku ? (
+                <ModalDetailField label="SKU" value={item.sku} />
+              ) : null}
+              {item.upc ? (
+                <ModalDetailField label="UPC" value={item.upc} />
+              ) : null}
+              {item.clave ? (
+                <ModalDetailField label="Clave" value={item.clave} />
+              ) : null}
+              <ModalDetailField
+                label="Cantidad"
+                value={String(item.quantity)}
+                highlight
+              />
+            </ModalDetailGrid>
 
-                {addressInfo.street && (
-                  <>
-                    <div className="flex items-start gap-2">
-                      <span className="text-blue-700 font-bold text-sm">
-                        📍
-                      </span>
-                      <span className="text-gray-700 text-sm">
-                        {`${addressInfo.street} #${addressInfo.noExt} ${addressInfo.noInt}, CP: ${addressInfo.cp}, Colonia: ${addressInfo.cologne}, Ciudad: ${addressInfo.city}, Estado: ${addressInfo.state}, País: ${addressInfo.country}`}
-                      </span>
-                    </div>
+            <Divider sx={{ my: 1.5, borderColor: "#eef0f4" }} />
 
-                    {addressInfo.requireInsurance && (
-                      <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
-                        <span className="text-amber-700 font-bold text-sm">
-                          Seguro Requerido
-                        </span>
-                        <span className="text-green-700 font-bold text-sm">
-                          ✓
-                        </span>
-                      </div>
-                    )}
+            <ModalDetailSection
+              title="Entrega y envío"
+              icon={<Package size={16} />}
+              variant="accent"
+            >
+              <ModalDetailField
+                label="Tipo de entrega"
+                value={
+                  hasStreetAddress
+                    ? "Domicilio"
+                    : branchName
+                      ? `Sucursal — ${branchName}`
+                      : "Sucursal"
+                }
+                fullWidth
+              />
 
-                    {addressInfo.branch && (
-                      <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
-                        <span className="text-amber-700 font-bold text-sm">
-                          Sucursal de pedido
-                        </span>
-                        <span className="text-green-700 font-bold text-sm">
-                          {addressInfo.branch}
-                        </span>
-                      </div>
-                    )}
-
-                    {addressInfo.shippingMethod === "estafeta" ||
-                    addressInfo?.shippingMethod === "paqueteexpress" ? (
-                      <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
-                        <span className="text-amber-700 font-bold text-sm">
-                          Paquetería
-                        </span>
-                        <span className="text-green-700 font-bold text-sm">
-                          {addressInfo.shippingMethod === "estafeta"
-                            ? "Estafeta"
-                            : "Paquete Expres"}
-                        </span>
-                      </div>
-                    ) : addressInfo?.shippingMethod === "envioLeon" ? (
-                      <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
-                        <span className="text-amber-700 font-bold text-sm">
-                          Envío:
-                        </span>
-                        <span className="text-green-700 font-bold text-sm">
-                          Personalizado PCinBOX
-                        </span>
-                      </div>
-                    ) : (
-                      "Desconocido"
-                    )}
-
-                    {(addressInfo.shippingMethod === "estafeta" ||
-                      addressInfo?.shippingMethod === "paqueteexpress") && (
-                      <div className="flex items-center gap-2 bg-amber-100 rounded p-1">
-                        <span className="text-amber-700 font-bold text-sm">
-                          NO. Guía
-                        </span>
-                        <span className="text-green-700 font-bold text-sm">
-                          {addressInfo.trackingNumber}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Select de estado de envío */}
-                <div className="pt-2 my-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Estado de envío:
-                  </label>
-                  <div className="w-[150px]">
-                    <FormControl fullWidth>
-                      <Select
-                        value={item.statusShip}
-                        onChange={(e) => handleChange(e, item.idShipment)}
-                      >
-                        <MenuItem value={"entregado"}>Entregado</MenuItem>
-                        <MenuItem value={"cancelado"}>Cancelado</MenuItem>
-                        <MenuItem value={"enviado"}>Enviado</MenuItem>
-                        <MenuItem value={"procesando"}>Procesando</MenuItem>
-                        <MenuItem value={"disponible"}>Disponible</MenuItem>
-                      </Select>
-                    </FormControl>
+              {hasStreetAddress ? (
+                <div className="admin-product-card__address">
+                  <MapPin size={15} className="admin-product-card__address-icon" />
+                  <div className="admin-product-card__address-lines">
+                    <span>
+                      {item.address.street} #{item.address.noExt}
+                      {item.address.noInt ? ` Int. ${item.address.noInt}` : ""}
+                    </span>
+                    <span>
+                      CP {item.address.cp} · {item.address.cologne}
+                    </span>
+                    <span>
+                      {item.address.city}, {item.address.state},{" "}
+                      {item.address.country}
+                    </span>
                   </div>
                 </div>
+              ) : null}
+
+              <div className="admin-product-card__tags">
+                {item.address?.requireInsurance === 1 ? (
+                  <span className="admin-product-card__tag admin-product-card__tag--success">
+                    <ShieldCheck size={14} />
+                    Seguro requerido
+                  </span>
+                ) : null}
+
+                {branchName ? (
+                  <span className="admin-product-card__tag">
+                    <Store size={14} />
+                    {branchesLoading && !item.address?.branche ? (
+                      <Skeleton width={80} height={16} />
+                    ) : (
+                      `Sucursal ${branchName}`
+                    )}
+                  </span>
+                ) : null}
+
+                {shippingLabel ? (
+                  <span className="admin-product-card__tag">
+                    <Truck size={14} />
+                    {shippingLabel}
+                  </span>
+                ) : null}
+
+                {item.address?.trackingNumber ? (
+                  <span className="admin-product-card__tag admin-product-card__tag--guide">
+                    Guía {item.address.trackingNumber}
+                  </span>
+                ) : null}
               </div>
-            </div>
-          </div>
+
+              <div className="admin-product-card__status">
+                <label htmlFor={`ship-status-${item.idShipment}`}>
+                  Estado de envío
+                </label>
+                <FormControl fullWidth size="small">
+                  <Select
+                    id={`ship-status-${item.idShipment}`}
+                    value={item.statusShip ?? "procesando"}
+                    onChange={(e) => handleChange(e, item.idShipment)}
+                    sx={{
+                      borderRadius: "12px",
+                      bgcolor: "#fff",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <MenuItem value="procesando">Procesando</MenuItem>
+                    <MenuItem value="disponible">Disponible</MenuItem>
+                    <MenuItem value="enviado">Enviado</MenuItem>
+                    <MenuItem value="entregado">Entregado</MenuItem>
+                    <MenuItem value="cancelado">Cancelado</MenuItem>
+                  </Select>
+                </FormControl>
+              </div>
+            </ModalDetailSection>
+          </article>
         );
       })}
     </div>

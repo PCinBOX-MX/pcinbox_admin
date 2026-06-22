@@ -1,94 +1,111 @@
 "use client";
 
 import UtilsService from "@/app/services/utils";
-import style from "./login.module.css";
+import authStyle from "../auth.module.css";
 import useLogin from "@/app/hooks/login.hook";
-import { MdAutorenew } from "react-icons/md";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Link,
+  TextField,
+  Typography,
+} from "@mui/material";
 
 const LoginComponent = () => {
   const { onRouterPush } = UtilsService();
   const { handleOnChange, handleSubmit, dataLogin, loadingLogin } = useLogin();
 
   return (
-    <section className="w-full h-[100%] p-0 flex justify-center items-center">
-      <div className={style.loginContainer}>
-        <div className="w-full flex justify-center items-center my-2">
-          <img
-            src="https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587"
-            width={150}
-            height={150}
-            className="object-contain"
-            alt="Logo"
-            loading="lazy"
-          />
-        </div>
-        <div className={style.logo}>
-          <h1>Bienvenido</h1>
-        </div>
+    <div className={authStyle.card}>
+      <div className={authStyle.logoWrap}>
+        <img
+          src="https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587"
+          className={authStyle.logoImg}
+          alt="PCinBOX"
+          loading="lazy"
+        />
+      </div>
 
-        <form id="loginForm" onSubmit={handleSubmit}>
-          <div className={style.formGroup}>
-            <label htmlFor="email">Correo electrónico</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              placeholder="tu@email.com"
-              value={dataLogin.email}
-              onChange={handleOnChange}
-            />
-          </div>
+      <div className={authStyle.heading}>
+        <Typography component="h1" variant="h4">
+          Bienvenido
+        </Typography>
+        <Typography component="p" variant="body2">
+          Accede al panel de administración
+        </Typography>
+      </div>
 
-          <div className={style.formGroup}>
-            <label htmlFor="password">Contraseña</label>
-            <input
-              type="password"
-              id="password"
-              placeholder="••••••••"
-              name="password"
-              value={dataLogin.password}
-              onChange={handleOnChange}
-            />
-          </div>
+      <Box
+        component="form"
+        id="loginForm"
+        onSubmit={handleSubmit}
+        className={authStyle.form}
+      >
+        <TextField
+          fullWidth
+          required
+          type="email"
+          id="email"
+          name="email"
+          label="Correo electrónico"
+          placeholder="tu@email.com"
+          value={dataLogin.email}
+          onChange={handleOnChange}
+          autoComplete="email"
+        />
 
-          <button
-            disabled={loadingLogin}
-            type="submit"
-            className={style.loginBtn}
-          >
-            {loadingLogin ? (
-              <MdAutorenew size={20} className="m-auto the-spinner" />
-            ) : (
-              <>Iniciar Sesión</>
-            )}
-          </button>
-        </form>
-        <br />
-        <div className="flex justify-center gap-2 w-full">
-          <span className="text-[#606060] text-[17px] font-bold">
-            ¿Olvidaste tu contraseña?
-          </span>{" "}
-          <a
-            role="button"
-            className="text-[#bb3d4b] font-bold hover:cursor-pointer"
-          >
-            {" "}
-            Recuperala aquí
-          </a>
-        </div>
+        <TextField
+          fullWidth
+          required
+          type="password"
+          id="password"
+          name="password"
+          label="Contraseña"
+          placeholder="••••••••"
+          value={dataLogin.password}
+          onChange={handleOnChange}
+          autoComplete="current-password"
+        />
 
-        <div className={style.signupLink}>
+        <Button
+          fullWidth
+          size="large"
+          type="submit"
+          variant="contained"
+          color="primary"
+          disabled={loadingLogin}
+          sx={{ mt: 0.5, py: 1.35, borderRadius: "12px" }}
+        >
+          {loadingLogin ? (
+            <CircularProgress size={22} color="inherit" />
+          ) : (
+            "Iniciar sesión"
+          )}
+        </Button>
+      </Box>
+
+      <div className={authStyle.footerLinks}>
+        <Typography className={authStyle.footerText} variant="body2">
+          ¿Olvidaste tu contraseña?{" "}
+          <Link component="button" type="button" underline="hover">
+            Recupérala aquí
+          </Link>
+        </Typography>
+
+        <Typography className={authStyle.footerText} variant="body2">
           ¿No tienes una cuenta?{" "}
-          <a
-            role="button"
-            className="cursor-pointer"
+          <Link
+            component="button"
+            type="button"
+            underline="hover"
             onClick={() => onRouterPush("/features/auth/Register")}
           >
             Regístrate
-          </a>
-        </div>
+          </Link>
+        </Typography>
       </div>
-    </section>
+    </div>
   );
 };
 

@@ -54,6 +54,7 @@ const TechsmartOrderPanel = ({
 
   useEffect(() => {
     refreshStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idOrder]);
 
   const isPaid = ["paid", "approved"].includes(String(statusPay || "").toLowerCase());
