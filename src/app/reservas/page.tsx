@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useReservas, { Reservation } from "./useReservas";
-import PaginatorComponent from "../shared/components/common/paginator/Paginator";
+import TablePaginationBar from "../shared/components/especific/table/TablePaginationBar";
 import {
   TextField,
   FormControl,
@@ -16,7 +16,6 @@ import {
 } from "@mui/material";
 import {
   Search,
-  Calendar,
   Filter,
   X,
   Eye,
@@ -49,7 +48,8 @@ const ReservasAdminPage = () => {
     setFilterType,
     page,
     setPage,
-    limit,
+    pageSize,
+    setPageSize,
     fetchReservations,
     updateReservationStatus,
   } = useReservas();
@@ -76,6 +76,27 @@ const ReservasAdminPage = () => {
     setEndDate("");
     setFilterType("single");
     setPage(1);
+  };
+
+  const showReservasPagination =
+    totalReservations > 0 || reservations.length > 0;
+
+  const handleReservasPageChange = (nextPage: number) => {
+    setPage(nextPage + 1);
+  };
+
+  const handleReservasPageSizeChange = (nextPageSize: number) => {
+    setPageSize(nextPageSize);
+    setPage(1);
+  };
+
+  const reservasPaginationProps = {
+    page: page - 1,
+    pageSize,
+    rowCount: totalReservations,
+    pageSizeOptions: [10, 25, 50],
+    onPageChange: handleReservasPageChange,
+    onPageSizeChange: handleReservasPageSizeChange,
   };
 
   // Helper para pintar badges de estatus
@@ -110,47 +131,34 @@ const ReservasAdminPage = () => {
   };
 
   return (
-    <section className="w-full">
-      <div
-        className="w-full flex justify-center items-center"
-        style={{ paddingBottom: "48px" }}
-      >
-        <div className="w-[95%]">
-          {/* Header */}
-          <div
-            className="flex flex-col md:flex-row justify-between items-start md:items-center"
-            style={{ gap: "16px", marginBottom: "24px" }}
-          >
-            <div>
-              <h1
-                className="text-2xl font-bold text-gray-800 flex items-center"
-                style={{ gap: "8px" }}
-              >
-                <Calendar className="text-[#bb3d4b]" />
-                Gestión de Reservas de Mantenimiento
-              </h1>
-              <p className="text-sm text-gray-500">
-                Consulta, filtra y actualiza el estatus de las citas de mantenimiento técnico.
-              </p>
-            </div>
-
-            <button
-              onClick={() => fetchReservations()}
-              className="flex items-center bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
-              style={{
-                padding: "8px 16px",
-                gap: "8px",
-              }}
-            >
-              <RefreshCw size={16} className={`${loading ? "animate-spin" : ""}`} />
-              Sincronizar
-            </button>
+    <section className="w-full no-padding-top">
+      <div className="admin-panel">
+        <div
+          className="admin-panel__header flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+          style={{ padding: "1.15rem 1.35rem" }}
+        >
+          <div>
+            <h2 className="admin-panel__title">Reservas de mantenimiento</h2>
+            <p className="admin-panel__subtitle">
+              Consulta, filtra y actualiza el estatus de las citas de mantenimiento técnico.
+            </p>
           </div>
 
-          {/* Filtros */}
+          <button
+            type="button"
+            onClick={() => fetchReservations()}
+            className="admin-btn admin-btn--secondary flex shrink-0 items-center gap-2"
+            style={{ padding: "8px 16px", margin: 0 }}
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            Sincronizar
+          </button>
+        </div>
+
+        <div className="admin-panel__body">
           <div
-            className="bg-white rounded-xl border border-gray-100 shadow-sm"
-            style={{ padding: "24px", marginBottom: "24px" }}
+            className="rounded-xl border border-gray-100 bg-gray-50/80"
+            style={{ padding: "20px", marginBottom: "24px" }}
           >
             <h2
               className="text-sm font-semibold text-gray-700 flex items-center"
@@ -285,13 +293,11 @@ const ReservasAdminPage = () => {
               {/* Botón limpiar */}
               <div className="md:col-span-2 flex" style={{ gap: "8px" }}>
                 <button
+                  type="button"
                   onClick={clearFilters}
                   disabled={!search && status === "all" && !date && !startDate && !endDate && filterType === "single"}
-                  className="w-full flex items-center justify-center border border-gray-200 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-gray-600 font-medium rounded-lg transition-all duration-200 cursor-pointer"
-                  style={{
-                    padding: "8px 16px",
-                    gap: "8px",
-                  }}
+                  className="admin-btn admin-btn--secondary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ padding: "8px 16px", margin: 0 }}
                 >
                   <X size={16} />
                   Limpiar Filtros
@@ -302,34 +308,46 @@ const ReservasAdminPage = () => {
 
           {/* Tabla de Reservas */}
           <div
-            className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+            className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden admin-reservas-table-panel"
             style={{ marginBottom: "24px" }}
           >
+            {showReservasPagination && !loading ? (
+              <TablePaginationBar
+                {...reservasPaginationProps}
+                className="admin-table-pagination--top"
+              />
+            ) : null}
+
             {loading ? (
               <div
                 className="flex flex-col justify-center items-center"
                 style={{ padding: "80px 0", gap: "12px" }}
               >
                 <CircularProgress style={{ color: "#bb3d4b" }} />
-                <span className="text-sm text-gray-500 font-medium">Obteniendo reservaciones...</span>
+                <span className="text-sm text-gray-500 font-medium">
+                  Obteniendo reservaciones...
+                </span>
               </div>
             ) : reservations.length === 0 ? (
               <div style={{ padding: "32px" }}>
                 <Alert severity="info" className="flex items-center">
-                  No se encontraron reservaciones que coincidan con los criterios de búsqueda.
+                  No se encontraron reservaciones que coincidan con los
+                  criterios de búsqueda.
                 </Alert>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+              <div className="admin-reservas-table-wrap">
+                <table className="admin-reservas-table text-left">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs font-semibold uppercase tracking-wider">
-                      <th style={{ padding: "16px 24px" }}>Folio / Ref</th>
-                      <th style={{ padding: "16px 24px" }}>Cliente</th>
-                      <th style={{ padding: "16px 24px" }}>Equipo / Servicio</th>
-                      <th style={{ padding: "16px 24px" }}>Fecha y Hora</th>
-                      <th style={{ padding: "16px 24px" }}>Estatus</th>
-                      <th style={{ padding: "16px 24px", textAlign: "center" }}>Acciones</th>
+                      <th style={{ padding: "14px 16px" }}>Folio / Ref</th>
+                      <th style={{ padding: "14px 16px" }}>Cliente</th>
+                      <th style={{ padding: "14px 16px" }}>Equipo / Servicio</th>
+                      <th style={{ padding: "14px 16px" }}>Fecha y Hora</th>
+                      <th style={{ padding: "14px 16px" }}>Estatus</th>
+                      <th style={{ padding: "14px 16px", textAlign: "center" }}>
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
@@ -463,36 +481,24 @@ const ReservasAdminPage = () => {
               </div>
             )}
 
-            {/* Paginador */}
-            {!loading && reservations.length > 0 && (
-              <div
-                className="flex justify-between items-center border-t border-gray-100 bg-gray-50/50"
-                style={{ padding: "16px 24px" }}
-              >
-                <span className="text-xs font-medium text-gray-500">
-                  Mostrando {reservations.length} de {totalReservations} reservaciones
-                </span>
-                <PaginatorComponent
-                  totalItems={totalReservations}
-                  itemsPerPage={limit}
-                  onPageChange={setPage}
-                />
+            {showReservasPagination && !loading ? (
+              <div className="admin-table-pagination admin-table-pagination--bottom">
+                <TablePaginationBar {...reservasPaginationProps} />
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
 
-      {/* Modal de Detalles Premium */}
+      {/* Modal de Detalles */}
       {isModalOpen && selectedRes && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm transition-all duration-300"
+          className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/55 backdrop-blur-sm"
           style={{ padding: "16px" }}
         >
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95">
-            {/* Modal Header */}
+          <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
             <div
-              className="bg-gradient-to-r from-gray-900 to-slate-800 text-white flex justify-between items-center"
+              className="flex items-center justify-between bg-gradient-to-r from-[#bb3d4b] to-[#9a3139] text-white"
               style={{ padding: "16px 24px" }}
             >
               <div>
@@ -500,7 +506,7 @@ const ReservasAdminPage = () => {
                   className="text-lg font-bold flex items-center"
                   style={{ gap: "8px" }}
                 >
-                  <FileText size={20} className="text-[#bb3d4b]" />
+                  <FileText size={20} className="text-white/90" />
                   Detalles de la Reserva
                 </h3>
                 <span className="text-xs text-gray-400 font-mono">
@@ -693,11 +699,12 @@ const ReservasAdminPage = () => {
               style={{ padding: "16px 24px", gap: "12px" }}
             >
               <button
+                type="button"
                 onClick={handleCloseModal}
-                className="bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl transition-colors cursor-pointer text-sm shadow-sm"
-                style={{ padding: "10px 20px" }}
+                className="admin-btn admin-btn--secondary text-sm"
+                style={{ padding: "10px 20px", margin: 0 }}
               >
-                Cerrar Detalle
+                Cerrar detalle
               </button>
             </div>
           </div>

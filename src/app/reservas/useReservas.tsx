@@ -111,7 +111,7 @@ const useReservas = () => {
 
   // Paginación
   const [page, setPage] = useState(1);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(25);
 
   // Debounce para el término de búsqueda (evita saturar el servidor con peticiones innecesarias)
   useEffect(() => {
@@ -131,7 +131,7 @@ const useReservas = () => {
     try {
       const queryParams = new URLSearchParams();
       queryParams.append("page", String(page));
-      queryParams.append("limit", String(limit));
+      queryParams.append("limit", String(pageSize));
       if (status && status !== "all") {
         queryParams.append("status", status);
       }
@@ -149,7 +149,10 @@ const useReservas = () => {
         }
       }
 
-      const res = await requestGet(`/reservas/admin/getAll?${queryParams.toString()}`);
+      const res = await requestGet(
+        `/reservas/admin/getAll?${queryParams.toString()}`,
+        { silent: true },
+      );
       if (res && res.status === 200 && res.data) {
         setReservations(res.data.data || []);
         setTotalReservations(res.data.pagination?.total || 0);
@@ -167,7 +170,7 @@ const useReservas = () => {
   useEffect(() => {
     fetchReservations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status, debouncedSearch, date, startDate, endDate, filterType]);
+  }, [page, pageSize, status, debouncedSearch, date, startDate, endDate, filterType]);
 
   // Actualizar el estatus de una reserva
   const updateReservationStatus = async (reference: string, newStatus: string) => {
@@ -300,7 +303,8 @@ const useReservas = () => {
     setFilterType,
     page,
     setPage,
-    limit,
+    pageSize,
+    setPageSize,
     fetchReservations,
     updateReservationStatus,
   };

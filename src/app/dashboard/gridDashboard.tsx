@@ -24,7 +24,11 @@ import {
 import { useTheContext } from "../hooks/global.hook";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import DataProducts from "../shared/components/especific/dashboard/DataProducts";
-import TechsmartOrderPanel from "../shared/components/especific/dashboard/TechsmartOrderPanel";
+import {
+  BillingDetailsContent,
+  CustomerDetailsContent,
+  modalCloseOnly,
+} from "../shared/components/especific/modal/ModalContentHelpers";
 
 const GridDashboard = ({
   handleChangeStatusShip,
@@ -45,23 +49,16 @@ const GridDashboard = ({
     () => [
       {
         field: "idOrder",
-        headerName: "No.Orden",
+        headerName: "No. Orden",
+        flex: 0.55,
+        minWidth: 82,
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
-              style={{
-                padding: "10px",
-              }}
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%]`}
+              style={{ padding: "6px 4px" }}
             >
-              <span
-                className="text-[black] block text-center font-bold"
-                style={{
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  wordBreak: "break-word",
-                }}
-              >
+              <span className="text-[black] block text-center font-bold text-sm">
                 #{params.value}
               </span>
             </div>
@@ -69,58 +66,10 @@ const GridDashboard = ({
         },
       },
       {
-        field: "techsmart",
-        headerName: "TechSmart",
-        minWidth: 140,
-        maxWidth: 160,
-        sortable: false,
-        renderCell: (params) => {
-          const row = params.row as SalesI & {
-            hasTechsmartProducts?: boolean;
-            techsmartOrder?: SalesI["techsmartOrder"];
-          };
-
-          if (!row.hasTechsmartProducts) {
-            return (
-              <span className="text-gray-400 text-sm text-center block w-full">
-                N/A
-              </span>
-            );
-          }
-
-          return (
-            <button
-              type="button"
-              className="text-sm font-semibold text-blue-700 hover:text-blue-900 underline cursor-pointer"
-              onClick={() => {
-                setDataModal({
-                  isOpen: true,
-                  type: "info",
-                  title: `TechSmart — Orden #${row.idOrder}`,
-                  showActions: true,
-                  onClose: () =>
-                    setDataModal((prev) => ({ ...prev, isOpen: false })),
-                  onConfirm: () =>
-                    setDataModal((prev) => ({ ...prev, isOpen: false })),
-                  content: (
-                    <TechsmartOrderPanel
-                      idOrder={row.idOrder}
-                      initialOrder={row.techsmartOrder}
-                      statusPay={row.statusPay}
-                    />
-                  ),
-                });
-              }}
-            >
-              Gestionar
-            </button>
-          );
-        },
-      },
-      {
         field: "requiredFactura",
-        headerName: "¿Requiere factura?",
-        flex: 1,
+        headerName: "¿Factura?",
+        flex: 0.5,
+        minWidth: 72,
         renderCell: (params) => {
           return (
             <div
@@ -131,213 +80,13 @@ const GridDashboard = ({
                 ) {
                   setDataModal({
                     isOpen: true,
-                    title: "Datos de facturación",
-                    content: (
-                      <div className="w-full flex flex-col">
-                        {params.row.billing.map((b: any, indexB: number) => {
-                          if (indexB == 0) {
-                            return (
-                              <div
-                                className="w-auto max-w-[900px] grid grid-cols-[1fr_1fr_1fr] gap-2"
-                                key={indexB}
-                              >
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    CFDI
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.cfdi}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col  bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    Compañia
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.companyName}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col  bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    Correo
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800  block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.email}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    Metodo de pago
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.methodPay}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    NO.Orden
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.orden}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    RFC
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.rfc}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    Regimen
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.taxRegimen}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    Código Postal
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.codePostal}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    Estado
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.state}
-                                  </span>
-                                </div>
-
-                                <div
-                                  className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                                  style={{
-                                    padding: "5px",
-                                  }}
-                                >
-                                  <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                                    Ciudad
-                                  </span>
-                                  <span
-                                    className="text-[15px] font-medium text-gray-800 block text-center"
-                                    style={{
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    {b.city}
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          }
-                        })}
-                      </div>
-                    ),
                     type: "info",
-                    showActions: true,
+                    title: "Datos de facturación",
+                    size: "lg",
+                    ...modalCloseOnly,
+                    content: (
+                      <BillingDetailsContent billing={params.row.billing} />
+                    ),
                     onClose: () => {
                       setDataModal((prev) => ({ ...prev, isOpen: false }));
                     },
@@ -360,8 +109,9 @@ const GridDashboard = ({
       },
       {
         field: "dataUser",
-        headerName: "Datos Cliente",
-        flex: 1,
+        headerName: "Datos cliente",
+        flex: 0.95,
+        minWidth: 105,
 
         renderCell: (params) => {
           return (
@@ -373,88 +123,11 @@ const GridDashboard = ({
               onClick={() => {
                 setDataModal({
                   isOpen: true,
-                  type: "success",
-                  content: (
-                    <div className="min-w-[550px] max-w-[900px] grid grid-cols-[1fr] gap-2">
-                      <div
-                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                        style={{
-                          padding: "5px",
-                        }}
-                      >
-                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                          Nombre
-                        </span>
-                        <span
-                          className="text-[15px] font-medium text-gray-800 block text-center"
-                          style={{
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {params.value?.name} {params?.value?.lastName}
-                        </span>
-                      </div>
-
-                      <div
-                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                        style={{
-                          padding: "5px",
-                        }}
-                      >
-                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                          Correo
-                        </span>
-                        <span
-                          className="text-[15px] font-medium text-gray-800 block text-center"
-                          style={{
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {params.value?.email}
-                        </span>
-                      </div>
-
-                      <div
-                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                        style={{
-                          padding: "5px",
-                        }}
-                      >
-                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                          Teléfono(1)
-                        </span>
-                        <span
-                          className="text-[15px] font-medium text-gray-800 block text-center"
-                          style={{
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {params.value?.phone1}
-                        </span>
-                      </div>
-
-                      <div
-                        className="border border-gray-200 rounded-lg flex flex-col bg-gray-50 hover:bg-gray-100 transition"
-                        style={{
-                          padding: "5px",
-                        }}
-                      >
-                        <span className="font-semibold text-[13px] uppercase text-gray-500 tracking-wide block text-center">
-                          Teléfono(2)
-                        </span>
-                        <span
-                          className="text-[15px] font-medium text-gray-800 block text-center"
-                          style={{
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {params.value?.phone2}
-                        </span>
-                      </div>
-                    </div>
-                  ),
-                  title: "Datos del usuario",
-                  showActions: true,
+                  type: "info",
+                  title: "Datos del cliente",
+                  size: "md",
+                  ...modalCloseOnly,
+                  content: <CustomerDetailsContent data={params.value} />,
                   onClose: () => {
                     setDataModal((prev) => ({ ...prev, isOpen: false }));
                   },
@@ -464,14 +137,7 @@ const GridDashboard = ({
                 });
               }}
             >
-              <span
-                className="text-[#808080] block text-center"
-                style={{
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  wordBreak: "break-word",
-                }}
-              >
+              <span className="text-[#808080] block text-center text-sm font-semibold break-words">
                 {params.value?.name}
               </span>
             </div>
@@ -480,8 +146,8 @@ const GridDashboard = ({
       },
       {
         field: "products",
-        maxWidth: 250,
-        minWidth: 250,
+        flex: 0.85,
+        minWidth: 95,
         headerName: "Productos",
         renderCell: (params) => {
           return (
@@ -491,9 +157,12 @@ const GridDashboard = ({
               onClick={() => {
                 setDataModal({
                   isOpen: true,
-                  type: "success",
-                  title: "Productos",
+                  type: "info",
+                  title: "Productos de la orden",
+                  size: "xl",
                   showActions: true,
+                  showCancel: false,
+                  confirmLabel: "Cerrar",
                   onClose: () =>
                     setDataModal((prev) => ({ ...prev, isOpen: false })),
                   onConfirm: () =>
@@ -512,14 +181,7 @@ const GridDashboard = ({
                 });
               }}
             >
-              <span
-                className="text-[black] block text-center font-bold"
-                style={{
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  wordBreak: "break-word",
-                }}
-              >
+              <span className="text-[black] block text-center font-bold text-sm break-words">
                 {Array.isArray(params.value) &&
                   `${
                     params.value.length == 1
@@ -534,24 +196,16 @@ const GridDashboard = ({
 
       {
         field: "totalAmount",
-        headerName: "Pago Total",
-        flex: 1,
+        headerName: "Pago total",
+        flex: 0.65,
+        minWidth: 92,
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
-              style={{
-                padding: "10px",
-              }}
+              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%]`}
+              style={{ padding: "6px 4px" }}
             >
-              <span
-                className="text-[#808080] block text-center"
-                style={{
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  wordBreak: "break-word",
-                }}
-              >
+              <span className="text-[#808080] block text-center text-sm font-semibold">
                 {formatCurrency(Number(params.value))}
               </span>
             </div>
@@ -746,24 +400,16 @@ const GridDashboard = ({
       // },
       {
         field: "method_pay",
-        headerName: "Metodo de pago",
-        flex: 1,
+        headerName: "Método de pago",
+        flex: 0.9,
+        minWidth: 110,
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%] flex-wrap"
-              style={{
-                padding: "10px",
-              }}
+              className="flex justify-center items-center min-h-[100%]"
+              style={{ padding: "6px 4px" }}
             >
-              <span
-                className="text-[black] block text-center font-bold"
-                style={{
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  wordBreak: "break-word",
-                }}
-              >
+              <span className="text-[black] block text-center font-semibold text-xs sm:text-sm whitespace-normal">
                 {params.value == "tarjeta_de_debito" ||
                 params.value == "tarjeta_de_credito" ? (
                   <span className="flex gap-2">
@@ -790,9 +436,10 @@ const GridDashboard = ({
                 ) : params.value == "mercadopago" ? (
                   <img
                     src={"/mercadopago.jpg"}
+                    alt="Mercado Pago"
                     style={{
-                      width: "100px",
-                      height: "100px",
+                      width: "52px",
+                      height: "36px",
                       objectFit: "contain",
                     }}
                     loading="lazy"
@@ -817,27 +464,19 @@ const GridDashboard = ({
         field: "createdAt",
         headerName: "Fecha de compra",
         flex: 1,
+        minWidth: 125,
         renderCell: (params) => {
           if (params.value) {
             return (
               <div
-                className="flex justify-center flex-col items-center min-h-full"
-                style={{
-                  padding: "10px",
-                }}
+                className="flex justify-center flex-col items-center min-h-full px-1 py-2"
               >
-                <div className="w-full">
-                  <span
-                    className="text-[black] block text-center font-bold"
-                    style={{
-                      fontSize: "18px",
-                      fontWeight: "600",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {new Date(params.value).toLocaleString()}
-                  </span>
-                </div>
+                <span className="text-[black] block text-center font-medium text-xs leading-snug">
+                  {new Date(params.value).toLocaleString("es-MX", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
+                </span>
               </div>
             );
           }
@@ -847,7 +486,8 @@ const GridDashboard = ({
       {
         field: "actionsShipment",
         headerName: "Acciones",
-        flex: 1,
+        flex: 1.15,
+        minWidth: 155,
         renderCell: (params) => {
           const currentRow = rows.data?.find(
             (row: any) => row.idShipment === params.row.idShipment,
@@ -888,8 +528,10 @@ const GridDashboard = ({
               </div> */}
 
               <div className="w-full" style={{ marginTop: "5px" }}>
-                <span>Estatus Pago</span>
-                <FormControl fullWidth>
+                <span className="text-xs font-semibold text-gray-600">
+                  Estatus Pago
+                </span>
+                <FormControl fullWidth size="small">
                   <Select
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"

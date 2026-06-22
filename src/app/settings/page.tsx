@@ -290,25 +290,15 @@ export default function Settings() {
   // ════════════════════════════════════════════════════════════
 
   return (
-    <section className="min-h-screen bg-white dark:bg-[#111] text-gray-900 dark:text-white px-6 py-10 font-sans">
-      <div
-        className="max-w-5xl mx-auto"
-        style={{
-          margin: "auto",
-        }}
-      >
-        <div className="mb-4">
-          <h2
-            className="text-sm font-semibold text-gray-700 dark:text-gray-200"
-            style={{
-              padding: "5px",
-            }}
-          >
-            Banners del carrusel principal
-          </h2>
+    <section className="w-full no-padding-top">
+      <div className="admin-panel" style={{ marginBottom: "24px" }}>
+        <div className="admin-panel__header">
+          <h2 className="admin-panel__title">Banners del carrusel principal</h2>
+          <p className="admin-panel__subtitle">
+            Reemplaza hasta 5 imágenes PNG del carrusel de la tienda
+          </p>
         </div>
-
-        {/* Grid de slots */}
+        <div className="admin-panel__body">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {slots.map((slot, index) => {
             const slotNumber = index + 1;
@@ -483,14 +473,10 @@ export default function Settings() {
         >
           <button
             type="button"
-            style={{ padding: "10px" }}
             onClick={handleSubmitPrincipal}
             disabled={isSubmittingPrincipal || selectedCount === 0}
-            className={`cursor-pointer flex items-center justify-center gap-2 px-5 py-2.5 w-[300px] rounded-xl text-sm font-medium transition-all duration-150 ${
-              isSubmittingPrincipal || selectedCount === 0
-                ? "bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                : "bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-700 dark:hover:bg-gray-100 active:scale-95"
-            }`}
+            className="admin-btn admin-btn--primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ padding: "10px 22px", margin: 0, minWidth: "220px" }}
           >
             {isSubmittingPrincipal ? (
               <>
@@ -540,24 +526,17 @@ export default function Settings() {
             </p>
           )}
         </div>
+        </div>
       </div>
 
-      {/* ══════════════════════════════════════════════
-          SECCIÓN 2 — Banner por categoría
-      ══════════════════════════════════════════════ */}
-      <div className="max-w-5xl mx-auto" style={{ margin: "20px auto" }}>
-        <div className="mb-4">
-          <h2
-            className="text-sm font-semibold text-gray-700 dark:text-gray-200"
-            style={{
-              marginBottom: "10px",
-            }}
-          >
-            Banner de categoría
-          </h2>
+      <div className="admin-panel">
+        <div className="admin-panel__header">
+          <h2 className="admin-panel__title">Banner de categoría</h2>
+          <p className="admin-panel__subtitle">
+            Actualiza el banner de una categoría específica
+          </p>
         </div>
-
-        <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 p-5 space-y-5">
+        <div className="admin-panel__body">
           {/* Fila: selector de categoría + drop zone */}
           <div
             className="flex flex-col sm:flex-row gap-4"
@@ -723,20 +702,14 @@ export default function Settings() {
           >
             <button
               type="button"
-              style={{ padding: "10px", marginTop: "15px" }}
               onClick={handleSubmitCategory}
               disabled={
                 isSubmittingCategory ||
                 !categorySlot.file ||
                 !categorySlot.categoryId
               }
-              className={`cursor-pointer flex items-center justify-center gap-2 px-5 py-2.5 w-[300px] rounded-xl text-sm font-medium transition-all duration-150 ${
-                isSubmittingCategory ||
-                !categorySlot.file ||
-                !categorySlot.categoryId
-                  ? "bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-                  : "bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-700 dark:hover:bg-gray-100 active:scale-95"
-              }`}
+              className="admin-btn admin-btn--primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ padding: "10px 22px", margin: 0, minWidth: "220px" }}
             >
               {isSubmittingCategory ? (
                 <>

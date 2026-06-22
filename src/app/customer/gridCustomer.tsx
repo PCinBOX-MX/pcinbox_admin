@@ -16,8 +16,9 @@ const GridCustomer = ({
     () => [
       {
         field: "idUser",
-        headerName: "#ID",
-        flex: 1,
+        headerName: "# ID",
+        minWidth: 100,
+        width: 110,
         renderCell: (params) => {
           return (
             <div
@@ -43,6 +44,7 @@ const GridCustomer = ({
       {
         field: "name",
         headerName: "Nombre",
+        minWidth: 160,
         flex: 1,
 
         renderCell: (params) => {
@@ -69,7 +71,8 @@ const GridCustomer = ({
       {
         field: "email",
         headerName: "Correo electrónico",
-        flex: 1,
+        minWidth: 220,
+        flex: 1.2,
         renderCell: (params) => {
           return (
             <div
@@ -94,7 +97,8 @@ const GridCustomer = ({
       {
         field: "phone",
         headerName: "Teléfono",
-        flex: 1,
+        minWidth: 140,
+        width: 150,
         renderCell: (params) => {
           return (
             <div

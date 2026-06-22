@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { SelectChangeEvent } from "@mui/material";
 import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
 import dynamic from "next/dynamic";
+
 const RegisterProduct = dynamic(
   () =>
     import("../shared/components/especific/registerProduct/RegisterProduct"),
-  { ssr: false }
+  { ssr: false },
 );
+
 const useProveedores = () => {
-  // const { reset } = useForm();
   const { setDataModal, setDataProveedores, setProductsProveedor } =
     useTheContext();
   const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
@@ -28,11 +29,13 @@ const useProveedores = () => {
     setSlcProveedor(event.target.value);
   };
 
-  const handleGetProveedores = async () => {
+  const handleGetProveedores = useCallback(async () => {
     try {
       setDataProveedores((prev) => ({ ...prev, loading: true }));
 
-      const resp = await requestGetProveedores("/getAllProveedores");
+      const resp = await requestGetProveedores("/getAllProveedores", {
+        silent: true,
+      });
       setDataProveedores((prev) => ({ ...prev, loading: false }));
 
       if (resp?.status == 200) {
@@ -46,52 +49,55 @@ const useProveedores = () => {
     } catch (error) {
       setDataProveedores((prev) => ({ ...prev, loading: false }));
     }
-  };
+  }, [requestGetProveedores, setDataProveedores]);
 
-  const handleGetProductsByProveedor = async (idProveedor: any) => {
-    try {
-      setProductsProveedor((prev) => ({ ...prev, loading: true }));
+  const handleGetProductsByProveedor = useCallback(
+    async (idProveedor: string | number) => {
+      try {
+        setProductsProveedor((prev) => ({ ...prev, loading: true }));
 
-      const resp = await requestPostProveedores(
-        {
-          idProveedor,
-        },
-        "/getProductsByProveedor"
-      );
-      setProductsProveedor((prev) => ({ ...prev, loading: false }));
+        const resp = await requestPostProveedores(
+          { idProveedor },
+          "/getProductsByProveedor",
+          { silent: true },
+        );
+        setProductsProveedor((prev) => ({ ...prev, loading: false }));
 
-      if (resp?.status == 200) {
-        const data = resp.data;
+        if (resp?.status == 200) {
+          const data = resp.data;
 
-        setProductsProveedor((prev) => {
-          const originals = data.data.data ?? [];
-          const updates = data.data.dataExist ?? [];
+          setProductsProveedor((prev) => {
+            const originals = data.data.data ?? [];
+            const updates = data.data.dataExist ?? [];
 
-          const merged = originals.map((item: ProductsI) => {
-            const match = updates.find(
-              (u: ProductsI) => Number(u.idProduct) === Number(item.idProduct)
+            const merged = originals.map((item: ProductsI) => {
+              const match = updates.find(
+                (u: ProductsI) => Number(u.idProduct) === Number(item.idProduct),
+              );
+              return match ? { ...item, ...match } : item;
+            });
+
+            const newOnes = updates.filter(
+              (u: ProductsI) =>
+                !originals.some(
+                  (o: ProductsI) =>
+                    Number(o.idProduct) === Number(u.idProduct),
+                ),
             );
-            return match ? { ...item, ...match } : item;
+
+            return {
+              ...prev,
+              data: [...merged, ...newOnes],
+              copyData: [...merged, ...newOnes],
+            };
           });
-
-          const newOnes = updates.filter(
-            (u: ProductsI) =>
-              !originals.some(
-                (o: ProductsI) => Number(o.idProduct) === Number(u.idProduct)
-              )
-          );
-
-          return {
-            ...prev,
-            data: [...merged, ...newOnes],
-            copyData: [...merged, ...newOnes],
-          };
-        });
+        }
+      } catch (error) {
+        setProductsProveedor((prev) => ({ ...prev, loading: false }));
       }
-    } catch (error) {
-      setProductsProveedor((prev) => ({ ...prev, loading: false }));
-    }
-  };
+    },
+    [requestPostProveedores, setProductsProveedor],
+  );
 
   const showModalRegisterProveedor = async () => {
     setDataModal({
@@ -120,7 +126,7 @@ const useProveedores = () => {
           contactEmail: dataForm.contactEmail,
           phone: dataForm.phone,
         },
-        "/registerProveedor"
+        "/registerProveedor",
       );
 
       if (resp?.status == 200) {
@@ -150,9 +156,8 @@ const useProveedores = () => {
           },
         });
         setSlcProveedor(
-          data.data.data[data.data.data.length - 1].idProvider.toString()
+          data.data.data[data.data.data.length - 1].idProvider.toString(),
         );
-        //reset();
       }
     } catch (error) {
       setRegisterProveedores((prev) => ({ ...prev, loading: false }));
@@ -164,7 +169,8 @@ const useProveedores = () => {
       isOpen: true,
       content: <RegisterProduct />,
       title: "Agregar producto",
-      type: "success",
+      type: "info",
+      size: "xl",
       showActions: false,
       onClose: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));

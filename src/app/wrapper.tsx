@@ -2,6 +2,7 @@
 
 import { SnackbarProvider } from "notistack";
 import AppContent from "./shared/components/especific/appcontent/AppContent";
+import AppThemeProvider from "./providers/AppThemeProvider";
 
 export default function AppWrapper({
   children,
@@ -9,13 +10,15 @@ export default function AppWrapper({
   children: React.ReactNode;
 }) {
   return (
-    <SnackbarProvider
-      maxSnack={3}
-      anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      preventDuplicate
-      autoHideDuration={null} // manual close
-    >
-      <AppContent>{children}</AppContent>
-    </SnackbarProvider>
+    <AppThemeProvider>
+      <SnackbarProvider
+        maxSnack={3}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        preventDuplicate
+        autoHideDuration={null}
+      >
+        <AppContent>{children}</AppContent>
+      </SnackbarProvider>
+    </AppThemeProvider>
   );
 }

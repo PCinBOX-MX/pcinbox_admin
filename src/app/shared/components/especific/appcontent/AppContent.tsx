@@ -10,10 +10,8 @@ import { useSound } from "react-sounds";
 import { IconButton } from "@mui/material";
 import SpinnerComponent from "../spinner/Spinner";
 import useProveedores from "@/app/proveedores/useProveedores";
-import useDashboard from "@/app/dashboard/useDashboard";
 import { useSnackbar } from "notistack";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
-import useVentasInvitados from "@/app/ventasInvitados/useVentasInvitados";
 
 const AUTH_ROUTES = ["/", "/features/auth/Login", "/features/auth/Register"];
 
@@ -32,13 +30,12 @@ export default function AppContent({
     setRowsVentasInvitados,
     setTableKey,
     setProductsProveedor,
+    socketsReady,
   } = useTheContext();
   const pathName = usePathname();
   const play = useSound("/audio/notification.mp3");
 
   const { handleGetProveedores } = useProveedores();
-  const { handleGetAllSales } = useDashboard();
-  const { handleGetAllSalesInvitados } = useVentasInvitados();
 
   useProtected(pathName);
 
@@ -64,7 +61,6 @@ export default function AppContent({
       setRowsVentas((prev) => ({
         ...prev,
         totalRows: prev.totalRows + 1,
-        data: [...prev.data, data],
       }));
       setTableKey((prev) => prev + 1);
     };
@@ -84,7 +80,10 @@ export default function AppContent({
       });
       play.play();
 
-      setRowsVentasInvitados((prev) => [data, ...prev]);
+      setRowsVentasInvitados((prev) => ({
+        ...prev,
+        totalRows: prev.totalRows + 1,
+      }));
 
       setTableKey((prev) => prev + 1);
     };
@@ -202,8 +201,9 @@ export default function AppContent({
         ),
       });
       play.play();
-      setRowsVentasInvitados((prev) =>
-        prev.map((item) =>
+      setRowsVentasInvitados((prev) => ({
+        ...prev,
+        data: prev.data.map((item) =>
           item.id == data.id || item.referencia == data.idOrder
             ? {
                 ...item,
@@ -214,7 +214,7 @@ export default function AppContent({
               }
             : item,
         ),
-      );
+      }));
     };
 
     const handlerUpdateProduct = (data: ProductsI) => {
@@ -319,31 +319,19 @@ export default function AppContent({
 
       socketServer.current!.off("updateProduct", handlerUpdateProduct);
     };
-  }, [socketPagos.current, socketServer.current]);
+  }, [socketsReady, enqueueSnackbar, closeSnackbar, play, setRowsVentas, setRowsVentasInvitados, setTableKey, setProductsProveedor]);
 
   useEffect(() => {
-    let mounted = true;
-
-    if (pathName) {
-      if (pathName == "/dashboard") {
-        handleGetAllSales();
-      } else if (pathName == "/proveedores") {
-        handleGetProveedores();
-      } else if (pathName == "/ventasInvitados") {
-        handleGetAllSalesInvitados();
-      }
-
-      return () => {
-        mounted = false;
-      };
+    if (pathName === "/proveedores") {
+      handleGetProveedores();
     }
-  }, [pathName]);
+  }, [pathName, handleGetProveedores]);
 
   const isAuthRoute = AUTH_ROUTES.includes(pathName);
 
   return (
     <>
-      <main className="min-h-screen">
+      <main className={isAuthRoute ? "auth-shell" : undefined}>
         {isAuthRoute ? children : <AdminLayout>{children}</AdminLayout>}
 
         <ModalComponent
@@ -355,6 +343,9 @@ export default function AppContent({
           type={dataModal.type}
           children={dataModal.children}
           showActions={dataModal.showActions}
+          size={dataModal.size}
+          confirmLabel={dataModal.confirmLabel}
+          showCancel={dataModal.showCancel}
         />
 
         <SpinnerComponent />
