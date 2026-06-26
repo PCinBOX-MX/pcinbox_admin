@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -34,7 +35,11 @@ function readSidebarOpenFromStorage(): boolean {
 }
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(() => readSidebarOpenFromStorage());
+  const [isOpen, setIsOpen] = useState(true);
+
+  useEffect(() => {
+    setIsOpen(readSidebarOpenFromStorage());
+  }, []);
 
   const persist = useCallback((next: boolean) => {
     setIsOpen(next);
