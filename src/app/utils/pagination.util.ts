@@ -14,10 +14,25 @@ export interface ParsedPaginatedResponse<T> {
 export function buildPaginatedUrl(
   path: string,
   { page, pageSize }: PaginationModel,
+  extraParams?: Record<string, string | boolean | number | undefined | null>,
 ): string {
   const apiPage = page + 1;
+  const params = new URLSearchParams({
+    page: String(apiPage),
+    pageSize: String(pageSize),
+  });
+
+  if (extraParams) {
+    Object.entries(extraParams).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === false || value === "") {
+        return;
+      }
+      params.set(key, String(value));
+    });
+  }
+
   const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}page=${apiPage}&pageSize=${pageSize}`;
+  return `${path}${separator}${params.toString()}`;
 }
 
 export function parsePaginatedResponse<T>(
