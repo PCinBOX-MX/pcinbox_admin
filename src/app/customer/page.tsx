@@ -71,7 +71,7 @@ const Customer = () => {
   });
 
   return (
-    <section className="w-full no-padding-top">
+    <section className="admin-page admin-page--flush-top">
       <div className="admin-panel">
         <div className="admin-panel__header">
           <h2 className="admin-panel__title">Clientes</h2>
