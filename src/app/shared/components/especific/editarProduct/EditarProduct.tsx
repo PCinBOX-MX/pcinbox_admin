@@ -74,7 +74,7 @@ const EditarProduct = () => {
         color="primary"
       >
         {registerProveedores.loading ? (
-          <MdAutorenew size={20} className="m-auto the-spinner" />
+          <MdAutorenew size={20} className="admin-m-auto the-spinner" />
         ) : (
           <>Registrar</>
         )}
