@@ -26,6 +26,7 @@ import { Dispatch, SetStateAction, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import UploadImgProductProvider2 from "../registerProduct/UploadImgProvider2";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
+import styles from "./card.module.css";
 
 const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   const { formatCurrency } = UtilsService();
@@ -62,7 +63,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
         isOpen: true,
         title: "Ingresa los datos",
         content: (
-          <div className="w-full max-w-full">
+          <div className={styles.modalShell}>
             <UploadImgProductProvider2 dataProductProp={dataProductProp} />
           </div>
         ),
@@ -81,16 +82,14 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   return (
     <Card
       key={dataProduct.idProduct}
-      className="w-full max-w-[300px] rounded-xl shadow-sm"
-      style={{ padding: "10px" }}
+      className={styles.card}
     >
       <Carousel showIndicators={true} showThumbs={false} showStatus={false}>
         {dataProduct.image_url && dataProduct.image_url.length > 0
           ? dataProduct.image_url.map((img, i) => (
               <div
                 key={i}
-                className="flex justify-center"
-                style={{ height: "150px" }}
+                className={styles.carouselSlide}
               >
                 <img
                   src={img}
@@ -107,7 +106,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           gutterBottom
           variant="h5"
           component="div"
-          className="min-h-[65px]"
+          className={styles.title}
         >
           {dataProduct.name.length > 30
             ? dataProduct.name.slice(0, 30)
@@ -123,7 +122,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           variant="body2"
           sx={{ color: "text.secondary", margin: "10px 0px" }}
         >
-          <span className="text-black font-bold text-[17px]">SKU:</span>{" "}
+          <span className={styles.label}>SKU:</span>{" "}
           {dataProduct.sku}
         </Typography>
 
@@ -132,7 +131,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             variant="body2"
             sx={{ color: "text.secondary", margin: "10px 0px" }}
           >
-            <span className="text-black font-bold text-[17px]">UPC:</span>{" "}
+            <span className={styles.label}>UPC:</span>{" "}
             {dataProduct?.upc}
           </Typography>
         )}
@@ -142,7 +141,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             variant="body2"
             sx={{ color: "text.secondary", margin: "10px 0px" }}
           >
-            <span className="text-black font-bold text-[17px]">Clave:</span>{" "}
+            <span className={styles.label}>Clave:</span>{" "}
             {dataProduct?.idProductExt}
           </Typography>
         )}
@@ -151,7 +150,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           variant="body2"
           sx={{ color: "text.secondary", margin: "10px 0px" }}
         >
-          <span className="text-black font-bold text-[17px]">Disponible:</span>{" "}
+          <span className={styles.label}>Disponible:</span>{" "}
           {dataProduct.stock || 0} piezas.
         </Typography>
 
@@ -159,7 +158,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           variant="body2"
           sx={{ color: "text.secondary", margin: "10px 0px" }}
         >
-          <span className="text-black font-bold text-[17px]">Precio:</span>{" "}
+          <span className={styles.label}>Precio:</span>{" "}
           {formatCurrency(Number(dataProduct.price))}
         </Typography>
       </CardContent>
@@ -177,7 +176,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             onClick={() => {
               handleAltaProduct(dataProduct);
             }}
-            className="admin-btn admin-btn--primary flex w-full items-center justify-center gap-2"
+            className={`admin-btn admin-btn--primary ${styles.btnRow}`}
             style={{ padding: "10px", margin: 0 }}
           >
             Dar de alta al sistema
@@ -188,7 +187,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
         {dataProduct && dataProduct?.image_url.length > 0 && (
           <button
             type="button"
-            className="admin-btn admin-btn--secondary flex w-full items-center justify-center gap-2"
+            className={`admin-btn admin-btn--secondary ${styles.btnRow}`}
             style={{ padding: "10px", margin: 0 }}
             onClick={() => {
               handleEditProduct(dataProduct);
@@ -202,7 +201,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           <button
             type="button"
             disabled={loadingRemoveProduct}
-            className="admin-btn admin-btn--primary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`admin-btn admin-btn--primary ${styles.btnRow}`}
             style={{ padding: "10px", margin: 0 }}
             onClick={async () => {
               setDataModal({
@@ -251,7 +250,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             }}
           >
             {loadingRemoveProduct ? (
-              <MdAutorenew size={20} className="m-auto the-spinner" />
+              <MdAutorenew size={20} className={`${styles.spinnerCenter} the-spinner`} />
             ) : (
               <>
                 Dar de baja del sistema
