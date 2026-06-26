@@ -44,18 +44,21 @@ const CancelModalContent = ({
   };
 
   return (
-    <div className="flex flex-col gap-4 w-full min-w-[280px] sm:min-w-[400px] text-left">
-      <p className="text-sm text-gray-600">
-        ¿Estás seguro de cambiar el estatus de la reserva <strong className="text-gray-950 font-semibold">{reference}</strong> a <strong className="text-red-600 font-semibold">"Cancelada"</strong>? Se enviará una notificación por correo al cliente.
+    <div className="order-cancel-modal">
+      <p className="order-cancel-modal__intro">
+        ¿Estás seguro de cambiar el estatus de la reserva{" "}
+        <strong className="order-cancel-modal__order-id">{reference}</strong> a{" "}
+        <strong className="order-cancel-modal__order-id">Cancelada</strong>? Se enviará
+        una notificación por correo al cliente.
       </p>
-      
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+
+      <div className="order-cancel-modal__field">
+        <label className="order-cancel-modal__label">
           Motivo de la cancelación *
         </label>
         <textarea
-          className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#bb3d4b]/20 transition-all ${
-            error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-[#bb3d4b]"
+          className={`order-cancel-modal__textarea${
+            error ? " order-cancel-modal__textarea--error" : ""
           }`}
           placeholder="Por favor, describe detalladamente la razón de la cancelación..."
           rows={4}
@@ -67,25 +70,27 @@ const CancelModalContent = ({
             }
           }}
         />
-        {error && <span className="text-xs text-red-500 font-medium">{error}</span>}
+        {error ? (
+          <span className="order-cancel-modal__error" role="alert">
+            {error}
+          </span>
+        ) : null}
       </div>
 
-      <div className="flex justify-end gap-3 pt-2">
+      <div className="order-cancel-modal__actions">
         <button
           type="button"
-          className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg cursor-pointer transition-colors text-sm"
-          style={{ padding: "8px 16px" }}
+          className="admin-btn admin-btn--secondary order-cancel-modal__btn"
           onClick={onCancel}
         >
           Cerrar
         </button>
         <button
           type="button"
-          className="bg-[#bb3d4b] hover:bg-[#bb3d4b]/95 text-white font-bold rounded-lg cursor-pointer transition-colors text-sm"
-          style={{ padding: "8px 16px" }}
+          className="admin-btn admin-btn--primary order-cancel-modal__btn order-cancel-modal__btn--confirm"
           onClick={handleSubmit}
         >
-          Confirmar Cancelación
+          Confirmar cancelación
         </button>
       </div>
     </div>
