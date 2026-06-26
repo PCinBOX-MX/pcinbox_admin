@@ -24,6 +24,7 @@ import { ProductsI } from "@/app/interfaces/products/products.interface";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { MdAdd, MdRemove } from "react-icons/md";
 import { Controller, useForm } from "react-hook-form";
+import rpStyles from "./registerProduct.module.css";
 
 interface DataNewProductI {
   name: string;
@@ -230,19 +231,13 @@ const RegisterProduct = () => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-full max-w-full flex-col"
+      className="admin-form-shell"
       style={{ margin: 0, padding: 0 }}
     >
-      <div className="w-full" style={{ marginBottom: "20px", padding: 0 }}>
-        <label
-          htmlFor="select-tipo-producto"
-          className="block text-sm font-semibold text-gray-800"
-          style={{ marginBottom: "8px", padding: 0 }}
-        >
+      <div className={rpStyles.fieldGroup}>
+        <label htmlFor="select-tipo-producto" className={rpStyles.fieldLabel}>
           Tipo de producto{" "}
-          <span className="text-[#bb3d4b]" aria-hidden="true">
-            *
-          </span>
+          <span className={rpStyles.required} aria-hidden="true">*</span>
         </label>
         <select
           id="select-tipo-producto"
@@ -250,8 +245,7 @@ const RegisterProduct = () => {
           required
           value={typeProduct}
           onChange={(event) => setTypeProduct(event.target.value)}
-          className="w-full rounded-xl border border-gray-300 bg-white text-sm text-gray-900 shadow-sm outline-none transition focus:border-[#bb3d4b] focus:ring-2 focus:ring-[#bb3d4b]/15"
-          style={{ padding: "11px 14px", margin: 0 }}
+          className={rpStyles.fieldSelect}
         >
           <option value="" disabled>
             Selecciona una opción
@@ -266,7 +260,7 @@ const RegisterProduct = () => {
       {typeProduct == "component" ? (
         <>
           <div
-            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            className="admin-form-grid-3"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             <TextField
@@ -333,7 +327,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            className="admin-form-grid-3"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             <FormControl fullWidth>
@@ -398,7 +392,7 @@ const RegisterProduct = () => {
             />
           </div>
           <div
-            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2"
+            className="admin-form-grid-2"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             <TextField
@@ -447,7 +441,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="flex flex-wrap gap-3"
+            className="admin-row admin-row--wrap"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             {files.map((file, indexFile) => {
@@ -486,7 +480,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            className="admin-form-grid-3"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             <TextField
@@ -561,7 +555,7 @@ const RegisterProduct = () => {
             />
           </div>
           <div
-            className="grid max-h-[150px] w-full grid-flow-row grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden"
+            className="admin-form-scroll-grid"
             style={{ marginBottom: "12px", padding: "12px 0" }}
             ref={containerRef2}
           >
@@ -572,7 +566,7 @@ const RegisterProduct = () => {
                     return (
                       <div
                         key={indexCar}
-                        className="w-full grid grid-cols-[1fr_1fr_auto] gap-2"
+                        className="admin-grid-form-actions"
                       >
                         <TextField
                           label="Caracteristica"
@@ -629,7 +623,7 @@ const RegisterProduct = () => {
                 )
               : ""}
           </div>
-          <div className="flex justify-start" style={{ marginBottom: "16px", padding: 0 }}>
+          <div className="admin-row admin-mb-md">
             <Button
               style={{ background: "green", color: "white" }}
               onClick={() => {
@@ -649,7 +643,7 @@ const RegisterProduct = () => {
       ) : typeProduct == "pcgamer" ? (
         <>
           <div
-            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4"
+            className="admin-form-grid-4"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             <TextField
@@ -712,7 +706,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2"
+            className="admin-form-grid-2"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             <TextField
@@ -760,7 +754,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            className="admin-form-grid-3"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             <TextField
@@ -880,7 +874,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="flex flex-wrap gap-3"
+            className="admin-row admin-row--wrap"
             style={{ marginBottom: "16px", padding: 0 }}
           >
             {files.map((file, indexFile) => {
@@ -935,7 +929,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="grid max-h-[150px] w-full grid-flow-row grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden"
+            className="admin-form-scroll-grid"
             style={{ marginBottom: "12px", padding: "12px 0" }}
             ref={containerRef}
           >
@@ -946,7 +940,7 @@ const RegisterProduct = () => {
                     return (
                       <div
                         key={indexCar}
-                        className="w-[100%] grid grid-cols-[1fr_1fr_auto] gap-2"
+                        className="admin-grid-form-actions admin-w-full"
                       >
                         <TextField
                           label="Caracteristica"
@@ -1003,7 +997,7 @@ const RegisterProduct = () => {
                 )
               : ""}
           </div>
-          <div className="flex justify-start" style={{ marginBottom: "16px", padding: 0 }}>
+          <div className="admin-row admin-mb-md">
             <Button
               style={{ background: "green", color: "white" }}
               onClick={() => {
@@ -1026,13 +1020,13 @@ const RegisterProduct = () => {
 
       {typeProduct ? (
         <div
-          className="flex w-full items-center justify-end border-t border-gray-200"
+          className="admin-form-footer"
           style={{ marginTop: "24px", paddingTop: "20px" }}
         >
           <button
             disabled={loadinNewProduct}
             type="submit"
-            className="admin-btn admin-btn--primary rounded-xl text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            className={`admin-btn admin-btn--primary ${rpStyles.submitBtn}`}
             style={{ padding: "10px 22px", margin: 0 }}
           >
             {loadinNewProduct ? "Guardando..." : "Agregar producto"}
