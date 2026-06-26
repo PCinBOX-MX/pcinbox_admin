@@ -209,8 +209,8 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     const loadCatalogData = async () => {
       try {
         const [marcasRes, categoriasRes, productsRes] = await Promise.all([
-          proveedoresApi.get("/getAllMarcaPrincipal"),
-          proveedoresApi.get("/getAllCategoriPrincipal"),
+          proveedoresApi.get("/getAllMarca"),
+          proveedoresApi.get("/getAllCategori"),
           proveedoresApi.get("/getAllProduct"),
         ]);
 
