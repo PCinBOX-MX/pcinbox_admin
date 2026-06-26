@@ -13,7 +13,9 @@ import {
 import { usePathname } from "next/navigation";
 import useNavbar from "../navbar/useNavbar";
 import UtilsService from "@/app/services/utils";
+import usePermissions from "@/app/hooks/usePermissions";
 import { useSidebar } from "@/app/hooks/sidebar.context";
+import { NAV_PERMISSIONS } from "@/app/constants/permissions";
 
 const NAV_ITEMS = [
   { id: "ventas", label: "Ventas", href: "/dashboard", icon: LayoutDashboard },
@@ -30,6 +32,13 @@ const Sidebar = () => {
   const { handleLogout } = useNavbar();
   const { onRouterPush } = UtilsService();
   const { close } = useSidebar();
+  const { can, role, hydrated } = usePermissions();
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (!hydrated) return false;
+    const permission = NAV_PERMISSIONS[item.id];
+    return permission ? can(permission) : true;
+  });
 
   const navigate = (href: string) => {
     onRouterPush(href);
@@ -47,13 +56,15 @@ const Sidebar = () => {
           alt="PCinBOX Admin"
           className="admin-sidebar__logo"
         />
-        <span className="admin-sidebar__badge">Admin</span>
+        <span className="admin-sidebar__badge">
+          {!hydrated ? "Admin" : role === "support" ? "Soporte" : "Admin"}
+        </span>
       </div>
 
       <nav className="admin-sidebar__nav">
-        {NAV_ITEMS.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const isActive = hydrated && pathname === item.href;
 
           return (
             <button
