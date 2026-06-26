@@ -63,6 +63,7 @@ export interface SalesI {
   techsmartOrder?: {
     idTechsmartOrder: number;
     idOrder: number;
+    numOrdenCompra: string | null;
     folioPedido: string | null;
     guiaPedido: string | null;
     nombrePaqueteria: string | null;
