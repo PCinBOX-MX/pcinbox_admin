@@ -49,7 +49,7 @@ const Proveedores = () => {
   );
 
   return (
-    <section className="w-full no-padding-top">
+    <section className="admin-page admin-page--flush-top">
       <div className="admin-panel">
         <div className="admin-panel__header">
           <h2 className="admin-panel__title">Catálogo por proveedor</h2>
@@ -59,7 +59,7 @@ const Proveedores = () => {
         </div>
         <div className="admin-panel__body">
           {!dataProveedores.loading ? (
-            <div className="w-full flex flex-col sm:flex-row justify-between gap-3 mb-4">
+            <div className="admin-proveedores-toolbar">
               <FormControl fullWidth>
                 <InputLabel id="demo-simple-select-label">
                   Selecciona un proveedor
@@ -92,7 +92,7 @@ const Proveedores = () => {
               <button
                 type="button"
                 disabled={!slcProveedor}
-                className="admin-btn admin-btn--primary shrink-0 min-w-[110px]"
+                className="admin-btn admin-btn--primary admin-shrink-0 admin-proveedores-btn-min"
                 onClick={() => {
                   if (slcProveedor) {
                     handleGetProductsByProveedor(slcProveedor);
@@ -104,19 +104,16 @@ const Proveedores = () => {
             </div>
           ) : (
             <>
-              <MdAutorenew size={20} className="m-auto the-spinner" />
+              <MdAutorenew size={20} className="admin-m-auto the-spinner" />
               <span>Cargando...</span>
             </>
           )}
 
-          <div
-            className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between"
-            style={{ marginTop: "10px", marginBottom: "10px", padding: "5px 0" }}
-          >
-            <div className="flex flex-wrap gap-3">
+          <div className="admin-proveedores-actions">
+            <div className="admin-row admin-row--wrap">
               <button
                 type="button"
-                className="admin-btn admin-btn--primary flex items-center gap-1"
+                className="admin-btn admin-btn--primary admin-btn--inline"
                 onClick={showModalRegisterProveedor}
               >
                 <MdAdd size={22} />
@@ -126,7 +123,7 @@ const Proveedores = () => {
               <button
                 type="button"
                 onClick={handleAddProduct}
-                className="admin-btn admin-btn--secondary flex items-center gap-1"
+                className="admin-btn admin-btn--secondary admin-btn--inline"
               >
                 <MdAdd size={22} />
                 Agregar Producto
@@ -145,7 +142,7 @@ const Proveedores = () => {
           </div>
 
           <div
-            className="admin-product-grid w-full"
+            className="admin-product-grid admin-w-full"
             style={{
               marginTop: "24px",
               marginBottom: "24px",
@@ -154,7 +151,7 @@ const Proveedores = () => {
           >
             {!dataProductProveedor.loading &&
             filteredProducts.length > itemsPerPage ? (
-              <div className="flex justify-end w-full admin-table-pagination admin-table-pagination--top">
+              <div className="admin-toolbar-row__actions admin-w-full admin-table-pagination admin-table-pagination--top">
                 <PaginatorComponent
                   totalItems={filteredProducts.length}
                   itemsPerPage={itemsPerPage}
@@ -178,11 +175,11 @@ const Proveedores = () => {
               )
             ) : (
               <>
-                <MdAutorenew size={20} className="m-auto the-spinner" />
+                <MdAutorenew size={20} className="admin-m-auto the-spinner" />
                 <span>Cargando...</span>
               </>
             )}
-            <div className="flex justify-end w-full">
+            <div className="admin-toolbar-row__actions admin-w-full">
               <PaginatorComponent
                 totalItems={filteredProducts.length}
                 itemsPerPage={itemsPerPage}
