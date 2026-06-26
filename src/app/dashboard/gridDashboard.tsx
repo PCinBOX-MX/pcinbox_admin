@@ -24,6 +24,8 @@ import {
 import { useTheContext } from "../hooks/global.hook";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import DataProducts from "../shared/components/especific/dashboard/DataProducts";
+import TechsmartOrderPanel from "../shared/components/especific/dashboard/TechsmartOrderPanel";
+import OrderCancelSection from "../components/admin/OrderCancelSection";
 import {
   BillingDetailsContent,
   CustomerDetailsContent,
@@ -33,17 +35,21 @@ import {
 const GridDashboard = ({
   handleChangeStatusShip,
   handleChangeStatusPay,
+  openCancelOrderModal,
+  can,
   rows,
 }: {
   handleChangeStatusShip: any;
   handleChangeStatusPay: any;
+  openCancelOrderModal: (idOrder: number) => void;
+  can: (permission: import("../constants/permissions").AdminPermission) => boolean;
   rows: {
     totalRows: number;
     data: SalesI[];
   };
 }) => {
   const { formatCurrency } = UtilsService();
-  const { setDataModal, rowsVentas } = useTheContext();
+  const { setDataModal, rowsVentas, setRowsVentas } = useTheContext();
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -55,10 +61,10 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%]`}
+              className={`${styles.truncateCell} ${styles.cellCol}`}
               style={{ padding: "6px 4px" }}
             >
-              <span className="text-[black] block text-center font-bold text-sm">
+              <span className={styles.cellText}>
                 #{params.value}
               </span>
             </div>
@@ -96,7 +102,7 @@ const GridDashboard = ({
                   });
                 }
               }}
-              className="flex justify-center items-center min-h-[100%]"
+              className={styles.cell}
             >
               {params.value == null || params.value == "" || !params.value ? (
                 <MdErrorOutline size={30} color="red" />
@@ -116,7 +122,7 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%]"
+              className={styles.cell}
               style={{
                 padding: "10px",
               }}
@@ -137,7 +143,7 @@ const GridDashboard = ({
                 });
               }}
             >
-              <span className="text-[#808080] block text-center text-sm font-semibold break-words">
+              <span className={styles.cellTextMuted}>
                 {params.value?.name}
               </span>
             </div>
@@ -152,9 +158,13 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%]`}
+              className={`${styles.truncateCell} ${styles.cellCol}`}
               style={{ padding: "10px" }}
               onClick={() => {
+                const orderRow = rowsVentas.data.find(
+                  (o) => o.idOrder === params.row.idOrder,
+                );
+
                 setDataModal({
                   isOpen: true,
                   type: "info",
@@ -168,20 +178,49 @@ const GridDashboard = ({
                   onConfirm: () =>
                     setDataModal((prev) => ({ ...prev, isOpen: false })),
                   content: (
-                    <DataProducts
-                      params={{
-                        value: rowsVentas.data.find(
-                          (o) => o.idOrder === params.row.idOrder,
-                        )?.products,
-                        row: params.row,
-                      }}
-                      handleChangeStatusShip={handleChangeStatusShip}
-                    />
+                    <Stack spacing={2}>
+                      {orderRow?.hasTechsmartProducts && can("techsmart.manage") && (
+                        <TechsmartOrderPanel
+                          idOrder={orderRow.idOrder}
+                          initialOrder={orderRow.techsmartOrder}
+                          statusPay={orderRow.statusPay}
+                          onOrderUpdated={(updated) => {
+                            if (!updated) return;
+                            setRowsVentas((prev) => ({
+                              ...prev,
+                              data: prev.data.map((row) =>
+                                row.idOrder === orderRow.idOrder
+                                  ? {
+                                      ...row,
+                                      techsmartOrder: updated,
+                                    }
+                                  : row,
+                              ),
+                            }));
+                          }}
+                        />
+                      )}
+                      <DataProducts
+                        params={{
+                          value: orderRow?.products,
+                          row: params.row,
+                        }}
+                        handleChangeStatusShip={handleChangeStatusShip}
+                      />
+                      {can("orders.cancel") && (
+                        <OrderCancelSection
+                          idOrder={orderRow?.idOrder ?? params.row.idOrder}
+                          statusPay={orderRow?.statusPay ?? params.row.statusPay}
+                          canCancelPermission={can("orders.cancel")}
+                          onCancelClick={openCancelOrderModal}
+                        />
+                      )}
+                    </Stack>
                   ),
                 });
               }}
             >
-              <span className="text-[black] block text-center font-bold text-sm break-words">
+              <span className={`${styles.cellText} admin-whitespace-normal`}>
                 {Array.isArray(params.value) &&
                   `${
                     params.value.length == 1
@@ -202,10 +241,10 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%]`}
+              className={`${styles.truncateCell} ${styles.cellCol}`}
               style={{ padding: "6px 4px" }}
             >
-              <span className="text-[#808080] block text-center text-sm font-semibold">
+              <span className={styles.cellTextMuted}>
                 {formatCurrency(Number(params.value))}
               </span>
             </div>
@@ -406,21 +445,21 @@ const GridDashboard = ({
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%]"
+              className={styles.cell}
               style={{ padding: "6px 4px" }}
             >
-              <span className="text-[black] block text-center font-semibold text-xs sm:text-sm whitespace-normal">
+              <span className={`${styles.cellTextSemibold} admin-whitespace-normal admin-text-xs`}>
                 {params.value == "tarjeta_de_debito" ||
                 params.value == "tarjeta_de_credito" ? (
-                  <span className="flex gap-2">
+                  <span className={styles.chipRow}>
                     Tarjeta <MdCreditCard size={22} />{" "}
                   </span>
                 ) : params.value == "efectivo_sucursal" ? (
-                  <span className="flex gap-2">
+                  <span className={styles.chipRow}>
                     Efectivo <MdMoney size={22} />{" "}
                   </span>
                 ) : params.value == "oxxo" ? (
-                  <span className="flex gap-2">
+                  <span className={styles.chipRow}>
                     {/* <img
                       src={"/oxxo.png"}
                       width={50}
@@ -430,7 +469,7 @@ const GridDashboard = ({
                     Efectivo <MdMoney size={22} />
                   </span>
                 ) : params.value == "tarjeta_sucursal" ? (
-                  <span className="flex gap-2">
+                  <span className={styles.chipRow}>
                     Tarjeta <MdCreditCard size={22} />{" "}
                   </span>
                 ) : params.value == "mercadopago" ? (
@@ -445,7 +484,7 @@ const GridDashboard = ({
                     loading="lazy"
                   />
                 ) : params.value == "transferencia_bancaria" ? (
-                  <span className="flex gap-2">
+                  <span className={styles.chipRow}>
                     Transferencia <MdAccountBalance size={22} />{" "}
                   </span>
                 ) : params.value == "esperando" ? (
@@ -469,9 +508,9 @@ const GridDashboard = ({
           if (params.value) {
             return (
               <div
-                className="flex justify-center flex-col items-center min-h-full px-1 py-2"
+                className={styles.cellColFull}
               >
-                <span className="text-[black] block text-center font-medium text-xs leading-snug">
+                <span className={`${styles.cellTextSemibold} admin-text-xs`}>
                   {new Date(params.value).toLocaleString("es-MX", {
                     dateStyle: "short",
                     timeStyle: "short",
@@ -496,7 +535,7 @@ const GridDashboard = ({
 
           return (
             <div
-              className="flex justify-center flex-col items-center min-h-full"
+              className={styles.cellColFull}
               style={{
                 padding: "10px",
               }}
@@ -527,8 +566,8 @@ const GridDashboard = ({
                 </FormControl>
               </div> */}
 
-              <div className="w-full" style={{ marginTop: "5px" }}>
-                <span className="text-xs font-semibold text-gray-600">
+              <div className={styles.cellStack}>
+                <span className="admin-text-xs admin-text-semibold admin-text-muted">
                   Estatus Pago
                 </span>
                 <FormControl fullWidth size="small">
@@ -536,6 +575,7 @@ const GridDashboard = ({
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"
                     value={params?.row?.statusPay ?? "pending"}
+                    disabled={!can("orders.update_status_pay")}
                     onChange={(event) => {
                       handleChangeStatusPay(
                         event,
@@ -560,7 +600,7 @@ const GridDashboard = ({
         },
       },
     ],
-    [rows],
+    [rows, can, openCancelOrderModal, handleChangeStatusPay, rowsVentas, setRowsVentas, setDataModal, formatCurrency],
   );
 
   return {
