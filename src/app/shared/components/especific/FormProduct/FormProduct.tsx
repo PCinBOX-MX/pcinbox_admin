@@ -185,9 +185,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     <Box
       component="form"
       onSubmit={handleSubmit(handleEditProduct)}
-      className="w-full flex gap-1 flex-col"
+      className="admin-form-shell admin-stack--xs"
     >
-      <div className=" w-full grid grid-cols-[1fr_1fr_1fr] gap-2">
+      <div className="admin-grid-form-3">
         <TextField
           label="Nombre"
           variant="outlined"
@@ -278,7 +278,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         </FormControl>
       </div>
 
-      <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
+      <div className="admin-grid-form-3">
         <FormControl fullWidth>
           <Controller
             name="marca"
@@ -372,7 +372,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           })}
         />
       </div>
-      <div className="grid grid-cols-[1fr_1fr] gap-2">
+      <div className="admin-grid-form-2">
         <TextField
           required
           label="SKU"
@@ -441,7 +441,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         />
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="admin-row admin-row--wrap">
         {dataProductProveedor.data
           .find(
             (p) =>
@@ -499,7 +499,11 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       </div>
 
       <div
-        className={`grid grid-cols-[1fr_1fr${providerUsesProfitMargin(dataProductProp?.providerId) ? "_1fr" : ""}] gap-2`}
+        className={
+          providerUsesProfitMargin(dataProductProp?.providerId)
+            ? "admin-grid-form-3"
+            : "admin-grid-form-2"
+        }
       >
         <TextField
           label="UPC"
@@ -597,7 +601,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       </div>
 
       <div
-        className="flex flex-wrap gap-3 w-full overflow-x-hidden overflow-y-auto max-h-[150px] mt-2 py-2"
+        className="admin-form-scroll-grid admin-mt-sm admin-py-sm"
         ref={containerRef}
       >
         {caracteristicasArray && caracteristicasArray.length > 0
@@ -605,7 +609,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
               return (
                 <div
                   key={indexCar}
-                  className="w-full grid grid-cols-[1fr_1fr_auto] gap-2"
+                  className="admin-grid-form-actions"
                 >
                   <Controller
                     name={`caracteristicas.${indexCar}.prop`}
@@ -724,7 +728,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           : ""}
       </div>
 
-      <div className="flex flex-wrap gap-3 w-full">
+      <div className="admin-row admin-row--wrap admin-w-full">
         <Button
           type="button"
           variant="contained"
@@ -768,7 +772,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         }}
       >
         {loadingUpdateProduct ? (
-          <MdAutorenew size={20} className="m-auto the-spinner" />
+          <MdAutorenew size={20} className="admin-m-auto the-spinner" />
         ) : (
           <>Actualizar</>
         )}
