@@ -17,6 +17,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { MdAutorenew, MdRemove } from "react-icons/md";
 import useProveedores from "@/app/proveedores/useProveedores";
+import rpStyles from "./registerProduct.module.css";
 
 const UploadImgProductProvider2 = ({
   dataProductProp,
@@ -57,15 +58,15 @@ const UploadImgProductProvider2 = ({
   }, [caracteristicas]);
 
   return (
-    <div className="grid grid-col-[auto] gap-2">
+    <div className="admin-stack admin-stack--sm">
       {dataProductProp && Number(dataProductProp?.providerId) === 1 && (
-        <div className="w-full">
+        <div className="admin-w-full">
           <TextField
             label="Precio"
             type="number"
             variant="outlined"
             name="newPrice"
-            className="w-full"
+            className="admin-w-full"
             onChange={(event) => {
               setPrice(Number(event.target.value));
             }}
@@ -75,26 +76,26 @@ const UploadImgProductProvider2 = ({
       {dataProductProp &&
         (Number(dataProductProp?.providerId) === 3 ||
           Number(dataProductProp?.providerId) === 2) && (
-          <div className="w-full">
+          <div className="admin-w-full">
             <TextField
               label="Margen de Utilidad"
               type="number"
               variant="outlined"
               name="profitMargin"
-              className="w-full"
+              className="admin-w-full"
               onChange={(event) => {
                 setProfitMargin(Number(event.target.value));
               }}
             />
           </div>
         )}
-      <div className="w-full">
+      <div className="admin-w-full">
         <TextField
           label=""
           type="file"
           variant="outlined"
           name="image_url"
-          className="w-full"
+          className="admin-w-full"
           onChange={(event) => {
             const selectedFiles = (event.target as HTMLInputElement).files;
             if (!selectedFiles) return;
@@ -113,7 +114,7 @@ const UploadImgProductProvider2 = ({
           }}
         />
       </div>
-      <div className="flex flex-wrap gap-3 w-full">
+      <div className="admin-row admin-row--wrap admin-w-full">
         {files.map((file, indexFile) => {
           const fileUrl = previewUrls[indexFile]; // Ahora sí hay URLs en el array
           const isVideo = file.type.startsWith("video/");
@@ -171,7 +172,7 @@ const UploadImgProductProvider2 = ({
           );
         })}
       </div>
-      <div className="w-full flex flex-col gap-2">
+      <div className="admin-w-full admin-stack admin-stack--sm">
         <TextField
           label="Pega aquí todas las características"
           multiline
@@ -192,7 +193,8 @@ const UploadImgProductProvider2 = ({
         </Button>
       </div>
       {/* <div
-        className="flex flex-wrap gap-3 w-full overflow-x-hidden overflow-y-auto max-h-[200px]"
+        className="admin-form-scroll-grid"
+        style={{ maxHeight: "200px" }}
         ref={containerRef}
       >
         {caracteristicas && caracteristicas.length > 0
@@ -200,7 +202,7 @@ const UploadImgProductProvider2 = ({
               return (
                 <div
                   key={indexCar}
-                  className="w-full grid grid-cols-[1fr_1fr_auto] gap-2"
+                  className="admin-grid-form-actions"
                 >
                   <TextField
                     label="Caracteristica"
@@ -253,7 +255,7 @@ const UploadImgProductProvider2 = ({
           : ""}
       </div> */}
       {/* 
-      <div className="flex flex-wrap gap-3 w-full">
+      <div className="admin-row admin-row--wrap admin-w-full">
         <Button
           type="button"
           variant="contained"
@@ -266,9 +268,9 @@ const UploadImgProductProvider2 = ({
         </Button>
       </div> */}
 
-      <div className="w-full flex justify-center gap-1">
+      <div className="admin-row admin-row--center admin-w-full">
         <Button
-          className="bg-white border rounded p-2 cursor-pointer"
+          className={rpStyles.uploadThumb}
           type="button"
           variant="contained"
           color="primary"
@@ -454,7 +456,7 @@ const UploadImgProductProvider2 = ({
           }}
         >
           {loadingUploadImgProvider ? (
-            <MdAutorenew size={20} className="m-auto the-spinner" />
+            <MdAutorenew size={20} className="admin-m-auto the-spinner" />
           ) : (
             <> Dar de alta</>
           )}
