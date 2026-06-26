@@ -22,6 +22,7 @@ import {
 } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
 import useVentasInvitados from "./useVentasInvitados";
+import gridStyles from "@/app/shared/styles/grid-cells.module.css";
 import {
   CustomerDetailsContent,
   InvitadoProductsContent,
@@ -44,13 +45,13 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
         renderCell: (params) => {
           return (
             <div
-              className={`flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={gridStyles.cellCol}
               style={{
                 padding: "10px",
               }}
             >
               <span
-                className="text-[black] block text-center font-bold"
+                className={gridStyles.cellText}
                 style={{
                   fontSize: "18px",
                   fontWeight: "600",
@@ -72,7 +73,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%]"
+              className={gridStyles.cell}
               style={{
                 padding: "10px",
               }}
@@ -96,7 +97,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
               }}
             >
               <span
-                className="text-[#808080] block text-center"
+                className={gridStyles.cellTextMuted}
                 style={{
                   fontSize: "18px",
                   fontWeight: "600",
@@ -141,7 +142,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
               }}
             >
               <span
-                className="text-[black] block text-center font-bold"
+                className={gridStyles.cellText}
                 style={{
                   fontSize: "18px",
                   fontWeight: "600",
@@ -168,13 +169,13 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
         renderCell: (params) => {
           return (
             <div
-              className={`flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={gridStyles.cellCol}
               style={{
                 padding: "10px",
               }}
             >
               <span
-                className="text-[#808080] block text-center"
+                className={gridStyles.cellTextMuted}
                 style={{
                   fontSize: "18px",
                   fontWeight: "600",
@@ -196,28 +197,28 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center items-center min-h-[100%]"
+              className={gridStyles.cell}
               style={{
                 padding: "8px 4px",
               }}
             >
               <span
-                className="text-[black] block text-center font-semibold whitespace-nowrap"
+                className={gridStyles.cellTextSemibold}
                 style={{
                   fontSize: "0.9rem",
                 }}
               >
                 {params.value == "tarjeta_de_debito" ||
                 params.value == "tarjeta_de_credito" ? (
-                  <span className="flex gap-2">
+                  <span className={gridStyles.chipRow}>
                     Tarjeta <MdCreditCard size={22} />{" "}
                   </span>
                 ) : params.value == "efectivo_sucursal" ? (
-                  <span className="flex gap-2">
+                  <span className={gridStyles.chipRow}>
                     Efectivo <MdMoney size={22} />{" "}
                   </span>
                 ) : params.value == "oxxo" ? (
-                  <span className="flex gap-2">
+                  <span className={gridStyles.chipRow}>
                     {/* <img
                       src={"/oxxo.png"}
                       width={50}
@@ -227,7 +228,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                     Efectivo <MdMoney size={22} />
                   </span>
                 ) : params.value == "tarjeta_sucursal" ? (
-                  <span className="flex gap-2">
+                  <span className={gridStyles.chipRow}>
                     Tarjeta <MdCreditCard size={22} />{" "}
                   </span>
                 ) : params.value == "mercadopago" ? (
@@ -241,7 +242,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                     loading="lazy"
                   />
                 ) : params.value == "transferencia_bancaria" ? (
-                  <span className="flex gap-2">
+                  <span className={gridStyles.chipRow}>
                     Transferencia <MdAccountBalance size={22} />{" "}
                   </span>
                 ) : params.value == "esperando" ? (
@@ -264,17 +265,14 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
         renderCell: (params) => {
           return (
             <div
-              className="flex justify-center flex-col items-center min-h-full"
+              className={gridStyles.cellColFull}
               style={{
                 padding: "8px 4px",
               }}
             >
-              <div className="w-full">
+              <div className={gridStyles.cellStack}>
                 <span
-                  className="text-[black] block text-center font-medium whitespace-nowrap"
-                  style={{
-                    fontSize: "0.875rem",
-                  }}
+                  className={gridStyles.cellTextSemibold}
                 >
                   {params.value
                     ? new Date(params.value).toLocaleString()
@@ -297,12 +295,12 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
 
           return (
             <div
-              className="flex justify-center flex-col items-center min-h-full"
+              className={gridStyles.cellColFull}
               style={{
                 padding: "10px",
               }}
             >
-              <div className="w-full">
+              <div className={gridStyles.cellStack}>
                 <span>Estatus Envío</span>
                 <FormControl fullWidth>
                   <Select
@@ -325,7 +323,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                 </FormControl>
               </div>
 
-              <div className="w-full" style={{ marginTop: "5px" }}>
+              <div className={gridStyles.cellStack} style={{ marginTop: "5px" }}>
                 <span>Estatus Pago</span>
                 <FormControl fullWidth>
                   <Select
