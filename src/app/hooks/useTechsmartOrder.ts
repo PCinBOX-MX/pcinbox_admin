@@ -3,7 +3,11 @@
 import { useCallback, useState } from "react";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { useTheContext } from "./global.hook";
-import { TechsmartOrderI } from "../interfaces/techsmart/techsmart.interface";
+import {
+  TechsmartGuideI,
+  TechsmartOrderI,
+  TechsmartOrderStatusResponse,
+} from "../interfaces/techsmart/techsmart.interface";
 
 const useTechsmartOrder = () => {
   const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
@@ -46,17 +50,41 @@ const useTechsmartOrder = () => {
         `/getEstadoOrdenTechSmart/${idOrder}`,
         { silent: true },
       );
-      return resp.data?.data ?? null;
+      return (resp.data?.data ?? null) as TechsmartOrderStatusResponse | null;
     },
     [requestGetProveedores],
   );
 
+  const saveNumOrdenCompra = useCallback(
+    async (idOrder: number, numOrdenCompra: string) => {
+      setLoadingAction("saveReference");
+      try {
+        const resp = await requestPostProveedores(
+          { idOrder, numOrdenCompra },
+          "/guardarNumOrdenCompraOrdenTechSmart",
+          { silent: true },
+        );
+        showSuccess("Referencia TechSmart guardada");
+        return (resp.data?.data ?? null) as TechsmartOrderI | null;
+      } catch (error: any) {
+        showError(
+          error?.response?.data?.message ||
+            "No se pudo guardar la referencia TechSmart",
+        );
+        return null;
+      } finally {
+        setLoadingAction(null);
+      }
+    },
+    [requestPostProveedores, showError, showSuccess],
+  );
+
   const previewOrder = useCallback(
-    async (idOrder: number) => {
+    async (idOrder: number, numOrdenCompra?: string) => {
       setLoadingAction("preview");
       try {
         const resp = await requestPostProveedores(
-          {},
+          numOrdenCompra?.trim() ? { numOrdenCompra: numOrdenCompra.trim() } : {},
           `/previewPedidoOrdenTechSmart/${idOrder}`,
           { silent: true },
         );
@@ -75,11 +103,16 @@ const useTechsmartOrder = () => {
   );
 
   const generateOrder = useCallback(
-    async (idOrder: number) => {
+    async (idOrder: number, numOrdenCompra?: string) => {
       setLoadingAction("generate");
       try {
         const resp = await requestPostProveedores(
-          { idOrder },
+          {
+            idOrder,
+            ...(numOrdenCompra?.trim()
+              ? { numOrdenCompra: numOrdenCompra.trim() }
+              : {}),
+          },
           "/generarPedidoOrdenTechSmart",
           { silent: true },
         );
@@ -98,21 +131,35 @@ const useTechsmartOrder = () => {
     [requestPostProveedores, showError, showSuccess],
   );
 
-  const linkGuide = useCallback(
+  const linkGuideUnit = useCallback(
     async (payload: {
-      idOrder: number;
-      guiaPedido?: string;
-      nombrePaqueteria?: string;
+      idTechsmartGuide: number;
+      guiaPedido: string;
+      nombrePaqueteria: string;
+      pdfFile?: File | null;
     }) => {
-      setLoadingAction("guide");
+      setLoadingAction(`guide-${payload.idTechsmartGuide}`);
       try {
+        const formData = new FormData();
+        formData.append("idTechsmartGuide", String(payload.idTechsmartGuide));
+        formData.append("guiaPedido", payload.guiaPedido);
+        formData.append("nombrePaqueteria", payload.nombrePaqueteria);
+        if (payload.pdfFile) {
+          formData.append("pdfGuia", payload.pdfFile);
+        }
+
         const resp = await requestPostProveedores(
-          payload,
-          "/relacionarGuiaOrdenTechSmart",
+          formData,
+          "/relacionarGuiaUnidadOrdenTechSmart",
           { silent: true },
         );
         showSuccess("Guía vinculada correctamente en TechSmart");
-        return (resp.data?.data?.techsmartOrder ?? null) as TechsmartOrderI | null;
+        return resp.data?.data as {
+          guide: TechsmartGuideI;
+          techsmartOrder: TechsmartOrderI | null;
+          guides: TechsmartGuideI[];
+          guidesSummary: TechsmartOrderStatusResponse["guidesSummary"];
+        } | null;
       } catch (error: any) {
         showError(
           error?.response?.data?.message ||
@@ -153,9 +200,10 @@ const useTechsmartOrder = () => {
   return {
     loadingAction,
     getOrderStatus,
+    saveNumOrdenCompra,
     previewOrder,
     generateOrder,
-    linkGuide,
+    linkGuideUnit,
     invoiceOrder,
   };
 };
