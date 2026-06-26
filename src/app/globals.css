@@ -1,7 +1,5 @@
-@import "tailwindcss";
+@import "./styles/admin-layout.css";
 @import "react-responsive-carousel/lib/styles/carousel.min.css";
-
-@custom-variant dark (&:is(.dark *));
 
 :root {
   --background: #ffffff;
@@ -27,23 +25,28 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-* {
-  margin: 0;
-  padding: 0;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
-  text-decoration: none;
 }
 
 html,
 body {
   width: 100%;
   min-height: 100%;
+  margin: 0;
+  padding: 0;
   overflow-x: hidden;
   background: #f4f5f7;
   color: var(--foreground);
   font-family: var(--font-inter);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  text-decoration: none;
 }
 
 section.no-padding-top {
@@ -340,6 +343,48 @@ section.no-padding-top {
   }
 }
 
+.admin-proveedores-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+
+.admin-proveedores-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: 0.625rem 0;
+  padding: 0.35rem 0;
+}
+
+.admin-proveedores-btn-min {
+  min-width: 110px;
+}
+
+@media (min-width: 640px) {
+  .admin-proveedores-toolbar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-proveedores-actions {
+    flex-direction: row;
+  }
+}
+
+.admin-btn--inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .admin-product-grid {
   display: flex;
   flex-wrap: wrap;
@@ -633,6 +678,161 @@ section.no-padding-top {
 .admin-modal__btn-primary,
 .admin-modal__btn-secondary {
   min-width: 120px;
+}
+
+/* ── Cancel order modal (Ventas) ── */
+.order-cancel-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--admin-border, #e8e8ec);
+}
+
+.order-cancel-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  min-width: 280px;
+  max-width: 100%;
+  text-align: left;
+}
+
+.order-cancel-modal__intro {
+  margin: 0 0 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+.order-cancel-modal__order-id {
+  color: #111827;
+  font-weight: 700;
+}
+
+.order-cancel-modal__alert {
+  margin: 0 0 1.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.order-cancel-modal__override {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.order-cancel-modal__override-input {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.2rem;
+  accent-color: var(--admin-primary, #bb3d4b);
+}
+
+.order-cancel-modal__override-text {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #374151;
+}
+
+.order-cancel-modal__field {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 1.5rem;
+}
+
+.order-cancel-modal__label {
+  display: block;
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.order-cancel-modal__textarea {
+  display: block;
+  width: 100%;
+  min-height: 7.5rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: #111827;
+  background: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.order-cancel-modal__textarea:focus {
+  outline: none;
+  border-color: var(--admin-primary, #bb3d4b);
+  box-shadow: 0 0 0 3px rgba(187, 61, 75, 0.12);
+}
+
+.order-cancel-modal__textarea--error {
+  border-color: #ef4444;
+}
+
+.order-cancel-modal__textarea--error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.order-cancel-modal__error {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #dc2626;
+}
+
+.order-cancel-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--admin-border, #eef0f4);
+}
+
+.order-cancel-modal__btn {
+  min-width: 8.5rem;
+}
+
+.order-cancel-modal__btn--confirm {
+  min-width: 11rem;
+}
+
+@media (max-width: 480px) {
+  .order-cancel-modal__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .order-cancel-modal__btn {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 .admin-modal-empty {
