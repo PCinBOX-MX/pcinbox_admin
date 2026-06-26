@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import useSettings from "./useSettings";
+import styles from "./settings.module.css";
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 
@@ -290,7 +291,7 @@ export default function Settings() {
   // ════════════════════════════════════════════════════════════
 
   return (
-    <section className="w-full no-padding-top">
+    <section className="admin-page admin-page--flush-top">
       <div className="admin-panel" style={{ marginBottom: "24px" }}>
         <div className="admin-panel__header">
           <h2 className="admin-panel__title">Banners del carrusel principal</h2>
@@ -299,39 +300,32 @@ export default function Settings() {
           </p>
         </div>
         <div className="admin-panel__body">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className={styles.bannerGrid}>
           {slots.map((slot, index) => {
             const slotNumber = index + 1;
             const isSelected = slot.file !== null;
             const isUploaded = slot.status === "uploaded";
             const hasError = slot.status === "error";
 
+            const slotClass = [
+              styles.slot,
+              isUploaded ? styles.slotUploaded : "",
+              hasError ? styles.slotError : "",
+              isSelected && !isUploaded && !hasError ? styles.slotSelected : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
             return (
-              <div
-                key={index}
-                style={{ padding: "5px" }}
-                className={`rounded-xl border overflow-hidden transition-all duration-150 ${
-                  isUploaded
-                    ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30"
-                    : hasError
-                      ? "border-red-400 bg-red-50 dark:bg-red-950/30"
-                      : isSelected
-                        ? "border-blue-400 bg-blue-50 dark:bg-blue-950/30"
-                        : "border-gray-200 dark:border-white/10 bg-white dark:bg-white/5"
-                }`}
-              >
-                {/* Thumbnail */}
-                <div
-                  className="relative w-full h-[90px] bg-gray-100 dark:bg-white/5"
-                  style={{ padding: "5px" }}
-                >
+              <div key={index} className={slotClass}>
+                <div className={styles.thumb}>
                   {slot.preview ? (
                     <Image
                       src={slot.preview}
                       alt={`Banner ${slotNumber}`}
                       fill
                       priority
-                      className="object-cover"
+                      className={styles.thumbImg}
                     />
                   ) : (
                     banners[index] && (
@@ -340,95 +334,47 @@ export default function Settings() {
                         alt={`Banner ${slotNumber}`}
                         fill
                         priority
-                        className="object-cover"
+                        className={styles.thumbImg}
                       />
                     )
                   )}
                 </div>
 
-                {/* Cuerpo */}
-                <div className="p-3" style={{ padding: "10px" }}>
-                  <div
-                    className="flex items-center justify-between mb-2"
-                    style={{ padding: "10px" }}
-                  >
-                    <span className="text-xs font-mono text-gray-400">
-                      Banner {slotNumber}
-                    </span>
-
-                    {isUploaded && (
-                      <span
-                        style={{ padding: "5px" }}
-                        className="text-[11px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 px-2 py-0.5 rounded-full"
-                      >
-                        ✓ Subido
-                      </span>
-                    )}
-                    {hasError && (
-                      <span
-                        style={{ padding: "5px" }}
-                        className="text-[11px] font-medium bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 px-2 py-0.5 rounded-full"
-                      >
-                        Error
-                      </span>
-                    )}
+                <div className={styles.slotBody}>
+                  <div className={styles.slotHead}>
+                    <span className={styles.slotLabel}>Banner {slotNumber}</span>
+                    {isUploaded && <span className={styles.badgeSuccess}>✓ Subido</span>}
+                    {hasError && <span className={styles.badgeError}>Error</span>}
                     {isSelected && !isUploaded && !hasError && (
-                      <span
-                        style={{ padding: "5px" }}
-                        className="text-[11px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 px-2 py-0.5 rounded-full"
-                      >
-                        Nueva imagen
-                      </span>
+                      <span className={styles.badgeSelected}>Nueva imagen</span>
                     )}
                     {!isSelected && !isUploaded && !hasError && (
-                      <span
-                        style={{ padding: "5px" }}
-                        className="text-[11px] text-gray-400 border border-gray-200 dark:border-white/10 px-2 py-0.5 rounded-full"
-                      >
-                        Actual
-                      </span>
+                      <span className={styles.badgeIdle}>Actual</span>
                     )}
                   </div>
 
-                  {slot.file && (
-                    <p className="text-[11px] text-gray-400 truncate mb-2">
-                      {slot.file.name}
-                    </p>
-                  )}
-                  {slot.error && (
-                    <p className="text-[11px] text-red-500 mb-2 line-clamp-2">
-                      {slot.error}
-                    </p>
-                  )}
+                  {slot.file && <p className={styles.fileName}>{slot.file.name}</p>}
+                  {slot.error && <p className={styles.errorText}>{slot.error}</p>}
 
-                  <div className="flex gap-2">
+                  <div className={styles.slotActions}>
                     <button
                       type="button"
                       onClick={() => fileInputRefs.current[index]?.click()}
                       disabled={isSubmittingPrincipal}
-                      style={{ padding: "10px" }}
-                      className="cursor-pointer flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className={styles.replaceBtn}
                     >
-                      <svg
-                        className="w-3.5 h-3.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
+                      <svg className={styles.iconSm} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                         <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
                       </svg>
                       {slot.file ? "Cambiar" : "Reemplazar"}
                     </button>
-
                     {slot.file && (
                       <button
                         type="button"
                         onClick={() => handleClear(index)}
                         disabled={isSubmittingPrincipal}
                         title="Quitar selección"
-                        style={{ padding: "5px" }}
-                        className="text-xs py-1.5 px-2.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-40"
+                        className={styles.clearBtn}
                       >
                         ✕
                       </button>
@@ -436,15 +382,11 @@ export default function Settings() {
                   </div>
 
                   <input
-                    ref={(el) => {
-                      fileInputRefs.current[index] = el;
-                    }}
+                    ref={(el) => { fileInputRefs.current[index] = el; }}
                     type="file"
                     accept="image/png"
-                    className="hidden"
-                    onChange={(e) =>
-                      handleFileChange(index, e.target.files?.[0] ?? null)
-                    }
+                    className={styles.hiddenInput}
+                    onChange={(e) => handleFileChange(index, e.target.files?.[0] ?? null)}
                   />
                 </div>
               </div>
@@ -452,76 +394,40 @@ export default function Settings() {
           })}
         </div>
 
-        {/* Mensaje global — principal */}
         {principalMessage?.show && (
-          <div
-            style={{ padding: "10px" }}
-            className={`rounded-xl px-4 py-3 text-sm border mb-4 ${
-              principalMessage.type === "success"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-700/40 dark:text-emerald-300"
-                : "bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-700/40 dark:text-red-300"
-            }`}
-          >
+          <div className={principalMessage.type === "success" ? styles.messageSuccess : styles.messageError}>
             {principalMessage.text}
           </div>
         )}
 
-        {/* Footer — principal */}
-        <div
-          className="flex items-center gap-4 justify-center"
-          style={{ marginTop: "10px" }}
-        >
+        <div className={styles.footer}>
           <button
             type="button"
             onClick={handleSubmitPrincipal}
             disabled={isSubmittingPrincipal || selectedCount === 0}
-            className="admin-btn admin-btn--primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`admin-btn admin-btn--primary ${styles.btnRow}`}
             style={{ padding: "10px 22px", margin: 0, minWidth: "220px" }}
           >
             {isSubmittingPrincipal ? (
               <>
-                <svg
-                  className="animate-spin w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z"
-                  />
+                <svg className={styles.spinner} viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                 </svg>
                 Subiendo...
               </>
             ) : (
               <>
-                <svg
-                  className="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
+                <svg className={styles.iconSm} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
                 </svg>
                 Subir
-                {selectedCount > 0
-                  ? ` ${selectedCount} banner${selectedCount > 1 ? "s" : ""}`
-                  : ""}
+                {selectedCount > 0 ? ` ${selectedCount} banner${selectedCount > 1 ? "s" : ""}` : ""}
               </>
             )}
           </button>
-
           {selectedCount > 0 && !isSubmittingPrincipal && (
-            <p className="text-xs text-gray-400">
+            <p className={styles.footerHint}>
               {selectedCount} de {TOTAL_SLOTS} banners seleccionados
             </p>
           )}
@@ -537,28 +443,15 @@ export default function Settings() {
           </p>
         </div>
         <div className="admin-panel__body">
-          {/* Fila: selector de categoría + drop zone */}
-          <div
-            className="flex flex-col sm:flex-row gap-4"
-            style={{
-              padding: "10px",
-            }}
-          >
-            {/* Select */}
-            <div
-              className="flex flex-col gap-1.5 sm:w-52"
-              style={{
-                padding: "10px",
-              }}
-            >
-              <label className="text-xs text-gray-400">Categoría</label>
+          <div className={styles.categoryRow}>
+            <div className={styles.categorySelect}>
+              <label className={styles.fieldLabel}>Categoría</label>
               <select
                 value={categorySlot.categoryId}
                 onChange={(e) =>
                   setCategorySlot((prev) => ({
                     ...prev,
                     categoryId: e.target.value,
-                    // si cambia la categoría, limpiar imagen seleccionada
                     file: null,
                     preview: (() => {
                       if (prev.preview) URL.revokeObjectURL(prev.preview);
@@ -568,10 +461,7 @@ export default function Settings() {
                     error: null,
                   }))
                 }
-                style={{
-                  padding: "10px",
-                }}
-                className="text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-white/20"
+                className={styles.select}
               >
                 <option value="" disabled>
                   Selecciona una categoría
@@ -584,42 +474,26 @@ export default function Settings() {
               </select>
             </div>
 
-            {/* Drop zone / preview de nueva imagen */}
-            <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-xs text-gray-400">Nueva imagen</label>
-
+            <div className={styles.dropZoneWrap}>
+              <label className={styles.fieldLabel}>Nueva imagen</label>
               <div
                 onClick={() => categoryInputRef.current?.click()}
-                className={`relative cursor-pointer rounded-lg border-2 border-dashed transition-colors flex items-center justify-center h-[90px] ${
-                  categorySlot.preview
-                    ? "border-blue-300 dark:border-blue-700"
-                    : "border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20"
-                }`}
+                className={`${styles.dropZone} ${categorySlot.preview ? styles.dropZoneActive : ""}`}
               >
                 {categorySlot.preview ? (
                   <Image
                     src={categorySlot.preview}
                     alt="Preview nueva imagen"
                     fill
-                    className="object-cover rounded-lg"
+                    className={styles.thumbImg}
                   />
                 ) : (
-                  <div className="flex flex-col items-center gap-1 pointer-events-none">
-                    <svg
-                      className="w-5 h-5 text-gray-300 dark:text-white/20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
+                  <div className={styles.dropPlaceholder}>
+                    <svg className={styles.dropIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                       <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
                     </svg>
-                    <p className="text-xs text-gray-400">
-                      Haz clic para seleccionar
-                    </p>
-                    <p className="text-[11px] text-gray-300 dark:text-white/20">
-                      Solo PNG
-                    </p>
+                    <p className={styles.dropText}>Haz clic para seleccionar</p>
+                    <p className={styles.dropHint}>Solo PNG</p>
                   </div>
                 )}
               </div>
@@ -628,22 +502,14 @@ export default function Settings() {
                 ref={categoryInputRef}
                 type="file"
                 accept="image/png"
-                className="hidden"
-                onChange={(e) =>
-                  handleCategoryFileChange(e.target.files?.[0] ?? null)
-                }
+                className={styles.hiddenInput}
+                onChange={(e) => handleCategoryFileChange(e.target.files?.[0] ?? null)}
               />
 
               {categorySlot.file && (
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] text-gray-400 truncate">
-                    {categorySlot.file.name}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleClearCategory}
-                    className="text-[11px] text-red-400 hover:text-red-500 ml-2 shrink-0"
-                  >
+                <div className={styles.fileRow}>
+                  <p className={styles.fileRowName}>{categorySlot.file.name}</p>
+                  <button type="button" onClick={handleClearCategory} className={styles.removeFileBtn}>
                     Quitar
                   </button>
                 </div>
@@ -651,98 +517,51 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Banner actual de la categoría seleccionada */}
           {categorySlot.categoryId && currentCategoryBannerUrl && (
-            <div className="flex items-center justify-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5">
-              <div className="relative w-[80px] h-[44px] rounded overflow-hidden shrink-0 bg-gray-100 dark:bg-white/10">
+            <div className={styles.currentBanner}>
+              <div className={styles.currentThumb}>
                 <Image
                   src={currentCategoryBannerUrl}
                   alt={`Banner actual — ${categorySlot.categoryId}`}
                   fill
-                  className="object-cover"
+                  className={styles.thumbImg}
                 />
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                  Banner actual
-                </p>
-                <p className="text-[11px] text-gray-400">
-                  {/* {CATEGORIES.find((c) => c.id === categorySlot.categoryId)
-                    ?.name ?? categorySlot.categoryId} */}
-                </p>
+                <p className={styles.currentLabel}>Banner actual</p>
               </div>
             </div>
           )}
 
-          {/* Error de slot */}
           {categorySlot.error && (
-            <p className="text-[11px] text-red-500">{categorySlot.error}</p>
+            <p className={styles.errorText}>{categorySlot.error}</p>
           )}
 
-          {/* Mensaje global — categoría */}
           {categoryMessage?.show && (
-            <div
-              style={{ padding: "10px" }}
-              className={`rounded-xl px-4 py-3 text-sm border ${
-                categoryMessage.type === "success"
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-700/40 dark:text-emerald-300"
-                  : "bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-700/40 dark:text-red-300"
-              }`}
-            >
+            <div className={categoryMessage.type === "success" ? styles.messageSuccess : styles.messageError}>
               {categoryMessage.text}
             </div>
           )}
 
-          {/* Footer — categoría */}
-          <div
-            className="flex items-center justify-center gap-4"
-            style={{
-              paddingBottom: "20px",
-            }}
-          >
+          <div className={styles.footer} style={{ paddingBottom: "1.25rem" }}>
             <button
               type="button"
               onClick={handleSubmitCategory}
-              disabled={
-                isSubmittingCategory ||
-                !categorySlot.file ||
-                !categorySlot.categoryId
-              }
-              className="admin-btn admin-btn--primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isSubmittingCategory || !categorySlot.file || !categorySlot.categoryId}
+              className={`admin-btn admin-btn--primary ${styles.btnRow}`}
               style={{ padding: "10px 22px", margin: 0, minWidth: "220px" }}
             >
               {isSubmittingCategory ? (
                 <>
-                  <svg
-                    className="animate-spin w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"
-                    />
+                  <svg className={styles.spinner} viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
                   Subiendo...
                 </>
               ) : (
                 <>
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
+                  <svg className={styles.iconSm} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
                   </svg>
                   Subir banner de categoría
@@ -751,7 +570,7 @@ export default function Settings() {
             </button>
 
             {!categorySlot.file && !categorySlot.categoryId && (
-              <p className="text-xs text-gray-400">
+              <p className={styles.footerHint}>
                 Selecciona una categoría e imagen para continuar
               </p>
             )}
