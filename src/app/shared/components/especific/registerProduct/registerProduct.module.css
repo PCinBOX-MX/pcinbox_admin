@@ -1,0 +1,51 @@
+.fieldGroup {
+  width: 100%;
+  margin-bottom: 1.25rem;
+  padding: 0;
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: 0.5rem;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.required {
+  color: var(--admin-primary, #bb3d4b);
+}
+
+.fieldSelect {
+  width: 100%;
+  padding: 0.7rem 0.875rem;
+  margin: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  color: #111827;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fieldSelect:focus {
+  border-color: var(--admin-primary, #bb3d4b);
+  box-shadow: 0 0 0 3px rgba(187, 61, 75, 0.15);
+}
+
+.submitBtn {
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.uploadThumb {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  cursor: pointer;
+}
