@@ -1,0 +1,41 @@
+.card {
+  width: 100%;
+  max-width: 300px;
+  padding: 0.65rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.modalShell {
+  width: 100%;
+  max-width: 100%;
+}
+
+.carouselSlide {
+  display: flex;
+  justify-content: center;
+  height: 150px;
+}
+
+.title {
+  min-height: 65px;
+}
+
+.label {
+  color: #000;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.btnRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.spinnerCenter {
+  margin-left: auto;
+  margin-right: auto;
+}
