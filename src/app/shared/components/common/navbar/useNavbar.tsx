@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useTheContext } from "@/app/hooks/global.hook";
 import UtilsService from "@/app/services/utils";
-import { useState } from "react";
+import { clearAdminRole } from "@/app/constants/permissions";
 
 const useNavbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -44,6 +45,7 @@ const useNavbar = () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));
         localStorage.removeItem("token");
         localStorage.removeItem("email");
+        clearAdminRole();
         onRouterPush("/features/auth/Login");
       },
     });
