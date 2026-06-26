@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { LoginI } from "../interfaces/login/login.interface";
 import UtilsService from "../services/utils";
+import { persistAdminRole, normalizeAdminRole } from "../constants/permissions";
 import { useTheContext } from "./global.hook";
 
 const useLogin = () => {
@@ -55,9 +56,12 @@ const useLogin = () => {
       if (resp && resp.status == 200) {
         const data = resp.data;
 
-        if (data?.data?.role == "admin") {
+        const role = normalizeAdminRole(data?.data?.role);
+
+        if (role === "admin" || role === "support") {
           localStorage.setItem("email", email || "");
           localStorage.setItem("token", data?.data?.token || data?.token || "");
+          persistAdminRole(role);
           onRouterPush("/dashboard");
         } else {
           alert("Cuenta no permitida");
