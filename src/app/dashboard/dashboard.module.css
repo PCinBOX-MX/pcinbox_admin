@@ -2,3 +2,77 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 6px 4px;
+}
+
+.cellCol {
+  flex-direction: column;
+}
+
+.cellText {
+  display: block;
+  text-align: center;
+  color: #000;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.cellTextMuted {
+  display: block;
+  text-align: center;
+  color: #808080;
+}
+
+.cellTextSemibold {
+  display: block;
+  text-align: center;
+  color: #000;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chipRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cellStack {
+  width: 100%;
+}
+
+.cellStackItem + .cellStackItem {
+  margin-top: 5px;
+}
+
+.cellColFull {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 8px 4px;
+}
+
+.cancelBtn {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancelBtn:hover {
+  background: #fee2e2;
+}
