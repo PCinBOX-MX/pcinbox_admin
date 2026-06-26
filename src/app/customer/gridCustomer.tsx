@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "./customer.module.css";
+import gridStyles from "@/app/shared/styles/grid-cells.module.css";
 import { GridColDef } from "@mui/x-data-grid";
 import { useMemo } from "react";
 
@@ -22,13 +23,13 @@ const GridCustomer = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={`${styles.truncateCell} ${gridStyles.cellCol}`}
               style={{
                 padding: "10px",
               }}
             >
               <span
-                className="block text-center font-bold"
+                className={gridStyles.cellText}
                 style={{
                   fontSize: "18px",
                   fontWeight: "600",
@@ -50,13 +51,13 @@ const GridCustomer = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={`${styles.truncateCell} ${gridStyles.cellCol}`}
               style={{
                 padding: "10px",
               }}
             >
               <span
-                className="block text-center"
+                className={gridStyles.cellText}
                 style={{
                   fontSize: "15px",
                   wordBreak: "break-word",
@@ -76,13 +77,13 @@ const GridCustomer = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={`${styles.truncateCell} ${gridStyles.cellCol}`}
               style={{
                 padding: "10px",
               }}
             >
               <span
-                className="block text-center"
+                className={gridStyles.cellText}
                 style={{
                   fontSize: "15px",
                   wordBreak: "break-word",
@@ -102,13 +103,13 @@ const GridCustomer = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={`${styles.truncateCell} ${gridStyles.cellCol}`}
               style={{
                 padding: "10px",
               }}
             >
               <span
-                className="text-[black] block text-center font-bold"
+                className={gridStyles.cellText}
                 style={{
                   fontSize: "18px",
                   fontWeight: "600",
@@ -128,7 +129,7 @@ const GridCustomer = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={`${styles.truncateCell} ${gridStyles.cellCol}`}
               style={{
                 padding: "10px",
               }}
@@ -154,7 +155,7 @@ const GridCustomer = ({
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} flex justify-center flex-col items-center min-h-[100%] overflow-y-auto`}
+              className={`${styles.truncateCell} ${gridStyles.cellCol}`}
               style={{
                 padding: "10px",
               }}
