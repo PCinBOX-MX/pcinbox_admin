@@ -111,33 +111,24 @@ const Proveedores = () => {
           </div>
           <div className="admin-filters-grid admin-filters-grid-proveedores">
             {!dataProveedores.loading ? (
-              <>
-                <FormControl fullWidth size="small" sx={fieldSx}>
-                  <InputLabel>Proveedor</InputLabel>
-                  <Select
-                    value={slcProveedor}
-                    label="Proveedor"
-                    onChange={handleOnChange}
-                  >
-                    {dataProveedores?.data?.length > 0 ? (
-                      dataProveedores.data.map((p) => (
-                        <MenuItem key={p.idProvider} value={p.idProvider.toString()}>
-                          {p.companyName}
-                        </MenuItem>
-                      ))
-                    ) : (
-                      <MenuItem value="0">Sin proveedores</MenuItem>
-                    )}
-                  </Select>
-                </FormControl>
-                <button
-                  type="button"
-                  className="admin-btn-primary"
-                  onClick={() => slcProveedor && handleGetProductsByProveedor(slcProveedor)}
+              <FormControl fullWidth size="small" sx={fieldSx}>
+                <InputLabel>Proveedor</InputLabel>
+                <Select
+                  value={slcProveedor}
+                  label="Proveedor"
+                  onChange={handleOnChange}
                 >
-                  Consultar
-                </button>
-              </>
+                  {dataProveedores?.data?.length > 0 ? (
+                    dataProveedores.data.map((p) => (
+                      <MenuItem key={p.idProvider} value={p.idProvider.toString()}>
+                        {p.companyName}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem value="0">Sin proveedores</MenuItem>
+                  )}
+                </Select>
+              </FormControl>
             ) : (
               <span className="text-sm text-slate-500 flex items-center gap-2">
                 <MdAutorenew className="the-spinner" size={18} />
@@ -154,6 +145,19 @@ const Proveedores = () => {
                 startAdornment: <Search size={18} className="admin-filter-icon" />,
               }}
             />
+            {!dataProveedores.loading ? (
+              <button
+                type="button"
+                className="admin-btn-primary"
+                onClick={() => {
+                  if (!slcProveedor) return;
+                  setPage(1);
+                  handleGetProductsByProveedor(slcProveedor);
+                }}
+              >
+                Consultar
+              </button>
+            ) : null}
             <button
               type="button"
               className="admin-btn-ghost"
@@ -173,7 +177,10 @@ const Proveedores = () => {
         {!dataProductProveedor.loading ? (
           visibleDataProveedores.length > 0 ? (
             visibleDataProveedores.map((product, index) => (
-              <CardComponent key={product.idProduct ?? index} dataProduct={product} />
+              <CardComponent
+                key={`${product.idProduct}-${String(product.idProductExt ?? "")}-${product.sku ?? ""}-${index}`}
+                dataProduct={product}
+              />
             ))
           ) : (
             <div className="admin-empty-state w-full">

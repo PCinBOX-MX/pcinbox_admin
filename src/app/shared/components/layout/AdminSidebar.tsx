@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import GridNavbar from "../common/navbar/gridNavbar";
 import useNavbar from "../common/navbar/useNavbar";
 import styles from "./admin-sidebar.module.css";
@@ -17,6 +17,15 @@ const PATH_TO_TAB: Record<string, string> = {
   "/reservas": "reservas",
 };
 
+const SIDEBAR_PREF_KEY = "pcinbox-admin-sidebar-open";
+
+function readSidebarPreference(): boolean {
+  const stored = localStorage.getItem(SIDEBAR_PREF_KEY);
+  if (stored === "false") return false;
+  if (stored === "true") return true;
+  return true;
+}
+
 const AdminSidebar = () => {
   const pathName = usePathname();
   const { navItems } = GridNavbar();
@@ -28,6 +37,24 @@ const AdminSidebar = () => {
     setIsLoadStorage,
   } = useNavbar();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [sidebarHydrated, setSidebarHydrated] = useState(false);
+
+  useEffect(() => {
+    const open = readSidebarPreference();
+    setDesktopOpen(open);
+    document.documentElement.dataset.adminSidebar = open ? "open" : "closed";
+    setSidebarHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarHydrated) return;
+
+    localStorage.setItem(SIDEBAR_PREF_KEY, String(desktopOpen));
+    document.documentElement.dataset.adminSidebar = desktopOpen
+      ? "open"
+      : "closed";
+  }, [desktopOpen, sidebarHydrated]);
 
   useEffect(() => {
     if (!pathName) return;
@@ -35,6 +62,10 @@ const AdminSidebar = () => {
     setActiveTab(PATH_TO_TAB[pathName] ?? "");
     setMobileOpen(false);
   }, [pathName, setActiveTab, setIsLoadStorage]);
+
+  const toggleDesktopSidebar = () => {
+    setDesktopOpen((prev) => !prev);
+  };
 
   return (
     <>
@@ -47,6 +78,18 @@ const AdminSidebar = () => {
         {mobileOpen ? <X size={22} /> : <Menu size={22} />}
       </button>
 
+      {!desktopOpen && (
+        <button
+          type="button"
+          className={styles.desktopReopen}
+          onClick={toggleDesktopSidebar}
+          aria-label="Mostrar menú lateral"
+          title="Mostrar menú"
+        >
+          <PanelLeftOpen size={20} />
+        </button>
+      )}
+
       {mobileOpen && (
         <div
           className={styles.overlay}
@@ -56,7 +99,9 @@ const AdminSidebar = () => {
       )}
 
       <aside
-        className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ""}`}
+        className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ""} ${
+          !desktopOpen ? styles.sidebarDesktopHidden : ""
+        }`}
       >
         <div className={styles.brand}>
           <img
@@ -68,6 +113,15 @@ const AdminSidebar = () => {
             loading="lazy"
           />
           <span className={styles.brandTitle}>Admin</span>
+          <button
+            type="button"
+            className={styles.collapseBtn}
+            onClick={toggleDesktopSidebar}
+            aria-label="Ocultar menú lateral"
+            title="Ocultar menú"
+          >
+            <PanelLeftClose size={18} />
+          </button>
         </div>
 
         <nav className={styles.nav}>
