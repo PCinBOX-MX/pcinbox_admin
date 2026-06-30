@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import useReservas, { Reservation } from "./useReservas";
-import PaginatorComponent from "../shared/components/common/paginator/Paginator";
+import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import {
   TextField,
   FormControl,
@@ -109,60 +110,41 @@ const ReservasAdminPage = () => {
     }
   };
 
+  const pageCount = Math.max(1, Math.ceil(totalReservations / limit));
+
+  const paginationBlock = (
+    <ModernPagination
+      page={page}
+      pageCount={pageCount}
+      totalItems={totalReservations}
+      pageSize={limit}
+      onPageChange={setPage}
+      label="reservaciones"
+    />
+  );
+
   return (
-    <section className="w-full">
-      <div
-        className="w-full flex justify-center items-center"
-        style={{ paddingBottom: "48px" }}
-      >
-        <div className="w-[95%]">
-          {/* Header */}
-          <div
-            className="flex flex-col md:flex-row justify-between items-start md:items-center"
-            style={{ gap: "16px", marginBottom: "24px" }}
-          >
-            <div>
-              <h1
-                className="text-2xl font-bold text-gray-800 flex items-center"
-                style={{ gap: "8px" }}
-              >
-                <Calendar className="text-[#bb3d4b]" />
-                Gestión de Reservas de Mantenimiento
-              </h1>
-              <p className="text-sm text-gray-500">
-                Consulta, filtra y actualiza el estatus de las citas de mantenimiento técnico.
-              </p>
-            </div>
-
-            <button
-              onClick={() => fetchReservations()}
-              className="flex items-center bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
-              style={{
-                padding: "8px 16px",
-                gap: "8px",
-              }}
-            >
-              <RefreshCw size={16} className={`${loading ? "animate-spin" : ""}`} />
-              Sincronizar
-            </button>
+    <>
+    <AdminPageShell
+      title="Reservas de mantenimiento"
+      subtitle="Consulta, filtra y actualiza el estatus de las citas técnicas"
+      actions={
+        <button
+          type="button"
+          onClick={() => fetchReservations()}
+          className="admin-btn-secondary"
+        >
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          Sincronizar
+        </button>
+      }
+      filters={
+        <>
+          <div className="admin-filters-header">
+            <Filter size={16} />
+            <span>Filtros de búsqueda</span>
           </div>
-
-          {/* Filtros */}
-          <div
-            className="bg-white rounded-xl border border-gray-100 shadow-sm"
-            style={{ padding: "24px", marginBottom: "24px" }}
-          >
-            <h2
-              className="text-sm font-semibold text-gray-700 flex items-center"
-              style={{ gap: "8px", marginBottom: "16px" }}
-            >
-              <Filter size={16} className="text-gray-400" />
-              Filtros de búsqueda
-            </h2>
-            <div
-              className="grid grid-cols-1 md:grid-cols-12 items-center"
-              style={{ gap: "16px" }}
-            >
+          <div className="admin-filters-grid admin-filters-grid-reservas">
               {/* Buscador */}
               <div className={filterType === "single" ? "md:col-span-3" : "md:col-span-2"}>
                 <TextField
@@ -282,30 +264,22 @@ const ReservasAdminPage = () => {
                 </>
               )}
 
-              {/* Botón limpiar */}
-              <div className="md:col-span-2 flex" style={{ gap: "8px" }}>
-                <button
-                  onClick={clearFilters}
-                  disabled={!search && status === "all" && !date && !startDate && !endDate && filterType === "single"}
-                  className="w-full flex items-center justify-center border border-gray-200 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-gray-600 font-medium rounded-lg transition-all duration-200 cursor-pointer"
-                  style={{
-                    padding: "8px 16px",
-                    gap: "8px",
-                  }}
-                >
-                  <X size={16} />
-                  Limpiar Filtros
-                </button>
-              </div>
-            </div>
+              <button
+                type="button"
+                onClick={clearFilters}
+                disabled={!search && status === "all" && !date && !startDate && !endDate && filterType === "single"}
+                className="admin-btn-ghost"
+              >
+                <X size={16} />
+                Limpiar filtros
+              </button>
           </div>
-
-          {/* Tabla de Reservas */}
-          <div
-            className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
-            style={{ marginBottom: "24px" }}
-          >
-            {loading ? (
+        </>
+      }
+      paginationTop={!loading && reservations.length > 0 ? paginationBlock : undefined}
+      paginationBottom={!loading && reservations.length > 0 ? paginationBlock : undefined}
+    >
+          {loading ? (
               <div
                 className="flex flex-col justify-center items-center"
                 style={{ padding: "80px 0", gap: "12px" }}
@@ -463,25 +437,7 @@ const ReservasAdminPage = () => {
               </div>
             )}
 
-            {/* Paginador */}
-            {!loading && reservations.length > 0 && (
-              <div
-                className="flex justify-between items-center border-t border-gray-100 bg-gray-50/50"
-                style={{ padding: "16px 24px" }}
-              >
-                <span className="text-xs font-medium text-gray-500">
-                  Mostrando {reservations.length} de {totalReservations} reservaciones
-                </span>
-                <PaginatorComponent
-                  totalItems={totalReservations}
-                  itemsPerPage={limit}
-                  onPageChange={setPage}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+    </AdminPageShell>
 
       {/* Modal de Detalles Premium */}
       {isModalOpen && selectedRes && (
@@ -703,8 +659,7 @@ const ReservasAdminPage = () => {
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 };
-
 export default ReservasAdminPage;

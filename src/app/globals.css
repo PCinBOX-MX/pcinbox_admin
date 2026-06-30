@@ -30,18 +30,236 @@ body {
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  background: #f7f7f7;
+  background: #f0f2f8;
+  color: #1a1d29;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-/* CAMBIA ESTO - quita el padding-top general */
-section {
-  height: 100%;
-  /* padding-top: 140px; */ /* <-- Comenta o elimina esto */
-}
-
-/* Y agrega esto para las secciones que SÍ necesitan el padding */
+section.no-padding-top,
 section:not(.no-padding-top) {
-  padding-top: 140px;
+  padding-top: 0;
+}
+
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.admin-main {
+  flex: 1;
+  margin-left: 260px;
+  min-height: 100vh;
+  padding: 28px 32px 40px;
+}
+
+@media (max-width: 1024px) {
+  .admin-main {
+    margin-left: 0;
+    padding: 72px 16px 32px;
+  }
+}
+
+.admin-page-shell {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.admin-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.admin-page-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #1a1d29;
+}
+
+.admin-page-subtitle {
+  margin-top: 6px;
+  font-size: 0.95rem;
+  color: #64748b;
+}
+
+.admin-filters-card {
+  background: #fff;
+  border: 1px solid #e8ecf4;
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.admin-content-card {
+  background: #fff;
+  border: 1px solid #e8ecf4;
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.admin-pagination-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 8px 4px;
+}
+
+.admin-pagination-top {
+  margin-bottom: 8px;
+}
+
+.admin-pagination-bottom {
+  margin-top: 12px;
+}
+
+.modern-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  width: 100%;
+}
+
+.modern-pagination-info {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-right: auto;
+}
+
+.modern-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-page-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0f2f8 0%, #e8ecf4 100%);
+}
+
+.admin-filters-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.admin-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-filter-icon {
+  margin-right: 8px;
+  color: #94a3b8;
+}
+
+.admin-btn-secondary,
+.admin-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-btn-secondary {
+  border: 1px solid #e8ecf4;
+  background: #fff;
+  color: #334155;
+}
+
+.admin-btn-secondary:hover:not(:disabled) {
+  border-color: #bb3d4b;
+  color: #bb3d4b;
+}
+
+.admin-btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-btn-ghost {
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.admin-btn-ghost:hover:not(:disabled) {
+  border-color: #bb3d4b;
+  color: #bb3d4b;
+  background: #fff5f6;
+}
+
+.admin-btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #bb3d4b 0%, #9a2f3b 100%);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(187, 61, 75, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(187, 61, 75, 0.35);
+}
+
+.admin-empty-state {
+  padding: 32px 24px;
+}
+
+.admin-proveedores-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-filters-grid-proveedores {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.admin-products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.admin-filters-grid-reservas {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .carousel .control-arrow {

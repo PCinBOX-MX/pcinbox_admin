@@ -11,9 +11,30 @@ const useDashboard = () => {
 
   const { requestPostPagos } = PagosUtils();
 
-  const handleGetAllSales = async (page?: number) => {
+  type SalesFilters = {
+    search?: string;
+    statusPay?: string;
+    methodPay?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  };
+
+  const handleGetAllSales = async (
+    page?: number,
+    pageSize = 25,
+    filters: SalesFilters = {},
+  ) => {
     try {
-      const resp = await requestGetProveedores(`/getAllSales?page=${page}`);
+      const params = new URLSearchParams();
+      params.set("page", String(page ?? 1));
+      params.set("pageSize", String(pageSize));
+      if (filters.search) params.set("search", filters.search);
+      if (filters.statusPay) params.set("statusPay", filters.statusPay);
+      if (filters.methodPay) params.set("methodPay", filters.methodPay);
+      if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
+      if (filters.dateTo) params.set("dateTo", filters.dateTo);
+
+      const resp = await requestGetProveedores(`/getAllSales?${params.toString()}`);
 
       if (resp.status == 200) {
         const data = resp.data;
