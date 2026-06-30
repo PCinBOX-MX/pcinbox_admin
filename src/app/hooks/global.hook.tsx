@@ -28,6 +28,8 @@ interface ModalData {
   onConfirm: () => void;
   children?: any;
   showActions: boolean;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }
 
 interface ContextProps {
@@ -201,21 +203,29 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   };
 
   useEffect(() => {
-    socketPagos.current = io(process.env.NEXT_PUBLIC_SOCKET_PAGOS || "", {
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-    });
+    const socketProveedorUrl = process.env.NEXT_PUBLIC_SOCKET_PROVEEDOR?.trim();
+    const socketPagosUrl = process.env.NEXT_PUBLIC_SOCKET_PAGOS?.trim();
 
-    socketServer.current = io(process.env.NEXT_PUBLIC_SOCKET_PROVEEDOR || "", {
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-    });
+    if (socketPagosUrl) {
+      socketPagos.current = io(socketPagosUrl, {
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+    }
+
+    if (socketProveedorUrl) {
+      socketServer.current = io(socketProveedorUrl, {
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+    }
+
     return () => {
       socketPagos.current?.disconnect();
       socketServer.current?.disconnect();
@@ -226,14 +236,19 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     let mounted = true;
 
     const getListProducts = async () => {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL_PROVEEDOR}/getAllProduct`).then(
-        async (res) => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL_PROVEEDOR?.trim();
+      if (!apiUrl) {
+        console.warn(
+          "[admin] Falta NEXT_PUBLIC_API_URL_PROVEEDOR. Crea pcinbox_admin/.env.local",
+        );
+        return;
+      }
+
+      fetch(`${apiUrl}/getAllProduct`).then(async (res) => {
           const data = await res.json();
 
-          setDataProducts(data.data);
-          if (mounted) setDataProducts(data.data);
-        },
-      );
+        if (mounted) setDataProducts(data.data);
+      });
     };
 
     getListProducts();
