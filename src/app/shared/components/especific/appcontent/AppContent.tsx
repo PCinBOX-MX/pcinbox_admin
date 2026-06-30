@@ -4,7 +4,7 @@ import ModalComponent from "../modal/ModalComponent";
 import { useTheContext } from "@/app/hooks/global.hook";
 import useProtected from "@/app/hooks/protectedRoute.hook";
 import { usePathname } from "next/navigation";
-import Navbar from "../../common/navbar/Navbar";
+import AdminSidebar from "../../layout/AdminSidebar";
 import React, { useEffect } from "react";
 import { useSound } from "react-sounds";
 import { IconButton } from "@mui/material";
@@ -337,6 +337,11 @@ export default function AppContent({
     }
   }, [pathName]);
 
+  const isAuthPage =
+    pathName === "/" ||
+    pathName === "/features/auth/Login" ||
+    pathName === "/features/auth/Register";
+
   return (
     <SnackbarProvider
       maxSnack={3}
@@ -344,11 +349,9 @@ export default function AppContent({
       preventDuplicate
       autoHideDuration={null}
     >
-      <div>
-        <main className="min-h-[100%]">
-          {pathName !== "/features/auth/Login" &&
-            pathName !== "/" &&
-            pathName !== "/features/auth/Register" && <Navbar />}
+      <div className={isAuthPage ? "auth-page-shell" : "admin-layout"}>
+        {!isAuthPage && <AdminSidebar />}
+        <main className={isAuthPage ? "w-full" : "admin-main"}>
           {children}
 
           <ModalComponent

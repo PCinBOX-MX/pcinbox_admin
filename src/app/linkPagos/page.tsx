@@ -1,4 +1,5 @@
 "use client";
+
 import {
   ShoppingCart,
   Trash2,
@@ -18,21 +19,10 @@ import useLinkPagos from "./useLinkPagos";
 import { useTheContext } from "../hooks/global.hook";
 import { MdAdd, MdAutorenew } from "react-icons/md";
 import UtilsService from "../services/utils";
+import AdminPageShell from "../shared/components/layout/AdminPageShell";
 
-import dynamic from "next/dynamic";
-
-const LinkPagos = dynamic(() => import("./page"), {
-  ssr: false,
-  loading: () => <div>Cargando...</div>,
-});
-
-export default function Page() {
-  return <LinkPagosPage />;
-}
-
-const LinkPagosPage = () => {
-  const {
-    quantity,
+export default function LinkPagosPage() {
+  const {    quantity,
     dataLinkPago,
     selectedProduct,
     loading,
@@ -61,37 +51,13 @@ const LinkPagosPage = () => {
   const calculateTotal = () => calculateSubtotal();
 
   return (
-    <section
-      className="w-full flex justify-center"
-      style={{
-        paddingBottom: "50px",
-      }}
+    <AdminPageShell
+      title="Links de pago"
+      subtitle="Crea órdenes personalizadas y genera PDFs profesionales"
     >
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div
-          style={{
-            paddingTop: "5px",
-            paddingBottom: "5px",
-          }}
-          className="bg-gradient-to-r from-[#bb3d4b] to-[#9a3139] rounded-2xl shadow-2xl px-8 py-6 mb-8 transform hover:scale-[1.01] transition-transform duration-300"
-        >
-          <div className="flex items-center justify-center gap-3">
-            <CreditCard className="text-white" size={32} />
-            <h2 className="text-center font-bold text-white text-3xl">
-              Generador de Links de Pagos
-            </h2>
-          </div>
-          <p className="text-white/90 text-center mt-2 text-sm">
-            Crea órdenes de pago personalizadas y genera PDFs profesionales
-          </p>
-        </div>
-
-        <div
-          className="rounded-2xl  overflow-hidden"
-          style={{ marginTop: "15px" }}
-        >
-          <Box
+      <section className="w-full">
+        <div className="max-w-6xl mx-auto w-full">
+          <div className="rounded-2xl overflow-hidden" style={{ marginTop: "15px" }}>          <Box
             component="form"
             sx={{
               display: "flex",
@@ -604,5 +570,6 @@ const LinkPagosPage = () => {
         </div>
       </div>
     </section>
+    </AdminPageShell>
   );
-};
+}

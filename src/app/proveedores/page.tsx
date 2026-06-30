@@ -14,7 +14,18 @@ import useProveedores from "./useProveedores";
 import { useEffect, useState } from "react";
 import { MdAdd, MdAutorenew } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
-import PaginatorComponent from "../shared/components/common/paginator/Paginator";
+import AdminPageShell from "../shared/components/layout/AdminPageShell";
+import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import { Filter, Search, X } from "lucide-react";
+
+const fieldSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "10px",
+    "&:hover fieldset": { borderColor: "#bb3d4b" },
+    "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
+  },
+  "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
+};
 
 const Proveedores = () => {
   const { dataProveedores, dataProductProveedor, setProductsProveedor } =
@@ -27,9 +38,8 @@ const Proveedores = () => {
     handleAddProduct,
   } = useProveedores();
 
-  const [search, setSearch] = useState<string>("");
-
-  const itemsPerPage = 8;
+  const [search, setSearch] = useState("");
+  const itemsPerPage = 12;
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -38,210 +48,146 @@ const Proveedores = () => {
         return { ...prev, copyData: prev.data };
       }
 
+      const q = search.toLowerCase();
       const filtered = prev.data.filter((item) => {
         const name = item.name?.toLowerCase()?.trim() || "";
         const description = item.description?.toLowerCase()?.trim() || "";
-        const upc = String((item as any).upc || "")
-          .toLowerCase()
-          ?.trim();
+        const upc = String((item as any).upc || "").toLowerCase()?.trim();
         const idProductExt = item?.idProductExt?.toLowerCase()?.trim() || "";
 
         return (
-          name.includes(search) ||
-          description.includes(search) ||
-          upc.includes(search) ||
-          idProductExt.includes(search)
+          name.includes(q) ||
+          description.includes(q) ||
+          upc.includes(q) ||
+          idProductExt.includes(q)
         );
       });
 
-      return {
-        ...prev,
-        copyData: filtered,
-      };
+      return { ...prev, copyData: filtered };
     });
-  }, [search]);
-
-  //[search, dataProductProveedor.data]
+    setPage(1);
+  }, [search, setProductsProveedor]);
 
   const startIndex = (page - 1) * itemsPerPage;
   const visibleDataProveedores = dataProductProveedor.copyData!.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
+  const totalItems = dataProductProveedor.copyData?.length ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+
+  const paginationBlock = (
+    <ModernPagination
+      page={page}
+      pageCount={pageCount}
+      totalItems={totalItems}
+      pageSize={itemsPerPage}
+      onPageChange={setPage}
+      label="productos"
+    />
+  );
 
   return (
-    <section className="w-full">
-      <div className="w-full flex justify-center items-center">
-        <div className="w-[95%]">
-          {!dataProveedores.loading ? (
-            <div className="w-full flex justify-between gap-2">
-              <FormControl fullWidth>
-                <InputLabel id="demo-simple-select-label">
-                  Selecciona un proveedor
-                </InputLabel>
-                <Select
-                  labelId="demo-simple-select-label"
-                  id="demo-simple-select"
-                  value={slcProveedor}
-                  label="Selecciona un proveedor"
-                  onChange={handleOnChange}
-                >
-                  {dataProveedores && dataProveedores.data.length > 0 ? (
-                    dataProveedores.data.map((p) => {
-                      return (
-                        <MenuItem
-                          key={p.idProvider}
-                          value={p.idProvider.toString()}
-                        >
+    <AdminPageShell
+      title="Proveedores"
+      subtitle="Catálogo de productos por proveedor"
+      actions={
+        <div className="admin-proveedores-actions">
+          <button type="button" className="admin-btn-primary" onClick={showModalRegisterProveedor}>
+            <MdAdd size={20} />
+            Agregar proveedor
+          </button>
+          <button type="button" className="admin-btn-secondary" onClick={handleAddProduct}>
+            <MdAdd size={20} />
+            Agregar producto
+          </button>
+        </div>
+      }
+      filters={
+        <>
+          <div className="admin-filters-header">
+            <Filter size={16} />
+            <span>Consulta y búsqueda</span>
+          </div>
+          <div className="admin-filters-grid admin-filters-grid-proveedores">
+            {!dataProveedores.loading ? (
+              <>
+                <FormControl fullWidth size="small" sx={fieldSx}>
+                  <InputLabel>Proveedor</InputLabel>
+                  <Select
+                    value={slcProveedor}
+                    label="Proveedor"
+                    onChange={handleOnChange}
+                  >
+                    {dataProveedores?.data?.length > 0 ? (
+                      dataProveedores.data.map((p) => (
+                        <MenuItem key={p.idProvider} value={p.idProvider.toString()}>
                           {p.companyName}
                         </MenuItem>
-                      );
-                    })
-                  ) : (
-                    <MenuItem key={0} value={String(0)}>
-                      Sin proveedores disponibles
-                    </MenuItem>
-                  )}
-                </Select>
-              </FormControl>
-              <button
-                type="button"
-                className="bg-[#bb3d4b] text-[white] rounded font-bold px-2 w-[100px] cursor-pointer"
-                onClick={() => {
-                  if (slcProveedor) {
-                    handleGetProductsByProveedor(slcProveedor);
-                  }
-                }}
-              >
-                Consultar
-              </button>
-            </div>
-          ) : (
-            <>
-              <MdAutorenew size={20} className="m-auto the-spinner" />
-              <span>Cargando...</span>
-            </>
-          )}
-
-          <div
-            style={{
-              marginTop: "10px",
-              marginBottom: "10px",
-              padding: "5px",
-            }}
-            className="flex justify-start relative gap-4"
-          >
-            <button
-              className="bg-[#bb3d4b] text-[white] rounded font-bold cursor-pointer flex justify-center items-center gap-1"
-              style={{
-                padding: "10px",
-              }}
-              onClick={showModalRegisterProveedor}
-            >
-              <MdAdd size={22} />
-              Agregar proveedor
-            </button>
-
-            <button
-              style={{
-                padding: "10px",
-              }}
-              onClick={handleAddProduct}
-              className="bg-white border rounded font-bold cursor-pointer flex justify-center items-center gap-1"
-            >
-              <MdAdd size={22} />
-              Agregar Producto
-            </button>
-            {/* {!dataProductProveedor.loading &&
-            visibleDataProveedores &&
-            visibleDataProveedores.length > 0 ? ( */}
-            <div className="absolute right-0 top-0">
-              <TextField
-                id="outlined-basic"
-                label="Buscar producto"
-                variant="outlined"
-                onChange={(event) => {
-                  const value = event.target.value.toLowerCase().trim();
-                  setSearch(value);
-                  //  if (event.target.value != "") {
-                  // const search = event.target.value.toLowerCase();
-
-                  // setProductsProveedor((prev) => {
-                  //   // si el usuario borra todo, restauramos los datos completos
-                  //   if (search === "") {
-                  //     return {
-                  //       ...prev,
-                  //       copyData: prev.data, // <<--- restaurar todo
-                  //     };
-                  //   }
-
-                  //   // filtrar cuando SI hay texto
-                  //   const filtered = prev.data?.filter((item) => {
-                  //     const name = item.name?.toLowerCase() || "";
-                  //     const description = item.description?.toLowerCase() || "";
-                  //     const upc = String((item as any).upc || "").toLowerCase();
-                  //     const idProductExt =
-                  //       item?.idProductExt?.toLowerCase() || "";
-
-                  //     return (
-                  //       name.includes(search) ||
-                  //       description.includes(search) ||
-                  //       upc.includes(search) ||
-                  //       idProductExt.includes(search)
-                  //     );
-                  //   });
-
-                  //   return {
-                  //     ...prev,
-                  //     copyData: filtered,
-                  //   };
-                  // });
-                  //}
-                }}
-              />
-            </div>
-            {/* // ) : (
-            //   ""
-            // )} */}
-          </div>
-
-          <div
-            className="flex justify-center flex-wrap rounded gap-5 bg-white"
-            style={{
-              marginTop: "30px",
-              marginBottom: "30px",
-              paddingLeft: "10px",
-              paddingTop: "20px",
-              paddingBottom: "20px",
-              paddingRight: "10px",
-              boxShadow: "rgba(99, 99, 99, 0.2) 0px 2px 8px 0px",
-            }}
-          >
-            {!dataProductProveedor.loading ? (
-              visibleDataProveedores && visibleDataProveedores.length > 0 ? (
-                visibleDataProveedores.map((product, index) => {
-                  return <CardComponent key={index} dataProduct={product} />;
-                })
-              ) : (
-                <Alert severity="info">Sin contenido disponible</Alert>
-              )
-            ) : (
-              <>
-                <MdAutorenew size={20} className="m-auto the-spinner" />
-                <span>Cargando...</span>
+                      ))
+                    ) : (
+                      <MenuItem value="0">Sin proveedores</MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <button
+                  type="button"
+                  className="admin-btn-primary"
+                  onClick={() => slcProveedor && handleGetProductsByProveedor(slcProveedor)}
+                >
+                  Consultar
+                </button>
               </>
+            ) : (
+              <span className="text-sm text-slate-500 flex items-center gap-2">
+                <MdAutorenew className="the-spinner" size={18} />
+                Cargando proveedores...
+              </span>
             )}
-            <div className="flex justify-end w-full">
-              <PaginatorComponent
-                totalItems={dataProductProveedor.copyData!.length}
-                itemsPerPage={8}
-                onPageChange={setPage}
-              />
-            </div>
+            <TextField
+              size="small"
+              label="Buscar producto"
+              value={search}
+              onChange={(e) => setSearch(e.target.value.toLowerCase().trim())}
+              sx={fieldSx}
+              InputProps={{
+                startAdornment: <Search size={18} className="admin-filter-icon" />,
+              }}
+            />
+            <button
+              type="button"
+              className="admin-btn-ghost"
+              onClick={() => setSearch("")}
+              disabled={!search}
+            >
+              <X size={16} />
+              Limpiar
+            </button>
           </div>
-        </div>
+        </>
+      }
+      paginationTop={visibleDataProveedores.length ? paginationBlock : undefined}
+      paginationBottom={visibleDataProveedores.length ? paginationBlock : undefined}
+    >
+      <div className="admin-products-grid">
+        {!dataProductProveedor.loading ? (
+          visibleDataProveedores.length > 0 ? (
+            visibleDataProveedores.map((product, index) => (
+              <CardComponent key={product.idProduct ?? index} dataProduct={product} />
+            ))
+          ) : (
+            <div className="admin-empty-state w-full">
+              <Alert severity="info">Sin productos para mostrar</Alert>
+            </div>
+          )
+        ) : (
+          <div className="admin-empty-state w-full flex items-center justify-center gap-2">
+            <MdAutorenew size={20} className="the-spinner" />
+            <span>Cargando productos...</span>
+          </div>
+        )}
       </div>
-    </section>
+    </AdminPageShell>
   );
 };
 
