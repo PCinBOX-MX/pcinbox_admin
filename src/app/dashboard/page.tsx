@@ -156,8 +156,8 @@ const DashBoard = () => {
                 <MenuItem value="mercadopago">Mercado Pago</MenuItem>
                 <MenuItem value="tarjeta_de_credito">Tarjeta crédito</MenuItem>
                 <MenuItem value="tarjeta_de_debito">Tarjeta débito</MenuItem>
-                <MenuItem value="oxxo">OXXO</MenuItem>
-                <MenuItem value="transferencia_bancaria">Transferencia</MenuItem>
+                <MenuItem value="oxxo">Efectivo en establecimiento</MenuItem>
+                <MenuItem value="transferencia_bancaria">Transferencia bancaria</MenuItem>
               </Select>
             </FormControl>
             <TextField
