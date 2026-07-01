@@ -6,12 +6,9 @@ import useProtected from "@/app/hooks/protectedRoute.hook";
 import { usePathname } from "next/navigation";
 import AdminSidebar from "../../layout/AdminSidebar";
 import React, { useEffect } from "react";
-import { useSound } from "react-sounds";
-import { IconButton } from "@mui/material";
 import SpinnerComponent from "../spinner/Spinner";
 import useProveedores from "@/app/proveedores/useProveedores";
 import useDashboard from "@/app/dashboard/useDashboard";
-import { SnackbarProvider, useSnackbar } from "notistack";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import useVentasInvitados from "@/app/ventasInvitados/useVentasInvitados";
 
@@ -20,8 +17,6 @@ export default function AppContent({
 }: {
   children: React.ReactNode;
 }) {
-  const { enqueueSnackbar, closeSnackbar } = useSnackbar();
-
   const {
     dataModal,
     socketPagos,
@@ -32,7 +27,6 @@ export default function AppContent({
     setProductsProveedor,
   } = useTheContext();
   const pathName = usePathname();
-  const play = useSound("/audio/notification.mp3");
 
   const { handleGetProveedores } = useProveedores();
   const { handleGetAllSales } = useDashboard();
@@ -40,25 +34,10 @@ export default function AppContent({
 
   useProtected(pathName);
 
-  // Manejo de sockets
   useEffect(() => {
     if (!socketPagos.current || !socketServer.current) return;
 
     const handleNewOrder = (data: any) => {
-      console.log(`Nueva Orden`, data);
-      enqueueSnackbar(`Se generó la orden #${data.idOrder}`, {
-        variant: "info",
-        action: (snackbarId) => (
-          <IconButton
-            size="small"
-            onClick={() => closeSnackbar(snackbarId)}
-            style={{ color: "white" }}
-          >
-            Cerrar
-          </IconButton>
-        ),
-      });
-      play.play();
       setRowsVentas((prev) => ({
         ...prev,
         totalRows: prev.totalRows + 1,
@@ -68,138 +47,63 @@ export default function AppContent({
     };
 
     const handleNewOrderInvitacion = (data: any) => {
-      enqueueSnackbar(`Se generó la orden #${data.idOrder}`, {
-        variant: "info",
-        action: (snackbarId) => (
-          <IconButton
-            size="small"
-            onClick={() => closeSnackbar(snackbarId)}
-            style={{ color: "white" }}
-          >
-            Cerrar
-          </IconButton>
-        ),
-      });
-      play.play();
-
       setRowsVentasInvitados((prev) => [data, ...prev]);
-
       setTableKey((prev) => prev + 1);
     };
 
     const handlePayOxxo = (data: any) => {
-      enqueueSnackbar(`La orden #${data.idOrder} se pagó en efectivo`, {
-        variant: "info",
-        action: (snackbarId) => (
-          <IconButton
-            size="small"
-            onClick={() => closeSnackbar(snackbarId)}
-            style={{ color: "white" }}
-          >
-            Cerrar
-          </IconButton>
-        ),
-      });
-      play.play();
-      setRowsVentas((prev) => {
-        return {
-          ...prev,
-          data: prev.data?.map((item) => {
-            if (item.idOrder == data.idOrder) {
-              return {
-                ...item,
-                statusPay: "paid",
-              } as any;
-            }
+      setRowsVentas((prev) => ({
+        ...prev,
+        data: prev.data?.map((item) => {
+          if (item.idOrder == data.idOrder) {
+            return {
+              ...item,
+              statusPay: "paid",
+            } as any;
+          }
 
-            return item;
-          }),
-        };
-      });
+          return item;
+        }),
+      }));
     };
 
     const handleCancelledCompra = (data: any) => {
-      enqueueSnackbar(`La orden #${data.idOrder} fue cancelada`, {
-        variant: "error",
-        action: (snackbarId) => (
-          <IconButton
-            size="small"
-            onClick={() => closeSnackbar(snackbarId)}
-            style={{ color: "white" }}
-          >
-            Cerrar
-          </IconButton>
-        ),
-      });
-      play.play();
-      setRowsVentas((prev) => {
-        return {
-          ...prev,
-          data: prev.data.map((item) => {
-            if (item.idOrder == data.idOrder) {
-              return {
-                ...item,
-                statusPay: "cancelled",
+      setRowsVentas((prev) => ({
+        ...prev,
+        data: prev.data.map((item) => {
+          if (item.idOrder == data.idOrder) {
+            return {
+              ...item,
+              statusPay: "cancelled",
+              statusShip: "cancelado",
+              products: item.products.map((product) => ({
+                ...product,
                 statusShip: "cancelado",
-                products: item.products.map((product) => ({
-                  ...product,
-                  statusShip: "cancelado",
-                })),
-              };
-            }
-            return item;
-          }),
-        };
-      });
+              })),
+            };
+          }
+          return item;
+        }),
+      }));
     };
 
     const handleUpdateOrder = (data: any) => {
-      console.log("update orden");
-      console.log(data);
-      enqueueSnackbar(`La orden #${data.idOrder} fue actualizada`, {
-        variant: "info",
-        action: (snackbarId) => (
-          <IconButton
-            size="small"
-            onClick={() => closeSnackbar(snackbarId)}
-            style={{ color: "white" }}
-          >
-            Cerrar
-          </IconButton>
+      setRowsVentas((prev) => ({
+        ...prev,
+        data: prev.data.map((item) =>
+          item.idOrder === data.idOrder
+            ? {
+                ...item,
+                method_pay: data.method_pay,
+                statusPay: data.statusPay,
+                statusShip: data.statusShip,
+              }
+            : item,
         ),
-      });
-      play.play();
-      setRowsVentas((prev) => {
-        return {
-          ...prev,
-          data: prev.data.map((item) =>
-            item.idOrder === data.idOrder
-              ? {
-                  ...item,
-                  method_pay: data.method_pay,
-                  statusPay: data.statusPay,
-                  statusShip: data.statusShip,
-                }
-              : item,
-          ),
-        };
-      });
+      }));
     };
 
     const handleUpdateOrderInvitacion = (data: any) => {
-      enqueueSnackbar(`La orden #${data.idOrder} fue actualizada`, {
-        variant: "info",
-        action: (snackbarId) => (
-          <IconButton
-            size="small"
-            onClick={() => closeSnackbar(snackbarId)}
-            style={{ color: "white" }}
-          >
-            Cerrar
-          </IconButton>
-        ),
-      });
-      play.play();
       setRowsVentasInvitados((prev) =>
         prev.map((item) =>
           item.id == data.id || item.referencia == data.idOrder
@@ -320,8 +224,6 @@ export default function AppContent({
   }, [socketPagos.current, socketServer.current]);
 
   useEffect(() => {
-    let mounted = true;
-
     if (pathName) {
       if (pathName == "/dashboard") {
         handleGetAllSales();
@@ -330,10 +232,6 @@ export default function AppContent({
       } else if (pathName == "/ventasInvitados") {
         handleGetAllSalesInvitados();
       }
-
-      return () => {
-        mounted = false;
-      };
     }
   }, [pathName]);
 
@@ -343,31 +241,24 @@ export default function AppContent({
     pathName === "/features/auth/Register";
 
   return (
-    <SnackbarProvider
-      maxSnack={3}
-      anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      preventDuplicate
-      autoHideDuration={null}
-    >
-      <div className={isAuthPage ? "auth-page-shell" : "admin-layout"}>
-        {!isAuthPage && <AdminSidebar />}
-        <main className={isAuthPage ? "w-full" : "admin-main"}>
-          {children}
+    <div className={isAuthPage ? "auth-page-shell" : "admin-layout"}>
+      {!isAuthPage && <AdminSidebar />}
+      <main className={isAuthPage ? "w-full" : "admin-main"}>
+        {children}
 
-          <ModalComponent
-            isOpen={dataModal.isOpen}
-            title={dataModal.title}
-            content={dataModal.content}
-            onConfirm={() => dataModal.onConfirm()}
-            onClose={() => dataModal.onClose()}
-            type={dataModal.type}
-            children={dataModal.children}
-            showActions={dataModal.showActions}
-          />
+        <ModalComponent
+          isOpen={dataModal.isOpen}
+          title={dataModal.title}
+          content={dataModal.content}
+          onConfirm={() => dataModal.onConfirm()}
+          onClose={() => dataModal.onClose()}
+          type={dataModal.type}
+          children={dataModal.children}
+          showActions={dataModal.showActions}
+        />
 
-          <SpinnerComponent />
-        </main>
-      </div>
-    </SnackbarProvider>
+        <SpinnerComponent />
+      </main>
+    </div>
   );
 }
