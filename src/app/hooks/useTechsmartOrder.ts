@@ -8,6 +8,7 @@ import {
   TechsmartOrderI,
   TechsmartOrderStatusResponse,
 } from "../interfaces/techsmart/techsmart.interface";
+import { formatTechsmartErrorMessage } from "../utils/techsmartErrorMessage";
 
 const useTechsmartOrder = () => {
   const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
@@ -20,7 +21,7 @@ const useTechsmartOrder = () => {
         isOpen: true,
         type: "error",
         title: "TechSmart",
-        content: message,
+        content: formatTechsmartErrorMessage(message),
         showActions: true,
         onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
         onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
@@ -46,17 +47,25 @@ const useTechsmartOrder = () => {
 
   const getOrderStatus = useCallback(
     async (idOrder: number) => {
-      const resp = await requestGetProveedores(
-        `/getEstadoOrdenTechSmart/${idOrder}`,
-        { silent: true },
-      );
-      return (resp.data?.data ?? null) as TechsmartOrderStatusResponse | null;
+      try {
+        const resp = await requestGetProveedores(
+          `/getEstadoOrdenTechSmart/${idOrder}`,
+          { silent: true },
+        );
+        return (resp.data?.data ?? null) as TechsmartOrderStatusResponse | null;
+      } catch {
+        return null;
+      }
     },
     [requestGetProveedores],
   );
 
   const saveNumOrdenCompra = useCallback(
-    async (idOrder: number, numOrdenCompra: string) => {
+    async (
+      idOrder: number,
+      numOrdenCompra: string,
+      options?: { silent?: boolean },
+    ) => {
       setLoadingAction("saveReference");
       try {
         const resp = await requestPostProveedores(
@@ -64,12 +73,14 @@ const useTechsmartOrder = () => {
           "/guardarNumOrdenCompraOrdenTechSmart",
           { silent: true },
         );
-        showSuccess("Referencia TechSmart guardada");
+        if (!options?.silent) {
+          showSuccess("Referencia guardada");
+        }
         return (resp.data?.data ?? null) as TechsmartOrderI | null;
       } catch (error: any) {
         showError(
           error?.response?.data?.message ||
-            "No se pudo guardar la referencia TechSmart",
+            "No se pudo guardar la referencia",
         );
         return null;
       } finally {
@@ -90,9 +101,10 @@ const useTechsmartOrder = () => {
         );
         return resp.data?.data ?? null;
       } catch (error: any) {
-        showError(
-          error?.response?.data?.message ||
-            "No se pudo obtener la vista previa del pedido TechSmart",
+        // El panel TechSmart ya muestra wsError; evitar modal duplicado con JSON crudo.
+        console.warn(
+          "[TechSmart] Vista previa fallida:",
+          formatTechsmartErrorMessage(error?.response?.data?.message || error),
         );
         return null;
       } finally {
@@ -119,9 +131,9 @@ const useTechsmartOrder = () => {
         showSuccess("Pedido TechSmart generado correctamente");
         return (resp.data?.data?.techsmartOrder ?? null) as TechsmartOrderI | null;
       } catch (error: any) {
-        showError(
-          error?.response?.data?.message ||
-            "No se pudo generar el pedido TechSmart",
+        console.warn(
+          "[TechSmart] Generar pedido fallido:",
+          formatTechsmartErrorMessage(error?.response?.data?.message || error),
         );
         return null;
       } finally {

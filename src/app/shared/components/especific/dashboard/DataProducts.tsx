@@ -133,6 +133,10 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
           SHIPPING_LABELS[item.address?.shipping_method] ??
           (item.address?.shipping_method ? "Desconocido" : null);
 
+        const showDescription =
+          item.description &&
+          item.description.trim() !== String(item.productName || "").trim();
+
         return (
           <article key={item.idShipment ?? index} className="admin-product-card">
             <header className="admin-product-card__header">
@@ -143,7 +147,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                 <h3 className="admin-product-card__name">
                   {item.productName}
                 </h3>
-                {item.description ? (
+                {showDescription ? (
                   <p className="admin-product-card__description">
                     {item.description}
                   </p>
@@ -162,7 +166,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
               </div>
             </header>
 
-            <ModalDetailGrid columns={2}>
+            <ModalDetailGrid columns={3}>
               {item.sku ? (
                 <ModalDetailField label="SKU" value={item.sku} />
               ) : null}
@@ -172,11 +176,6 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
               {item.clave ? (
                 <ModalDetailField label="Clave" value={item.clave} />
               ) : null}
-              <ModalDetailField
-                label="Cantidad"
-                value={String(item.quantity)}
-                highlight
-              />
             </ModalDetailGrid>
 
             <Divider sx={{ my: 1.5, borderColor: "#eef0f4" }} />

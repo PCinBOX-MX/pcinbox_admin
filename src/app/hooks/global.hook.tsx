@@ -236,19 +236,21 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     let mounted = true;
 
     const getListProducts = async () => {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL_PROVEEDOR?.trim();
-      if (!apiUrl) {
+      try {
+        const resp = await requestGetProveedores("/getAllProduct", {
+          silent: true,
+        });
+
+        if (mounted && resp.status === 200) {
+          setDataProducts(resp.data?.data ?? []);
+        }
+      } catch (error) {
         console.warn(
-          "[admin] Falta NEXT_PUBLIC_API_URL_PROVEEDOR. Crea pcinbox_admin/.env.local",
+          "[admin] No se pudo cargar /getAllProduct. ¿Está server-proveedores en http://localhost:8001?",
+          error,
         );
-        return;
+        if (mounted) setDataProducts([]);
       }
-
-      fetch(`${apiUrl}/getAllProduct`).then(async (res) => {
-          const data = await res.json();
-
-        if (mounted) setDataProducts(data.data);
-      });
     };
 
     getListProducts();
@@ -256,7 +258,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [requestGetProveedores]);
 
   useEffect(() => {
     handleGetCategorias();

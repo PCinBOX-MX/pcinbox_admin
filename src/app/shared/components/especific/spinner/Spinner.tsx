@@ -14,7 +14,7 @@ const SpinnerComponent = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 1200,
+        zIndex: 9999,
       }}
     >
       <GridLoader

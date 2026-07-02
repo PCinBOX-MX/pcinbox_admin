@@ -243,7 +243,7 @@ export default function AppContent({
   return (
     <div className={isAuthPage ? "auth-page-shell" : "admin-layout"}>
       {!isAuthPage && <AdminSidebar />}
-      <main className={isAuthPage ? "w-full" : "admin-main"}>
+      <main className={isAuthPage ? "auth-main" : "admin-main"}>
         {children}
 
         <ModalComponent

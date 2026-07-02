@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001 --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
+    "dev": "npx kill-port 3001 && node scripts/run-with-env-local.mjs dev",
+    "build": "node scripts/run-with-env-local.mjs build",
+    "start": "node scripts/run-with-env-local.mjs start",
     "lint": "eslint"
   },
   "dependencies": {
