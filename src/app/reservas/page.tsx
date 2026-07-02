@@ -294,7 +294,7 @@ const ReservasAdminPage = () => {
                 </Alert>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="admin-table-scroll">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs font-semibold uppercase tracking-wider">

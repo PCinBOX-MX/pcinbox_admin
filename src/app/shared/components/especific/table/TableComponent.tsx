@@ -51,26 +51,33 @@ const TableComponent = ({
   if (!rowsDataGrid?.length || !columnsDataGrid?.length) return null;
 
   return (
-    <DataGrid
-      loading={loading}
-      paginationMode={hideFooter ? "client" : "server"}
-      rowCount={hideFooter ? undefined : totalRows || 0}
-      rows={rowsDataGrid}
-      columns={columnsDataGrid}
-      paginationModel={paginationModel}
-      onPaginationModelChange={handlePaginationChange}
-      hideFooter={hideFooter}
-      pageSizeOptions={pageSizeOptions}
-      disableRowSelectionOnClick
-      localeText={{
-        noRowsLabel: "Sin datos para mostrar",
-        paginationRowsPerPage: "Filas por página",
-      }}
-      rowHeight={72}
-      sx={tableSx}
-      getRowHeight={() => "auto"}
-      getRowId={(row) => row.idOrder ?? row.idUser ?? row.id ?? row.referencia}
-    />
+    <div className="admin-table-scroll">
+      <DataGrid
+        loading={loading}
+        paginationMode={hideFooter ? "client" : "server"}
+        rowCount={hideFooter ? undefined : totalRows || 0}
+        rows={rowsDataGrid}
+        columns={columnsDataGrid}
+        paginationModel={paginationModel}
+        onPaginationModelChange={handlePaginationChange}
+        hideFooter={hideFooter}
+        pageSizeOptions={pageSizeOptions}
+        disableRowSelectionOnClick
+        localeText={{
+          noRowsLabel: "Sin datos para mostrar",
+          paginationRowsPerPage: "Filas por página",
+        }}
+        rowHeight={72}
+        sx={{
+          ...tableSx,
+          width: "100%",
+          minWidth: 0,
+          border: "none",
+        }}
+        getRowHeight={() => "auto"}
+        getRowId={(row) => row.idOrder ?? row.idUser ?? row.id ?? row.referencia}
+      />
+    </div>
   );
 };
 
