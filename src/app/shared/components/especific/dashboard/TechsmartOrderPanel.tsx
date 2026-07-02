@@ -24,6 +24,7 @@ import {
   TechsmartGuideI,
   TechsmartOrderI,
 } from "@/app/interfaces/techsmart/techsmart.interface";
+import { formatTechsmartErrorMessage } from "@/app/utils/techsmartErrorMessage";
 
 interface TechsmartOrderPanelProps {
   idOrder: number;
@@ -97,7 +98,6 @@ const TechsmartOrderPanel = ({
   const [hasNumOrdenCompra, setHasNumOrdenCompra] = useState(
     Boolean(initialOrder?.numOrdenCompra?.trim()),
   );
-  const [canGeneratePedido, setCanGeneratePedido] = useState(false);
   const [guides, setGuides] = useState<TechsmartGuideI[]>([]);
   const [guidesSummary, setGuidesSummary] = useState({
     total: 0,
@@ -132,7 +132,6 @@ const TechsmartOrderPanel = ({
       );
       setRequiresGuides(Boolean(data?.requiresGuides));
       setCanInvoice(Boolean(data?.canInvoice));
-      setCanGeneratePedido(Boolean(data?.canGeneratePedido));
       setHasNumOrdenCompra(Boolean(data?.hasNumOrdenCompra));
       setNumOrdenCompraInput(
         data?.numOrdenCompra ?? nextOrder?.numOrdenCompra ?? "",
@@ -154,33 +153,26 @@ const TechsmartOrderPanel = ({
   const isBusy = Boolean(loadingAction) || loadingStatus;
   const activeStep = useMemo(() => getActiveStep(status), [status]);
   const referenceLocked = Boolean(techsmartOrder?.folioPedido);
-
-  const handleSaveReference = async () => {
-    const value = numOrdenCompraInput.trim();
-    if (!value) return;
-
-    const updated = await saveNumOrdenCompra(idOrder, value);
-    if (updated) {
-      setTechsmartOrder(updated);
-      setHasNumOrdenCompra(true);
-      setCanGeneratePedido(true);
-      onOrderUpdated?.(updated);
-    }
-    await refreshStatus();
-  };
+  const referenceValue = numOrdenCompraInput.trim();
+  const canStartOrder =
+    isPaid &&
+    Boolean(referenceValue) &&
+    !referenceLocked &&
+    !["sent", "guide_linked", "invoiced"].includes(status);
 
   const handleOpenPreview = async () => {
-    const value = numOrdenCompraInput.trim();
-    if (!value) return;
+    if (!referenceValue) return;
 
-    if (!hasNumOrdenCompra || value !== (techsmartOrder?.numOrdenCompra ?? "")) {
-      const saved = await saveNumOrdenCompra(idOrder, value);
+    if (!hasNumOrdenCompra || referenceValue !== (techsmartOrder?.numOrdenCompra ?? "")) {
+      const saved = await saveNumOrdenCompra(idOrder, referenceValue, {
+        silent: true,
+      });
       if (!saved) return;
       setTechsmartOrder(saved);
       setHasNumOrdenCompra(true);
     }
 
-    const preview = (await previewOrder(idOrder, value)) as PreviewData | null;
+    const preview = (await previewOrder(idOrder, referenceValue)) as PreviewData | null;
     if (!preview) return;
     setPreviewData(preview);
     setPreviewOpen(true);
@@ -251,21 +243,36 @@ const TechsmartOrderPanel = ({
   return (
     <div className={panelStyles.panel}>
       <div className={panelStyles.header}>
-        <span className={panelStyles.title}>TechSmart</span>
-        <Chip
+        <div className={panelStyles.headerLeft}>
+          <span className={panelStyles.title}>TechSmart</span>
+          <Chip
+            size="small"
+            label={STATUS_LABELS[status] || status}
+            color={
+              status === "invoiced"
+                ? "success"
+                : status === "failed" || status === "error"
+                  ? "error"
+                  : "primary"
+            }
+          />
+        </div>
+        <Button
           size="small"
-          label={STATUS_LABELS[status] || status}
-          color={
-            status === "invoiced"
-              ? "success"
-              : status === "failed" || status === "error"
-                ? "error"
-                : "primary"
-          }
-        />
+          className={panelStyles.refreshBtn}
+          disabled={isBusy}
+          onClick={refreshStatus}
+        >
+          Actualizar
+        </Button>
       </div>
 
-      <Stepper activeStep={activeStep} alternativeLabel sx={{ pt: 1 }}>
+      <Stepper
+        activeStep={activeStep}
+        alternativeLabel
+        className={panelStyles.stepper}
+        sx={{ pt: 0.5, pb: 0.25 }}
+      >
         <Step completed={activeStep > 0}>
           <StepLabel>Generar pedido</StepLabel>
         </Step>
@@ -278,121 +285,109 @@ const TechsmartOrderPanel = ({
       </Stepper>
 
       {!isPaid && (
-        <Alert severity="warning" sx={{ py: 0.5 }}>
+        <Alert severity="warning" sx={{ py: 0.5, borderRadius: "12px" }}>
           El pago debe estar confirmado antes de procesar en TechSmart.
         </Alert>
       )}
 
-      {isPaid && status === "pending" && (
-        <Alert severity="info" sx={{ py: 0.5 }}>
-          Captura la referencia TechSmart (NumOrdenCompra), genera el pedido,
-          vincula cada guía de carrier y luego factura.
+      {isPaid && status === "pending" && !referenceLocked && (
+        <Alert severity="info" sx={{ py: 0.5, borderRadius: "12px" }}>
+          Captura la referencia, genera el pedido y luego vincula las guías de
+          envío.
         </Alert>
       )}
 
-      <Stack spacing={1.5}>
-        <TextField
-          size="small"
-          label="Referencia TechSmart (NumOrdenCompra)"
-          helperText="Obligatoria antes de generar el pedido o vincular guías"
-          value={numOrdenCompraInput}
-          onChange={(event) => setNumOrdenCompraInput(event.target.value)}
-          disabled={referenceLocked || isBusy}
-          fullWidth
-          required
-        />
-        {!referenceLocked && (
-          <Button
+      {!referenceLocked && (
+        <section className={panelStyles.referenceBlock}>
+          <p className={panelStyles.referenceBlockTitle}>Paso 1 · Pedido</p>
+          <TextField
             size="small"
-            variant="outlined"
-            disabled={isBusy || !numOrdenCompraInput.trim()}
-            onClick={handleSaveReference}
+            label="Referencia"
+            placeholder="Ej. 12345"
+            value={numOrdenCompraInput}
+            onChange={(event) => setNumOrdenCompraInput(event.target.value)}
+            disabled={referenceLocked || isBusy}
+            fullWidth
+            required
+            sx={{
+              "& .MuiOutlinedInput-root": { borderRadius: "12px" },
+            }}
+          />
+          <Button
+            variant="contained"
+            className={panelStyles.generateBtn}
+            disabled={isBusy || !canStartOrder}
+            onClick={handleOpenPreview}
           >
-            {loadingAction === "saveReference" ? (
-              <CircularProgress size={16} />
+            {loadingAction === "preview" || loadingAction === "saveReference" ? (
+              <CircularProgress size={18} color="inherit" />
             ) : (
-              "Guardar referencia"
+              "Generar pedido"
             )}
           </Button>
-        )}
-      </Stack>
-
-      {techsmartOrder?.numOrdenCompra && (
-        <p className={panelStyles.meta}>
-          <strong>NumOrdenCompra:</strong> {techsmartOrder.numOrdenCompra}
-        </p>
+        </section>
       )}
 
-      {techsmartOrder?.folioPedido && (
-        <p className={panelStyles.meta}>
-          <strong>Folio:</strong> {techsmartOrder.folioPedido}
-        </p>
-      )}
-
-      {guidesSummary.total > 0 && (
-        <p className={panelStyles.meta}>
-          <strong>Guías:</strong> {guidesSummary.linked}/{guidesSummary.total}{" "}
-          vinculadas
-        </p>
-      )}
-
-      {techsmartOrder?.folioFactura && (
-        <p className={panelStyles.meta}>
-          <strong>Factura:</strong> {techsmartOrder.folioFactura}
-        </p>
+      {(techsmartOrder?.numOrdenCompra ||
+        techsmartOrder?.folioPedido ||
+        guidesSummary.total > 0 ||
+        techsmartOrder?.folioFactura) && (
+        <div className={panelStyles.metaGrid}>
+          {techsmartOrder?.numOrdenCompra ? (
+            <span className={panelStyles.metaPill}>
+              <strong>Ref.</strong> {techsmartOrder.numOrdenCompra}
+            </span>
+          ) : null}
+          {techsmartOrder?.folioPedido ? (
+            <span className={panelStyles.metaPill}>
+              <strong>Folio</strong> {techsmartOrder.folioPedido}
+            </span>
+          ) : null}
+          {guidesSummary.total > 0 ? (
+            <span className={panelStyles.metaPill}>
+              <strong>Guías</strong> {guidesSummary.linked}/{guidesSummary.total}
+            </span>
+          ) : null}
+          {techsmartOrder?.folioFactura ? (
+            <span className={panelStyles.metaPill}>
+              <strong>Factura</strong> {techsmartOrder.folioFactura}
+            </span>
+          ) : null}
+        </div>
       )}
 
       {status === "failed" && (
-        <Alert severity="warning" sx={{ py: 0.5 }}>
-          El último intento falló. Corrige el problema indicado abajo y vuelve a
-          pulsar &quot;Generar pedido&quot;.
+        <Alert severity="warning" sx={{ py: 0.5, borderRadius: "12px" }}>
+          El último intento falló. Corrige el problema y vuelve a pulsar
+          &quot;Generar pedido&quot;.
         </Alert>
       )}
 
       {techsmartOrder?.wsError && (
-        <Alert severity="error" sx={{ py: 0.5 }}>
-          {techsmartOrder.wsError}
+        <Alert severity="error" sx={{ py: 0.5, borderRadius: "12px" }}>
+          {formatTechsmartErrorMessage(techsmartOrder.wsError)}
         </Alert>
       )}
 
-      <Stack direction="row" flexWrap="wrap" gap={1}>
+      {canInvoice && status !== "invoiced" && (
         <Button
-          size="small"
-          variant="outlined"
-          disabled={
-            isBusy ||
-            !isPaid ||
-            !canGeneratePedido ||
-            !numOrdenCompraInput.trim() ||
-            ["sent", "guide_linked", "invoiced"].includes(status)
-          }
-          onClick={handleOpenPreview}
-        >
-          {loadingAction === "preview" ? (
-            <CircularProgress size={16} />
-          ) : (
-            "Generar pedido"
-          )}
-        </Button>
-        <Button
-          size="small"
           variant="contained"
-          disabled={isBusy || !isPaid || !canInvoice || status === "invoiced"}
+          className={panelStyles.invoiceBtn}
+          fullWidth
+          disabled={isBusy || !isPaid}
           onClick={handleInvoice}
         >
           {loadingAction === "invoice" ? (
-            <CircularProgress size={16} color="inherit" />
+            <CircularProgress size={18} color="inherit" />
           ) : (
             "Facturar"
           )}
         </Button>
-        <Button size="small" disabled={isBusy} onClick={refreshStatus}>
-          Actualizar
-        </Button>
-      </Stack>
+      )}
 
       {requiresGuides && guides.length > 0 && (
-        <Stack spacing={2} className={panelStyles.guidesSection}>
+        <Stack spacing={1.25} className={panelStyles.guidesSection}>
+          <p className={panelStyles.guidesSectionTitle}>Paso 2 · Guías</p>
           {guides.map((guide) => {
             const form = guideForms[guide.idTechsmartGuide] ?? {
               guiaPedido: guide.guiaPedido ?? "",
@@ -540,7 +535,7 @@ const TechsmartOrderPanel = ({
 
           {previewData?.pedido?.numOrdenCompra && (
             <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>NumOrdenCompra:</strong> {previewData.pedido.numOrdenCompra}
+              <strong>Referencia:</strong> {previewData.pedido.numOrdenCompra}
             </Typography>
           )}
 

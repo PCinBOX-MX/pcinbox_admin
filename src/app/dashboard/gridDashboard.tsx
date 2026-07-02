@@ -9,7 +9,6 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  Stack,
 } from "@mui/material";
 //  import useDashboard from "./useDashboard";
 import { useMemo } from "react";
@@ -178,35 +177,47 @@ const GridDashboard = ({
                   onConfirm: () =>
                     setDataModal((prev) => ({ ...prev, isOpen: false })),
                   content: (
-                    <Stack spacing={2}>
+                    <div className="admin-order-products-modal">
                       {orderRow?.hasTechsmartProducts && can("techsmart.manage") && (
-                        <TechsmartOrderPanel
-                          idOrder={orderRow.idOrder}
-                          initialOrder={orderRow.techsmartOrder}
-                          statusPay={orderRow.statusPay}
-                          onOrderUpdated={(updated) => {
-                            if (!updated) return;
-                            setRowsVentas((prev) => ({
-                              ...prev,
-                              data: prev.data.map((row) =>
-                                row.idOrder === orderRow.idOrder
-                                  ? {
-                                      ...row,
-                                      techsmartOrder: updated,
-                                    }
-                                  : row,
-                              ),
-                            }));
-                          }}
-                        />
+                        <section className="admin-order-products-modal__techsmart">
+                          <h3 className="admin-order-products-modal__section-title">
+                            Gestión TechSmart
+                          </h3>
+                          <TechsmartOrderPanel
+                            idOrder={orderRow.idOrder}
+                            initialOrder={orderRow.techsmartOrder}
+                            statusPay={orderRow.statusPay}
+                            onOrderUpdated={(updated) => {
+                              if (!updated) return;
+                              setRowsVentas((prev) => ({
+                                ...prev,
+                                data: prev.data.map((row) =>
+                                  row.idOrder === orderRow.idOrder
+                                    ? {
+                                        ...row,
+                                        techsmartOrder: updated,
+                                      }
+                                    : row,
+                                ),
+                              }));
+                            }}
+                          />
+                        </section>
                       )}
-                      <DataProducts
-                        params={{
-                          value: orderRow?.products,
-                          row: params.row,
-                        }}
-                        handleChangeStatusShip={handleChangeStatusShip}
-                      />
+                      <section className="admin-order-products-modal__list">
+                        <h3 className="admin-order-products-modal__section-title">
+                          {orderRow?.products?.length === 1
+                            ? "1 producto en la orden"
+                            : `${orderRow?.products?.length ?? 0} productos en la orden`}
+                        </h3>
+                        <DataProducts
+                          params={{
+                            value: orderRow?.products,
+                            row: params.row,
+                          }}
+                          handleChangeStatusShip={handleChangeStatusShip}
+                        />
+                      </section>
                       {can("orders.cancel") && (
                         <OrderCancelSection
                           idOrder={orderRow?.idOrder ?? params.row.idOrder}
@@ -215,7 +226,7 @@ const GridDashboard = ({
                           onCancelClick={openCancelOrderModal}
                         />
                       )}
-                    </Stack>
+                    </div>
                   ),
                 });
               }}

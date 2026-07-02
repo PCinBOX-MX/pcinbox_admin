@@ -27,15 +27,22 @@ const DashBoard = () => {
   const [methodPay, setMethodPay] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const { handleChangeStatusShip, handleChangeStatusPay, handleGetAllSales } =
-    useDashboard();
+  const {
+    handleChangeStatusShip,
+    handleChangeStatusPay,
+    handleGetAllSales,
+    can,
+    openCancelOrderModal,
+    loading,
+  } = useDashboard();
 
   const { columns } = GridDashboard({
     handleChangeStatusShip,
     rows: rowsVentas,
     handleChangeStatusPay,
+    openCancelOrderModal,
+    can,
   });
 
   const filters = useMemo(
@@ -50,9 +57,7 @@ const DashBoard = () => {
   );
 
   const loadSales = async () => {
-    setLoading(true);
     await handleGetAllSales(paginationModel.page + 1, paginationModel.pageSize, filters);
-    setLoading(false);
   };
 
   useEffect(() => {

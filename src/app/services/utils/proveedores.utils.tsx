@@ -23,6 +23,18 @@ proveedoresApi.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
+proveedoresApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (!error.config?.baseURL && typeof window !== "undefined") {
+      console.warn(
+        "[admin] NEXT_PUBLIC_API_URL_PROVEEDOR no está definida. Usa npm run dev en pcinbox_admin.",
+      );
+    }
+    return Promise.reject(error);
+  },
+);
+
 const ProveedoresUtils = () => {
   const pathName = usePathname();
   const { setDataModal, setShowSpinner } = useTheContext();
