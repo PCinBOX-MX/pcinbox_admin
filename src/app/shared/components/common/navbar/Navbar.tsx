@@ -76,7 +76,7 @@ const Navbar = () => {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => handleActiveTab(item.label, item.id)}
+                    onClick={() => handleActiveTab(item.id)}
                     style={{
                       padding: "5px",
                     }}

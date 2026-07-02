@@ -14,11 +14,10 @@ import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
 import io, { Socket } from "socket.io-client";
 import { GridRowsProp } from "@mui/x-data-grid";
 import { SalesI } from "../interfaces/sales/sales.interface";
-import { proveedoresApi } from "../services/utils/proveedores.utils";
+import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { ProductsI } from "../interfaces/products/products.interface";
 
 type ModalType = "success" | "error" | "warning" | "info";
-type ModalSize = "sm" | "md" | "lg" | "xl";
 
 interface ModalData {
   isOpen: boolean;
@@ -29,9 +28,8 @@ interface ModalData {
   onConfirm: () => void;
   children?: any;
   showActions: boolean;
-  size?: ModalSize;
   confirmLabel?: string;
-  showCancel?: boolean;
+  cancelLabel?: string;
 }
 
 interface ContextProps {
@@ -71,16 +69,8 @@ interface ContextProps {
       data: SalesI[];
     }>
   >;
-  rowsVentasInvitados: {
-    totalRows: number;
-    data: any[];
-  };
-  setRowsVentasInvitados: Dispatch<
-    SetStateAction<{
-      totalRows: number;
-      data: any[];
-    }>
-  >;
+  rowsVentasInvitados: any[];
+  setRowsVentasInvitados: Dispatch<SetStateAction<any[]>>;
   showSpinner: boolean;
   setShowSpinner: Dispatch<SetStateAction<boolean>>;
   dataProducts: ProductsI[];
@@ -91,7 +81,6 @@ interface ContextProps {
   setDataCategoria: Dispatch<SetStateAction<any>>;
   tableKey: number;
   setTableKey: Dispatch<SetStateAction<number>>;
-  socketsReady: boolean;
 }
 
 const CreateContext = createContext<ContextProps>({
@@ -104,9 +93,6 @@ const CreateContext = createContext<ContextProps>({
     onConfirm: () => {},
     children: "",
     showActions: false,
-    size: "md",
-    confirmLabel: "Aceptar",
-    showCancel: true,
   },
   setDataModal: () => {},
   dataProveedores: {
@@ -137,12 +123,8 @@ const CreateContext = createContext<ContextProps>({
   setDataCategoria: () => {},
   tableKey: 0,
   setTableKey: () => {},
-  rowsVentasInvitados: {
-    totalRows: 0,
-    data: [],
-  },
+  rowsVentasInvitados: [],
   setRowsVentasInvitados: () => {},
-  socketsReady: false,
 });
 
 export const GlobalProvider = ({ children }: { children: any }) => {
@@ -156,9 +138,6 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     onConfirm: () => {},
     children: "",
     showActions: false,
-    size: "md",
-    confirmLabel: "Aceptar",
-    showCancel: true,
   });
 
   const [dataProveedores, setDataProveedores] = useState<{
@@ -183,13 +162,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     totalRows: 0,
     data: [],
   });
-  const [rowsVentasInvitados, setRowsVentasInvitados] = useState<{
-    totalRows: number;
-    data: any[];
-  }>({
-    totalRows: 0,
-    data: [],
-  });
+  const [rowsVentasInvitados, setRowsVentasInvitados] = useState<any[]>([]);
 
   const [showSpinner, setShowSpinner] = useState<boolean>(false);
 
@@ -201,39 +174,84 @@ export const GlobalProvider = ({ children }: { children: any }) => {
 
   const [dataCategoria, setDataCategoria] = useState([]);
   const [dataProducts, setDataProducts] = useState<ProductsI[]>([]);
-  const [socketsReady, setSocketsReady] = useState(false);
+  const { requestGetProveedores } = ProveedoresUtils();
+
+  const handleGetMarcas = async () => {
+    try {
+      const resp = await requestGetProveedores("/getAllMarcaPrincipal");
+      const data = resp.data;
+
+      if (resp.status == 200) {
+        setDataMarca(data.data.data);
+      }
+    } catch (error) {
+      setDataMarca([]);
+    }
+  };
+
+  const handleGetCategorias = async () => {
+    try {
+      const resp = await requestGetProveedores("/getAllCategoriPrincipal");
+      const data = resp.data;
+
+      if (resp.status == 200) {
+        setDataCategoria(data.data.data);
+      }
+    } catch (error) {
+      setDataCategoria([]);
+    }
+  };
+
+  useEffect(() => {
+    const socketProveedorUrl = process.env.NEXT_PUBLIC_SOCKET_PROVEEDOR?.trim();
+    const socketPagosUrl = process.env.NEXT_PUBLIC_SOCKET_PAGOS?.trim();
+
+    if (socketPagosUrl) {
+      socketPagos.current = io(socketPagosUrl, {
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+    }
+
+    if (socketProveedorUrl) {
+      socketServer.current = io(socketProveedorUrl, {
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+    }
+
+    return () => {
+      socketPagos.current?.disconnect();
+      socketServer.current?.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadCatalogData = async () => {
-      try {
-        const [marcasRes, categoriasRes, productsRes] = await Promise.all([
-          proveedoresApi.get("/getAllMarca"),
-          proveedoresApi.get("/getAllCategori"),
-          proveedoresApi.get("/getAllProduct"),
-        ]);
-
-        if (!mounted) return;
-
-        if (marcasRes.status === 200) {
-          setDataMarca(marcasRes.data?.data?.data ?? []);
-        }
-        if (categoriasRes.status === 200) {
-          setDataCategoria(categoriasRes.data?.data?.data ?? []);
-        }
-        if (productsRes.status === 200) {
-          setDataProducts(productsRes.data?.data ?? []);
-        }
-      } catch {
-        if (!mounted) return;
-        setDataMarca([]);
-        setDataCategoria([]);
-        setDataProducts([]);
+    const getListProducts = async () => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL_PROVEEDOR?.trim();
+      if (!apiUrl) {
+        console.warn(
+          "[admin] Falta NEXT_PUBLIC_API_URL_PROVEEDOR. Crea pcinbox_admin/.env.local",
+        );
+        return;
       }
+
+      fetch(`${apiUrl}/getAllProduct`).then(async (res) => {
+          const data = await res.json();
+
+        if (mounted) setDataProducts(data.data);
+      });
     };
 
-    loadCatalogData();
+    getListProducts();
 
     return () => {
       mounted = false;
@@ -241,29 +259,9 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   }, []);
 
   useEffect(() => {
-    socketPagos.current = io(process.env.NEXT_PUBLIC_SOCKET_PAGOS || "", {
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-    });
-
-    socketServer.current = io(process.env.NEXT_PUBLIC_SOCKET_PROVEEDOR || "", {
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-    });
-    setSocketsReady(true);
-
-    return () => {
-      setSocketsReady(false);
-      socketPagos.current?.disconnect();
-      socketServer.current?.disconnect();
-    };
-  }, []);
+    handleGetCategorias();
+    handleGetMarcas();
+  }, [dataCategoria.length, dataMarca.length]);
 
   return (
     <CreateContext.Provider
@@ -290,7 +288,6 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setTableKey,
         dataProducts,
         setDataProducts,
-        socketsReady,
       }}
     >
       {children}

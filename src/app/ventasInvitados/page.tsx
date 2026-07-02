@@ -1,28 +1,53 @@
 "use client";
 
 import { Alert } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTheContext } from "../hooks/global.hook";
 import TableComponent from "../shared/components/especific/table/TableComponent";
 import GridVentasInvitados from "./gridVentasInvitados";
-import useVentasInvitados from "./useVentasInvitados";
+import AdminPageShell from "../shared/components/layout/AdminPageShell";
+import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import { Filter, Search, X } from "lucide-react";
+import { TextField, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+
+const fieldSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "10px",
+    "&:hover fieldset": { borderColor: "#bb3d4b" },
+    "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
+  },
+  "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
+};
 
 const VentasInvitados = () => {
   const { rowsVentasInvitados } = useTheContext();
-  const { handleGetAllSalesInvitados, loading } = useVentasInvitados();
-  const [paginationModel, setPaginationModel] = useState<{
-    page: number;
-    pageSize: number;
-  }>({
-    page: 0,
-    pageSize: 25,
-  });
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
-  useEffect(() => {
-    handleGetAllSalesInvitados(paginationModel);
-  }, [paginationModel.page, paginationModel.pageSize]);
+  const filtered = useMemo(() => {
+    return rowsVentasInvitados.filter((item) => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        String(item.referencia ?? "").toLowerCase().includes(q) ||
+        String(item.email ?? "").toLowerCase().includes(q) ||
+        String(item.name ?? "").toLowerCase().includes(q) ||
+        String(item.lastname ?? "").toLowerCase().includes(q);
 
-  const rowsWithId = rowsVentasInvitados.data.map((item, index) => ({
+      const payStatus = item.statusPay ?? item.status ?? "";
+      const matchesStatus =
+        statusFilter === "all" || payStatus === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [rowsVentasInvitados, search, statusFilter]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  const rowsWithId = paginated.map((item, index) => ({
     email: item.email,
     monto: item.monto,
     description: item.description,
@@ -45,48 +70,86 @@ const VentasInvitados = () => {
     statusShip: item.statusShip,
   }));
 
-  const { columns } = GridVentasInvitados({
-    rows: rowsWithId,
-  });
+  const { columns } = GridVentasInvitados({ rows: rowsWithId });
 
-  const handlePaginationChange = (model: {
-    page: number;
-    pageSize: number;
-  }) => {
-    setPaginationModel(model);
-  };
-
-  const hasRows =
-    rowsVentasInvitados.totalRows > 0 || rowsVentasInvitados.data.length > 0;
+  const paginationBlock = (
+    <ModernPagination
+      page={page}
+      pageCount={pageCount}
+      totalItems={filtered.length}
+      pageSize={pageSize}
+      onPageChange={setPage}
+      label="ventas invitado"
+    />
+  );
 
   return (
-    <section className="admin-page admin-page--flush-top">
-      <div className="admin-panel">
-        <div className="admin-panel__header">
-          <h2 className="admin-panel__title">Ventas invitados</h2>
-          <p className="admin-panel__subtitle">
-            Órdenes generadas por enlace de pago sin registro
-          </p>
-        </div>
-        <div className="admin-panel__body">
-          {hasRows || loading ? (
-            <TableComponent
-              loading={loading}
-              fitColumns
-              paginationModel={paginationModel}
-              handlePaginationChange={handlePaginationChange}
-              totalRows={rowsVentasInvitados.totalRows}
-              columnsDataGrid={columns}
-              rowsDataGrid={rowsWithId}
+    <AdminPageShell
+      title="Ventas (Invitados)"
+      subtitle="Órdenes generadas por links de pago para invitados"
+      filters={
+        <>
+          <div className="admin-filters-header">
+            <Filter size={16} />
+            <span>Filtros</span>
+          </div>
+          <div className="admin-filters-grid">
+            <TextField
+              size="small"
+              label="Referencia, nombre o email"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              sx={fieldSx}
+              InputProps={{
+                startAdornment: <Search size={18} className="admin-filter-icon" />,
+              }}
             />
-          ) : (
-            <Alert severity="info" sx={{ borderRadius: 2 }}>
-              Sin ventas de invitados registradas
-            </Alert>
-          )}
+            <FormControl size="small" sx={fieldSx}>
+              <InputLabel>Estatus pago</InputLabel>
+              <Select
+                label="Estatus pago"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="paid">Pagado</MenuItem>
+                <MenuItem value="payment_pending">Pendiente</MenuItem>
+                <MenuItem value="cancelled">Cancelado</MenuItem>
+              </Select>
+            </FormControl>
+            <button
+              type="button"
+              className="admin-btn-ghost"
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("all");
+                setPage(1);
+              }}
+              disabled={!search && statusFilter === "all"}
+            >
+              <X size={16} />
+              Limpiar
+            </button>
+          </div>
+        </>
+      }
+      paginationTop={rowsWithId.length ? paginationBlock : undefined}
+      paginationBottom={rowsWithId.length ? paginationBlock : undefined}
+    >
+      {rowsWithId.length > 0 ? (
+        <TableComponent columnsDataGrid={columns} rowsDataGrid={rowsWithId} hideFooter />
+      ) : (
+        <div className="admin-empty-state">
+          <Alert severity="info">Sin ventas de invitados que mostrar</Alert>
         </div>
-      </div>
-    </section>
+      )}
+    </AdminPageShell>
   );
 };
 

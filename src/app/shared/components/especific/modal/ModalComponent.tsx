@@ -1,25 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
-import {
-  CheckCircle,
-  AlertCircle,
-  AlertTriangle,
-  Info,
-  X,
-} from "lucide-react";
-import { Modal } from "@mui/material";
+import { useState, useEffect } from "react";
+import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { MdCheckCircle, MdError, MdInfo, MdWarningAmber } from "react-icons/md";
+import { Modal, Typography } from "@mui/material";
 import Box from "@mui/material/Box";
 
 type ModalType = "success" | "error" | "warning" | "info";
-type ModalSize = "sm" | "md" | "lg" | "xl";
-
-const SIZE_MAP: Record<ModalSize, { maxWidth: number; minWidth: number }> = {
-  sm: { maxWidth: 420, minWidth: 320 },
-  md: { maxWidth: 560, minWidth: 360 },
-  lg: { maxWidth: 760, minWidth: 480 },
-  xl: { maxWidth: 980, minWidth: 560 },
-};
 
 const ModalComponent = ({
   isOpen,
@@ -27,47 +14,63 @@ const ModalComponent = ({
   type = "success",
   title,
   content,
+  children,
   onConfirm,
   showActions,
-  size = "md",
-  confirmLabel = "Aceptar",
-  showCancel = true,
 }: {
   isOpen: boolean;
   onClose: () => void;
   type: ModalType;
   title: string;
-  content: React.ReactNode;
-  children?: React.ReactNode;
+  content: any;
+  children: React.ReactNode;
   onConfirm: () => void;
   showActions: boolean;
-  size?: ModalSize;
-  confirmLabel?: string;
-  showCancel?: boolean;
 }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  // useEffect(() => {
+  //   if (isOpen) {
+  //     setIsVisible(true);
+  //     document.body.style.overflow = "hidden";
+  //   } else {
+  //     document.body.style.overflow = "unset";
+  //   }
+
+  //   return () => {
+  //     document.body.style.overflow = "unset";
+  //   };
+  // }, [isOpen, type]);
+
   useEffect(() => {
-    if (!isOpen) return;
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      setIsVisible(true);
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.position = "fixed";
+      document.documentElement.style.top = `-${scrollY}px`;
+      document.documentElement.style.width = "100%";
 
-    const scrollY = window.scrollY;
-    document.documentElement.style.overflow = "hidden";
-    document.documentElement.style.position = "fixed";
-    document.documentElement.style.top = `-${scrollY}px`;
-    document.documentElement.style.width = "100%";
-
-    return () => {
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.position = "";
-      document.documentElement.style.top = "";
-      window.scrollTo(0, scrollY);
-    };
-  }, [isOpen]);
+      return () => {
+        document.documentElement.style.overflow = "";
+        document.documentElement.style.position = "";
+        document.documentElement.style.top = "";
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen, type]);
 
   const handleClose = () => {
-    onClose();
+    setIsVisible(false);
+    setTimeout(() => {
+      onClose();
+    }, 200);
   };
 
   const handleConfirm = () => {
-    onConfirm?.();
+    if (onConfirm) {
+      onConfirm();
+    }
     handleClose();
   };
 
@@ -75,27 +78,35 @@ const ModalComponent = ({
     const configs = {
       success: {
         icon: CheckCircle,
-        accent: "#16a34a",
-        soft: "#f0fdf4",
-        border: "#bbf7d0",
+        bgColor: "bg-green-50",
+        iconColor: "text-green-500",
+        borderColor: "border-green-200",
+        buttonColor: "bg-green-600 hover:bg-green-700",
+        type: "success",
       },
       error: {
         icon: AlertCircle,
-        accent: "#dc2626",
-        soft: "#fef2f2",
-        border: "#fecaca",
+        bgColor: "bg-red-50",
+        iconColor: "text-red-500",
+        borderColor: "border-red-200",
+        buttonColor: "bg-red-600 hover:bg-red-700",
+        type: "error",
       },
       warning: {
         icon: AlertTriangle,
-        accent: "#d97706",
-        soft: "#fffbeb",
-        border: "#fde68a",
+        bgColor: "bg-yellow-50",
+        iconColor: "text-yellow-500",
+        borderColor: "border-yellow-200",
+        buttonColor: "bg-yellow-600 hover:bg-yellow-700",
+        type: "warning",
       },
       info: {
         icon: Info,
-        accent: "#bb3d4b",
-        soft: "#fdf2f3",
-        border: "#f5c6cb",
+        bgColor: "bg-blue-50",
+        iconColor: "text-blue-500",
+        borderColor: "border-blue-200",
+        buttonColor: "bg-blue-600 hover:bg-blue-700",
+        type: "info",
       },
     };
     return configs[type] || configs.info;
@@ -103,109 +114,107 @@ const ModalComponent = ({
 
   const config = getTypeConfig();
   const IconComponent = config.icon;
-  const dimensions = SIZE_MAP[size] ?? SIZE_MAP.md;
 
   if (!isOpen) return null;
 
   return (
-    <Modal
-      className="admin-modal-root"
-      open={isOpen}
-      onClose={handleClose}
-      aria-labelledby="admin-modal-title"
-      aria-describedby="admin-modal-description"
-      sx={{ zIndex: 1400 }}
-      slotProps={{
-        backdrop: {
-          sx: {
-            backgroundColor: "rgba(15, 23, 42, 0.55)",
-            backdropFilter: "blur(4px)",
-          },
-        },
-      }}
-    >
-      <Box
-        className="admin-modal"
-        onClick={(e) => e.stopPropagation()}
+    <div className={`fixed inset-0 flex items-center justify-center w-auto`}>
+      {/* <div
+        className={`absolute inset-0 bg-black transition-opacity duration-300 z-50 ${
+          isVisible
+            ? "opacity-50 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+        onClick={handleClose}
+      > */}
+      <Modal
+        className="flex justify-center items-center"
+        open={isVisible}
+        onClick={handleClose}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
         sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "calc(100% - 2rem)",
-          maxWidth: dimensions.maxWidth,
-          maxHeight: "calc(100vh - 2.5rem)",
-          display: "flex",
-          flexDirection: "column",
-          borderRadius: "20px",
-          overflow: "hidden",
-          boxShadow:
-            "0 24px 48px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(255,255,255,0.06)",
-          bgcolor: "#fff",
-          outline: "none",
+          zIndex: 1300, // z-index por defecto de MUI Modal
+        }}
+        BackdropProps={{
+          style: {
+            backgroundColor: "rgba(0, 0, 0, 0.5)", // Tu fondo negro con opacidad
+          },
         }}
       >
-        <div
-          className="admin-modal__header"
-          style={{
-            borderBottomColor: config.border,
-            background: `linear-gradient(135deg, ${config.soft} 0%, #ffffff 55%)`,
+        <Box
+          onClick={(e) => e.stopPropagation()}
+          sx={{
+            background: "white",
+            width: "fit-content",
+            maxWidth: "800px",
+            maxHeight: "90vh",
+            overflowY: "auto",
+            padding: "10px",
+            borderRadius: "10px",
           }}
         >
-          <div className="admin-modal__header-main">
-            <span
-              className="admin-modal__type-icon"
+          <div className="flex justify-end items-center">
+            <button
+              onClick={handleClose}
+              className="cursor-pointer font-bold"
               style={{
-                color: config.accent,
-                background: config.soft,
-                borderColor: config.border,
+                padding: "10px",
+                fontSize: "18px",
               }}
             >
-              <IconComponent size={20} strokeWidth={2.25} />
-            </span>
-            <div className="admin-modal__titles">
-              <p className="admin-modal__eyebrow">PCinBOX Admin</p>
-              <h2 id="admin-modal-title" className="admin-modal__title">
-                {title}
-              </h2>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="admin-modal__close"
-            aria-label="Cerrar modal"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div id="admin-modal-description" className="admin-modal__body">
-          {content}
-        </div>
-
-        {showActions ? (
-          <div className="admin-modal__footer">
-            <button
-              type="button"
-              className="admin-btn admin-btn--primary admin-modal__btn-primary"
-              onClick={handleConfirm}
-            >
-              {confirmLabel}
+              X
             </button>
-            {showCancel ? (
+          </div>
+          <Typography
+            id="modal-modal-title"
+            variant="h6"
+            component="h2"
+            sx={{
+              textAlign: "center",
+              color: "#bb3d4b",
+              fontWeight: "bold",
+              fontSize: "25px",
+            }}
+          >
+            {title}
+          </Typography>
+          <div
+            className="flex justify-center"
+            style={{
+              padding: "10px",
+
+              marginBottom: "10px",
+            }}
+          >
+            {content}
+          </div>
+
+          {showActions && showActions == true && (
+            <div
+              className="flex justify-center items-center gap-3"
+              style={{ padding: "10px" }}
+            >
               <button
-                type="button"
-                className="admin-btn admin-btn--secondary admin-modal__btn-secondary"
+                className="bg-[#bb3d4b] text-white font-bold rounded cursor-pointer"
+                style={{ padding: "10px" }}
+                onClick={handleConfirm}
+              >
+                Aceptar
+              </button>
+              <button
+                className="bg-[#808080] text-white font-bold rounded cursor-pointer"
+                style={{ padding: "10px" }}
                 onClick={handleClose}
               >
                 Cancelar
               </button>
-            ) : null}
-          </div>
-        ) : null}
-      </Box>
-    </Modal>
+            </div>
+          )}
+        </Box>
+      </Modal>
+      {/* </div> */}
+    </div>
   );
 };
 
