@@ -348,6 +348,27 @@ html[data-admin-sidebar="closed"] .admin-layout {
   max-width: 100%;
 }
 
+.admin-order-products-modal__summary {
+  margin: 0;
+}
+
+.admin-order-cost-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  font-size: 0.8125rem;
+  color: #4b5563;
+}
+
+.admin-order-cost-summary__total {
+  font-weight: 600;
+  color: #111827;
+}
+
 .admin-order-products-modal__section-title {
   margin: 0;
   font-size: 0.75rem;

@@ -20,6 +20,9 @@ import {
   ModalDetailSection,
 } from "../modal/ModalDetail";
 import {
+  formatOrderMoney,
+} from "@/app/utils/orderCostBreakdown";
+import {
   MapPin,
   Package,
   ShieldCheck,
@@ -215,6 +218,21 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                   </div>
                 </div>
               ) : null}
+
+              <ModalDetailGrid columns={2}>
+                {Number(item.address?.shippingCost ?? 0) > 0 ? (
+                  <ModalDetailField
+                    label="Costo de envío"
+                    value={formatOrderMoney(Number(item.address.shippingCost))}
+                  />
+                ) : null}
+                {Number(item.address?.insuranceCost ?? 0) > 0 ? (
+                  <ModalDetailField
+                    label="Costo de seguro"
+                    value={formatOrderMoney(Number(item.address.insuranceCost))}
+                  />
+                ) : null}
+              </ModalDetailGrid>
 
               <div className="admin-product-card__tags">
                 {item.address?.requireInsurance === 1 ? (
