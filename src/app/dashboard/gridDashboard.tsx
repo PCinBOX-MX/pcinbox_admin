@@ -54,6 +54,11 @@ const GridDashboard = ({
   const { formatCurrency } = UtilsService();
   const { setDataModal, rowsVentas, setRowsVentas } = useTheContext();
 
+  const centeredColumn = {
+    align: "center" as const,
+    headerAlign: "center" as const,
+  };
+
   const columns: GridColDef[] = useMemo(
     () => [
       {
@@ -61,11 +66,11 @@ const GridDashboard = ({
         headerName: "No. Orden",
         flex: 0.55,
         minWidth: 82,
+        ...centeredColumn,
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} ${styles.cellCol}`}
-              style={{ padding: "6px 4px" }}
+              className={`${styles.cell} ${styles.cellCol} ${styles.truncateCell}`}
             >
               <span className={styles.cellText}>
                 #{params.value}
@@ -79,6 +84,7 @@ const GridDashboard = ({
         headerName: "¿Factura?",
         flex: 0.5,
         minWidth: 72,
+        ...centeredColumn,
         renderCell: (params) => {
           return (
             <div
@@ -121,6 +127,7 @@ const GridDashboard = ({
         headerName: "Datos cliente",
         flex: 0.95,
         minWidth: 105,
+        ...centeredColumn,
 
         renderCell: (params) => {
           return (
@@ -158,10 +165,11 @@ const GridDashboard = ({
         flex: 0.85,
         minWidth: 95,
         headerName: "Productos",
+        ...centeredColumn,
         renderCell: (params) => {
           return (
             <div
-              className={`${styles.truncateCell} ${styles.cellCol}`}
+              className={`${styles.cell} ${styles.cellCol} ${styles.truncateCell}`}
               style={{ padding: "10px" }}
               onClick={() => {
                 const orderRow = rowsVentas.data.find(
@@ -287,6 +295,7 @@ const GridDashboard = ({
         headerName: "Pago total",
         flex: 0.65,
         minWidth: 92,
+        ...centeredColumn,
         renderCell: (params) => {
           const costs = getAdminOrderCostBreakdown(params.row);
           const hasShippingCosts =
@@ -294,8 +303,7 @@ const GridDashboard = ({
 
           return (
             <div
-              className={`${styles.truncateCell} ${styles.cellCol}`}
-              style={{ padding: "6px 4px" }}
+              className={`${styles.cell} ${styles.cellCol} ${styles.truncateCell}`}
             >
               <span className={styles.cellTextMuted}>
                 {formatCurrency(Number(params.value))}
@@ -508,6 +516,7 @@ const GridDashboard = ({
         headerName: "Método de pago",
         flex: 0.9,
         minWidth: 110,
+        ...centeredColumn,
         renderCell: (params) => {
           return (
             <div
@@ -570,6 +579,7 @@ const GridDashboard = ({
         headerName: "Fecha de compra",
         flex: 1,
         minWidth: 125,
+        ...centeredColumn,
         renderCell: (params) => {
           if (params.value) {
             return (
@@ -593,6 +603,7 @@ const GridDashboard = ({
         headerName: "Acciones",
         flex: 1.15,
         minWidth: 155,
+        ...centeredColumn,
         renderCell: (params) => {
           const currentRow = rows.data?.find(
             (row: any) => row.idShipment === params.row.idShipment,

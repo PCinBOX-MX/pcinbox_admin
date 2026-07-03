@@ -1,33 +1,7 @@
 "use client";
 
 import { DataGrid, GridColDef, GridRowsProp } from "@mui/x-data-grid";
-
-const tableSx = {
-  border: "none",
-  "& .MuiDataGrid-columnHeaders": {
-    backgroundColor: "#f8fafc",
-    borderBottom: "1px solid #e8ecf4",
-    minHeight: "52px !important",
-  },
-  "& .MuiDataGrid-columnHeaderTitle": {
-    fontSize: "0.8rem",
-    fontWeight: 600,
-    color: "#64748b",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-  },
-  "& .MuiDataGrid-cell": {
-    borderBottom: "1px solid #f1f5f9",
-    fontSize: "0.9rem",
-    color: "#334155",
-  },
-  "& .MuiDataGrid-row:hover": {
-    backgroundColor: "#fafbfd",
-  },
-  "& .MuiDataGrid-footerContainer": {
-    borderTop: "1px solid #e8ecf4",
-  },
-};
+import { dataGridSx } from "@/app/theme/adminTheme";
 
 const TableComponent = ({
   rowsDataGrid,
@@ -69,7 +43,7 @@ const TableComponent = ({
         }}
         rowHeight={72}
         sx={{
-          ...tableSx,
+          ...dataGridSx,
           width: "100%",
           minWidth: 0,
           border: "none",

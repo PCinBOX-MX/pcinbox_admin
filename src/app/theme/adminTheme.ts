@@ -181,6 +181,12 @@ export const dataGridSx = {
   "& .MuiDataGrid-columnHeader": {
     px: 1.5,
   },
+  "& .MuiDataGrid-columnHeaderTitleContainer": {
+    justifyContent: "center",
+  },
+  "& .MuiDataGrid-columnHeaderTitleContainerContent": {
+    justifyContent: "center",
+  },
   "& .MuiDataGrid-columnHeaderTitle": {
     fontSize: "0.72rem",
     fontWeight: 700,
@@ -201,6 +207,13 @@ export const dataGridSx = {
     fontSize: "0.875rem",
     color: "#374151",
     lineHeight: 1.45,
+    textAlign: "center",
+  },
+  "& .MuiDataGrid-cellContent": {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
   "& .MuiDataGrid-row": {
     transition: "background-color 0.15s ease",

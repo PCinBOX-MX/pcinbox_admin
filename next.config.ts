@@ -18,9 +18,17 @@ function env(key: string): string {
 }
 
 const nextConfig: NextConfig = {
+  
   images: {
     unoptimized: true,
-    domains: ["authjs.dev", "ik.imagekit.io", "lh3.googleusercontent.com"],
+    domains: [
+      "img.icons8.com",
+      "authjs.dev",
+      "ik.imagekit.io",
+      "lh3.googleusercontent.com",
+      "commons.wikimedia.org",
+      "upload.wikimedia.org",
+    ],
   },
   env: {
     NEXT_PUBLIC_NODE_ENV: env("NEXT_PUBLIC_NODE_ENV"),
