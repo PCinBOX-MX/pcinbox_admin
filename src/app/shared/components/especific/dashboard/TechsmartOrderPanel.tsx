@@ -10,7 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
+  InputAdornment,
   Stack,
   Step,
   StepLabel,
@@ -64,7 +64,20 @@ const GUIDE_STATUS_LABELS: Record<string, string> = {
   failed: "Error",
 };
 
-const CARRIER_OPTIONS = ["Estafeta", "Paquete Express"];
+function getGuideCarrierLabel(guide: TechsmartGuideI): string {
+  if (guide.carrierName?.trim()) {
+    return guide.carrierName.trim();
+  }
+
+  switch (guide.shippingMethod) {
+    case "estafeta":
+      return "Estafeta";
+    case "paqueteexpress":
+      return "Paquete Express";
+    default:
+      return "—";
+  }
+}
 
 function getActiveStep(status: string): number {
   if (status === "invoiced") return 3;
@@ -113,12 +126,11 @@ const TechsmartOrderPanel = ({
     Record<
       number,
       {
-        guiaPedido: string;
-        nombrePaqueteria: string;
         pdfFile: File | null;
       }
     >
   >({});
+  const [linkingGuideId, setLinkingGuideId] = useState<number | null>(null);
 
   const refreshStatus = useCallback(async () => {
     setLoadingStatus(true);
@@ -150,7 +162,7 @@ const TechsmartOrderPanel = ({
     String(statusPay || "").toLowerCase(),
   );
   const status = String(techsmartOrder?.status || "pending");
-  const isBusy = Boolean(loadingAction) || loadingStatus;
+  const isBusy = Boolean(loadingAction) || loadingStatus || linkingGuideId != null;
   const activeStep = useMemo(() => getActiveStep(status), [status]);
   const referenceLocked = Boolean(techsmartOrder?.folioPedido);
   const referenceValue = numOrdenCompraInput.trim();
@@ -206,8 +218,6 @@ const TechsmartOrderPanel = ({
     setGuideForms((prev) => ({
       ...prev,
       [guideId]: {
-        guiaPedido: prev[guideId]?.guiaPedido ?? "",
-        nombrePaqueteria: prev[guideId]?.nombrePaqueteria ?? CARRIER_OPTIONS[0],
         pdfFile: prev[guideId]?.pdfFile ?? null,
         ...patch,
       },
@@ -215,26 +225,42 @@ const TechsmartOrderPanel = ({
   };
 
   const handleLinkGuideUnit = async (guide: TechsmartGuideI) => {
-    const form = guideForms[guide.idTechsmartGuide] ?? {
-      guiaPedido: guide.guiaPedido ?? "",
-      nombrePaqueteria: guide.nombrePaqueteria ?? CARRIER_OPTIONS[0],
-      pdfFile: null,
-    };
+    if (linkingGuideId != null) {
+      return;
+    }
 
-    const result = await linkGuideUnit({
-      idTechsmartGuide: guide.idTechsmartGuide,
-      guiaPedido: form.guiaPedido,
-      nombrePaqueteria: form.nombrePaqueteria,
-      pdfFile: form.pdfFile,
-    });
+    const form = guideForms[guide.idTechsmartGuide] ?? { pdfFile: null };
+    const trackingNumber = String(guide.trackingNumber || "").trim();
 
-    if (result) {
-      setTechsmartOrder(result.techsmartOrder);
-      setGuides(result.guides);
-      setGuidesSummary(result.guidesSummary);
-      onOrderUpdated?.(result.techsmartOrder);
-    } else {
-      await refreshStatus();
+    if (!trackingNumber) {
+      return;
+    }
+
+    setLinkingGuideId(guide.idTechsmartGuide);
+
+    try {
+      const result = await linkGuideUnit({
+        idTechsmartGuide: guide.idTechsmartGuide,
+        guiaPedido: trackingNumber,
+        nombrePaqueteria: getGuideCarrierLabel(guide),
+        pdfFile: form.pdfFile,
+      });
+
+      if (result) {
+        setTechsmartOrder(result.techsmartOrder);
+        setGuides(result.guides);
+        setGuidesSummary(result.guidesSummary);
+        onOrderUpdated?.(result.techsmartOrder);
+        setGuideForms((prev) => {
+          const next = { ...prev };
+          delete next[guide.idTechsmartGuide];
+          return next;
+        });
+      } else {
+        await refreshStatus();
+      }
+    } finally {
+      setLinkingGuideId(null);
     }
   };
 
@@ -309,6 +335,21 @@ const TechsmartOrderPanel = ({
             disabled={referenceLocked || isBusy}
             fullWidth
             required
+            helperText={
+              loadingAction === "saveReference"
+                ? "Guardando referencia..."
+                : undefined
+            }
+            slotProps={{
+              input: {
+                endAdornment:
+                  loadingAction === "saveReference" ? (
+                    <InputAdornment position="end">
+                      <CircularProgress size={18} />
+                    </InputAdornment>
+                  ) : undefined,
+              },
+            }}
             sx={{
               "& .MuiOutlinedInput-root": { borderRadius: "12px" },
             }}
@@ -390,11 +431,14 @@ const TechsmartOrderPanel = ({
           <p className={panelStyles.guidesSectionTitle}>Paso 2 · Guías</p>
           {guides.map((guide) => {
             const form = guideForms[guide.idTechsmartGuide] ?? {
-              guiaPedido: guide.guiaPedido ?? "",
-              nombrePaqueteria: guide.nombrePaqueteria ?? CARRIER_OPTIONS[0],
               pdfFile: null,
             };
             const isLinked = guide.status === "linked";
+            const trackingNumber = String(guide.trackingNumber || "").trim();
+            const carrierLabel = getGuideCarrierLabel(guide);
+            const isLinkingThisGuide =
+              linkingGuideId === guide.idTechsmartGuide ||
+              loadingAction === `guide-${guide.idTechsmartGuide}`;
 
             return (
               <div
@@ -434,41 +478,31 @@ const TechsmartOrderPanel = ({
 
                 {!isLinked && (
                   <Stack spacing={1.5}>
-                    <TextField
+                    <div className={panelStyles.shipmentInfo}>
+                      <p>
+                        <strong>Guía carrier:</strong>{" "}
+                        {trackingNumber || "Sin asignar en el envío"}
+                      </p>
+                      <p>
+                        <strong>Paquetería:</strong> {carrierLabel}
+                      </p>
+                      <p className={panelStyles.shipmentInfoHint}>
+                        Se toma del shipment de la orden. El PDF puede incluir
+                        la referencia TechSmart en base64.
+                      </p>
+                    </div>
+                    <Button
+                      component="label"
                       size="small"
-                      label="Número de guía (carrier)"
-                      value={form.guiaPedido}
-                      onChange={(event) =>
-                        updateGuideForm(guide.idTechsmartGuide, {
-                          guiaPedido: event.target.value,
-                        })
-                      }
-                      fullWidth
-                    />
-                    <TextField
-                      size="small"
-                      select
-                      label="Paquetería"
-                      value={form.nombrePaqueteria}
-                      onChange={(event) =>
-                        updateGuideForm(guide.idTechsmartGuide, {
-                          nombrePaqueteria: event.target.value,
-                        })
-                      }
-                      fullWidth
+                      variant="outlined"
+                      disabled={isLinkingThisGuide || isBusy}
                     >
-                      {CARRIER_OPTIONS.map((carrier) => (
-                        <MenuItem key={carrier} value={carrier}>
-                          {carrier}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    <Button component="label" size="small" variant="outlined">
                       {form.pdfFile ? form.pdfFile.name : "Subir PDF de guía (opcional)"}
                       <input
                         hidden
                         type="file"
                         accept="application/pdf"
+                        disabled={isLinkingThisGuide || isBusy}
                         onChange={(event) =>
                           updateGuideForm(guide.idTechsmartGuide, {
                             pdfFile: event.target.files?.[0] ?? null,
@@ -484,12 +518,20 @@ const TechsmartOrderPanel = ({
                         !isPaid ||
                         !hasNumOrdenCompra ||
                         !techsmartOrder?.folioPedido ||
-                        !form.guiaPedido.trim()
+                        !trackingNumber ||
+                        isLinkingThisGuide
                       }
                       onClick={() => handleLinkGuideUnit(guide)}
                     >
-                      {loadingAction === `guide-${guide.idTechsmartGuide}` ? (
-                        <CircularProgress size={16} color="inherit" />
+                      {isLinkingThisGuide ? (
+                        <>
+                          <CircularProgress
+                            size={16}
+                            color="inherit"
+                            sx={{ mr: 1 }}
+                          />
+                          Vinculando guía...
+                        </>
                       ) : (
                         "Vincular guía"
                       )}

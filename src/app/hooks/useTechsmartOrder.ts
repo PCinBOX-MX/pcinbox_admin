@@ -146,16 +146,20 @@ const useTechsmartOrder = () => {
   const linkGuideUnit = useCallback(
     async (payload: {
       idTechsmartGuide: number;
-      guiaPedido: string;
-      nombrePaqueteria: string;
+      guiaPedido?: string;
+      nombrePaqueteria?: string;
       pdfFile?: File | null;
     }) => {
       setLoadingAction(`guide-${payload.idTechsmartGuide}`);
       try {
         const formData = new FormData();
         formData.append("idTechsmartGuide", String(payload.idTechsmartGuide));
-        formData.append("guiaPedido", payload.guiaPedido);
-        formData.append("nombrePaqueteria", payload.nombrePaqueteria);
+        if (payload.guiaPedido?.trim()) {
+          formData.append("guiaPedido", payload.guiaPedido.trim());
+        }
+        if (payload.nombrePaqueteria?.trim()) {
+          formData.append("nombrePaqueteria", payload.nombrePaqueteria.trim());
+        }
         if (payload.pdfFile) {
           formData.append("pdfGuia", payload.pdfFile);
         }

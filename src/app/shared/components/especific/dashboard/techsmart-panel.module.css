@@ -166,3 +166,24 @@
   line-height: 1.5;
   color: #374151;
 }
+
+.shipmentInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
+.shipmentInfo p {
+  margin: 0;
+}
+
+.shipmentInfoHint {
+  font-size: 0.75rem !important;
+  color: #64748b !important;
+}

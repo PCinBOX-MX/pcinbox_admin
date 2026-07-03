@@ -47,11 +47,15 @@ export interface SalesI {
       storeId: number;
       shipping_method: any;
       requireInsurance: number;
+      shippingCost?: number;
+      insuranceCost?: number;
       trackingNumber: any;
       branche: any;
     };
   }[];
   totalAmount: any;
+  shippingTotal?: number;
+  insuranceTotal?: number;
   statusPay: any;
   statusShip: any;
   billing: any;

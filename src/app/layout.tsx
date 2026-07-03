@@ -1,6 +1,7 @@
 import "./globals.css";
 import { GlobalProvider } from "./hooks/global.hook";
 import AppWrapper from "./wrapper";
+import AppEmotionCacheProvider from "./providers/AppEmotionCacheProvider";
 
 export default function RootLayout({
   children,
@@ -11,7 +12,9 @@ export default function RootLayout({
     <GlobalProvider>
       <html lang="es">
         <body>
-          <AppWrapper>{children}</AppWrapper>
+          <AppEmotionCacheProvider>
+            <AppWrapper>{children}</AppWrapper>
+          </AppEmotionCacheProvider>
         </body>
       </html>
     </GlobalProvider>

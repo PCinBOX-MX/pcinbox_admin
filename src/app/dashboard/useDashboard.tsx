@@ -63,6 +63,16 @@ const useDashboard = () => {
                 parseFloat(existing.totalAmount) + parseFloat(item.totalAmount)
               ).toFixed(2);
 
+              if (existing.shippingTotal == null && item.shippingTotal != null) {
+                existing.shippingTotal = item.shippingTotal;
+              }
+              if (
+                existing.insuranceTotal == null &&
+                item.insuranceTotal != null
+              ) {
+                existing.insuranceTotal = item.insuranceTotal;
+              }
+
               products.forEach((product: any) => {
                 const existingProduct = existing.products.find(
                   (p) => p.productName === product.productName,

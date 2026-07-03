@@ -18,6 +18,9 @@ export interface TechsmartGuideI {
   requiresOwnGuide: boolean;
   techsmartReference: string | null;
   internalGuideNumber: string;
+  trackingNumber?: string | null;
+  shippingMethod?: string | null;
+  carrierName?: string | null;
   guiaPedido: string | null;
   nombrePaqueteria: string | null;
   status: TechsmartGuideStatus | string;

@@ -11,6 +11,7 @@ import useProveedores from "@/app/proveedores/useProveedores";
 import useDashboard from "@/app/dashboard/useDashboard";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import useVentasInvitados from "@/app/ventasInvitados/useVentasInvitados";
+import { isAuthPathname } from "@/app/utils/authRoutes";
 
 export default function AppContent({
   children,
@@ -235,10 +236,7 @@ export default function AppContent({
     }
   }, [pathName]);
 
-  const isAuthPage =
-    pathName === "/" ||
-    pathName === "/features/auth/Login" ||
-    pathName === "/features/auth/Register";
+  const isAuthPage = isAuthPathname(pathName);
 
   return (
     <div className={isAuthPage ? "auth-page-shell" : "admin-layout"}>

@@ -24,6 +24,10 @@ import { useTheContext } from "../hooks/global.hook";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import DataProducts from "../shared/components/especific/dashboard/DataProducts";
 import TechsmartOrderPanel from "../shared/components/especific/dashboard/TechsmartOrderPanel";
+import {
+  formatOrderMoney,
+  getAdminOrderCostBreakdown,
+} from "../utils/orderCostBreakdown";
 import OrderCancelSection from "../components/admin/OrderCancelSection";
 import {
   BillingDetailsContent,
@@ -178,6 +182,40 @@ const GridDashboard = ({
                     setDataModal((prev) => ({ ...prev, isOpen: false })),
                   content: (
                     <div className="admin-order-products-modal">
+                      {orderRow ? (
+                        <section className="admin-order-products-modal__summary">
+                          {(() => {
+                            const costs = getAdminOrderCostBreakdown(orderRow);
+                            if (
+                              costs.shippingTotal <= 0 &&
+                              costs.insuranceTotal <= 0
+                            ) {
+                              return null;
+                            }
+
+                            return (
+                              <div className="admin-order-cost-summary">
+                                {costs.shippingTotal > 0 ? (
+                                  <span>
+                                    Envío:{" "}
+                                    {formatOrderMoney(costs.shippingTotal)}
+                                  </span>
+                                ) : null}
+                                {costs.insuranceTotal > 0 ? (
+                                  <span>
+                                    Seguro:{" "}
+                                    {formatOrderMoney(costs.insuranceTotal)}
+                                  </span>
+                                ) : null}
+                                <span className="admin-order-cost-summary__total">
+                                  Total orden:{" "}
+                                  {formatOrderMoney(costs.grandTotal)}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </section>
+                      ) : null}
                       {orderRow?.hasTechsmartProducts && can("techsmart.manage") && (
                         <section className="admin-order-products-modal__techsmart">
                           <h3 className="admin-order-products-modal__section-title">
@@ -250,6 +288,10 @@ const GridDashboard = ({
         flex: 0.65,
         minWidth: 92,
         renderCell: (params) => {
+          const costs = getAdminOrderCostBreakdown(params.row);
+          const hasShippingCosts =
+            costs.shippingTotal > 0 || costs.insuranceTotal > 0;
+
           return (
             <div
               className={`${styles.truncateCell} ${styles.cellCol}`}
@@ -258,6 +300,19 @@ const GridDashboard = ({
               <span className={styles.cellTextMuted}>
                 {formatCurrency(Number(params.value))}
               </span>
+              {hasShippingCosts ? (
+                <span className={styles.orderCostHint}>
+                  {costs.shippingTotal > 0
+                    ? `Envío ${formatOrderMoney(costs.shippingTotal)}`
+                    : null}
+                  {costs.shippingTotal > 0 && costs.insuranceTotal > 0
+                    ? " · "
+                    : null}
+                  {costs.insuranceTotal > 0
+                    ? `Seguro ${formatOrderMoney(costs.insuranceTotal)}`
+                    : null}
+                </span>
+              ) : null}
             </div>
           );
         },
