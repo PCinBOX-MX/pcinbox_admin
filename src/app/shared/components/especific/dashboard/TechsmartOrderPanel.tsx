@@ -162,7 +162,11 @@ const TechsmartOrderPanel = ({
     String(statusPay || "").toLowerCase(),
   );
   const status = String(techsmartOrder?.status || "pending");
-  const isBusy = Boolean(loadingAction) || loadingStatus || linkingGuideId != null;
+  const isPreparingOrder =
+    loadingAction === "preview" || loadingAction === "saveReference";
+  const isGeneratingOrder = loadingAction === "generate";
+  const isBusy =
+    Boolean(loadingAction) || loadingStatus || linkingGuideId != null;
   const activeStep = useMemo(() => getActiveStep(status), [status]);
   const referenceLocked = Boolean(techsmartOrder?.folioPedido);
   const referenceValue = numOrdenCompraInput.trim();
@@ -191,9 +195,9 @@ const TechsmartOrderPanel = ({
   };
 
   const handleConfirmGenerate = async () => {
-    setPreviewOpen(false);
     const value = numOrdenCompraInput.trim();
     const updated = await generateOrder(idOrder, value);
+    setPreviewOpen(false);
     if (updated) {
       setTechsmartOrder(updated);
       onOrderUpdated?.(updated);
@@ -267,7 +271,24 @@ const TechsmartOrderPanel = ({
   const previewProducts = previewData?.pedido?.productos ?? [];
 
   return (
-    <div className={panelStyles.panel}>
+    <div
+      className={`${panelStyles.panel} ${
+        isGeneratingOrder ? panelStyles.panelBusy : ""
+      }`}
+    >
+      {isGeneratingOrder ? (
+        <div className={panelStyles.processingOverlay} aria-live="polite">
+          <CircularProgress size={36} sx={{ color: "#bb3d4b" }} />
+          <p className={panelStyles.processingOverlayTitle}>
+            Generando pedido en TechSmart…
+          </p>
+          <p className={panelStyles.processingOverlayHint}>
+            Validando existencias y enviando al webservice. Puede tardar varios
+            minutos; no cierres esta ventana.
+          </p>
+        </div>
+      ) : null}
+
       <div className={panelStyles.header}>
         <div className={panelStyles.headerLeft}>
           <span className={panelStyles.title}>TechSmart</span>
@@ -360,11 +381,21 @@ const TechsmartOrderPanel = ({
             disabled={isBusy || !canStartOrder}
             onClick={handleOpenPreview}
           >
-            {loadingAction === "preview" || loadingAction === "saveReference" ? (
-              <CircularProgress size={18} color="inherit" />
-            ) : (
-              "Generar pedido"
-            )}
+            <span className={panelStyles.generateBtnContent}>
+              {isGeneratingOrder ? (
+                <>
+                  <CircularProgress size={18} color="inherit" />
+                  Generando pedido…
+                </>
+              ) : isPreparingOrder ? (
+                <>
+                  <CircularProgress size={18} color="inherit" />
+                  Preparando pedido…
+                </>
+              ) : (
+                "Generar pedido"
+              )}
+            </span>
           </Button>
         </section>
       )}
@@ -434,7 +465,9 @@ const TechsmartOrderPanel = ({
               pdfFile: null,
             };
             const isLinked = guide.status === "linked";
-            const trackingNumber = String(guide.trackingNumber || "").trim();
+            const trackingNumber = String(
+              guide.guiaPedido || guide.trackingNumber || "",
+            ).trim();
             const carrierLabel = getGuideCarrierLabel(guide);
             const isLinkingThisGuide =
               linkingGuideId === guide.idTechsmartGuide ||
@@ -487,8 +520,9 @@ const TechsmartOrderPanel = ({
                         <strong>Paquetería:</strong> {carrierLabel}
                       </p>
                       <p className={panelStyles.shipmentInfoHint}>
-                        Se toma del shipment de la orden. El PDF puede incluir
-                        la referencia TechSmart en base64.
+                        {guide.requiresOwnGuide
+                          ? "Cada gabinete TechSmart usa su propia guía carrier."
+                          : "Se toma del shipment de la orden. El PDF puede incluir la referencia TechSmart en base64."}
                       </p>
                     </div>
                     <Button
@@ -561,7 +595,14 @@ const TechsmartOrderPanel = ({
         </Stack>
       )}
 
-      <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={previewOpen}
+        onClose={() => {
+          if (!isGeneratingOrder) setPreviewOpen(false);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Confirmar pedido TechSmart</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" sx={{ mb: 2 }}>
@@ -601,14 +642,19 @@ const TechsmartOrderPanel = ({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPreviewOpen(false)}>Cancelar</Button>
+          <Button onClick={() => setPreviewOpen(false)} disabled={isGeneratingOrder}>
+            Cancelar
+          </Button>
           <Button
             variant="contained"
             onClick={handleConfirmGenerate}
-            disabled={loadingAction === "generate"}
+            disabled={isGeneratingOrder}
           >
-            {loadingAction === "generate" ? (
-              <CircularProgress size={18} color="inherit" />
+            {isGeneratingOrder ? (
+              <span className={panelStyles.generateBtnContent}>
+                <CircularProgress size={18} color="inherit" />
+                Generando pedido…
+              </span>
             ) : (
               "Confirmar y enviar"
             )}

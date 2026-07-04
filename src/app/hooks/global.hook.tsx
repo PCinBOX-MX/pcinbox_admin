@@ -59,6 +59,8 @@ interface ContextProps {
   >;
   socketPagos: RefObject<Socket | null>;
   socketServer: RefObject<Socket | null>;
+  socketPagosReady: boolean;
+  socketServerReady: boolean;
   rowsVentas: {
     totalRows: number;
     data: SalesI[];
@@ -108,6 +110,8 @@ const CreateContext = createContext<ContextProps>({
   setProductsProveedor: () => {},
   socketPagos: { current: null },
   socketServer: { current: null },
+  socketPagosReady: false,
+  socketServerReady: false,
   rowsVentas: {
     totalRows: 0,
     data: [],
@@ -168,6 +172,8 @@ export const GlobalProvider = ({ children }: { children: any }) => {
 
   const socketPagos = useRef<Socket | null>(null);
   const socketServer = useRef<Socket | null>(null);
+  const [socketPagosReady, setSocketPagosReady] = useState(false);
+  const [socketServerReady, setSocketServerReady] = useState(false);
 
   const [dataMarca, setDataMarca] = useState([]);
   const [tableKey, setTableKey] = useState(0);
@@ -207,28 +213,42 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     const socketPagosUrl = process.env.NEXT_PUBLIC_SOCKET_PAGOS?.trim();
 
     if (socketPagosUrl) {
-      socketPagos.current = io(socketPagosUrl, {
+      const socket = io(socketPagosUrl, {
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
       });
+      socketPagos.current = socket;
+
+      const markReady = () => setSocketPagosReady(true);
+      socket.on("connect", markReady);
+      if (socket.connected) markReady();
     }
 
     if (socketProveedorUrl) {
-      socketServer.current = io(socketProveedorUrl, {
+      const socket = io(socketProveedorUrl, {
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
       });
+      socketServer.current = socket;
+
+      const markReady = () => setSocketServerReady(true);
+      socket.on("connect", markReady);
+      if (socket.connected) markReady();
     }
 
     return () => {
+      setSocketPagosReady(false);
+      setSocketServerReady(false);
       socketPagos.current?.disconnect();
       socketServer.current?.disconnect();
+      socketPagos.current = null;
+      socketServer.current = null;
     };
   }, []);
 
@@ -274,6 +294,8 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setDataProveedores,
         socketPagos,
         socketServer,
+        socketPagosReady,
+        socketServerReady,
         rowsVentas,
         setRowsVentas,
         rowsVentasInvitados,

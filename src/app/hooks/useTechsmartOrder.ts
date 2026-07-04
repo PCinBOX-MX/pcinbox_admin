@@ -128,12 +128,28 @@ const useTechsmartOrder = () => {
           "/generarPedidoOrdenTechSmart",
           { silent: true },
         );
+        const order = (resp.data?.data?.techsmartOrder ?? null) as
+          | TechsmartOrderI
+          | null;
+        const failedStatus = ["failed", "error"].includes(
+          String(order?.status || "").toLowerCase(),
+        );
+
+        if (failedStatus) {
+          const message =
+            order?.wsError ||
+            resp.data?.message ||
+            "No se pudo generar el pedido en TechSmart";
+          showError(String(message));
+          return order;
+        }
+
         showSuccess("Pedido TechSmart generado correctamente");
-        return (resp.data?.data?.techsmartOrder ?? null) as TechsmartOrderI | null;
+        return order;
       } catch (error: any) {
-        console.warn(
-          "[TechSmart] Generar pedido fallido:",
-          formatTechsmartErrorMessage(error?.response?.data?.message || error),
+        showError(
+          error?.response?.data?.message ||
+            "No se pudo generar el pedido en TechSmart",
         );
         return null;
       } finally {
