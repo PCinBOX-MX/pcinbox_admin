@@ -11,25 +11,56 @@ const devDefaults = isDev
       NEXT_PUBLIC_SOCKET_PAGOS: "http://localhost:8009",
       NEXT_PUBLIC_NODE_ENV: "local",
     }
-  : {};
+  : {
+    NEXT_PUBLIC_NODE_ENV: env("NEXT_PUBLIC_NODE_ENV"),
+    NEXT_PUBLIC_API_URL: env("NEXT_PUBLIC_API_URL"),
+    NEXT_PUBLIC_SOCKET_PROVEEDOR: env("NEXT_PUBLIC_SOCKET_PROVEEDOR"),
+    NEXT_PUBLIC_SOCKET_PAGOS: env("NEXT_PUBLIC_SOCKET_PAGOS"),
+    NEXT_PUBLIC_API_URL_PROVEEDOR: env("NEXT_PUBLIC_API_URL_PROVEEDOR"),
+    NEXT_PUBLIC_API_URL_PAGOS: env("NEXT_PUBLIC_API_URL_PAGOS"),
+  };
 
 function env(key: string): string {
   return process.env[key] || devDefaults[key as keyof typeof devDefaults] || "";
 }
 
 const nextConfig: NextConfig = {
-  
   images: {
     unoptimized: true,
-    domains: [
-      "img.icons8.com",
-      "authjs.dev",
-      "ik.imagekit.io",
-      "lh3.googleusercontent.com",
-      "commons.wikimedia.org",
-      "upload.wikimedia.org",
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "img.icons8.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "authjs.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "ik.imagekit.io",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "commons.wikimedia.org",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "upload.wikimedia.org",
+        pathname: "/**",
+      },
     ],
   },
+
   env: {
     NEXT_PUBLIC_NODE_ENV: env("NEXT_PUBLIC_NODE_ENV"),
     NEXT_PUBLIC_API_URL: env("NEXT_PUBLIC_API_URL"),
