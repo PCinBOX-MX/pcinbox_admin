@@ -12,6 +12,8 @@ import useDashboard from "@/app/dashboard/useDashboard";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import useVentasInvitados from "@/app/ventasInvitados/useVentasInvitados";
 import { isAuthPathname } from "@/app/utils/authRoutes";
+import { orderIdsMatch } from "@/app/utils/orderIdMatch";
+import { SalesI } from "@/app/interfaces/sales/sales.interface";
 
 export default function AppContent({
   children,
@@ -22,6 +24,8 @@ export default function AppContent({
     dataModal,
     socketPagos,
     socketServer,
+    socketPagosReady,
+    socketServerReady,
     setRowsVentas,
     setRowsVentasInvitados,
     setTableKey,
@@ -36,7 +40,31 @@ export default function AppContent({
   useProtected(pathName);
 
   useEffect(() => {
-    if (!socketPagos.current || !socketServer.current) return;
+    const socket = socketPagos.current;
+    if (!socket || !socketPagosReady) return;
+
+    const patchVentasOrder = (
+      idOrder: number | string,
+      patch: Partial<SalesI>,
+    ) => {
+      setRowsVentas((prev) => {
+        let matched = false;
+        const data = prev.data.map((item) => {
+          if (!orderIdsMatch(item.idOrder, idOrder)) {
+            return item;
+          }
+
+          matched = true;
+          return {
+            ...item,
+            ...patch,
+          };
+        });
+
+        return matched ? { ...prev, data } : prev;
+      });
+      setTableKey((prev) => prev + 1);
+    };
 
     const handleNewOrder = (data: any) => {
       setRowsVentas((prev) => ({
@@ -53,55 +81,39 @@ export default function AppContent({
     };
 
     const handlePayOxxo = (data: any) => {
-      setRowsVentas((prev) => ({
-        ...prev,
-        data: prev.data?.map((item) => {
-          if (item.idOrder == data.idOrder) {
-            return {
-              ...item,
-              statusPay: "paid",
-            } as any;
-          }
-
-          return item;
-        }),
-      }));
+      patchVentasOrder(data.idOrder, { statusPay: "paid" });
     };
 
     const handleCancelledCompra = (data: any) => {
       setRowsVentas((prev) => ({
         ...prev,
         data: prev.data.map((item) => {
-          if (item.idOrder == data.idOrder) {
-            return {
-              ...item,
-              statusPay: "cancelled",
-              statusShip: "cancelado",
-              products: item.products.map((product) => ({
-                ...product,
-                statusShip: "cancelado",
-              })),
-            };
+          if (!orderIdsMatch(item.idOrder, data.idOrder)) {
+            return item;
           }
-          return item;
+
+          return {
+            ...item,
+            statusPay: "cancelled",
+            statusShip: "cancelado",
+            products: item.products.map((product) => ({
+              ...product,
+              statusShip: "cancelado",
+            })),
+          };
         }),
       }));
+      setTableKey((prev) => prev + 1);
     };
 
     const handleUpdateOrder = (data: any) => {
-      setRowsVentas((prev) => ({
-        ...prev,
-        data: prev.data.map((item) =>
-          item.idOrder === data.idOrder
-            ? {
-                ...item,
-                method_pay: data.method_pay,
-                statusPay: data.statusPay,
-                statusShip: data.statusShip,
-              }
-            : item,
-        ),
-      }));
+      patchVentasOrder(data.idOrder, {
+        method_pay: data.method_pay,
+        statusPay: data.statusPay,
+        statusShip: data.statusShip,
+        totalAmount:
+          data.totalAmount != null ? Number(data.totalAmount) : undefined,
+      });
     };
 
     const handleUpdateOrderInvitacion = (data: any) => {
@@ -118,43 +130,6 @@ export default function AppContent({
             : item,
         ),
       );
-    };
-
-    const handlerUpdateProduct = (data: ProductsI) => {
-      setProductsProveedor((prev) => ({
-        ...prev,
-
-        data: prev.data.map((item) => {
-          const match = Number(item.idProduct) === Number(data.idProduct);
-
-          return match
-            ? {
-                ...item,
-                name: data.name,
-                description: data.description,
-                caracteristicas: data.caracteristicas,
-                price: Number(data.price),
-                stock: Number(data.stock),
-                sku: data.sku,
-              }
-            : item;
-        }),
-        copyData: prev.data.map((item) => {
-          const match = Number(item.idProduct) === Number(data.idProduct);
-
-          return match
-            ? {
-                ...item,
-                name: data.name,
-                description: data.description,
-                caracteristicas: data.caracteristicas,
-                price: Number(data.price),
-                stock: Number(data.stock),
-                sku: data.sku,
-              }
-            : item;
-        }),
-      }));
     };
 
     const handleUpdatedStock = (data: any) => {
@@ -191,38 +166,73 @@ export default function AppContent({
       });
     };
 
-    socketPagos.current.on("newOrder", handleNewOrder);
-    socketPagos.current.on("newOrderInvitacion", handleNewOrderInvitacion);
-    socketPagos.current.on("updateOrder", handleUpdateOrder);
-    socketPagos.current.on(
-      "updateOrderInvitacion",
-      handleUpdateOrderInvitacion,
-    );
-    socketPagos.current.on("paidOxxo", handlePayOxxo);
-    socketPagos.current.on("cancelledCompra", handleCancelledCompra);
-    socketServer.current.on("updateProductComponent", handlerUpdateProduct);
-
-    socketServer.current.on("updateProduct", handlerUpdateProduct);
-
-    socketPagos.current.on("updatedStock", handleUpdatedStock);
+    socket.on("newOrder", handleNewOrder);
+    socket.on("newOrderInvitacion", handleNewOrderInvitacion);
+    socket.on("updateOrder", handleUpdateOrder);
+    socket.on("updateOrderInvitacion", handleUpdateOrderInvitacion);
+    socket.on("paidOxxo", handlePayOxxo);
+    socket.on("cancelledCompra", handleCancelledCompra);
+    socket.on("updatedStock", handleUpdatedStock);
 
     return () => {
-      socketPagos.current!.off("newOrder", handleNewOrder);
-      socketPagos.current!.off("newOrderInvitacion", handleNewOrderInvitacion);
-      socketPagos.current!.off("updateOrder", handleUpdateOrder);
-      socketPagos.current!.off(
-        "updateOrderInvitacion",
-        handleUpdateOrderInvitacion,
-      );
-      socketPagos.current!.off("paidOxxo", handlePayOxxo);
-      socketPagos.current!.off("cancelledCompra", handleCancelledCompra);
-      socketPagos.current!.off("updatedStock", handleUpdatedStock);
-
-      socketServer.current!.off("updateProductComponent", handlerUpdateProduct);
-
-      socketServer.current!.off("updateProduct", handlerUpdateProduct);
+      socket.off("newOrder", handleNewOrder);
+      socket.off("newOrderInvitacion", handleNewOrderInvitacion);
+      socket.off("updateOrder", handleUpdateOrder);
+      socket.off("updateOrderInvitacion", handleUpdateOrderInvitacion);
+      socket.off("paidOxxo", handlePayOxxo);
+      socket.off("cancelledCompra", handleCancelledCompra);
+      socket.off("updatedStock", handleUpdatedStock);
     };
-  }, [socketPagos.current, socketServer.current]);
+  }, [socketPagosReady, setRowsVentas, setRowsVentasInvitados, setTableKey, setProductsProveedor]);
+
+  useEffect(() => {
+    const socket = socketServer.current;
+    if (!socket || !socketServerReady) return;
+
+    const handlerUpdateProduct = (data: ProductsI) => {
+      setProductsProveedor((prev) => ({
+        ...prev,
+        data: prev.data.map((item) => {
+          const match = Number(item.idProduct) === Number(data.idProduct);
+
+          return match
+            ? {
+                ...item,
+                name: data.name,
+                description: data.description,
+                caracteristicas: data.caracteristicas,
+                price: Number(data.price),
+                stock: Number(data.stock),
+                sku: data.sku,
+              }
+            : item;
+        }),
+        copyData: prev.data.map((item) => {
+          const match = Number(item.idProduct) === Number(data.idProduct);
+
+          return match
+            ? {
+                ...item,
+                name: data.name,
+                description: data.description,
+                caracteristicas: data.caracteristicas,
+                price: Number(data.price),
+                stock: Number(data.stock),
+                sku: data.sku,
+              }
+            : item;
+        }),
+      }));
+    };
+
+    socket.on("updateProductComponent", handlerUpdateProduct);
+    socket.on("updateProduct", handlerUpdateProduct);
+
+    return () => {
+      socket.off("updateProductComponent", handlerUpdateProduct);
+      socket.off("updateProduct", handlerUpdateProduct);
+    };
+  }, [socketServerReady, setProductsProveedor]);
 
   useEffect(() => {
     if (pathName) {
