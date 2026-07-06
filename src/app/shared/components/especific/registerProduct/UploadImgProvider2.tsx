@@ -344,10 +344,20 @@ const UploadImgProductProvider2 = ({
 
               formData?.append(
                 "originPrice",
-                dataProductProp?.price?.toString(),
+                String(
+                  dataProductProp?.originPriceMxn ?? dataProductProp?.price ?? 0,
+                ),
               );
               if (Number(dataProductProp.providerId) !== 1) {
                 formData?.append("profitMargin", profitMargin?.toString());
+              }
+
+              if (Number(dataProductProp.providerId) === 2) {
+                formData.append(
+                  "isDolares",
+                  String(Boolean(dataProductProp?.isDolares)),
+                );
+                formData.append("originPriceMxn", "true");
               }
 
               formData.append("sku", dataProductProp.sku);

@@ -27,4 +27,10 @@ export interface ProductsI {
     prop: string;
     value: string;
   }[];
+  /** Precio proveedor en MXN (ya convertido con Banxico si aplica). */
+  originPriceMxn?: number;
+  precioOriginal?: number;
+  moneda?: string;
+  isDolares?: boolean;
+  tipoCambio?: number | null;
 }
