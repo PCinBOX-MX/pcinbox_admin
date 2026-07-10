@@ -50,7 +50,7 @@ const ReservasAdminPage = () => {
     setFilterType,
     page,
     setPage,
-    limit,
+    pageSize,
     fetchReservations,
     updateReservationStatus,
   } = useReservas();
@@ -110,14 +110,14 @@ const ReservasAdminPage = () => {
     }
   };
 
-  const pageCount = Math.max(1, Math.ceil(totalReservations / limit));
+  const pageCount = Math.max(1, Math.ceil(totalReservations / pageSize));
 
   const paginationBlock = (
     <ModernPagination
       page={page}
       pageCount={pageCount}
       totalItems={totalReservations}
-      pageSize={limit}
+      pageSize={pageSize}
       onPageChange={setPage}
       label="reservaciones"
     />

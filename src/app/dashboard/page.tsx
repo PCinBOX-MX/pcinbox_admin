@@ -30,7 +30,6 @@ const DashBoard = () => {
 
   const {
     handleChangeStatusShip,
-    handleChangeStatusPay,
     handleGetAllSales,
     can,
     openCancelOrderModal,
@@ -40,7 +39,6 @@ const DashBoard = () => {
   const { columns } = GridDashboard({
     handleChangeStatusShip,
     rows: rowsVentas,
-    handleChangeStatusPay,
     openCancelOrderModal,
     can,
   });

@@ -5,10 +5,6 @@ import { GridColDef, GridRowsProp } from "@mui/x-data-grid";
 import UtilsService from "../services/utils";
 import {
   Chip,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
 } from "@mui/material";
 //  import useDashboard from "./useDashboard";
 import { useMemo } from "react";
@@ -30,6 +26,10 @@ import {
 } from "../utils/orderCostBreakdown";
 import OrderCancelSection from "../components/admin/OrderCancelSection";
 import {
+  getPaymentStatusChipColor,
+  getPaymentStatusLabel,
+} from "../utils/paymentStatus.util";
+import {
   BillingDetailsContent,
   CustomerDetailsContent,
   modalCloseOnly,
@@ -37,13 +37,11 @@ import {
 
 const GridDashboard = ({
   handleChangeStatusShip,
-  handleChangeStatusPay,
   openCancelOrderModal,
   can,
   rows,
 }: {
   handleChangeStatusShip: any;
-  handleChangeStatusPay: any;
   openCancelOrderModal: (idOrder: number) => void;
   can: (permission: import("../constants/permissions").AdminPermission) => boolean;
   rows: {
@@ -647,37 +645,20 @@ const GridDashboard = ({
                 <span className="admin-text-xs admin-text-semibold admin-text-muted">
                   Estatus Pago
                 </span>
-                <FormControl fullWidth size="small">
-                  <Select
-                    labelId="demo-simple-select-label"
-                    id="demo-simple-select"
-                    value={params?.row?.statusPay ?? "pending"}
-                    disabled={!can("orders.update_status_pay")}
-                    onChange={(event) => {
-                      handleChangeStatusPay(
-                        event,
-                        params.row.idOrder,
-                        params.row.idUser,
-                      );
-                    }}
-                  >
-                    <MenuItem value={"paid"}>Pagado</MenuItem>
-                    <MenuItem value={"failed"}>Fallido</MenuItem>
-                    <MenuItem value="payment_pending">Pendiente</MenuItem>
-                    <MenuItem value="pending">Pendiente</MenuItem>
-                    <MenuItem value={"cancelled"}>Cancelado</MenuItem>
-                    <MenuItem value={"rejected"}>Rechazado</MenuItem>
-                    <MenuItem value={"refunded"}>Reembolsado</MenuItem>
-                    <MenuItem value={"charged_back"}>Desconocido</MenuItem>
-                  </Select>
-                </FormControl>
+                <Chip
+                  size="small"
+                  label={getPaymentStatusLabel(params?.row?.statusPay)}
+                  color={getPaymentStatusChipColor(params?.row?.statusPay)}
+                  variant="outlined"
+                  sx={{ fontWeight: 600, minWidth: 96 }}
+                />
               </div>
             </div>
           );
         },
       },
     ],
-    [rows, can, openCancelOrderModal, handleChangeStatusPay, rowsVentas, setRowsVentas, setDataModal, formatCurrency],
+    [rows, can, openCancelOrderModal, rowsVentas, setRowsVentas, setDataModal, formatCurrency],
   );
 
   return {
