@@ -95,7 +95,7 @@ const GridDashboard = ({
                     isOpen: true,
                     type: "info",
                     title: "Datos de facturación",
-                    size: "lg",
+
                     ...modalCloseOnly,
                     content: (
                       <BillingDetailsContent billing={params.row.billing} />
@@ -178,9 +178,9 @@ const GridDashboard = ({
                   isOpen: true,
                   type: "info",
                   title: "Productos de la orden",
-                  size: "xl",
+
                   showActions: true,
-                  showCancel: false,
+
                   confirmLabel: "Cerrar",
                   onClose: () =>
                     setDataModal((prev) => ({ ...prev, isOpen: false })),

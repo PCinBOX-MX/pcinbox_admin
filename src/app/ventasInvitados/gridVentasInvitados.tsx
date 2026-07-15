@@ -127,7 +127,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                   isOpen: true,
                   type: "info",
                   title: "Productos de la orden",
-                  size: "xl",
+
                   ...modalCloseOnly,
                   content: (
                     <InvitadoProductsContent products={params.value} />
