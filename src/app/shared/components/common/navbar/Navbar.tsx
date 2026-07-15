@@ -80,11 +80,10 @@ const Navbar = () => {
                     style={{
                       padding: "5px",
                     }}
-                    className={` cursor-pointer rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      isLoadStorage && activeTab === item.id
-                        ? "bg-[#bb3d4b] text-white shadow-lg shadow-blue-500/50"
-                        : "text-black hover:bg-slate-700 hover:text-white"
-                    }`}
+                    className={` cursor-pointer rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isLoadStorage && activeTab === item.id
+                      ? "bg-[#bb3d4b] text-white shadow-lg shadow-blue-500/50"
+                      : "text-black hover:bg-slate-700 hover:text-white"
+                      }`}
                   >
                     <Icon size={18} />
                     {item.label}
@@ -131,12 +130,11 @@ const Navbar = () => {
               return (
                 <button
                   key={item.id}
-                  onClick={() => handleActiveTab(item.label, item.id)}
-                  className={`w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 flex items-center gap-3 ${
-                    activeTab === item.id
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-300 hover:bg-slate-700 hover:text-white"
-                  }`}
+                  onClick={() => handleActiveTab(item.id)}
+                  className={`w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 flex items-center gap-3 ${activeTab === item.id
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-300 hover:bg-slate-700 hover:text-white"
+                    }`}
                 >
                   <Icon size={20} />
                   {item.label}
