@@ -82,7 +82,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                   isOpen: true,
                   type: "info",
                   title: "Datos del cliente",
-                  size: "md",
+
                   ...modalCloseOnly,
                   content: (
                     <CustomerDetailsContent data={params.value?.[0]} />
@@ -150,10 +150,9 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                 }}
               >
                 {Array.isArray(params.value) &&
-                  `${
-                    params.value.length == 1
-                      ? `1 Producto`
-                      : `${params.value.length} Productos`
+                  `${params.value.length == 1
+                    ? `1 Producto`
+                    : `${params.value.length} Productos`
                   }`}
               </span>
             </div>
@@ -209,7 +208,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                 }}
               >
                 {params.value == "tarjeta_de_debito" ||
-                params.value == "tarjeta_de_credito" ? (
+                  params.value == "tarjeta_de_credito" ? (
                   <span className={gridStyles.chipRow}>
                     Tarjeta <MdCreditCard size={22} />{" "}
                   </span>

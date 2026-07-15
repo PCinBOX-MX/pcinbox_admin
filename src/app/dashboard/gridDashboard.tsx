@@ -139,7 +139,7 @@ const GridDashboard = ({
                   isOpen: true,
                   type: "info",
                   title: "Datos del cliente",
-                  size: "md",
+
                   ...modalCloseOnly,
                   content: <CustomerDetailsContent data={params.value} />,
                   onClose: () => {
@@ -238,9 +238,9 @@ const GridDashboard = ({
                                 data: prev.data.map((row) =>
                                   row.idOrder === orderRow.idOrder
                                     ? {
-                                        ...row,
-                                        techsmartOrder: updated,
-                                      }
+                                      ...row,
+                                      techsmartOrder: updated,
+                                    }
                                     : row,
                                 ),
                               }));
@@ -277,10 +277,9 @@ const GridDashboard = ({
             >
               <span className={`${styles.cellText} admin-whitespace-normal`}>
                 {Array.isArray(params.value) &&
-                  `${
-                    params.value.length == 1
-                      ? `1 Producto`
-                      : `${params.value.length} Productos`
+                  `${params.value.length == 1
+                    ? `1 Producto`
+                    : `${params.value.length} Productos`
                   }`}
               </span>
             </div>
@@ -523,7 +522,7 @@ const GridDashboard = ({
             >
               <span className={`${styles.cellTextSemibold} admin-whitespace-normal admin-text-xs`}>
                 {params.value == "tarjeta_de_debito" ||
-                params.value == "tarjeta_de_credito" ? (
+                  params.value == "tarjeta_de_credito" ? (
                   <span className={styles.chipRow}>
                     Tarjeta <MdCreditCard size={22} />{" "}
                   </span>
