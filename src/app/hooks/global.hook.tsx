@@ -10,6 +10,8 @@ import {
   useEffect,
   RefObject,
 } from "react";
+import { usePathname } from "next/navigation";
+import { isAuthPathname } from "../utils/authRoutes";
 import { ProveedoresI } from "../interfaces/proveedores/proveedores.interface";
 import io, { Socket } from "socket.io-client";
 import { GridRowsProp } from "@mui/x-data-grid";
@@ -187,6 +189,8 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   const [dataCategoria, setDataCategoria] = useState([]);
   const [dataProducts, setDataProducts] = useState<ProductsI[]>([]);
   const { requestGetProveedores } = ProveedoresUtils();
+  const pathName = usePathname();
+  const isAuthPage = isAuthPathname(pathName);
 
   const handleGetMarcas = async () => {
     try {
@@ -278,6 +282,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   }, []);
 
   useEffect(() => {
+    if (isAuthPage) return;
     let mounted = true;
 
     const getListProducts = async () => {
@@ -303,12 +308,13 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     return () => {
       mounted = false;
     };
-  }, [requestGetProveedores]);
+  }, [requestGetProveedores, isAuthPage]);
 
   useEffect(() => {
+    if (isAuthPage) return;
     handleGetCategorias();
     handleGetMarcas();
-  }, [dataCategoria.length, dataMarca.length]);
+  }, [dataCategoria.length, dataMarca.length, isAuthPage]);
 
   useEffect(() => {
     const cronSocket = socketCron.current;
