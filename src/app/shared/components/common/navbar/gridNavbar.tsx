@@ -1,16 +1,69 @@
 "use client";
 
-import { ShoppingCart, Package, Settings, User, Link, Calendar } from "lucide-react";
+import {
+  ShoppingCart,
+  Package,
+  Settings,
+  User,
+  Link,
+  Calendar,
+  CreditCard,
+  LayoutDashboard,
+  Users,
+} from "lucide-react";
+
+export type NavItem = {
+  id: string;
+  label: string;
+  icon: any;
+  href?: string;
+  subItems?: { id: string; label: string; href: string }[];
+};
 
 const GridNavbar = () => {
-  const navItems = [
-    { id: "ventas", label: "Ventas", icon: ShoppingCart },
-    { id: "proveedores", label: "Proveedores", icon: Package },
-    { id: "clientes", label: "Clientes", icon: User },
-    { id: "ajustes", label: "Ajustes", icon: Settings },
-    { id: "linkPago", label: "Links de Pagos", icon: Link },
-    { id: "ventasInvitados", label: "Ventas (Invitados)", icon: ShoppingCart },
-    { id: "reservas", label: "Reservas", icon: Calendar },
+  const navItems: NavItem[] = [
+    {
+      id: "ventas_group",
+      label: "Ventas",
+      icon: LayoutDashboard,
+      subItems: [
+        { id: "ventas", label: "Panel de Ventas", href: "/dashboard" },
+        { id: "ventasInvitados", label: "Ventas Invitados", href: "/ventasInvitados" },
+      ],
+    },
+    {
+      id: "catalogos_group",
+      label: "Catálogos",
+      icon: Package,
+      subItems: [
+        { id: "proveedores", label: "Proveedores", href: "/proveedores" },
+        { id: "clientes", label: "Clientes", href: "/customer" },
+      ],
+    },
+    {
+      id: "finanzas_group",
+      label: "Finanzas",
+      icon: CreditCard,
+      subItems: [
+        { id: "linkPago", label: "Links de Pagos", href: "/linkPagos" },
+      ],
+    },
+    {
+      id: "gestion_group",
+      label: "Gestión",
+      icon: Calendar,
+      subItems: [
+        { id: "reservas", label: "Reservas", href: "/reservas" },
+      ],
+    },
+    {
+      id: "ajustes_group",
+      label: "Ajustes",
+      icon: Settings,
+      subItems: [
+        { id: "ajustes", label: "Ajustes Generales", href: "/settings" },
+      ],
+    },
   ];
 
   return {

@@ -5,6 +5,7 @@ import GridDashboard from "./gridDashboard";
 import useDashboard from "./useDashboard";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTheContext } from "../hooks/global.hook";
+import { useQueryParams } from "../hooks/useQueryParams";
 import { Alert, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
@@ -21,12 +22,60 @@ const fieldSx = {
 
 const DashBoard = () => {
   const { rowsVentas } = useTheContext();
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
-  const [search, setSearch] = useState("");
-  const [statusPay, setStatusPay] = useState("all");
-  const [methodPay, setMethodPay] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const { searchParams, setQueryParams } = useQueryParams();
+  
+  const searchParam = searchParams.get("search") || "";
+  const statusPayParam = searchParams.get("statusPay") || "all";
+  const methodPayParam = searchParams.get("methodPay") || "all";
+  const dateFromParam = searchParams.get("dateFrom") || "";
+  const dateToParam = searchParams.get("dateTo") || "";
+  const pageParam = parseInt(searchParams.get("page") || "0", 10);
+  const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
+
+  const [paginationModel, setPaginationModel] = useState({ page: pageParam, pageSize: pageSizeParam });
+  const [search, setSearch] = useState(searchParam);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
+  const [statusPay, setStatusPay] = useState(statusPayParam);
+  const [methodPay, setMethodPay] = useState(methodPayParam);
+  const [dateFrom, setDateFrom] = useState(dateFromParam);
+  const [dateTo, setDateTo] = useState(dateToParam);
+
+  useEffect(() => {
+    if (searchParam !== debouncedSearch) {
+      setSearch(searchParam);
+      setDebouncedSearch(searchParam);
+    }
+    if (statusPayParam !== statusPay) setStatusPay(statusPayParam);
+    if (methodPayParam !== methodPay) setMethodPay(methodPayParam);
+    if (dateFromParam !== dateFrom) setDateFrom(dateFromParam);
+    if (dateToParam !== dateTo) setDateTo(dateToParam);
+    if (pageParam !== paginationModel.page || pageSizeParam !== paginationModel.pageSize) {
+      setPaginationModel({ page: pageParam, pageSize: pageSizeParam });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    setQueryParams({
+      search: debouncedSearch,
+      statusPay,
+      methodPay,
+      dateFrom,
+      dateTo,
+      page: paginationModel.page,
+      pageSize: paginationModel.pageSize,
+    });
+  }, [debouncedSearch, statusPay, methodPay, dateFrom, dateTo, paginationModel, setQueryParams]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      if (search.trim() !== debouncedSearch) {
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+      }
+    }, 450);
+    return () => clearTimeout(handler);
+  }, [search, debouncedSearch]);
 
   const {
     handleChangeStatusShip,
@@ -45,13 +94,13 @@ const DashBoard = () => {
 
   const filters = useMemo(
     () => ({
-      search: search.trim(),
+      search: debouncedSearch,
       statusPay: statusPay !== "all" ? statusPay : "",
       methodPay: methodPay !== "all" ? methodPay : "",
       dateFrom,
       dateTo,
     }),
-    [search, statusPay, methodPay, dateFrom, dateTo],
+    [debouncedSearch, statusPay, methodPay, dateFrom, dateTo],
   );
 
   const loadSales = async () => {
@@ -88,6 +137,7 @@ const DashBoard = () => {
     setDateFrom("");
     setDateTo("");
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setQueryParams({ search: "", statusPay: "all", methodPay: "all", dateFrom: "", dateTo: "", page: 0 });
   };
 
   const hasFilters =

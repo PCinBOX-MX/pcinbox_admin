@@ -67,6 +67,25 @@ const AdminSidebar = () => {
     setDesktopOpen((prev) => !prev);
   };
 
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const parentGroup = navItems.find((item) =>
+      item.subItems?.some((sub) => sub.id === activeTab)
+    );
+    if (parentGroup) {
+      setOpenGroups((prev) => {
+        if (prev[parentGroup.id]) return prev;
+        return { ...prev, [parentGroup.id]: true };
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
+
   return (
     <>
       <button
@@ -78,17 +97,7 @@ const AdminSidebar = () => {
         {mobileOpen ? <X size={22} /> : <Menu size={22} />}
       </button>
 
-      {!desktopOpen && (
-        <button
-          type="button"
-          className={styles.desktopReopen}
-          onClick={toggleDesktopSidebar}
-          aria-label="Mostrar menú lateral"
-          title="Mostrar menú"
-        >
-          <PanelLeftOpen size={20} />
-        </button>
-      )}
+      {/* Eliminamos el botón flotante desktopReopen porque ahora el sidebar colapsado tendrá su propio botón */}
 
       {mobileOpen && (
         <div
@@ -100,44 +109,103 @@ const AdminSidebar = () => {
 
       <aside
         className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ""} ${
-          !desktopOpen ? styles.sidebarDesktopHidden : ""
+          !desktopOpen ? styles.sidebarCollapsed : ""
         }`}
       >
         <div className={styles.brand}>
-          <img
-            src="https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587"
-            alt="PCInbox Admin"
-            width={120}
-            height={48}
-            style={{ objectFit: "contain" }}
-            loading="lazy"
-          />
-          <span className={styles.brandTitle}>Admin</span>
-          <button
-            type="button"
-            className={styles.collapseBtn}
-            onClick={toggleDesktopSidebar}
-            aria-label="Ocultar menú lateral"
-            title="Ocultar menú"
-          >
-            <PanelLeftClose size={18} />
-          </button>
+          {!desktopOpen ? (
+            <button
+              type="button"
+              className={styles.desktopReopenInside}
+              onClick={toggleDesktopSidebar}
+              aria-label="Expandir menú lateral"
+              title="Expandir menú"
+            >
+              <PanelLeftOpen size={20} />
+            </button>
+          ) : (
+            <>
+              <img
+                src="https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587"
+                alt="PCInbox Admin"
+                width={120}
+                height={48}
+                style={{ objectFit: "contain" }}
+                loading="lazy"
+              />
+              <span className={styles.brandTitle}>Admin</span>
+              <button
+                type="button"
+                className={styles.collapseBtn}
+                onClick={toggleDesktopSidebar}
+                aria-label="Ocultar menú lateral"
+                title="Ocultar menú"
+              >
+                <PanelLeftClose size={18} />
+              </button>
+            </>
+          )}
         </div>
 
         <nav className={styles.nav}>
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const hasSubItems = item.subItems && item.subItems.length > 0;
+            
+            // Check if any subitem is active
+            const isGroupActive = hasSubItems 
+              ? item.subItems!.some(sub => sub.id === activeTab)
+              : activeTab === item.id;
+              
+            // Is this specific menu expanded?
+            const isExpanded = openGroups[item.id] || isGroupActive;
+
             return (
-              <button
-                key={item.id}
-                type="button"
-                className={`${styles.navItem} ${isActive ? styles.navItemActive : ""}`}
-                onClick={() => handleActiveTab(item.id)}
-              >
-                <Icon size={20} strokeWidth={isActive ? 2.2 : 1.8} />
-                <span>{item.label}</span>
-              </button>
+              <div key={item.id} className={styles.navItemGroup}>
+                <button
+                  type="button"
+                  className={`${styles.navItem} ${isGroupActive && !hasSubItems ? styles.navItemActive : ""}`}
+                  onClick={() => {
+                    if (hasSubItems) {
+                      toggleGroup(item.id);
+                    } else {
+                      handleActiveTab(item.id);
+                    }
+                  }}
+                >
+                  <div className={styles.navItemIcon}>
+                    <Icon size={20} strokeWidth={isGroupActive ? 2.2 : 1.8} />
+                  </div>
+                  <span className={styles.navItemLabel} style={{ marginLeft: "12px", fontWeight: isGroupActive ? "600" : "500" }}>
+                    {item.label}
+                  </span>
+                  {hasSubItems && (
+                    <div className={`${styles.chevron} ${isExpanded ? styles.chevronOpen : ""}`}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </div>
+                  )}
+                </button>
+                
+                {hasSubItems && (
+                  <div className={`${styles.submenu} ${isExpanded ? styles.submenuOpen : ""}`}>
+                    {item.subItems!.map(sub => {
+                      const isSubActive = activeTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          className={`${styles.subItem} ${isSubActive ? styles.subItemActive : ""}`}
+                          onClick={() => handleActiveTab(sub.id)}
+                        >
+                          {sub.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -149,7 +217,7 @@ const AdminSidebar = () => {
             onClick={handleLogout}
           >
             <LogOut size={18} />
-            Cerrar sesión
+            <span className={styles.logoutBtnLabel}>Cerrar sesión</span>
           </button>
         </div>
       </aside>

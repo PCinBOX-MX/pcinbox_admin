@@ -1,8 +1,8 @@
 .bannerGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 @media (min-width: 640px) {
@@ -18,35 +18,46 @@
 }
 
 .slot {
-  padding: 0.35rem;
-  border-radius: 0.75rem;
-  border: 1px solid #e5e7eb;
-  overflow: hidden;
-  background: #fff;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.025);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.slot:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
 }
 
 .slotSelected {
-  border-color: #60a5fa;
-  background: #eff6ff;
+  border-color: #3b82f6;
+  background: linear-gradient(145deg, #eff6ff 0%, #ffffff 100%);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
 }
 
 .slotUploaded {
-  border-color: #34d399;
-  background: #ecfdf5;
+  border-color: #10b981;
+  background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 100%);
 }
 
 .slotError {
-  border-color: #f87171;
-  background: #fef2f2;
+  border-color: #ef4444;
+  background: linear-gradient(145deg, #fef2f2 0%, #ffffff 100%);
 }
 
 .thumb {
   position: relative;
   width: 100%;
-  height: 90px;
-  padding: 0.35rem;
-  background: #f3f4f6;
+  height: 120px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #f1f5f9;
+  margin-bottom: 1rem;
 }
 
 .thumbImg {
@@ -54,78 +65,82 @@
 }
 
 .slotBody {
-  padding: 0.65rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .slotHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
-  padding: 0.35rem;
+  margin-bottom: 0.75rem;
 }
 
 .slotLabel {
-  font-size: 0.75rem;
-  font-family: ui-monospace, monospace;
-  color: #9ca3af;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  letter-spacing: 0.025em;
 }
 
 .badge {
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .badgeSuccess {
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
   background: #d1fae5;
-  color: #047857;
+  color: #065f46;
 }
 
 .badgeError {
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
   background: #fee2e2;
-  color: #b91c1c;
+  color: #991b1b;
 }
 
 .badgeSelected {
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
   background: #dbeafe;
-  color: #1d4ed8;
+  color: #1e40af;
 }
 
 .badgeIdle {
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: #9ca3af;
-  border: 1px solid #e5e7eb;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
 }
 
 .fileName {
-  margin: 0 0 0.5rem;
-  font-size: 0.6875rem;
-  color: #9ca3af;
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+  color: #64748b;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .errorText {
-  margin: 0 0 0.5rem;
-  font-size: 0.6875rem;
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
   color: #ef4444;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -136,6 +151,7 @@
 .slotActions {
   display: flex;
   gap: 0.5rem;
+  margin-top: auto;
 }
 
 .replaceBtn {
@@ -143,43 +159,50 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid #e5e7eb;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
   cursor: pointer;
   background: #fff;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .replaceBtn:hover:not(:disabled) {
-  background: #f9fafb;
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .replaceBtn:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .clearBtn {
-  padding: 0.4rem 0.65rem;
-  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
-  font-size: 0.75rem;
+  color: #64748b;
   cursor: pointer;
   background: #fff;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .clearBtn:hover:not(:disabled) {
   color: #ef4444;
-  border-color: #fecaca;
+  border-color: #fca5a5;
   background: #fef2f2;
 }
 
 .clearBtn:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -188,45 +211,48 @@
 }
 
 .message {
-  padding: 0.65rem 1rem;
-  margin-bottom: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
   border-radius: 0.75rem;
   font-size: 0.875rem;
   border: 1px solid transparent;
 }
 
 .messageSuccess {
-  padding: 0.65rem 1rem;
-  margin-bottom: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
   border-radius: 0.75rem;
   font-size: 0.875rem;
   background: #ecfdf5;
   border-color: #a7f3d0;
-  color: #047857;
+  color: #065f46;
 }
 
 .messageError {
-  padding: 0.65rem 1rem;
-  margin-bottom: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
   border-radius: 0.75rem;
   font-size: 0.875rem;
   background: #fef2f2;
   border-color: #fecaca;
-  color: #b91c1c;
+  color: #991b1b;
 }
 
 .footer {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  margin-top: 0.65rem;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #f1f5f9;
 }
 
 .footerHint {
   margin: 0;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: #94a3b8;
 }
 
 .btnRow {
@@ -237,67 +263,70 @@
 }
 
 .spinner {
-  width: 1rem;
-  height: 1rem;
-  animation: spin 0.8s linear infinite;
+  width: 1.25rem;
+  height: 1.25rem;
+  animation: spin 1s linear infinite;
 }
 
 .iconSm {
-  width: 1rem;
-  height: 1rem;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 .categoryRow {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 0.65rem;
+  gap: 2rem;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .categoryRow {
     flex-direction: row;
+    align-items: flex-start;
   }
 }
 
 .categorySelect {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.65rem;
+  gap: 0.5rem;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .categorySelect {
-    width: 13rem;
+    width: 16rem;
     flex-shrink: 0;
   }
 }
 
 .fieldLabel {
-  font-size: 0.75rem;
-  color: #9ca3af;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
 }
 
 .select {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e5e7eb;
+  padding: 0.625rem 1rem;
+  border: 1px solid #cbd5e1;
   border-radius: 0.5rem;
   font-size: 0.875rem;
-  color: #111827;
+  color: #1e293b;
   background: #fff;
+  transition: border-color 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .select:focus {
   outline: none;
-  border-color: #9ca3af;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .dropZoneWrap {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
 .dropZone {
@@ -305,57 +334,67 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 90px;
-  border: 2px dashed #e5e7eb;
-  border-radius: 0.5rem;
+  height: 160px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 1rem;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+  overflow: hidden;
 }
 
 .dropZone:hover {
-  border-color: #d1d5db;
+  border-color: #94a3b8;
+  background: #f1f5f9;
 }
 
 .dropZoneActive {
-  border-color: #93c5fd;
+  border-color: #3b82f6;
+  border-style: solid;
+  background: #eff6ff;
 }
 
 .dropPlaceholder {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
   pointer-events: none;
 }
 
 .dropIcon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: #d1d5db;
+  width: 2rem;
+  height: 2rem;
+  color: #94a3b8;
 }
 
 .dropText {
   margin: 0;
-  font-size: 0.75rem;
-  color: #9ca3af;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
 }
 
 .dropHint {
   margin: 0;
-  font-size: 0.6875rem;
-  color: #d1d5db;
+  font-size: 0.75rem;
+  color: #94a3b8;
 }
 
 .fileRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: #f1f5f9;
+  border-radius: 0.5rem;
 }
 
 .fileRowName {
   margin: 0;
-  font-size: 0.6875rem;
-  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #475569;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -366,41 +405,44 @@
   flex-shrink: 0;
   border: none;
   background: none;
-  font-size: 0.6875rem;
-  color: #f87171;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ef4444;
   cursor: pointer;
+  transition: color 0.15s ease;
 }
 
 .removeFileBtn:hover {
-  color: #ef4444;
+  color: #b91c1c;
 }
 
 .currentBanner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border: 1px solid #f3f4f6;
-  border-radius: 0.5rem;
-  background: #f9fafb;
+  gap: 1rem;
+  padding: 1rem;
+  margin-top: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
 }
 
 .currentThumb {
   position: relative;
-  width: 80px;
-  height: 44px;
+  width: 120px;
+  height: 60px;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: 0.25rem;
-  background: #f3f4f6;
+  border-radius: 0.375rem;
+  background: #e2e8f0;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
 }
 
 .currentLabel {
   margin: 0;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #4b5563;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
 }
 
 @keyframes spin {

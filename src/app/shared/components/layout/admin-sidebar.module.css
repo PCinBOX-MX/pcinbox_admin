@@ -11,12 +11,65 @@
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
   transform: translateX(0);
-  transition: transform 0.28s ease, box-shadow 0.28s ease;
+  transition: width 0.28s ease, transform 0.28s ease, box-shadow 0.28s ease;
+  overflow-x: hidden;
 }
 
-.sidebarDesktopHidden {
-  transform: translateX(-100%);
-  box-shadow: none;
+.sidebarCollapsed {
+  width: 80px;
+}
+
+.sidebarCollapsed:hover {
+  width: 260px;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+}
+
+/* Ocultamos los textos suavemente cuando no está hovered */
+.sidebarCollapsed:not(:hover) .brandTitle,
+.sidebarCollapsed:not(:hover) .collapseBtn,
+.sidebarCollapsed:not(:hover) .navItemLabel,
+.sidebarCollapsed:not(:hover) .chevron,
+.sidebarCollapsed:not(:hover) .logoutBtnLabel {
+  opacity: 0;
+  visibility: hidden;
+  white-space: nowrap;
+  width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Ajustes de íconos y contenedores */
+.sidebarCollapsed:not(:hover) .brand {
+  padding: 24px 0;
+  justify-content: center;
+}
+
+/* Logo animado */
+.sidebarCollapsed:not(:hover) .brand img {
+  width: 40px !important;
+  height: 40px !important;
+  transition: all 0.3s ease;
+}
+
+.sidebarCollapsed:not(:hover) .navItem {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebarCollapsed:not(:hover) .navItemIcon {
+  margin: 0;
+}
+
+.sidebarCollapsed:not(:hover) .logoutBtn {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Evitamos que el submenú se vea si no está expandido */
+.sidebarCollapsed:not(:hover) .submenu {
+  display: none;
 }
 
 .brand {
@@ -60,6 +113,7 @@
 .nav {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
@@ -136,32 +190,117 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.desktopReopen {
+.desktopReopenInside {
   display: flex;
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 45;
   align-items: center;
   justify-content: center;
   width: 42px;
   height: 42px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  background: #1a1d29;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.desktopReopen:hover {
-  background: #bb3d4b;
-  transform: translateY(-1px);
+.desktopReopenInside:hover {
+  background: rgba(187, 61, 75, 0.18);
+  border-color: rgba(187, 61, 75, 0.45);
+  color: #fff;
 }
 
 .overlay {
   display: none;
+}
+
+.navItemGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navItemIcon {
+  display: flex;
+  align-items: center;
+}
+
+.chevron {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
+  opacity: 0;
+}
+
+.submenuOpen {
+  max-height: 500px;
+  opacity: 1;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.subItem {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px 10px 42px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  position: relative;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.subItem::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 2px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.subItem:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.subItem:hover::before {
+  background-color: #bb3d4b;
+  width: 10px;
+}
+
+.subItemActive {
+  color: #fff;
+  background: rgba(187, 61, 75, 0.12);
+}
+
+.subItemActive::before {
+  background-color: #bb3d4b;
+  width: 10px;
 }
 
 @media (max-width: 1024px) {
@@ -173,15 +312,15 @@
     transform: translateX(0) !important;
   }
 
-  .sidebarDesktopHidden {
+  .sidebarCollapsed {
     transform: translateX(-100%);
+    width: 260px; /* On mobile it always takes full width when opened */
   }
 
   .mobileToggle {
     display: flex;
   }
 
-  .desktopReopen,
   .collapseBtn {
     display: none;
   }

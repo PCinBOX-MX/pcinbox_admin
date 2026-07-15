@@ -14,6 +14,7 @@ import useProveedores from "./useProveedores";
 import { useEffect, useState } from "react";
 import { MdAdd, MdAutorenew } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
+import { useQueryParams } from "../hooks/useQueryParams";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import { Filter, Search, X } from "lucide-react";
@@ -38,9 +39,30 @@ const Proveedores = () => {
     handleAddProduct,
   } = useProveedores();
 
-  const [search, setSearch] = useState("");
+  const { searchParams, setQueryParams } = useQueryParams();
+  const searchParam = searchParams.get("search") || "";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+
+  const [search, setSearch] = useState(searchParam);
   const itemsPerPage = 12;
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(pageParam);
+
+  // Sincronizar hacia atrás
+  useEffect(() => {
+    if (searchParam !== search) setSearch(searchParam);
+    if (pageParam !== page) setPage(pageParam);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Sincronizar debounce al escribir
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (search !== searchParam) {
+        setQueryParams({ search, page: 1 });
+      }
+    }, 450);
+    return () => clearTimeout(handler);
+  }, [search, searchParam, setQueryParams]);
 
   useEffect(() => {
     setProductsProveedor((prev) => {
@@ -65,7 +87,6 @@ const Proveedores = () => {
 
       return { ...prev, copyData: filtered };
     });
-    setPage(1);
   }, [search, setProductsProveedor]);
 
   const startIndex = (page - 1) * itemsPerPage;
@@ -80,9 +101,9 @@ const Proveedores = () => {
     <ModernPagination
       page={page}
       pageCount={pageCount}
-      totalItems={totalItems}
       pageSize={itemsPerPage}
-      onPageChange={setPage}
+      totalItems={totalItems}
+      onPageChange={(newPage) => setQueryParams({ page: newPage })}
       label="productos"
     />
   );
@@ -139,7 +160,7 @@ const Proveedores = () => {
               size="small"
               label="Buscar producto"
               value={search}
-              onChange={(e) => setSearch(e.target.value.toLowerCase().trim())}
+              onChange={(e) => setSearch(e.target.value)}
               sx={fieldSx}
               InputProps={{
                 startAdornment: <Search size={18} className="admin-filter-icon" />,
@@ -151,7 +172,7 @@ const Proveedores = () => {
                 className="admin-btn-primary"
                 onClick={() => {
                   if (!slcProveedor) return;
-                  setPage(1);
+                  setQueryParams({ page: 1 });
                   handleGetProductsByProveedor(slcProveedor);
                 }}
               >
@@ -161,7 +182,10 @@ const Proveedores = () => {
             <button
               type="button"
               className="admin-btn-ghost"
-              onClick={() => setSearch("")}
+              onClick={() => {
+                setSearch("");
+                setQueryParams({ search: "", page: 1 });
+              }}
               disabled={!search}
             >
               <X size={16} />

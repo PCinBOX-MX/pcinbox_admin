@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import useSettings from "./useSettings";
+import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import styles from "./settings.module.css";
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
@@ -291,7 +292,10 @@ export default function Settings() {
   // ════════════════════════════════════════════════════════════
 
   return (
-    <section className="admin-page admin-page--flush-top">
+    <AdminPageShell
+      title="Ajustes Generales"
+      subtitle="Configuración global del sistema, banners promocionales y opciones de la tienda"
+    >
       <div className="admin-panel" style={{ marginBottom: "24px" }}>
         <div className="admin-panel__header">
           <h2 className="admin-panel__title">Banners del carrusel principal</h2>
@@ -577,6 +581,6 @@ export default function Settings() {
           </div>
         </div>
       </div>
-    </section>
+    </AdminPageShell>
   );
 }

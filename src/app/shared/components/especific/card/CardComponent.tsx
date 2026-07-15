@@ -90,15 +90,16 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
               <div
                 key={i}
                 className={styles.carouselSlide}
+                style={{ height: "220px", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#ffffff" }}
               >
                 <img
                   src={img}
-                  style={{ objectFit: "contain" }}
+                  style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }}
                   loading="lazy"
                 />
               </div>
             ))
-          : [<div key="no-img">Sin imágenes</div>]}
+          : [<div key="no-img" style={{ height: "220px", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#f3f4f6", color: "#6b7280", fontStyle: "italic", borderRadius: "8px" }}>Sin imágenes</div>]}
       </Carousel>
 
       <CardContent>
@@ -176,33 +177,33 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             onClick={() => {
               handleAltaProduct(dataProduct);
             }}
-            className={`admin-btn admin-btn--primary ${styles.btnRow}`}
-            style={{ padding: "10px", margin: 0 }}
+            className="admin-btn-primary"
+            style={{ width: "100%", justifyContent: "center" }}
           >
             Dar de alta al sistema
-            <MdFileUpload size={26} />
+            <MdFileUpload size={20} />
           </button>
         )}
 
         {dataProduct && dataProduct?.image_url.length > 0 && (
           <button
             type="button"
-            className={`admin-btn admin-btn--secondary ${styles.btnRow}`}
-            style={{ padding: "10px", margin: 0 }}
+            className="admin-btn-secondary"
+            style={{ width: "100%", justifyContent: "center", background: "#f3f4f6", color: "#374151", border: "1px solid #d1d5db" }}
             onClick={() => {
               handleEditProduct(dataProduct);
             }}
           >
             Editar producto
-            <MdEdit size={26} />
+            <MdEdit size={20} />
           </button>
         )}
         {dataProduct && dataProduct?.image_url?.length > 0 && (
           <button
             type="button"
             disabled={loadingRemoveProduct}
-            className={`admin-btn admin-btn--primary ${styles.btnRow}`}
-            style={{ padding: "10px", margin: 0 }}
+            className="admin-btn-primary"
+            style={{ width: "100%", justifyContent: "center", background: "linear-gradient(135deg, #1f2937 0%, #111827 100%)", boxShadow: "0 4px 10px rgba(0,0,0,0.2)" }}
             onClick={async () => {
               setDataModal({
                 isOpen: true,
@@ -254,7 +255,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             ) : (
               <>
                 Dar de baja del sistema
-                <MdDownload size={26} />
+                <MdDownload size={20} />
               </>
             )}
           </button>

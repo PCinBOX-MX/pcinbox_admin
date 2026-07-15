@@ -59,7 +59,11 @@ section:not(.no-padding-top) {
 }
 
 html[data-admin-sidebar="closed"] .admin-layout {
-  padding-left: 0;
+  padding-left: 80px;
+}
+
+html[data-admin-sidebar="closed"]:has(aside:hover) .admin-layout {
+  padding-left: 260px;
 }
 
 .admin-main {
@@ -139,6 +143,46 @@ html[data-admin-sidebar="closed"] .admin-layout {
   box-sizing: border-box;
   overflow: hidden;
 }
+
+.admin-panel {
+  background: #fff;
+  border: 1px solid #e8ecf4;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-panel__header {
+  padding: 24px 24px 16px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fdfdfd;
+}
+
+.admin-panel__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+.admin-panel__subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.admin-panel__body {
+  padding: 24px;
+  background: #fff;
+}
+
 
 .admin-table-scroll {
   width: 100%;

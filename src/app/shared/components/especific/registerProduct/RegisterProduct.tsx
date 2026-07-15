@@ -232,8 +232,14 @@ const RegisterProduct = () => {
     <form
       onSubmit={handleSubmit}
       className="admin-form-shell"
-      style={{ margin: 0, padding: 0 }}
+      style={{ display: "flex", flexDirection: "column", gap: "16px", background: "#ffffff", padding: "16px 20px", borderRadius: "16px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", width: "100%" }}
     >
+      <style>{`
+        form.admin-form-shell .MuiFormControl-root,
+        form.admin-form-shell .MuiTextField-root {
+          width: 100% !important;
+        }
+      `}</style>
       <div className={rpStyles.fieldGroup}>
         <label htmlFor="select-tipo-producto" className={rpStyles.fieldLabel}>
           Tipo de producto{" "}
@@ -260,8 +266,7 @@ const RegisterProduct = () => {
       {typeProduct == "component" ? (
         <>
           <div
-            className="admin-form-grid-3"
-            style={{ marginBottom: "16px", padding: 0 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
           >
             <TextField
               label="Nombre"
@@ -327,8 +332,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="admin-form-grid-3"
-            style={{ marginBottom: "16px", padding: 0 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
           >
             <FormControl fullWidth>
               <Autocomplete
@@ -392,8 +396,7 @@ const RegisterProduct = () => {
             />
           </div>
           <div
-            className="admin-form-grid-2"
-            style={{ marginBottom: "16px", padding: 0 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
           >
             <TextField
               required
@@ -441,8 +444,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="admin-row admin-row--wrap"
-            style={{ marginBottom: "16px", padding: 0 }}
+            className="admin-row admin-row--wrap admin-mb-md"
           >
             {files.map((file, indexFile) => {
               const imageUrl = URL.createObjectURL(file);
@@ -480,8 +482,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="admin-form-grid-3"
-            style={{ marginBottom: "16px", padding: 0 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
           >
             <TextField
               required
@@ -556,7 +557,6 @@ const RegisterProduct = () => {
           </div>
           <div
             className="admin-form-scroll-grid"
-            style={{ marginBottom: "12px", padding: "12px 0" }}
             ref={containerRef2}
           >
             {dataNewComponent.caracteristicas &&
@@ -643,8 +643,7 @@ const RegisterProduct = () => {
       ) : typeProduct == "pcgamer" ? (
         <>
           <div
-            className="admin-form-grid-4"
-            style={{ marginBottom: "16px", padding: 0 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
           >
             <TextField
               label="Nombre"
@@ -706,8 +705,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="admin-form-grid-2"
-            style={{ marginBottom: "16px", padding: 0 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
           >
             <TextField
               label="Existencia"
@@ -754,8 +752,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            className="admin-form-grid-3"
-            style={{ marginBottom: "16px", padding: 0 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
           >
             <TextField
               label="UPC"
@@ -1021,13 +1018,48 @@ const RegisterProduct = () => {
       {typeProduct ? (
         <div
           className="admin-form-footer"
-          style={{ marginTop: "24px", paddingTop: "20px" }}
+          style={{ 
+            marginTop: "12px", 
+            paddingTop: "16px", 
+            display: "flex", 
+            justifyContent: "flex-end",
+            position: "sticky",
+            bottom: "-16px",
+            background: "linear-gradient(to bottom, rgba(255,255,255,0.9), #ffffff)",
+            paddingBottom: "16px",
+            zIndex: 10,
+            borderTop: "1px solid #f3f4f6"
+          }}
         >
           <button
             disabled={loadinNewProduct}
             type="submit"
-            className={`admin-btn admin-btn--primary ${rpStyles.submitBtn}`}
-            style={{ padding: "10px 22px", margin: 0 }}
+            style={{
+              padding: "12px 28px",
+              backgroundColor: "#bb3d4b",
+              backgroundImage: "linear-gradient(135deg, #bb3d4b 0%, #9a2f3b 100%)",
+              color: "white",
+              fontWeight: "600",
+              fontSize: "15px",
+              border: "none",
+              borderRadius: "10px",
+              cursor: loadinNewProduct ? "not-allowed" : "pointer",
+              boxShadow: "0 4px 14px rgba(187, 61, 75, 0.35)",
+              opacity: loadinNewProduct ? 0.7 : 1,
+              transition: "transform 0.2s ease, box-shadow 0.2s ease"
+            }}
+            onMouseEnter={(e) => {
+              if (!loadinNewProduct) {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 20px rgba(187, 61, 75, 0.45)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loadinNewProduct) {
+                e.currentTarget.style.transform = "none";
+                e.currentTarget.style.boxShadow = "0 4px 14px rgba(187, 61, 75, 0.35)";
+              }
+            }}
           >
             {loadinNewProduct ? "Guardando..." : "Agregar producto"}
           </button>

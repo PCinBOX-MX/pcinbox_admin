@@ -17,7 +17,7 @@ const useVentasInvitados = () => {
   const [loading, setLoading] = useState(false);
 
   const handleGetAllSalesInvitados = useCallback(
-    async (pagination: PaginationModel) => {
+    async (pagination: PaginationModel = { page: 0, pageSize: 25 }) => {
       setLoading(true);
       try {
         const resp = await requestGetProveedores(
@@ -28,16 +28,15 @@ const useVentasInvitados = () => {
         if (resp.status == 200) {
           const { rows, totalRows } = parsePaginatedResponse(resp.data);
 
-          setRowsVentasInvitados({
-            totalRows,
-            data: rows.map((item: any) => ({
+          setRowsVentasInvitados(
+            rows.map((item: any) => ({
               ...item,
               id: item.idLinkPago ?? item.id,
-            })),
-          });
+            }))
+          );
         }
       } catch (error) {
-        setRowsVentasInvitados({ totalRows: 0, data: [] });
+        setRowsVentasInvitados([]);
       } finally {
         setLoading(false);
       }
@@ -62,12 +61,12 @@ const useVentasInvitados = () => {
       if (resp.status == 200) {
         setRowsVentasInvitados((prev) => ({
           ...prev,
-          data: prev.data.map((row) =>
+          data: prev.map((row) =>
             row.id === idLinkPago ? { ...row, statusShip: newStatus } : row,
           ),
         }));
       }
-    } catch (error) {}
+    } catch (error) { }
   };
 
   return {

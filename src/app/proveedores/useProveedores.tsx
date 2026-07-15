@@ -5,6 +5,7 @@ import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { SelectChangeEvent } from "@mui/material";
 import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
+import { useQueryParams } from "../hooks/useQueryParams";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
 import dynamic from "next/dynamic";
 
@@ -19,14 +20,18 @@ const useProveedores = () => {
     useTheContext();
   const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
 
-  const [slcProveedor, setSlcProveedor] = useState<string>("");
+  const { searchParams, setQueryParams } = useQueryParams();
+  const providerParam = searchParams.get("provider") || "";
+  const [slcProveedor, setSlcProveedor] = useState<string>(providerParam);
 
   const [registerProveedores, setRegisterProveedores] = useState<{
     loading: boolean;
   }>({ loading: false });
 
   const handleOnChange = (event: SelectChangeEvent) => {
-    setSlcProveedor(event.target.value);
+    const newVal = event.target.value;
+    setSlcProveedor(newVal);
+    setQueryParams({ provider: newVal, page: 1 });
   };
 
   const handleGetProveedores = useCallback(async () => {
@@ -42,8 +47,10 @@ const useProveedores = () => {
         const data = resp.data;
         setDataProveedores((prev) => ({ ...prev, data: data.data.data }));
 
-        if (data.data.data?.length > 0) {
-          setSlcProveedor(String(data.data.data[0].idProvider));
+        if (data.data.data?.length > 0 && !providerParam) {
+          const firstId = String(data.data.data[0].idProvider);
+          setSlcProveedor(firstId);
+          setQueryParams({ provider: firstId });
         }
       }
     } catch (error) {

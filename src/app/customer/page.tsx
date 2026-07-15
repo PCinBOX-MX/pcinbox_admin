@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useQueryParams } from "../hooks/useQueryParams";
 import TableComponent from "../shared/components/especific/table/TableComponent";
 import GridCustomer from "./gridCustomer";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
@@ -22,18 +23,47 @@ const Customer = () => {
   const { requestGetProveedores } = ProveedoresUtils();
   const [dataRows, setDataRows] = useState<any[]>([]);
   const [totalRows, setTotalRows] = useState(0);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { searchParams, setQueryParams } = useQueryParams();
+  const searchParam = searchParams.get("search") || "";
+  const pageParam = parseInt(searchParams.get("page") || "0", 10);
+  const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
+
+  const [search, setSearch] = useState(searchParam);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
   const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
+    page: pageParam,
+    pageSize: pageSizeParam,
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 400);
-    return () => clearTimeout(t);
-  }, [search]);
+    if (searchParam !== debouncedSearch) {
+      setSearch(searchParam);
+      setDebouncedSearch(searchParam);
+    }
+    if (pageParam !== paginationModel.page || pageSizeParam !== paginationModel.pageSize) {
+      setPaginationModel({ page: pageParam, pageSize: pageSizeParam });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    setQueryParams({
+      search: debouncedSearch,
+      page: paginationModel.page,
+      pageSize: paginationModel.pageSize,
+    });
+  }, [debouncedSearch, paginationModel, setQueryParams]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      if (search.trim() !== debouncedSearch) {
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+      }
+    }, 450);
+    return () => clearTimeout(handler);
+  }, [search, debouncedSearch]);
 
   useEffect(() => {
     async function getListUsers() {

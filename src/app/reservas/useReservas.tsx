@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import UtilsService from "@/app/services/utils";
 import { useTheContext } from "@/app/hooks/global.hook";
+import { useQueryParams } from "../hooks/useQueryParams";
 
 export interface Reservation {
   id: string;
@@ -105,30 +106,71 @@ const useReservas = () => {
   const [totalReservations, setTotalReservations] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  const { searchParams, setQueryParams } = useQueryParams();
+
+  const searchParam = searchParams.get("search") || "";
+  const statusParam = searchParams.get("status") || "all";
+  const dateParam = searchParams.get("date") || "";
+  const filterTypeParam = (searchParams.get("filterType") as "single" | "range") || "single";
+  const startDateParam = searchParams.get("startDate") || "";
+  const endDateParam = searchParams.get("endDate") || "";
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
+
   // Filtros
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [status, setStatus] = useState("all");
-  const [date, setDate] = useState("");
-  const [filterType, setFilterType] = useState<"single" | "range">("single");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [search, setSearch] = useState(searchParam);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
+  const [status, setStatus] = useState(statusParam);
+  const [date, setDate] = useState(dateParam);
+  const [filterType, setFilterType] = useState<"single" | "range">(filterTypeParam);
+  const [startDate, setStartDate] = useState(startDateParam);
+  const [endDate, setEndDate] = useState(endDateParam);
 
   // Paginación
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(pageParam);
+  const [pageSize, setPageSize] = useState(pageSizeParam);
 
-  // Debounce para el término de búsqueda (evita saturar el servidor con peticiones innecesarias)
+  // Sincronizar de URL a estados locales (botón atrás del navegador)
+  useEffect(() => {
+    if (searchParam !== debouncedSearch) {
+      setSearch(searchParam);
+      setDebouncedSearch(searchParam);
+    }
+    if (statusParam !== status) setStatus(statusParam);
+    if (dateParam !== date) setDate(dateParam);
+    if (filterTypeParam !== filterType) setFilterType(filterTypeParam);
+    if (startDateParam !== startDate) setStartDate(startDateParam);
+    if (endDateParam !== endDate) setEndDate(endDateParam);
+    if (pageParam !== page) setPage(pageParam);
+    if (pageSizeParam !== pageSize) setPageSize(pageSizeParam);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Sincronizar estados locales a URL cuando cambien
+  useEffect(() => {
+    setQueryParams({
+      search: debouncedSearch,
+      status,
+      date,
+      filterType,
+      startDate,
+      endDate,
+      page,
+      pageSize
+    });
+  }, [debouncedSearch, status, date, filterType, startDate, endDate, page, pageSize, setQueryParams]);
+
+  // Debounce para el término de búsqueda
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
-      setPage(1); // Reiniciar a página 1 al cambiar el filtro de búsqueda
+      if (search !== debouncedSearch) {
+        setPage(1); // Reiniciar a página 1 solo si el debounced realmente cambió
+      }
     }, 450);
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [search]);
+    return () => clearTimeout(handler);
+  }, [search, debouncedSearch]);
 
   // Carga de datos de reservas de administrador
   const fetchReservations = async () => {

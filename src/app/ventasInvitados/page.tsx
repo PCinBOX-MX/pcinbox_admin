@@ -1,7 +1,8 @@
 "use client";
 
 import { Alert } from "@mui/material";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useQueryParams } from "../hooks/useQueryParams";
 import { useTheContext } from "../hooks/global.hook";
 import TableComponent from "../shared/components/especific/table/TableComponent";
 import GridVentasInvitados from "./gridVentasInvitados";
@@ -21,10 +22,30 @@ const fieldSx = {
 
 const VentasInvitados = () => {
   const { rowsVentasInvitados } = useTheContext();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
+  const { searchParams, setQueryParams } = useQueryParams();
+
+  const searchParam = searchParams.get("search") || "";
+  const statusFilter = searchParams.get("status") || "all";
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  
+  const [search, setSearch] = useState(searchParam);
   const pageSize = 10;
+
+  useEffect(() => {
+    if (searchParam !== search) {
+      setSearch(searchParam);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParam]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (searchParam !== search) {
+        setQueryParams({ search, page: 1 });
+      }
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [search, searchParam, setQueryParams]);
 
   const filtered = useMemo(() => {
     return rowsVentasInvitados.filter((item) => {
@@ -78,7 +99,7 @@ const VentasInvitados = () => {
       pageCount={pageCount}
       totalItems={filtered.length}
       pageSize={pageSize}
-      onPageChange={setPage}
+      onPageChange={(newPage) => setQueryParams({ page: newPage })}
       label="ventas invitado"
     />
   );
@@ -100,7 +121,6 @@ const VentasInvitados = () => {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPage(1);
               }}
               sx={fieldSx}
               InputProps={{
@@ -113,8 +133,7 @@ const VentasInvitados = () => {
                 label="Estatus pago"
                 value={statusFilter}
                 onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(1);
+                  setQueryParams({ status: e.target.value, page: 1 });
                 }}
               >
                 <MenuItem value="all">Todos</MenuItem>
@@ -128,8 +147,7 @@ const VentasInvitados = () => {
               className="admin-btn-ghost"
               onClick={() => {
                 setSearch("");
-                setStatusFilter("all");
-                setPage(1);
+                setQueryParams({ search: "", status: "all", page: 1 });
               }}
               disabled={!search && statusFilter === "all"}
             >

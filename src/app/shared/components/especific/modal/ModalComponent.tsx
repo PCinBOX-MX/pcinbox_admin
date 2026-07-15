@@ -119,101 +119,145 @@ const ModalComponent = ({
 
   return (
     <div className={`fixed inset-0 flex items-center justify-center w-auto`}>
-      {/* <div
-        className={`absolute inset-0 bg-black transition-opacity duration-300 z-50 ${
-          isVisible
-            ? "opacity-50 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
-        onClick={handleClose}
-      > */}
       <Modal
         className="flex justify-center items-center"
         open={isVisible}
-        onClick={handleClose}
+        onClose={handleClose}
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
         sx={{
-          zIndex: 1300, // z-index por defecto de MUI Modal
+          zIndex: 1300,
         }}
-        BackdropProps={{
-          style: {
-            backgroundColor: "rgba(0, 0, 0, 0.5)", // Tu fondo negro con opacidad
-          },
+        slotProps={{
+          backdrop: {
+            sx: {
+              backgroundColor: "rgba(15, 23, 42, 0.6)",
+              backdropFilter: "blur(4px)",
+            }
+          }
         }}
       >
         <Box
           onClick={(e) => e.stopPropagation()}
           sx={{
             background: "white",
-            width: "fit-content",
+            width: "90vw",
             maxWidth: "800px",
             maxHeight: "90vh",
             overflowY: "auto",
-            padding: "10px",
-            borderRadius: "10px",
+            borderRadius: "16px",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            outline: "none",
+            display: "flex",
+            flexDirection: "column",
+            paddingBottom: "24px",
           }}
+          className="animate-in fade-in zoom-in-95 duration-200"
         >
-          <div className="flex justify-end items-center">
+          {/* Cabecera con botón cerrar */}
+          <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 16px 0 0" }}>
             <button
               onClick={handleClose}
-              className="cursor-pointer font-bold"
               style={{
-                padding: "10px",
-                fontSize: "18px",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "50%",
+                color: "#9ca3af",
+                transition: "background-color 0.2s, color 0.2s"
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f3f4f6";
+                e.currentTarget.style.color = "#4b5563";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "#9ca3af";
+              }}
+              aria-label="Cerrar modal"
             >
-              X
+              <X size={20} strokeWidth={2.5} />
             </button>
           </div>
-          <Typography
-            id="modal-modal-title"
-            variant="h6"
-            component="h2"
-            sx={{
-              textAlign: "center",
-              color: "#bb3d4b",
-              fontWeight: "bold",
-              fontSize: "25px",
-            }}
-          >
-            {title}
-          </Typography>
-          <div
-            className="flex justify-center"
-            style={{
-              padding: "10px",
 
-              marginBottom: "10px",
-            }}
-          >
-            {content}
+          {/* Ícono y Título */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px 8px 24px", textAlign: "center" }}>
+            <div 
+              className={`${config.bgColor} ${config.iconColor}`}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "64px", height: "64px", borderRadius: "50%", marginBottom: "16px" }}
+            >
+              <IconComponent size={32} strokeWidth={2} />
+            </div>
+            
+            <Typography
+              id="modal-modal-title"
+              variant="h6"
+              component="h2"
+              sx={{
+                color: type === 'error' ? '#ef4444' : '#1f2937',
+                fontWeight: "700",
+                fontSize: "1.25rem",
+                lineHeight: "1.75rem",
+                marginBottom: "8px"
+              }}
+            >
+              {title}
+            </Typography>
           </div>
 
-          {showActions && showActions == true && (
-            <div
-              className="flex justify-center items-center gap-3"
-              style={{ padding: "10px" }}
-            >
+          {/* Contenido */}
+          <div style={{ display: "flex", justifyContent: "center", padding: "0 24px 24px 24px", color: "#4b5563", textAlign: "left", fontSize: "15px" }}>
+            <div style={{ width: "100%", textAlign: "left" }}>
+              {content}
+            </div>
+          </div>
+
+          {/* Botones de Acción */}
+          {showActions && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", padding: "8px 24px 0 24px" }}>
               <button
-                className="bg-[#bb3d4b] text-white font-bold rounded cursor-pointer"
-                style={{ padding: "10px" }}
-                onClick={handleConfirm}
-              >
-                Aceptar
-              </button>
-              <button
-                className="bg-[#808080] text-white font-bold rounded cursor-pointer"
-                style={{ padding: "10px" }}
+                style={{
+                  padding: "10px 24px",
+                  backgroundColor: "#f3f4f6",
+                  color: "#374151",
+                  fontWeight: "500",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#e5e7eb"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#f3f4f6"}
                 onClick={handleClose}
               >
                 Cancelar
+              </button>
+              <button
+                style={{
+                  padding: "10px 24px",
+                  backgroundColor: type === 'error' ? '#dc2626' : '#bb3d4b',
+                  color: "white",
+                  fontWeight: "500",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                  transition: "background-color 0.2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = type === 'error' ? '#b91c1c' : '#a03440'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = type === 'error' ? '#dc2626' : '#bb3d4b'}
+                onClick={handleConfirm}
+              >
+                Aceptar
               </button>
             </div>
           )}
         </Box>
       </Modal>
-      {/* </div> */}
     </div>
   );
 };

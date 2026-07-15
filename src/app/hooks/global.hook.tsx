@@ -59,8 +59,10 @@ interface ContextProps {
   >;
   socketPagos: RefObject<Socket | null>;
   socketServer: RefObject<Socket | null>;
+  socketCron: RefObject<Socket | null>;
   socketPagosReady: boolean;
   socketServerReady: boolean;
+  socketCronReady: boolean;
   rowsVentas: {
     totalRows: number;
     data: SalesI[];
@@ -110,8 +112,10 @@ const CreateContext = createContext<ContextProps>({
   setProductsProveedor: () => {},
   socketPagos: { current: null },
   socketServer: { current: null },
+  socketCron: { current: null },
   socketPagosReady: false,
   socketServerReady: false,
+  socketCronReady: false,
   rowsVentas: {
     totalRows: 0,
     data: [],
@@ -172,8 +176,10 @@ export const GlobalProvider = ({ children }: { children: any }) => {
 
   const socketPagos = useRef<Socket | null>(null);
   const socketServer = useRef<Socket | null>(null);
+  const socketCron = useRef<Socket | null>(null);
   const [socketPagosReady, setSocketPagosReady] = useState(false);
   const [socketServerReady, setSocketServerReady] = useState(false);
+  const [socketCronReady, setSocketCronReady] = useState(false);
 
   const [dataMarca, setDataMarca] = useState([]);
   const [tableKey, setTableKey] = useState(0);
@@ -211,6 +217,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   useEffect(() => {
     const socketProveedorUrl = process.env.NEXT_PUBLIC_SOCKET_PROVEEDOR?.trim();
     const socketPagosUrl = process.env.NEXT_PUBLIC_SOCKET_PAGOS?.trim();
+    const socketCronUrl = process.env.NEXT_PUBLIC_SOCKET_CRON?.trim();
 
     if (socketPagosUrl) {
       const socket = io(socketPagosUrl, {
@@ -242,13 +249,31 @@ export const GlobalProvider = ({ children }: { children: any }) => {
       if (socket.connected) markReady();
     }
 
+    if (socketCronUrl) {
+      const socket = io(socketCronUrl, {
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+      socketCron.current = socket;
+
+      const markReady = () => setSocketCronReady(true);
+      socket.on("connect", markReady);
+      if (socket.connected) markReady();
+    }
+
     return () => {
       setSocketPagosReady(false);
       setSocketServerReady(false);
+      setSocketCronReady(false);
       socketPagos.current?.disconnect();
       socketServer.current?.disconnect();
+      socketCron.current?.disconnect();
       socketPagos.current = null;
       socketServer.current = null;
+      socketCron.current = null;
     };
   }, []);
 
@@ -285,6 +310,55 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     handleGetMarcas();
   }, [dataCategoria.length, dataMarca.length]);
 
+  useEffect(() => {
+    const cronSocket = socketCron.current;
+    if (!cronSocket) return;
+
+    const onCronUpdate = (payload: any) => {
+      const updates = Array.isArray(payload) ? payload : [payload];
+      if (!updates.length) return;
+
+      setDataProducts((prevProducts) => {
+        let changed = false;
+        const newProducts = prevProducts.map((p) => {
+          const update = updates.find((u: any) => Number(u.idProduct) === Number(p.idProduct));
+          if (!update) return p;
+
+          changed = true;
+          return {
+            ...p,
+            price: update.price !== undefined ? Number(update.price) : p.price,
+            stock: update.stock !== undefined ? Number(update.stock) : p.stock,
+            stockBranches: update.branches ? update.branches : p.stockBranches,
+          };
+        });
+        return changed ? newProducts : prevProducts;
+      });
+
+      setProductsProveedor((prev) => {
+        let changed = false;
+        const newData = prev.data.map((p) => {
+          const update = updates.find((u: any) => Number(u.idProduct) === Number(p.idProduct));
+          if (!update) return p;
+
+          changed = true;
+          return {
+            ...p,
+            price: update.price !== undefined ? Number(update.price) : p.price,
+            stock: update.stock !== undefined ? Number(update.stock) : p.stock,
+            stockBranches: update.branches ? update.branches : p.stockBranches,
+          };
+        });
+        return changed ? { ...prev, data: newData } : prev;
+      });
+    };
+
+    cronSocket.on("updatedStockCron", onCronUpdate);
+    return () => {
+      cronSocket.off("updatedStockCron", onCronUpdate);
+    };
+  }, [socketCronReady]);
+
   return (
     <CreateContext.Provider
       value={{
@@ -294,8 +368,10 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setDataProveedores,
         socketPagos,
         socketServer,
+        socketCron,
         socketPagosReady,
         socketServerReady,
+        socketCronReady,
         rowsVentas,
         setRowsVentas,
         rowsVentasInvitados,
