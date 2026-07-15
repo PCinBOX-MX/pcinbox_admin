@@ -38,9 +38,7 @@ const useProveedores = () => {
     try {
       setDataProveedores((prev) => ({ ...prev, loading: true }));
 
-      const resp = await requestGetProveedores("/getAllProveedores", {
-        silent: true,
-      });
+      const resp = await requestGetProveedores("/getAllProveedores");
       setDataProveedores((prev) => ({ ...prev, loading: false }));
 
       if (resp?.status == 200) {
@@ -65,8 +63,7 @@ const useProveedores = () => {
 
         const resp = await requestPostProveedores(
           { idProveedor },
-          "/getProductsByProveedor",
-          { silent: true },
+          "/getProductsByProveedor"
         );
         setProductsProveedor((prev) => ({ ...prev, loading: false }));
 
@@ -177,7 +174,7 @@ const useProveedores = () => {
       content: <RegisterProduct />,
       title: "Agregar producto",
       type: "info",
-      size: "xl",
+
       showActions: false,
       onClose: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));

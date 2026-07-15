@@ -21,8 +21,7 @@ const useVentasInvitados = () => {
       setLoading(true);
       try {
         const resp = await requestGetProveedores(
-          buildPaginatedUrl("/getAllSalesInvitados", pagination),
-          { silent: true },
+          buildPaginatedUrl("/getAllSalesInvitados", pagination)
         );
 
         if (resp.status == 200) {

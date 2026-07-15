@@ -141,8 +141,9 @@ const ModalComponent = ({
           onClick={(e) => e.stopPropagation()}
           sx={{
             background: "white",
-            width: "90vw",
-            maxWidth: "800px",
+            width: "fit-content",
+            minWidth: "min(90vw, 320px)",
+            maxWidth: "min(90vw, 600px)",
             maxHeight: "90vh",
             overflowY: "auto",
             borderRadius: "16px",
@@ -210,8 +211,8 @@ const ModalComponent = ({
           </div>
 
           {/* Contenido */}
-          <div style={{ display: "flex", justifyContent: "center", padding: "0 24px 24px 24px", color: "#4b5563", textAlign: "left", fontSize: "15px" }}>
-            <div style={{ width: "100%", textAlign: "left" }}>
+          <div style={{ display: "flex", justifyContent: "center", padding: "0 24px 24px 24px", color: "#4b5563", textAlign: "center", fontSize: "16px", lineHeight: "1.5" }}>
+            <div style={{ width: "100%", textAlign: "center" }}>
               {content}
             </div>
           </div>

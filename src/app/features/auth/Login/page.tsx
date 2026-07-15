@@ -85,26 +85,7 @@ const LoginComponent = () => {
         </Button>
       </Box>
 
-      <div className={authStyle.footerLinks}>
-        <Typography className={authStyle.footerText} variant="body2">
-          ¿Olvidaste tu contraseña?{" "}
-          <Link component="button" type="button" underline="hover">
-            Recupérala aquí
-          </Link>
-        </Typography>
 
-        <Typography className={authStyle.footerText} variant="body2">
-          ¿No tienes una cuenta?{" "}
-          <Link
-            component="button"
-            type="button"
-            underline="hover"
-            onClick={() => onRouterPush("/features/auth/Register")}
-          >
-            Regístrate
-          </Link>
-        </Typography>
-      </div>
     </div>
   );
 };

@@ -42,8 +42,7 @@ const useDashboard = () => {
         }
 
         const resp = await requestGetProveedores(
-          `/getAllSales?${params.toString()}`,
-          { silent: true },
+          `/getAllSales?${params.toString()}`
         );
 
         if (resp.status == 200) {
