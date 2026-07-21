@@ -38,7 +38,10 @@ interface DataNewProductI {
   image_url: File[];
   upc?: string;
   providerId: number;
-  caracteristicas: { prop: string; value: string }[];
+  caracteristicas: string | { prop: string; value: string }[];
+  originPrice?: number;
+  profitMargin?: number;
+  branchStocks?: { tienda: string; stock: number }[];
 }
 
 const RegisterProduct = () => {
@@ -67,7 +70,10 @@ const RegisterProduct = () => {
     price: 0,
     image_url: [],
     providerId: 1,
-    caracteristicas: [],
+    caracteristicas: "",
+    originPrice: 0,
+    profitMargin: 0,
+    branchStocks: [],
   });
 
   const [dataNewPcGamer, setDataNewPcGamer] = useState<{
@@ -94,6 +100,17 @@ const RegisterProduct = () => {
   const [loadinNewProduct, setLoadingNewProduct] = useState<boolean>(false);
 
   const { requestPostProveedores } = ProveedoresUtils();
+
+  const calculateFinalPrice = (cost: number, margin: number) => {
+    const IVA = 0.16;
+    const OPENPAY_PERCENT = 0.036;
+    const OPENPAY_BASE = 3;
+    const precioProveedor = cost * (1 + IVA);
+    const precioConUtilidad = precioProveedor + Number(margin || 0);
+    const comisionOpenPay = precioConUtilidad * OPENPAY_PERCENT;
+    const precioFinal = precioConUtilidad + comisionOpenPay + OPENPAY_BASE;
+    return Math.round(precioFinal * 100) / 100;
+  };
 
   useEffect(() => {
     if (containerRef.current) {
@@ -140,12 +157,29 @@ const RegisterProduct = () => {
         formData.append("name", dataNewComponent.name);
         formData.append("clave", dataNewComponent?.clave || "");
         formData.append("description", dataNewComponent.description);
-        formData.append("newPrice", dataNewComponent.price.toString());
+        
+        const finalPrice = calculateFinalPrice(dataNewComponent.originPrice || 0, dataNewComponent.profitMargin || 0);
+        formData.append("newPrice", dataNewComponent.providerId !== 1 ? finalPrice.toString() : (dataNewComponent.price || 0).toString());
+        
         formData.append("sku", dataNewComponent.sku);
         formData.append("categoryId", dataNewComponent.categoria.toString());
         formData.append("marcaId", dataNewComponent.marca.toString());
-        formData.append("stock", dataNewComponent.stock.toString());
+        
+        let finalStock = dataNewComponent.stock;
+        if (dataNewComponent.providerId === 2 || dataNewComponent.providerId === 3) {
+          finalStock = (dataNewComponent.branchStocks || []).reduce((acc, b) => acc + b.stock, 0);
+        }
+        formData.append("stock", finalStock.toString());
         formData.append("upc", dataNewComponent?.upc || "");
+
+        if (dataNewComponent.providerId !== 1) {
+          formData.append("originPrice", (dataNewComponent.originPrice || 0).toString());
+          formData.append("profitMargin", (dataNewComponent.profitMargin || 0).toString());
+          
+          if (dataNewComponent.providerId === 2 || dataNewComponent.providerId === 3) {
+            formData.append("branches", JSON.stringify(dataNewComponent.branchStocks || []));
+          }
+        }
 
         const filesArray = Array.from(files || []);
         filesArray.forEach((file) => formData.append("files", file));
@@ -153,7 +187,9 @@ const RegisterProduct = () => {
         formData.append("isPc", "0");
         formData.append(
           "caracteristicas",
-          JSON.stringify(dataNewComponent.caracteristicas),
+          typeof dataNewComponent.caracteristicas === 'string' 
+            ? dataNewComponent.caracteristicas 
+            : JSON.stringify(dataNewComponent.caracteristicas)
         );
       } else if (typeProduct?.toLowerCase() === "pcgamer") {
         formData.append("name", dataNewPcGamer.name);
@@ -266,7 +302,7 @@ const RegisterProduct = () => {
       {typeProduct == "component" ? (
         <>
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
           >
             <TextField
               label="Nombre"
@@ -332,7 +368,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
           >
             <FormControl fullWidth>
               <Autocomplete
@@ -366,37 +402,123 @@ const RegisterProduct = () => {
                 )}
               />
             </FormControl>
-            <TextField
-              label="Existencia"
-              type="number"
-              variant="outlined"
-              name="stock"
-              value={dataNewComponent?.stock || ""}
-              onChange={(event) => {
-                setDataNewComponent((prev) => ({
-                  ...prev,
-                  stock: Number(event.target.value),
-                }));
-              }}
-              required
-            />
-            <TextField
-              required
-              label="Precio"
-              type="number"
-              variant="outlined"
-              name="price"
-              value={dataNewComponent?.price || ""}
-              onChange={(event) =>
-                setDataNewComponent((prev) => ({
-                  ...prev,
-                  price: Number(event.target.value),
-                }))
-              }
-            />
+            {dataNewComponent.providerId === 1 ? (
+              <TextField
+                label="Existencia"
+                type="number"
+                variant="outlined"
+                name="stock"
+                value={dataNewComponent?.stock || ""}
+                onChange={(event) => {
+                  setDataNewComponent((prev) => ({
+                    ...prev,
+                    stock: Number(event.target.value),
+                  }));
+                }}
+                required
+              />
+            ) : (
+              <>
+                {dataNewComponent.providerId === 2 && ["GDL", "CDMX"].map((sucursal) => (
+                  <TextField
+                    key={sucursal}
+                    label={`Stock ${sucursal}`}
+                    type="number"
+                    variant="outlined"
+                    value={dataNewComponent.branchStocks?.find(b => b.tienda === sucursal)?.stock || ""}
+                    onChange={(event) => {
+                      const stockVal = Number(event.target.value);
+                      setDataNewComponent((prev) => {
+                        const currentStocks = prev.branchStocks || [];
+                        const index = currentStocks.findIndex(b => b.tienda === sucursal);
+                        const newStocks = [...currentStocks];
+                        if (index >= 0) newStocks[index].stock = stockVal;
+                        else newStocks.push({ tienda: sucursal, stock: stockVal });
+                        return { ...prev, branchStocks: newStocks };
+                      });
+                    }}
+                    required
+                  />
+                ))}
+                {dataNewComponent.providerId === 3 && ["leon2", "santafe"].map((sucursal) => (
+                  <TextField
+                    key={sucursal}
+                    label={`Stock ${sucursal}`}
+                    type="number"
+                    variant="outlined"
+                    value={dataNewComponent.branchStocks?.find(b => b.tienda === sucursal)?.stock || ""}
+                    onChange={(event) => {
+                      const stockVal = Number(event.target.value);
+                      setDataNewComponent((prev) => {
+                        const currentStocks = prev.branchStocks || [];
+                        const index = currentStocks.findIndex(b => b.tienda === sucursal);
+                        const newStocks = [...currentStocks];
+                        if (index >= 0) newStocks[index].stock = stockVal;
+                        else newStocks.push({ tienda: sucursal, stock: stockVal });
+                        return { ...prev, branchStocks: newStocks };
+                      });
+                    }}
+                    required
+                  />
+                ))}
+              </>
+            )}
+
+            {dataNewComponent.providerId === 1 ? (
+              <TextField
+                required
+                label="Precio"
+                type="number"
+                variant="outlined"
+                name="price"
+                value={dataNewComponent?.price || ""}
+                onChange={(event) =>
+                  setDataNewComponent((prev) => ({
+                    ...prev,
+                    price: Number(event.target.value),
+                  }))
+                }
+              />
+            ) : (
+              <>
+                <TextField
+                  required
+                  label="Costo Unitario ($)"
+                  type="number"
+                  variant="outlined"
+                  value={dataNewComponent?.originPrice || ""}
+                  onChange={(event) =>
+                    setDataNewComponent((prev) => ({
+                      ...prev,
+                      originPrice: Number(event.target.value),
+                    }))
+                  }
+                />
+                <TextField
+                  required
+                  label="Margen de Utilidad ($)"
+                  type="number"
+                  variant="outlined"
+                  value={dataNewComponent?.profitMargin || ""}
+                  onChange={(event) =>
+                    setDataNewComponent((prev) => ({
+                      ...prev,
+                      profitMargin: Number(event.target.value),
+                    }))
+                  }
+                />
+                <TextField
+                  label="Precio Público Calculado"
+                  type="number"
+                  variant="outlined"
+                  disabled
+                  value={calculateFinalPrice(dataNewComponent?.originPrice || 0, dataNewComponent?.profitMargin || 0)}
+                />
+              </>
+            )}
           </div>
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
           >
             <TextField
               required
@@ -482,7 +604,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
           >
             <TextField
               required
@@ -555,95 +677,28 @@ const RegisterProduct = () => {
               }
             />
           </div>
-          <div
-            className="admin-form-scroll-grid"
-            ref={containerRef2}
-          >
-            {dataNewComponent.caracteristicas &&
-            dataNewComponent.caracteristicas.length > 0
-              ? dataNewComponent.caracteristicas.map(
-                  (car: any, indexCar: number) => {
-                    return (
-                      <div
-                        key={indexCar}
-                        className="admin-grid-form-actions"
-                      >
-                        <TextField
-                          label="Caracteristica"
-                          variant="outlined"
-                          name="prop"
-                          value={car.prop}
-                          onChange={(event) => {
-                            setDataNewComponent((prev) => ({
-                              ...prev,
-                              caracteristicas: prev.caracteristicas.map(
-                                (item, indexPrevCar) =>
-                                  indexPrevCar === indexCar
-                                    ? { ...item, prop: event.target.value } // actualiza solo ese item
-                                    : item,
-                              ),
-                            }));
-                          }}
-                        />
-
-                        <TextField
-                          label="Valor"
-                          variant="outlined"
-                          name="value"
-                          value={car.value}
-                          onChange={(event) => {
-                            setDataNewComponent((prev) => ({
-                              ...prev,
-                              caracteristicas: prev.caracteristicas.map(
-                                (item, indexPrevCar) =>
-                                  indexPrevCar === indexCar
-                                    ? { ...item, value: event.target.value } // actualiza solo ese item
-                                    : item,
-                              ),
-                            }));
-                          }}
-                        />
-
-                        <Button
-                          style={{ background: "red", color: "white" }}
-                          onClick={() => {
-                            setDataNewComponent((prev) => ({
-                              ...prev,
-                              caracteristicas: prev.caracteristicas.filter(
-                                (_, indexP) => indexP !== indexCar,
-                              ),
-                            }));
-                          }}
-                        >
-                          <MdRemove size={26} />
-                        </Button>
-                      </div>
-                    );
-                  },
-                )
-              : ""}
-          </div>
           <div className="admin-row admin-mb-md">
-            <Button
-              style={{ background: "green", color: "white" }}
-              onClick={() => {
+            <TextField
+              label="Características"
+              multiline
+              rows={4}
+              variant="outlined"
+              name="caracteristicas"
+              value={typeof dataNewComponent.caracteristicas === 'string' ? dataNewComponent.caracteristicas : ""}
+              onChange={(event) =>
                 setDataNewComponent((prev) => ({
                   ...prev,
-                  caracteristicas: [
-                    ...prev.caracteristicas,
-                    { prop: "", value: "" },
-                  ],
-                }));
-              }}
-            >
-              <MdAdd size={26} />
-            </Button>
+                  caracteristicas: event.target.value,
+                }))
+              }
+              fullWidth
+            />
           </div>
         </>
       ) : typeProduct == "pcgamer" ? (
         <>
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
           >
             <TextField
               label="Nombre"
@@ -705,7 +760,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
           >
             <TextField
               label="Existencia"
@@ -752,7 +807,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px", width: "100%" }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
           >
             <TextField
               label="UPC"
