@@ -15,6 +15,7 @@ import {
   IconButton,
   TextField,
   Typography,
+  Stack,
 } from "@mui/material";
 import { Trash2 } from "lucide-react";
 import {
@@ -158,28 +159,28 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     }
   }, [currentProduct?.caracteristicas]);
 
-  const caracteristicasArray = useMemo(() => {
+  const [bulkText, setBulkText] = useState("");
+  useEffect(() => {
     const currentProduct = dataProductProveedor.data.find(
       (p) => p.idProduct === dataProductProp.idProduct,
     );
-
-    if (!currentProduct) return [];
-
-    if (typeof currentProduct.caracteristicas === "string") {
+    if (!currentProduct) return;
+    if (currentProduct.caracteristicas) {
       try {
-        const parsed = JSON.parse(currentProduct.caracteristicas);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
+        const parsed = typeof currentProduct.caracteristicas === "string" 
+          ? JSON.parse(currentProduct.caracteristicas) 
+          : currentProduct.caracteristicas;
+        if (Array.isArray(parsed)) {
+          const text = parsed
+            .map((c: any) => `${c.prop}: ${c.value}`)
+            .join("\n");
+          setBulkText(text);
+        }
+      } catch (e) {
+        console.error("Error parsing caracteristicas", e);
       }
     }
-
-    if (Array.isArray(currentProduct.caracteristicas)) {
-      return currentProduct.caracteristicas;
-    }
-
-    return [];
-  }, [dataProductProveedor, dataProductProp.idProduct]);
+  }, [dataProductProveedor.data, dataProductProp.idProduct]);
 
   return (
     <Box
@@ -600,175 +601,57 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         )}
       </div>
 
-      <div
-        className="admin-form-scroll-grid admin-mt-sm admin-py-sm"
-        ref={containerRef}
-      >
-        {caracteristicasArray && caracteristicasArray.length > 0
-          ? caracteristicasArray.map((car: any, indexCar: number) => {
-              return (
-                <div
-                  key={indexCar}
-                  className="admin-grid-form-actions"
-                >
-                  <Controller
-                    name={`caracteristicas.${indexCar}.prop`}
-                    control={control}
-                    defaultValue={car.prop}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        label="Caracteristica"
-                        variant="outlined"
-                        onChange={(e) => {
-                          field.onChange(e);
-                          const newValue = e.target.value;
-                          setProductsProveedor((prev) => ({
-                            ...prev,
-                            data: prev.data.map((prod) => {
-                              if (prod.idProduct != dataProductProp.idProduct) {
-                                return prod;
-                              }
+      <Stack spacing={2} className="admin-mt-sm admin-py-sm">
+        <TextField
+          label="Características (propiedad: valor, una por línea)"
+          multiline
+          rows={6}
+          variant="outlined"
+          fullWidth
+          value={bulkText}
+          onChange={(e) => {
+            const val = e.target.value;
+            setBulkText(val);
 
-                              return {
-                                ...prod,
-                                caracteristicas: (Array.isArray(
-                                  prod.caracteristicas,
-                                )
-                                  ? prod.caracteristicas
-                                  : JSON.parse(prod.caracteristicas || "[]")
-                                ).map((c: any, i: number) => {
-                                  if (i !== indexCar) return c;
+            const newCaracs = val
+              .split("\n")
+              .filter((line) => line.trim().length > 0)
+              .map((line) => {
+                const parts = line.split(":");
+                if (parts.length >= 2) {
+                  return {
+                    prop: parts[0].trim(),
+                    value: parts.slice(1).join(":").trim(),
+                  };
+                }
+                return { prop: "Característica", value: line.trim() };
+              });
 
-                                  return {
-                                    ...c,
-                                    prop: newValue,
-                                  };
-                                }),
-                              };
-                            }),
-                          }));
-                        }}
-                      />
-                    )}
-                  />
-
-                  <Controller
-                    name={`caracteristicas.${indexCar}.value`}
-                    control={control}
-                    defaultValue={car.value}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        label="Valor"
-                        variant="outlined"
-                        onChange={(e) => {
-                          field.onChange(e);
-                          const newValue = e.target.value;
-                          setProductsProveedor((prev) => ({
-                            ...prev,
-                            data: prev.data.map((prod) => {
-                              if (prod.idProduct != dataProductProp.idProduct) {
-                                return prod;
-                              }
-
-                              return {
-                                ...prod,
-                                caracteristicas: (Array.isArray(
-                                  prod.caracteristicas,
-                                )
-                                  ? prod.caracteristicas
-                                  : JSON.parse(prod.caracteristicas || "[]")
-                                ).map((c: any, i: number) => {
-                                  if (i !== indexCar) return c;
-
-                                  return {
-                                    ...c,
-                                    value: newValue,
-                                  };
-                                }),
-                              };
-                            }),
-                          }));
-                        }}
-                      />
-                    )}
-                  />
-
-                  <Button
-                    style={{ background: "red", color: "white" }}
-                    onClick={() => {
-                      setProductsProveedor((prev) => ({
-                        ...prev,
-                        data: prev.data.map((prod) => {
-                          if (prod.idProduct !== dataProductProp.idProduct)
-                            return prod;
-
-                          const caracteristicasArray = Array.isArray(
-                            prod.caracteristicas,
-                          )
-                            ? prod.caracteristicas
-                            : JSON.parse(prod.caracteristicas || "[]");
-
-                          return {
-                            ...prod,
-                            caracteristicas: caracteristicasArray.filter(
-                              (_: any, i: number) => i !== indexCar,
-                            ),
-                          };
-                        }),
-                      }));
-                    }}
-                  >
-                    <MdRemove size={26} />
-                  </Button>
-                </div>
-              );
-            })
-          : ""}
-      </div>
-
-      <div className="admin-row admin-row--wrap admin-w-full">
-        <Button
-          type="button"
-          variant="contained"
-          color="success"
-          onClick={() => {
             setProductsProveedor((prev) => ({
               ...prev,
-              data: prev.data.map((prod) => {
-                if (prod.idProduct !== dataProductProp.idProduct) return prod;
-
-                // Asegurarnos de tener un array
-                const caracteristicasArray = Array.isArray(prod.caracteristicas)
-                  ? prod.caracteristicas
-                  : prod.caracteristicas
-                    ? JSON.parse(prod.caracteristicas)
-                    : [];
-
-                return {
-                  ...prod,
-                  caracteristicas: [
-                    ...caracteristicasArray,
-                    { prop: "", value: "" },
-                  ],
-                };
-              }),
+              data: prev.data.map((prod) =>
+                prod.idProduct === dataProductProp.idProduct
+                  ? { ...prod, caracteristicas: newCaracs }
+                  : prod,
+              ),
             }));
           }}
-        >
-          +
-        </Button>
-      </div>
+        />
+      </Stack>
 
       <Button
         disabled={loadingUpdateProduct}
         type="submit"
+        fullWidth
         variant="contained"
-        color="primary"
-        style={{
-          padding: "10px",
-          borderRadius: "10px",
+        sx={{
+          background: "linear-gradient(135deg, #b92b3d 0%, #992230 100%)",
+          color: "white",
+          fontWeight: "bold",
+          padding: "12px",
+          fontSize: "1.1rem",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+          "&:hover": { background: "#992230" },
         }}
       >
         {loadingUpdateProduct ? (

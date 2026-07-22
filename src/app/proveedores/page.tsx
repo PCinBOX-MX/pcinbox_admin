@@ -54,6 +54,13 @@ const Proveedores = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  useEffect(() => {
+    if (slcProveedor && dataProductProveedor.data.length === 0) {
+      handleGetProductsByProveedor(slcProveedor);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Sincronizar debounce al escribir
   useEffect(() => {
     const handler = setTimeout(() => {
