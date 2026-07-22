@@ -9,13 +9,15 @@ import {
   IconButton,
   TextField,
   Typography,
+  Stack,
+  Box,
 } from "@mui/material";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import { Trash2 } from "lucide-react";
 
 import { useState, useEffect, useRef } from "react";
 import { useTheContext } from "@/app/hooks/global.hook";
-import { MdAutorenew, MdRemove } from "react-icons/md";
+import { MdAutorenew, MdRemove, MdCloudUpload } from "react-icons/md";
 import useProveedores from "@/app/proveedores/useProveedores";
 import rpStyles from "./registerProduct.module.css";
 
@@ -58,123 +60,124 @@ const UploadImgProductProvider2 = ({
   }, [caracteristicas]);
 
   return (
-    <div className="admin-stack admin-stack--sm">
+    <Stack spacing={3} sx={{ mt: 2, pb: 2 }}>
       {dataProductProp && Number(dataProductProp?.providerId) === 1 && (
-        <div className="admin-w-full">
-          <TextField
-            label="Precio"
-            type="number"
-            variant="outlined"
-            name="newPrice"
-            className="admin-w-full"
-            onChange={(event) => {
-              setPrice(Number(event.target.value));
-            }}
-          />
-        </div>
+        <TextField
+          label="Precio"
+          type="number"
+          variant="outlined"
+          name="newPrice"
+          fullWidth
+          onChange={(event) => {
+            setPrice(Number(event.target.value));
+          }}
+        />
       )}
+      
       {dataProductProp &&
         (Number(dataProductProp?.providerId) === 3 ||
           Number(dataProductProp?.providerId) === 2) && (
-          <div className="admin-w-full">
-            <TextField
-              label="Margen de Utilidad"
-              type="number"
-              variant="outlined"
-              name="profitMargin"
-              className="admin-w-full"
-              onChange={(event) => {
-                setProfitMargin(Number(event.target.value));
-              }}
-            />
-          </div>
+          <TextField
+            label="Margen de Utilidad"
+            type="number"
+            variant="outlined"
+            name="profitMargin"
+            fullWidth
+            onChange={(event) => {
+              setProfitMargin(Number(event.target.value));
+            }}
+          />
         )}
-      <div className="admin-w-full">
-        <TextField
-          label=""
-          type="file"
+
+      <Box>
+        <Button
           variant="outlined"
-          name="image_url"
-          className="admin-w-full"
-          onChange={(event) => {
-            const selectedFiles = (event.target as HTMLInputElement).files;
-            if (!selectedFiles) return;
+          component="label"
+          fullWidth
+          startIcon={<MdCloudUpload />}
+          sx={{ height: 56, borderStyle: "dashed", borderWidth: 2 }}
+        >
+          {files.length > 0 ? `${files.length} archivo(s) seleccionado(s)` : "Seleccionar Imágenes / Videos"}
+          <input
+            type="file"
+            hidden
+            multiple
+            accept="image/*,video/*"
+            onChange={(event) => {
+              const selectedFiles = (event.target as HTMLInputElement).files;
+              if (!selectedFiles) return;
+              const fileList = Array.from(selectedFiles).slice(0, 5); // limit to 5
+              setFiles((prev) => [...prev, ...fileList]);
+              event.target.value = ""; // limpia input
+            }}
+          />
+        </Button>
+      </Box>
 
-            const fileList = Array.from(selectedFiles);
+      {files.length > 0 && (
+        <Stack direction="row" spacing={2} sx={{ overflowX: "auto", pb: 1 }}>
+          {files.map((file, indexFile) => {
+            const fileUrl = previewUrls[indexFile];
+            const isVideo = file.type.startsWith("video/");
 
-            setFiles((prev) => [...prev, ...fileList]);
-            event.target.value = ""; // limpia input
-          }}
-          slotProps={{
-            htmlInput: {
-              multiple: true,
-              max: 5,
-              accept: "image/*,video/*",
-            },
-          }}
-        />
-      </div>
-      <div className="admin-row admin-row--wrap admin-w-full">
-        {files.map((file, indexFile) => {
-          const fileUrl = previewUrls[indexFile]; // Ahora sí hay URLs en el array
-          const isVideo = file.type.startsWith("video/");
+            if (!fileUrl) return null;
 
-          if (!fileUrl) return null; // Asegurar que la URL exista antes de renderizar
+            return (
+              <Card
+                key={`${file.name}-${indexFile}`}
+                sx={{ position: "relative", minWidth: 130, width: 130 }}
+              >
+                {isVideo ? (
+                  <video
+                    src={fileUrl}
+                    controls
+                    style={{
+                      width: "100%",
+                      height: 80,
+                      objectFit: "cover",
+                      borderRadius: 4,
+                    }}
+                  />
+                ) : (
+                  <CardMedia
+                    component="img"
+                    image={fileUrl}
+                    alt={file.name}
+                    sx={{ height: 80, objectFit: "cover" }}
+                  />
+                )}
 
-          return (
-            <Card
-              key={`${file.name}-${indexFile}`}
-              sx={{ position: "relative", width: 130 }}
-            >
-              {isVideo ? (
-                <video
-                  src={fileUrl}
-                  controls
-                  style={{
-                    width: "100%",
-                    height: 80,
-                    objectFit: "cover",
-                    borderRadius: 4,
-                  }}
-                />
-              ) : (
-                <CardMedia
-                  component="img"
-                  image={fileUrl}
-                  alt={file.name}
-                  sx={{ height: 80, objectFit: "cover" }}
-                />
-              )}
+                <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: 100,
+                    }}
+                  >
+                    {file.name}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => {
+                      setFiles((prev) => prev.filter((_, i) => i !== indexFile));
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </IconButton>
+                </CardActions>
+              </Card>
+            );
+          })}
+        </Stack>
+      )}
 
-              <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: 100,
-                  }}
-                >
-                  {file.name}
-                </Typography>
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => {
-                    setFiles((prev) => prev.filter((_, i) => i !== indexFile));
-                  }}
-                >
-                  <Trash2 size={16} />
-                </IconButton>
-              </CardActions>
-            </Card>
-          );
-        })}
-      </div>
-      <div className="admin-w-full admin-stack admin-stack--sm">
+      <Stack spacing={2}>
         <TextField
-          label="Pega aquí todas las características"
+          label="Pega aquí todas las características (Ej. RAM: 16GB)"
           multiline
           rows={5}
           fullWidth
@@ -183,15 +186,16 @@ const UploadImgProductProvider2 = ({
         />
 
         <Button
-          variant="contained"
-          color="secondary"
+          variant="text"
+          color="error"
           onClick={() => {
             setBulkText("");
           }}
+          sx={{ alignSelf: "flex-end" }}
         >
-          Borrar Caracteriticas
+          Borrar Características
         </Button>
-      </div>
+      </Stack>
       {/* <div
         className="admin-form-scroll-grid"
         style={{ maxHeight: "200px" }}
@@ -266,14 +270,13 @@ const UploadImgProductProvider2 = ({
         >
           +
         </Button>
-      </div> */}
-
-      <div className="admin-row admin-row--center admin-w-full">
+      </div> */}      <Box sx={{ mt: 3 }}>
         <Button
-          className={rpStyles.uploadThumb}
           type="button"
           variant="contained"
           color="primary"
+          size="large"
+          fullWidth
           disabled={loadingUploadImgProvider}
           onClick={async () => {
             try {
@@ -302,7 +305,7 @@ const UploadImgProductProvider2 = ({
                       // El resto se vuelve a unir como valor
                       value = parts.join(":");
                     } else {
-                      // Caso 2: no tiene :, intenta separar último número/unidad
+                      // Caso 2: no tiene :, intenta separar ǧltimo nǧmero/unidad
                       const match = line.match(/^(.*?)(\d+.*)$/);
                       if (match) {
                         prop = match[1];
@@ -325,13 +328,6 @@ const UploadImgProductProvider2 = ({
               formData.append("name", dataProductProp.name);
 
               formData.append("description", dataProductProp.description);
-
-              // if (
-              //   Number(dataProductProp.providerId) !== 3 &&
-              //   Number(dataProductProp.providerId) !== 2
-              // ) {
-              // } else {
-              // }
 
               if (
                 Number(dataProductProp.providerId) === 3 ||
@@ -466,13 +462,13 @@ const UploadImgProductProvider2 = ({
           }}
         >
           {loadingUploadImgProvider ? (
-            <MdAutorenew size={20} className="admin-m-auto the-spinner" />
+            <MdAutorenew size={24} className="admin-m-auto the-spinner" />
           ) : (
-            <> Dar de alta</>
+            "Dar de Alta Producto"
           )}
         </Button>
-      </div>
-    </div>
+      </Box>
+    </Stack>
   );
 };
 
