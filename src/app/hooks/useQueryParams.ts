@@ -29,7 +29,7 @@ export function useQueryParams() {
       if (hasChanges) {
         const search = current.toString();
         const query = search ? `?${search}` : "";
-        window.history.replaceState(null, "", `${pathname}${query}`);
+        router.replace(`${pathname}${query}`, { scroll: false });
       }
     },
     [pathname, router, searchParams]

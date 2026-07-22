@@ -55,11 +55,17 @@ const Proveedores = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    if (slcProveedor && dataProductProveedor.data.length === 0) {
-      handleGetProductsByProveedor(slcProveedor);
+    if (slcProveedor) {
+      // Check if we already have this provider's data to avoid redundant fetches if not needed,
+      // but to ensure sync on back/forward, we just call it. 
+      // Proveedores fetch is fast or handled by the backend efficiently.
+      const currentLoadedProvider = dataProductProveedor.data[0]?.providerId;
+      if (String(currentLoadedProvider) !== String(slcProveedor) || dataProductProveedor.data.length === 0) {
+        handleGetProductsByProveedor(slcProveedor);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [slcProveedor]);
 
   // Sincronizar debounce al escribir
   useEffect(() => {

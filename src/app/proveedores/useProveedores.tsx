@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { SelectChangeEvent } from "@mui/material";
 import { ProductsI } from "../interfaces/products/products.interface";
@@ -23,6 +23,16 @@ const useProveedores = () => {
   const { searchParams, setQueryParams } = useQueryParams();
   const providerParam = searchParams.get("provider") || "";
   const [slcProveedor, setSlcProveedor] = useState<string>(providerParam);
+
+  useEffect(() => {
+    if (providerParam && providerParam !== slcProveedor) {
+      setSlcProveedor(providerParam);
+      // Since handleGetProductsByProveedor is defined below, we will use an effect in page.tsx instead,
+      // or we can just update the state here and let page.tsx handle the fetch.
+      // Wait, we can't call handleGetProductsByProveedor here if it's defined after.
+      // Let's just update the state here so it stays in sync.
+    }
+  }, [providerParam, slcProveedor]);
 
   const [registerProveedores, setRegisterProveedores] = useState<{
     loading: boolean;
