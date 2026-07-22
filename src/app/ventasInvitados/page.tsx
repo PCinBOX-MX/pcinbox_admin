@@ -21,6 +21,9 @@ const fieldSx = {
 };
 
 const VentasInvitados = () => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { rowsVentasInvitados } = useTheContext();
   const { searchParams, setQueryParams } = useQueryParams();
 
@@ -97,12 +100,14 @@ const VentasInvitados = () => {
     <ModernPagination
       page={page}
       pageCount={pageCount}
-      totalItems={filtered.length}
       pageSize={pageSize}
-      onPageChange={(newPage) => setQueryParams({ page: newPage })}
-      label="ventas invitado"
+      totalItems={filtered.length}
+      onPageChange={(p) => setQueryParams({ page: p })}
+      label="órdenes"
     />
   );
+
+  if (!mounted) return null;
 
   return (
     <AdminPageShell

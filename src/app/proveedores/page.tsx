@@ -29,6 +29,9 @@ const fieldSx = {
 };
 
 const Proveedores = () => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { dataProveedores, dataProductProveedor, setProductsProveedor } =
     useTheContext();
   const {
@@ -100,7 +103,9 @@ const Proveedores = () => {
 
       return { ...prev, copyData: filtered };
     });
-  }, [search, setProductsProveedor]);
+  }, [search, dataProductProveedor.data, setProductsProveedor]);
+
+  if (!mounted) return null;
 
   const startIndex = (page - 1) * itemsPerPage;
   const visibleDataProveedores = dataProductProveedor.copyData!.slice(

@@ -20,6 +20,9 @@ const fieldSx = {
 };
 
 const Customer = () => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { requestGetProveedores } = ProveedoresUtils();
   const [dataRows, setDataRows] = useState<any[]>([]);
   const [totalRows, setTotalRows] = useState(0);
@@ -118,6 +121,8 @@ const Customer = () => {
     () => dataRows.map((row, i) => ({ ...row, id: row.idUser ?? i })),
     [dataRows],
   );
+
+  if (!mounted) return null;
 
   return (
     <AdminPageShell

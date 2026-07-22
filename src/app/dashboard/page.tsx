@@ -21,6 +21,9 @@ const fieldSx = {
 };
 
 const DashBoard = () => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const { rowsVentas } = useTheContext();
   const { searchParams, setQueryParams } = useQueryParams();
   
@@ -142,6 +145,8 @@ const DashBoard = () => {
 
   const hasFilters =
     search || statusPay !== "all" || methodPay !== "all" || dateFrom || dateTo;
+
+  if (!mounted) return null;
 
   return (
     <AdminPageShell
