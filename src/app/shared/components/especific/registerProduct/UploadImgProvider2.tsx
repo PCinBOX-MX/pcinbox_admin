@@ -60,7 +60,7 @@ const UploadImgProductProvider2 = ({
   }, [caracteristicas]);
 
   return (
-    <Stack spacing={3} sx={{ mt: 2, pb: 2 }}>
+    <Stack spacing={3} sx={{ mt: 2, pb: 2, minWidth: { xs: '100%', sm: '550px' } }}>
       {dataProductProp && Number(dataProductProp?.providerId) === 1 && (
         <TextField
           label="Precio"

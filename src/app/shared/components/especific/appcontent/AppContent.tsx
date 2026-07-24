@@ -263,6 +263,7 @@ export default function AppContent({
           type={dataModal.type}
           children={dataModal.children}
           showActions={dataModal.showActions}
+          maxWidth={dataModal.maxWidth}
         />
 
         <SpinnerComponent />

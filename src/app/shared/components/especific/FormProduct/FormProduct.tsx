@@ -186,10 +186,11 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     <Box
       component="form"
       onSubmit={handleSubmit(handleEditProduct)}
-      className="admin-form-shell admin-stack--xs"
+      style={{ display: "flex", flexDirection: "column", gap: "20px", minWidth: "700px", padding: "10px" }}
     >
-      <div className="admin-grid-form-3">
+      <div style={{ display: "flex", gap: "16px" }}>
         <TextField
+          style={{ flex: 1 }}
           label="Nombre"
           variant="outlined"
           {...register("name", {
@@ -214,6 +215,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         />
 
         <TextField
+          style={{ flex: 1 }}
           label="Descripción"
           type="text"
           {...register("description", {
@@ -234,7 +236,10 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             },
           })}
         />
-        <FormControl fullWidth>
+      </div>
+      
+      <div style={{ display: "flex", gap: "16px" }}>
+        <FormControl style={{ flex: 1 }}>
           <Controller
             name="categoria"
             control={control}
@@ -279,8 +284,8 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         </FormControl>
       </div>
 
-      <div className="admin-grid-form-3">
-        <FormControl fullWidth>
+      <div style={{ display: "flex", gap: "16px" }}>
+        <FormControl style={{ flex: 1 }}>
           <Controller
             name="marca"
             control={control}
@@ -373,8 +378,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           })}
         />
       </div>
-      <div className="admin-grid-form-2">
+      <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
         <TextField
+          style={{ flex: 1 }}
           required
           label="SKU"
           type="text"
@@ -397,52 +403,48 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             },
           })}
         />
-        <TextField
-          label=""
-          type="file"
-          variant="outlined"
-          name="image_url"
-          onChange={(event) => {
-            const files = (event.target as HTMLInputElement).files;
-            if (!files) return;
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+          <label htmlFor={`file-upload-edit`} style={{ fontSize: "14px" }}>Imagen</label>
+          <input
+            id={`file-upload-edit`}
+            type="file"
+            onChange={(event) => {
+              const files = (event.target as HTMLInputElement).files;
+              if (!files) return;
 
-            // Iteramos uno por uno
-            for (let i = 0; i < files.length; i++) {
-              const file = files[i];
+              // Iteramos uno por uno
+              for (let i = 0; i < files.length; i++) {
+                const file = files[i];
 
-              // Si quieres, puedes crear un preview de cada imagen
-              const previewUrl = URL.createObjectURL(file);
+                // Si quieres, puedes crear un preview de cada imagen
+                const previewUrl = URL.createObjectURL(file);
 
-              // O agregarlas individualmente al estado
-              setProductsProveedor((prev) => ({
-                ...prev,
-                data: prev.data.map((item) => {
-                  if (
-                    item.idProduct === dataProductProp.idProduct ||
-                    item.idProductExt === dataProductProp.idProductExt
-                  ) {
-                    return {
-                      ...item,
-                      image_url: [...(item.image_url || []), previewUrl],
-                    };
-                  }
-                  return item;
-                }),
-              }));
-            }
-            event.target.value = "";
-          }}
-          slotProps={{
-            htmlInput: {
-              multiple: true,
-              max: 5,
-              accept: "image/*",
-            },
-          }}
-        />
+                // O agregarlas individualmente al estado
+                setProductsProveedor((prev) => ({
+                  ...prev,
+                  data: prev.data.map((item) => {
+                    if (
+                      item.idProduct === dataProductProp.idProduct ||
+                      item.idProductExt === dataProductProp.idProductExt
+                    ) {
+                      return {
+                        ...item,
+                        image_url: [...(item.image_url || []), previewUrl],
+                      };
+                    }
+                    return item;
+                  }),
+                }));
+              }
+              event.target.value = "";
+            }}
+            multiple
+            accept="image/*"
+          />
+        </div>
       </div>
 
-      <div className="admin-row admin-row--wrap">
+      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
         {dataProductProveedor.data
           .find(
             (p) =>
@@ -500,13 +502,10 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       </div>
 
       <div
-        className={
-          providerUsesProfitMargin(dataProductProp?.providerId)
-            ? "admin-grid-form-3"
-            : "admin-grid-form-2"
-        }
+        style={{ display: "flex", gap: "16px" }}
       >
         <TextField
+          style={{ flex: 1 }}
           label="UPC"
           type="text"
           variant="outlined"
@@ -529,7 +528,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           })}
         />
 
-        <FormControl fullWidth>
+        <FormControl style={{ flex: 1 }}>
           <Controller
             name="Proveedor"
             control={control}
@@ -577,6 +576,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
         {providerUsesProfitMargin(dataProductProp?.providerId) && (
           <TextField
+            style={{ flex: 1 }}
             label="Margen de Utilidad"
             type="number"
             variant="outlined"

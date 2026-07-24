@@ -32,6 +32,7 @@ interface ModalData {
   showActions: boolean;
   confirmLabel?: string;
   cancelLabel?: string;
+  maxWidth?: string;
 }
 
 interface ContextProps {

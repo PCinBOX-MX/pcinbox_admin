@@ -40,6 +40,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
     setDataModal({
       isOpen: true,
       title: "Editar producto",
+      maxWidth: "min(95vw, 850px)",
       content: (
         <FormProduct
           dataProductProp={dataProductProp}
@@ -62,6 +63,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
       setDataModal({
         isOpen: true,
         title: "Ingresa los datos",
+        maxWidth: "min(95vw, 700px)",
         content: (
           <div className={styles.modalShell}>
             <UploadImgProductProvider2 dataProductProp={dataProductProp} />

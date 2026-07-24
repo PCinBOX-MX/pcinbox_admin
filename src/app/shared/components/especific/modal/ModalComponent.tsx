@@ -17,6 +17,7 @@ const ModalComponent = ({
   children,
   onConfirm,
   showActions,
+  maxWidth,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +27,7 @@ const ModalComponent = ({
   children: React.ReactNode;
   onConfirm: () => void;
   showActions: boolean;
+  maxWidth?: string;
 }) => {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -143,7 +145,7 @@ const ModalComponent = ({
             background: "white",
             width: "fit-content",
             minWidth: "min(90vw, 320px)",
-            maxWidth: "min(90vw, 600px)",
+            maxWidth: maxWidth || "min(90vw, 600px)",
             maxHeight: "90vh",
             overflowY: "auto",
             borderRadius: "16px",

@@ -408,7 +408,7 @@ const RegisterProduct = () => {
                 type="number"
                 variant="outlined"
                 name="stock"
-                value={dataNewComponent?.stock || ""}
+                value={dataNewComponent?.stock ?? ""}
                 onChange={(event) => {
                   setDataNewComponent((prev) => ({
                     ...prev,
@@ -767,7 +767,7 @@ const RegisterProduct = () => {
               type="number"
               variant="outlined"
               name="stock"
-              value={dataNewPcGamer.stock === 0 ? "" : dataNewPcGamer.stock}
+              value={dataNewPcGamer.stock ?? ""}
               onChange={(event) => {
                 setDataNewPcGamer((prev) => ({
                   ...prev,
@@ -901,14 +901,6 @@ const RegisterProduct = () => {
                       const id = newValue ? newValue.tipo : null;
 
                       field.onChange(id);
-
-                      dataNewPcGamer.caracteristicas = [
-                        {
-                          prop: "tipo",
-                          value: id || "",
-                        },
-                        ...dataNewPcGamer.caracteristicas,
-                      ];
                     }}
                     getOptionLabel={(option) => `${option.label}`}
                     renderInput={(params) => (
@@ -980,90 +972,21 @@ const RegisterProduct = () => {
             })}
           </div>
 
-          <div
-            className="admin-form-scroll-grid"
-            style={{ marginBottom: "12px", padding: "12px 0" }}
-            ref={containerRef}
-          >
-            {dataNewPcGamer.caracteristicas &&
-            dataNewPcGamer.caracteristicas.length > 0
-              ? dataNewPcGamer.caracteristicas.map(
-                  (car: any, indexCar: number) => {
-                    return (
-                      <div
-                        key={indexCar}
-                        className="admin-grid-form-actions admin-w-full"
-                      >
-                        <TextField
-                          label="Caracteristica"
-                          variant="outlined"
-                          name="prop"
-                          value={car.prop}
-                          onChange={(event) => {
-                            setDataNewPcGamer((prev) => ({
-                              ...prev,
-                              caracteristicas: prev.caracteristicas.map(
-                                (item, indexPrevCar) =>
-                                  indexPrevCar === indexCar
-                                    ? { ...item, prop: event.target.value } // actualiza solo ese item
-                                    : item,
-                              ),
-                            }));
-                          }}
-                        />
-
-                        <TextField
-                          label="Valor"
-                          variant="outlined"
-                          name="value"
-                          value={car.value}
-                          onChange={(event) => {
-                            setDataNewPcGamer((prev) => ({
-                              ...prev,
-                              caracteristicas: prev.caracteristicas.map(
-                                (item, indexPrevCar) =>
-                                  indexPrevCar === indexCar
-                                    ? { ...item, value: event.target.value } // actualiza solo ese item
-                                    : item,
-                              ),
-                            }));
-                          }}
-                        />
-
-                        <Button
-                          style={{ background: "red", color: "white" }}
-                          onClick={() => {
-                            setDataNewPcGamer((prev) => ({
-                              ...prev,
-                              caracteristicas: prev.caracteristicas.filter(
-                                (_, indexP) => indexP !== indexCar,
-                              ),
-                            }));
-                          }}
-                        >
-                          <MdRemove size={26} />
-                        </Button>
-                      </div>
-                    );
-                  },
-                )
-              : ""}
-          </div>
           <div className="admin-row admin-mb-md">
-            <Button
-              style={{ background: "green", color: "white" }}
-              onClick={() => {
+            <TextField
+              label="Características"
+              multiline
+              rows={4}
+              variant="outlined"
+              name="caracteristicas"
+              value={typeof dataNewPcGamer.caracteristicas === 'string' ? dataNewPcGamer.caracteristicas : ''}
+              onChange={(event) => {
                 setDataNewPcGamer((prev) => ({
                   ...prev,
-                  caracteristicas: [
-                    ...prev.caracteristicas,
-                    { prop: "", value: "" },
-                  ],
+                  caracteristicas: event.target.value as any,
                 }));
               }}
-            >
-              <MdAdd size={26} />
-            </Button>
+            />
           </div>
         </>
       ) : (
