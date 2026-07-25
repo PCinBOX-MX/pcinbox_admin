@@ -15,6 +15,12 @@ const RegisterProduct = dynamic(
   { ssr: false },
 );
 
+const BulkUploadProvider = dynamic(
+  () =>
+    import("../shared/components/especific/registerProduct/BulkUploadProvider"),
+  { ssr: false },
+);
+
 const useProveedores = () => {
   const { setDataModal, setDataProveedores, setProductsProveedor } =
     useTheContext();
@@ -195,6 +201,23 @@ const useProveedores = () => {
     });
   };
 
+  const handleBulkUpload = () => {
+    setDataModal({
+      isOpen: true,
+      content: <BulkUploadProvider />,
+      title: "Alta Masiva por Excel",
+      type: "info",
+      maxWidth: "min(95vw, 1000px)",
+      showActions: false,
+      onClose: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      onConfirm: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
   return {
     slcProveedor,
     registerProveedores,
@@ -204,6 +227,7 @@ const useProveedores = () => {
     showModalRegisterProveedor,
     handleRegisterProveedores,
     handleAddProduct,
+    handleBulkUpload,
     setProductsProveedor,
   };
 };

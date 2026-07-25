@@ -40,6 +40,7 @@ const Proveedores = () => {
     handleOnChange,
     showModalRegisterProveedor,
     handleAddProduct,
+    handleBulkUpload,
   } = useProveedores();
 
   const { searchParams, setQueryParams } = useQueryParams();
@@ -54,7 +55,7 @@ const Proveedores = () => {
   useEffect(() => {
     if (searchParam !== search) setSearch(searchParam);
     if (pageParam !== page) setPage(pageParam);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
@@ -67,7 +68,7 @@ const Proveedores = () => {
         handleGetProductsByProveedor(slcProveedor);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slcProveedor]);
 
   // Sincronizar debounce al escribir

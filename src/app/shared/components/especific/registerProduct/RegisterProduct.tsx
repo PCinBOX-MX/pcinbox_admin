@@ -425,7 +425,7 @@ const RegisterProduct = () => {
                     label={`Stock ${sucursal}`}
                     type="number"
                     variant="outlined"
-                    value={dataNewComponent.branchStocks?.find(b => b.tienda === sucursal)?.stock || ""}
+                    value={dataNewComponent.branchStocks?.find(b => b.tienda === sucursal)?.stock ?? ""}
                     onChange={(event) => {
                       const stockVal = Number(event.target.value);
                       setDataNewComponent((prev) => {
@@ -446,7 +446,7 @@ const RegisterProduct = () => {
                     label={`Stock ${sucursal}`}
                     type="number"
                     variant="outlined"
-                    value={dataNewComponent.branchStocks?.find(b => b.tienda === sucursal)?.stock || ""}
+                    value={dataNewComponent.branchStocks?.find(b => b.tienda === sucursal)?.stock ?? ""}
                     onChange={(event) => {
                       const stockVal = Number(event.target.value);
                       setDataNewComponent((prev) => {
@@ -471,7 +471,7 @@ const RegisterProduct = () => {
                 type="number"
                 variant="outlined"
                 name="price"
-                value={dataNewComponent?.price || ""}
+                value={dataNewComponent?.price ?? ""}
                 onChange={(event) =>
                   setDataNewComponent((prev) => ({
                     ...prev,
@@ -486,7 +486,7 @@ const RegisterProduct = () => {
                   label="Costo Unitario ($)"
                   type="number"
                   variant="outlined"
-                  value={dataNewComponent?.originPrice || ""}
+                  value={dataNewComponent?.originPrice ?? ""}
                   onChange={(event) =>
                     setDataNewComponent((prev) => ({
                       ...prev,
@@ -499,7 +499,7 @@ const RegisterProduct = () => {
                   label="Margen de Utilidad ($)"
                   type="number"
                   variant="outlined"
-                  value={dataNewComponent?.profitMargin || ""}
+                  value={dataNewComponent?.profitMargin ?? ""}
                   onChange={(event) =>
                     setDataNewComponent((prev) => ({
                       ...prev,
@@ -512,7 +512,7 @@ const RegisterProduct = () => {
                   type="number"
                   variant="outlined"
                   disabled
-                  value={calculateFinalPrice(dataNewComponent?.originPrice || 0, dataNewComponent?.profitMargin || 0)}
+                  value={calculateFinalPrice(dataNewComponent?.originPrice ?? 0, dataNewComponent?.profitMargin ?? 0)}
                 />
               </>
             )}
