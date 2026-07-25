@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
 import { MdCheckCircle, MdError, MdInfo, MdWarningAmber } from "react-icons/md";
 import { Modal, Typography } from "@mui/material";
@@ -30,6 +30,8 @@ const ModalComponent = ({
   maxWidth?: string;
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
 
   // useEffect(() => {
   //   if (isOpen) {
@@ -63,7 +65,35 @@ const ModalComponent = ({
   }, [isOpen, type]);
 
   const handleClose = () => {
+    if (boxRef.current) {
+      const inputs = boxRef.current.querySelectorAll("input, textarea");
+      let hasData = false;
+      inputs.forEach((input: any) => {
+        if (
+          input.type !== "hidden" &&
+          input.type !== "submit" &&
+          input.type !== "button" &&
+          input.type !== "checkbox" &&
+          input.type !== "radio" &&
+          input.type !== "file"
+        ) {
+          if (input.value && input.value.trim() !== "") {
+            hasData = true;
+          }
+        }
+      });
+
+      if (hasData) {
+        setShowConfirmClose(true);
+        return;
+      }
+    }
+    forceClose();
+  };
+
+  const forceClose = () => {
     setIsVisible(false);
+    setShowConfirmClose(false);
     setTimeout(() => {
       onClose();
     }, 200);
@@ -73,7 +103,7 @@ const ModalComponent = ({
     if (onConfirm) {
       onConfirm();
     }
-    handleClose();
+    forceClose();
   };
 
   const getTypeConfig = () => {
@@ -132,6 +162,7 @@ const ModalComponent = ({
         }}
         slotProps={{
           backdrop: {
+            className: "animate-fade-in-overlay",
             sx: {
               backgroundColor: "rgba(15, 23, 42, 0.6)",
               backdropFilter: "blur(4px)",
@@ -140,6 +171,7 @@ const ModalComponent = ({
         }}
       >
         <Box
+          ref={boxRef}
           onClick={(e) => e.stopPropagation()}
           sx={{
             background: "white",
@@ -261,6 +293,71 @@ const ModalComponent = ({
           )}
         </Box>
       </Modal>
+
+      {/* Segundo Modal de Confirmacin para Cierre */}
+      {showConfirmClose && (
+        <Modal
+          open={showConfirmClose}
+          onClose={() => setShowConfirmClose(false)}
+          sx={{ zIndex: 1400 }}
+          className="flex justify-center items-center"
+          slotProps={{
+            backdrop: {
+              className: "animate-fade-in-overlay",
+              sx: { backgroundColor: "rgba(0, 0, 0, 0.6)" }
+            }
+          }}
+        >
+          <Box
+            sx={{
+              background: "white",
+              padding: "24px",
+              borderRadius: "16px",
+              maxWidth: "400px",
+              textAlign: "center",
+              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+            }}
+          >
+            <AlertTriangle size={48} color="#eab308" style={{ margin: "0 auto 16px auto" }} />
+            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
+              ¿Descartar cambios?
+            </Typography>
+            <Typography sx={{ color: "#4b5563", mb: 3 }}>
+              Tienes datos sin guardar. ¿Estás seguro de que deseas cerrar y perder la información?
+            </Typography>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+              <button
+                onClick={() => setShowConfirmClose(false)}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: "#f3f4f6",
+                  color: "#374151",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
+              >
+                No, volver
+              </button>
+              <button
+                onClick={forceClose}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
+              >
+                Sí, cerrar
+              </button>
+            </div>
+          </Box>
+        </Modal>
+      )}
     </div>
   );
 };
