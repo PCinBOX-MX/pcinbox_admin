@@ -60,7 +60,16 @@ const ModernPagination = ({
         <Pagination
           count={Math.max(pageCount, 1)}
           page={page}
-          onChange={(_, value) => onPageChange(value)}
+          onChange={(_, value) => {
+            if (value !== page) {
+              onPageChange(value);
+              setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                document.documentElement?.scrollTo({ top: 0, behavior: "smooth" });
+                document.body?.scrollTo({ top: 0, behavior: "smooth" });
+              }, 150);
+            }
+          }}
           shape="rounded"
           color="primary"
           sx={{

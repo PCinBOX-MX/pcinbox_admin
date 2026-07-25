@@ -81,7 +81,10 @@ export default function TablePaginationBar({
         <Pagination
           count={pageCount}
           page={Math.min(page + 1, pageCount)}
-          onChange={(_, nextPage) => onPageChange(nextPage - 1)}
+          onChange={(_, nextPage) => {
+            onPageChange(nextPage - 1);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
           color="primary"
           shape="rounded"
           siblingCount={1}
