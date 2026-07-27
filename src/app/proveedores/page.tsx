@@ -12,7 +12,7 @@ import {
 import CardComponent from "../shared/components/especific/card/CardComponent";
 import useProveedores from "./useProveedores";
 import { useEffect, useState } from "react";
-import { MdAdd, MdAutorenew } from "react-icons/md";
+import { MdAdd, MdAutorenew, MdFileUpload } from "react-icons/md";
 import { useTheContext } from "../hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
@@ -141,6 +141,16 @@ const Proveedores = () => {
             <MdAdd size={20} />
             Agregar producto
           </button>
+          {(String(slcProveedor) === "3") && (
+            <button
+              type="button"
+              className="admin-btn-secondary"
+              onClick={handleBulkUpload}
+            >
+              <MdFileUpload size={20} />
+              Importar Excel
+            </button>
+          )}
         </div>
       }
       filters={
