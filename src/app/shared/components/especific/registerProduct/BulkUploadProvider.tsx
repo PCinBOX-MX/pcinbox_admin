@@ -64,7 +64,12 @@ const BulkUploadProvider = () => {
       const data = XLSX.utils.sheet_to_json<any>(ws);
 
       const parsedData: BulkProduct[] = data.map((row) => {
-        const upcStr = String(row["UPC"] || row["upc"] || "").trim();
+        const lowerRow: any = {};
+        Object.keys(row).forEach((k) => {
+          lowerRow[k.trim().toLowerCase()] = row[k];
+        });
+
+        const upcStr = String(lowerRow["upc"] || "").trim();
         // Match with existing products in context
         const matchedProduct = dataProductProveedor.data.find(
           (p) => String(p.upc) === upcStr || String(p.idProductExt) === upcStr
@@ -72,8 +77,8 @@ const BulkUploadProvider = () => {
 
         return {
           upc: upcStr,
-          margin: Number(row["Margen de Utilidad"] || row["margen"] || 0),
-          characteristics: String(row["Características"] || row["caracteristicas"] || ""),
+          margin: Number(lowerRow["margen de utilidad"] || lowerRow["margen"] || lowerRow["margin"] || 0),
+          characteristics: String(lowerRow["características"] || lowerRow["caracteristicas"] || ""),
           matchedProduct,
           files: [],
           status: 'pending'
@@ -267,6 +272,7 @@ const BulkUploadProvider = () => {
               hidden
               accept=".xlsx, .xls, .csv"
               onChange={handleFileUpload}
+              onClick={(e) => (e.target as any).value = null}
             />
           </Button>
         </Box>
@@ -359,8 +365,8 @@ const BulkUploadProvider = () => {
           )}
 
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button variant="outlined" onClick={() => setStep(1)} disabled={isUploading}>
-              Volver
+            <Button color="error" variant="outlined" onClick={() => { setStep(1); setBulkData([]); }} disabled={isUploading}>
+              Eliminar Excel / Subir otro
             </Button>
             <Button 
               variant="contained" 
