@@ -7,7 +7,7 @@
     "build": "node scripts/run-with-env-local.mjs build",
     "build:qa": "dotenv -e .env.local next build",
     "build:prod": "dotenv -e .env.prod next build",
-    "start": "node scripts/run-with-env-local.mjs start",
+    "start": "npx dotenv -e .env.prod -- next start -p 3002",
     "lint": "eslint"
   },
   "dependencies": {
