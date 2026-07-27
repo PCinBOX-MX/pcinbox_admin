@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import UtilsService from "@/app/services/utils";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
@@ -213,9 +213,14 @@ const useReservas = () => {
     }
   };
 
+  const isMountedRef = useRef(false);
   // Ejecutar carga al cambiar dependencias de filtro estables
   useEffect(() => {
     fetchReservations();
+    if (isMountedRef.current) {
+      import("../shared/utils/scrollUtils").then(mod => mod.scrollToTopRobust(0));
+    }
+    isMountedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, status, debouncedSearch, date, startDate, endDate, filterType]);
 
