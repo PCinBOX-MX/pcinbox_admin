@@ -30,7 +30,7 @@ import styles from "./card.module.css";
 
 const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   const { formatCurrency } = UtilsService();
-  const { setDataModal } = useTheContext();
+  const { setDataModal, setProductsProveedor } = useTheContext();
   const { requestPostProveedores } = ProveedoresUtils();
 
   const [loadingRemoveProduct, setLoadingRemoveProduct] =
@@ -230,6 +230,11 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                     setLoadingRemoveProduct(false);
 
                     if (resp.status == 200) {
+                      setProductsProveedor((prev) => ({
+                        ...prev,
+                        data: prev.data.filter((item) => item.idProduct !== dataProduct.idProduct),
+                        copyData: prev.copyData?.filter((item) => item.idProduct !== dataProduct.idProduct)
+                      }));
                       setDataModal({
                         isOpen: true,
                         title: "Correcto",

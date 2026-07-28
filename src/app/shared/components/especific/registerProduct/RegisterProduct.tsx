@@ -32,16 +32,16 @@ interface DataNewProductI {
   description: string;
   marca: number;
   categoria: number;
-  stock: number;
+  stock: number | string;
   sku: string;
-  price: number;
+  price: number | string;
   image_url: File[];
   upc?: string;
   providerId: number;
   caracteristicas: string | { prop: string; value: string }[];
-  originPrice?: number;
-  profitMargin?: number;
-  branchStocks?: { tienda: string; stock: number }[];
+  originPrice?: number | string;
+  profitMargin?: number | string;
+  branchStocks?: { tienda: string; stock: number | string }[];
 }
 
 const RegisterProduct = () => {
@@ -79,9 +79,9 @@ const RegisterProduct = () => {
   const [dataNewPcGamer, setDataNewPcGamer] = useState<{
     name: string;
     description: string;
-    stock: number;
+    stock: number | string;
     sku: string;
-    price: number;
+    price: number | string;
     image_url: File[];
     upc?: string;
     caracteristicas: { prop: string; value: string }[];
@@ -416,7 +416,7 @@ const RegisterProduct = () => {
                 onChange={(event) => {
                   setDataNewComponent((prev) => ({
                     ...prev,
-                    stock: Number(event.target.value),
+                    stock: event.target.value === "" ? "" : Number(event.target.value),
                   }));
                 }}
                 required
@@ -431,7 +431,7 @@ const RegisterProduct = () => {
                     variant="outlined"
                     value={dataNewComponent.branchStocks?.find(b => b.tienda === sucursal)?.stock ?? ""}
                     onChange={(event) => {
-                      const stockVal = Number(event.target.value);
+                      const stockVal = event.target.value === "" ? "" : Number(event.target.value);
                       setDataNewComponent((prev) => {
                         const currentStocks = prev.branchStocks || [];
                         const index = currentStocks.findIndex(b => b.tienda === sucursal);
@@ -452,7 +452,7 @@ const RegisterProduct = () => {
                     variant="outlined"
                     value={dataNewComponent.branchStocks?.find(b => b.tienda === sucursal)?.stock ?? ""}
                     onChange={(event) => {
-                      const stockVal = Number(event.target.value);
+                      const stockVal = event.target.value === "" ? "" : Number(event.target.value);
                       setDataNewComponent((prev) => {
                         const currentStocks = prev.branchStocks || [];
                         const index = currentStocks.findIndex(b => b.tienda === sucursal);
@@ -479,7 +479,7 @@ const RegisterProduct = () => {
                 onChange={(event) =>
                   setDataNewComponent((prev) => ({
                     ...prev,
-                    price: Number(event.target.value),
+                    price: event.target.value === "" ? "" : Number(event.target.value),
                   }))
                 }
               />
@@ -494,7 +494,7 @@ const RegisterProduct = () => {
                   onChange={(event) =>
                     setDataNewComponent((prev) => ({
                       ...prev,
-                      originPrice: Number(event.target.value),
+                      originPrice: event.target.value === "" ? "" : Number(event.target.value),
                     }))
                   }
                 />
@@ -507,7 +507,7 @@ const RegisterProduct = () => {
                   onChange={(event) =>
                     setDataNewComponent((prev) => ({
                       ...prev,
-                      profitMargin: Number(event.target.value),
+                      profitMargin: event.target.value === "" ? "" : Number(event.target.value),
                     }))
                   }
                 />
@@ -754,11 +754,10 @@ const RegisterProduct = () => {
               name="price"
               value={dataNewPcGamer.price === 0 ? "" : dataNewPcGamer.price}
               onChange={(event) =>
-                setDataNewPcGamer((prev) => ({
-                  ...prev,
-                  price:
-                    event.target.value === "" ? 0 : Number(event.target.value),
-                }))
+                  setDataNewPcGamer((prev) => ({
+                    ...prev,
+                    price: event.target.value === "" ? "" : Number(event.target.value),
+                  }))
               }
             />
           </div>
@@ -773,11 +772,10 @@ const RegisterProduct = () => {
               name="stock"
               value={dataNewPcGamer.stock ?? ""}
               onChange={(event) => {
-                setDataNewPcGamer((prev) => ({
-                  ...prev,
-                  stock:
-                    event.target.value === "" ? 0 : Number(event.target.value),
-                }));
+                  setDataNewPcGamer((prev) => ({
+                    ...prev,
+                    stock: event.target.value === "" ? "" : Number(event.target.value),
+                  }));
               }}
               required
             />
