@@ -236,7 +236,11 @@ const RegisterProduct = () => {
           },
         });
 
-        setProductsProveedor((prev) => ({ ...prev, data: data.data.data }));
+        setProductsProveedor((prev) => {
+          const newProduct = data.data.data;
+          const newData = [newProduct, ...prev.data];
+          return { ...prev, data: newData, copyData: newData };
+        });
       }
     } catch (error) {
       setLoadingNewProduct(false);
