@@ -158,7 +158,7 @@ const RegisterProduct = () => {
         formData.append("clave", dataNewComponent?.clave || "");
         formData.append("description", dataNewComponent.description);
         
-        const finalPrice = calculateFinalPrice(dataNewComponent.originPrice || 0, dataNewComponent.profitMargin || 0);
+        const finalPrice = calculateFinalPrice(Number(dataNewComponent.originPrice || 0), Number(dataNewComponent.profitMargin || 0));
         formData.append("newPrice", dataNewComponent.providerId !== 1 ? finalPrice.toString() : (dataNewComponent.price || 0).toString());
         
         formData.append("sku", dataNewComponent.sku);
@@ -167,7 +167,7 @@ const RegisterProduct = () => {
         
         let finalStock = dataNewComponent.stock;
         if (dataNewComponent.providerId === 2 || dataNewComponent.providerId === 3) {
-          finalStock = (dataNewComponent.branchStocks || []).reduce((acc, b) => acc + b.stock, 0);
+          finalStock = (dataNewComponent.branchStocks || []).reduce((acc, b) => acc + Number(b.stock || 0), 0);
         }
         formData.append("stock", finalStock.toString());
         formData.append("upc", dataNewComponent?.upc || "");
@@ -516,7 +516,7 @@ const RegisterProduct = () => {
                   type="number"
                   variant="outlined"
                   disabled
-                  value={calculateFinalPrice(dataNewComponent?.originPrice ?? 0, dataNewComponent?.profitMargin ?? 0)}
+                  value={calculateFinalPrice(Number(dataNewComponent?.originPrice ?? 0), Number(dataNewComponent?.profitMargin ?? 0))}
                 />
               </>
             )}
