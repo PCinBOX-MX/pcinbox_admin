@@ -254,7 +254,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                   ) || null
                 }
                 onChange={(event, newValue) => {
-                  const id = newValue ? newValue.id : null;
+                  const id = newValue ? newValue.idCategorie : null;
 
                   field.onChange(id);
 
@@ -298,7 +298,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                   dataMarca?.find((c: any) => c.idMarca == field.value) || null
                 }
                 onChange={(event, newValue) => {
-                  const id = newValue ? newValue.id : null;
+                  const id = newValue ? newValue.idMarca : null;
 
                   field.onChange(id);
 
