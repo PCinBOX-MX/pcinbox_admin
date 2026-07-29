@@ -64,12 +64,11 @@ const ModernPagination = ({
             if (value !== page) {
               onPageChange(value);
               setTimeout(() => {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-                document.documentElement?.scrollTo({ top: 0, behavior: "smooth" });
-                document.body?.scrollTo({ top: 0, behavior: "smooth" });
-                const mainContent = document.querySelector('main');
-                if (mainContent) {
-                  mainContent.scrollTo({ top: 0, behavior: "smooth" });
+                const header = document.querySelector(".admin-page-header");
+                if (header) {
+                  header.scrollIntoView({ behavior: "smooth", block: "start" });
+                } else {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
                 }
               }, 150);
             }

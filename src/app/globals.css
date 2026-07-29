@@ -119,7 +119,6 @@ html[data-admin-sidebar="closed"]:has(aside:hover) .admin-layout {
 
 .admin-filters-card {
   background: #fff;
-  border: 1px solid #e8ecf4;
   border-radius: 16px;
   padding: 20px 24px;
   margin-bottom: 16px;

@@ -83,7 +83,15 @@ export default function TablePaginationBar({
           page={Math.min(page + 1, pageCount)}
           onChange={(_, nextPage) => {
             onPageChange(nextPage - 1);
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            setTimeout(() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              document.documentElement?.scrollTo({ top: 0, behavior: "smooth" });
+              document.body?.scrollTo({ top: 0, behavior: "smooth" });
+              const mainContent = document.querySelector("main");
+              if (mainContent) {
+                mainContent.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }, 150);
           }}
           color="primary"
           shape="rounded"

@@ -35,6 +35,26 @@ import {
 } from "react-hook-form";
 import { MdAutorenew, MdRemove } from "react-icons/md";
 
+const ALLOWED_CATEGORIES = [
+  "ALMACENAMIENTO",
+  "AUDIO Y BOCINAS",
+  "ENFRIAMIENTO",
+  "FUENTES DE PODER",
+  "GABINETES",
+  "LAPTOPS",
+  "MEMORIAS RAM Y FLASH",
+  "MONITORES Y ACCESORIOS PARA MONITOR",
+  "MOUSES Y ACCESORIOS PARA MOUSES",
+  "PROCESADORES",
+  "REDES",
+  "REGULADORES, NOBREAKS Y ENERGIA",
+  "TARJETAS DE VIDEO",
+  "TARJETAS MADRE",
+  "TECLADOS",
+  "VENTILADORES",
+  "VIDEO Y ACCESORIOS"
+];
+
 const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const { requestPostProveedores } = ProveedoresUtils();
   const {
@@ -141,8 +161,21 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       //         };
       //       });
       //     }
-    } catch (error) {
+    } catch (error: any) {
       setLoadingUpdateProduct(false);
+      setDataModal({
+        isOpen: true,
+        type: "error",
+        content: error?.response?.data?.message || error?.message || "Ocurrió un error al actualizar el producto",
+        title: "Error",
+        showActions: true,
+        onClose: () => {
+          setDataModal((prev: any) => ({ ...prev, isOpen: false }));
+        },
+        onConfirm: () => {
+          setDataModal((prev: any) => ({ ...prev, isOpen: false }));
+        },
+      });
     } finally {
       setLoadingUpdateProduct(false);
     }
@@ -160,7 +193,11 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   }, [currentProduct?.caracteristicas]);
 
   const [bulkText, setBulkText] = useState("");
+  const lastProductIdRef = useRef<number | null>(null);
+
   useEffect(() => {
+    if (lastProductIdRef.current === dataProductProp.idProduct) return;
+    
     const currentProduct = dataProductProveedor.data.find(
       (p) => p.idProduct === dataProductProp.idProduct,
     );
@@ -172,9 +209,15 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           : currentProduct.caracteristicas;
         if (Array.isArray(parsed)) {
           const text = parsed
-            .map((c: any) => `${c.prop}: ${c.value}`)
+            .map((c: any) => {
+              if (c.prop === "Característica" && !c.value.includes("Característica")) {
+                return c.value;
+              }
+              return `${c.prop}: ${c.value}`;
+            })
             .join("\n");
           setBulkText(text);
+          lastProductIdRef.current = dataProductProp.idProduct;
         }
       } catch (e) {
         console.error("Error parsing caracteristicas", e);
@@ -247,7 +290,10 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             render={({ field }) => (
               <Autocomplete
                 fullWidth
-                options={dataCategoria || []}
+                options={(dataCategoria || []).filter((c: any) => 
+                  ALLOWED_CATEGORIES.includes(c.name?.trim().toUpperCase()) ||
+                  c.idCategorie === dataProductProp.categoryId
+                )}
                 value={
                   dataCategoria?.find(
                     (c: any) => c.idCategorie == field.value,

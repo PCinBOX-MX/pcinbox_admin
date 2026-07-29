@@ -41,6 +41,7 @@ const TableComponent = ({
           noRowsLabel: "Sin datos para mostrar",
           paginationRowsPerPage: "Filas por página",
         }}
+        autoHeight
         rowHeight={72}
         sx={{
           ...dataGridSx,

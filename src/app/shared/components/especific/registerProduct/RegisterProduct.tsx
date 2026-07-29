@@ -26,6 +26,26 @@ import { MdAdd, MdRemove } from "react-icons/md";
 import { Controller, useForm } from "react-hook-form";
 import rpStyles from "./registerProduct.module.css";
 
+const ALLOWED_CATEGORIES = [
+  "ALMACENAMIENTO",
+  "AUDIO Y BOCINAS",
+  "ENFRIAMIENTO",
+  "FUENTES DE PODER",
+  "GABINETES",
+  "LAPTOPS",
+  "MEMORIAS RAM Y FLASH",
+  "MONITORES Y ACCESORIOS PARA MONITOR",
+  "MOUSES Y ACCESORIOS PARA MOUSES",
+  "PROCESADORES",
+  "REDES",
+  "REGULADORES, NOBREAKS Y ENERGIA",
+  "TARJETAS DE VIDEO",
+  "TARJETAS MADRE",
+  "TECLADOS",
+  "VENTILADORES",
+  "VIDEO Y ACCESORIOS"
+];
+
 interface DataNewProductI {
   name: string;
   clave?: string;
@@ -339,7 +359,7 @@ const RegisterProduct = () => {
             <FormControl fullWidth>
               <Autocomplete
                 fullWidth
-                options={dataCategoria || []}
+                options={(dataCategoria || []).filter((c: any) => ALLOWED_CATEGORIES.includes(c.name?.trim().toUpperCase()))}
                 getOptionLabel={(option: any) =>
                   `${option.name} ${
                     option.description == null ? "" : option.description
