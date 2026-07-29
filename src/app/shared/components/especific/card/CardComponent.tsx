@@ -174,7 +174,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           gap: "10px",
         }}
       >
-        {dataProduct && dataProduct?.image_url?.length === 0 && (
+        {(dataProduct && dataProduct?.image_url?.length === 0) || dataProduct?.active === 0 ? (
           <button
             onClick={() => {
               handleAltaProduct(dataProduct);
@@ -185,9 +185,9 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             Dar de alta al sistema
             <MdFileUpload size={20} />
           </button>
-        )}
+        ) : null}
 
-        {dataProduct && dataProduct?.image_url.length > 0 && (
+        {dataProduct && dataProduct?.image_url.length > 0 && dataProduct?.active !== 0 && (
           <button
             type="button"
             className="admin-btn-secondary"
@@ -200,7 +200,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             <MdEdit size={20} />
           </button>
         )}
-        {dataProduct && dataProduct?.image_url?.length > 0 && (
+        {dataProduct && dataProduct?.image_url?.length > 0 && dataProduct?.active !== 0 && (
           <button
             type="button"
             disabled={loadingRemoveProduct}
@@ -232,8 +232,28 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                     if (resp.status == 200) {
                       setProductsProveedor((prev) => ({
                         ...prev,
-                        data: prev.data.filter((item) => item.idProduct !== dataProduct.idProduct),
-                        copyData: prev.copyData?.filter((item) => item.idProduct !== dataProduct.idProduct)
+                        data: prev.data
+                          .filter((item) =>
+                            dataProduct.providerId === 1 && item.idProduct === dataProduct.idProduct
+                              ? false // Remove completely for provider 1
+                              : true
+                          )
+                          .map((item) =>
+                            item.idProduct === dataProduct.idProduct
+                              ? { ...item, active: 0 }
+                              : item
+                          ),
+                        copyData: prev.copyData
+                          ?.filter((item) =>
+                            dataProduct.providerId === 1 && item.idProduct === dataProduct.idProduct
+                              ? false
+                              : true
+                          )
+                          .map((item) =>
+                            item.idProduct === dataProduct.idProduct
+                              ? { ...item, active: 0 }
+                              : item
+                          ),
                       }));
                       setDataModal({
                         isOpen: true,

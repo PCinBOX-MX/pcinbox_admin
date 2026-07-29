@@ -23,6 +23,7 @@ export interface ProductsI {
   peso?: any;
   profitMargin?: any;
   branches?: any;
+  active?: number;
   caracteristicas?: {
     prop: string;
     value: string;
