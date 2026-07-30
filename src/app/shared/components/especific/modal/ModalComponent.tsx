@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
-import { MdCheckCircle, MdError, MdInfo, MdWarningAmber } from "react-icons/md";
+import { MdCheckCircle, MdError, MdInfo, MdWarningAmber, MdAutorenew } from "react-icons/md";
 import { Modal, Typography } from "@mui/material";
 import Box from "@mui/material/Box";
 
@@ -18,6 +18,7 @@ const ModalComponent = ({
   onConfirm,
   showActions,
   maxWidth,
+  loading = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -28,6 +29,7 @@ const ModalComponent = ({
   onConfirm: () => void;
   showActions: boolean;
   maxWidth?: string;
+  loading?: boolean;
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -103,7 +105,6 @@ const ModalComponent = ({
     if (onConfirm) {
       onConfirm();
     }
-    forceClose();
   };
 
   const getTypeConfig = () => {
@@ -189,35 +190,41 @@ const ModalComponent = ({
           }}
           className="animate-in fade-in zoom-in-95 duration-200"
         >
-          {/* Cabecera con botón cerrar */}
-          <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 16px 0 0" }}>
-            <button
-              onClick={handleClose}
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: "50%",
-                color: "#9ca3af",
-                transition: "background-color 0.2s, color 0.2s"
-              }}
-              onMouseEnter={(e) => {
+          {/* Cabecera con boton cerrar */}
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 16px 0 0" }}>
+          <button
+            onClick={handleClose}
+            disabled={loading}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: loading ? "not-allowed" : "pointer",
+              padding: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "50%",
+              color: "#9ca3af",
+              transition: "background-color 0.2s, color 0.2s",
+              opacity: loading ? 0.5 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
                 e.currentTarget.style.backgroundColor = "#f3f4f6";
                 e.currentTarget.style.color = "#4b5563";
-              }}
-              onMouseLeave={(e) => {
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) {
                 e.currentTarget.style.backgroundColor = "transparent";
                 e.currentTarget.style.color = "#9ca3af";
-              }}
-              aria-label="Cerrar modal"
-            >
-              <X size={20} strokeWidth={2.5} />
-            </button>
-          </div>
+              }
+            }}
+            aria-label="Cerrar modal"
+          >
+            <X size={20} strokeWidth={2.5} />
+          </button>
+        </div>
 
           {/* Ícono y Título */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px 8px 24px", textAlign: "center" }}>
@@ -249,12 +256,11 @@ const ModalComponent = ({
             <div style={{ width: "100%", textAlign: "center" }}>
               {content}
             </div>
-          </div>
-
-          {/* Botones de Acción */}
+          </div>          {/* Botones de Accion */}
           {showActions && (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", padding: "8px 24px 0 24px" }}>
               <button
+                disabled={loading}
                 style={{
                   padding: "10px 24px",
                   backgroundColor: "#f3f4f6",
@@ -262,16 +268,18 @@ const ModalComponent = ({
                   fontWeight: "500",
                   borderRadius: "8px",
                   border: "none",
-                  cursor: "pointer",
-                  transition: "background-color 0.2s"
+                  cursor: loading ? "not-allowed" : "pointer",
+                  transition: "background-color 0.2s",
+                  opacity: loading ? 0.6 : 1
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#e5e7eb"}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#f3f4f6"}
+                onMouseEnter={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#e5e7eb" }}
+                onMouseLeave={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#f3f4f6" }}
                 onClick={handleClose}
               >
                 Cancelar
               </button>
               <button
+                disabled={loading}
                 style={{
                   padding: "10px 24px",
                   backgroundColor: type === 'error' ? '#dc2626' : '#bb3d4b',
@@ -279,14 +287,20 @@ const ModalComponent = ({
                   fontWeight: "500",
                   borderRadius: "8px",
                   border: "none",
-                  cursor: "pointer",
+                  cursor: loading ? "not-allowed" : "pointer",
                   boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                  transition: "background-color 0.2s"
+                  transition: "background-color 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  opacity: loading ? 0.7 : 1
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = type === 'error' ? '#b91c1c' : '#a03440'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = type === 'error' ? '#dc2626' : '#bb3d4b'}
+                onMouseEnter={(e) => { if(!loading) e.currentTarget.style.backgroundColor = type === 'error' ? '#b91c1c' : '#a03440' }}
+                onMouseLeave={(e) => { if(!loading) e.currentTarget.style.backgroundColor = type === 'error' ? '#dc2626' : '#bb3d4b' }}
                 onClick={handleConfirm}
               >
+                {loading && <MdAutorenew size={18} className="the-spinner" />}
                 Aceptar
               </button>
             </div>

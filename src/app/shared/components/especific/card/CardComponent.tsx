@@ -216,51 +216,72 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                   setDataModal((prev) => ({ ...prev, isOpen: false }));
                 },
                 onConfirm: async () => {
-                  try {
-                    setLoadingRemoveProduct(true);
+                    try {
+                      setLoadingRemoveProduct(true);
+                      setDataModal((prev) => ({ ...prev, loading: true }));
 
-                    const resp = await requestPostProveedores(
-                      {
-                        idProduct: dataProduct.idProduct,
-                        idProductExt: dataProduct.idProductExt,
-                      },
-                      "/removeProductPcinbox",
-                    );
+                      const resp = await requestPostProveedores(
+                        {
+                          idProduct: dataProduct.idProduct,
+                          idProductExt: dataProduct.idProductExt,
+                        },
+                        "/removeProductPcinbox",
+                      );
 
-                    setLoadingRemoveProduct(false);
+                      setLoadingRemoveProduct(false);
+                      setDataModal((prev) => ({ ...prev, loading: false }));
 
-                    if (resp.status == 200) {
-                      setProductsProveedor((prev) => ({
-                        ...prev,
-                        data: prev.data
-                          .filter((item) =>
-                            dataProduct.providerId === 1 && item.idProduct === dataProduct.idProduct
-                              ? false // Remove completely for provider 1
-                              : true
-                          )
-                          .map((item) =>
-                            item.idProduct === dataProduct.idProduct
-                              ? { ...item, active: 0 }
-                              : item
-                          ),
-                        copyData: prev.copyData
-                          ?.filter((item) =>
-                            dataProduct.providerId === 1 && item.idProduct === dataProduct.idProduct
-                              ? false
-                              : true
-                          )
-                          .map((item) =>
-                            item.idProduct === dataProduct.idProduct
-                              ? { ...item, active: 0 }
-                              : item
-                          ),
-                      }));
+                      if (resp.status == 200) {
+                        setProductsProveedor((prev) => ({
+                          ...prev,
+                          data: prev.data
+                            .filter((item) =>
+                              dataProduct.providerId === 1 && item.idProduct === dataProduct.idProduct
+                                ? false // Remove completely for provider 1
+                                : true
+                            )
+                            .map((item) =>
+                              item.idProduct === dataProduct.idProduct
+                                ? { ...item, active: 0 }
+                                : item
+                            ),
+                          copyData: prev.copyData
+                            ?.filter((item) =>
+                              dataProduct.providerId === 1 && item.idProduct === dataProduct.idProduct
+                                ? false
+                                : true
+                            )
+                            .map((item) =>
+                              item.idProduct === dataProduct.idProduct
+                                ? { ...item, active: 0 }
+                                : item
+                            ),
+                        }));
+                        setDataModal({
+                          isOpen: true,
+                          title: "Correcto",
+                          type: "success",
+                          content: "Producto dado de baja correctamente",
+                          showActions: false,
+                          onClose: () => {
+                            setDataModal((prev) => ({ ...prev, isOpen: false }));
+                          },
+                          onConfirm: () => {
+                            setDataModal((prev) => ({ ...prev, isOpen: false }));
+                          },
+                        });
+                        setTimeout(() => {
+                          setDataModal((prev) => ({ ...prev, isOpen: false }));
+                        }, 1500);
+                      }
+                    } catch (error) {
+                      setLoadingRemoveProduct(false);
                       setDataModal({
                         isOpen: true,
-                        title: "Correcto",
-                        type: "success",
-                        content: "Producto dado de baja correctamente",
-                        showActions: true,
+                        title: "Error",
+                        type: "error",
+                        content: "Ocurrió un error al intentar dar de baja el producto.",
+                        showActions: false,
                         onClose: () => {
                           setDataModal((prev) => ({ ...prev, isOpen: false }));
                         },
@@ -268,11 +289,11 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                           setDataModal((prev) => ({ ...prev, isOpen: false }));
                         },
                       });
+                      setTimeout(() => {
+                        setDataModal((prev) => ({ ...prev, isOpen: false }));
+                      }, 1500);
                     }
-                  } catch (error) {
-                    setLoadingRemoveProduct(false);
-                  }
-                },
+                  },
                 title: "Cuidado",
               });
             }}
