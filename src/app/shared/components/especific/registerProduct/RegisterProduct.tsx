@@ -318,7 +318,7 @@ const RegisterProduct = () => {
           </option>
           <option value="component">Componente</option>
           <option value="pcgamer">
-            PC GAMER (Laptops, WorkStation, PC, etc.)
+            PC Gamers y Workstation
           </option>
         </select>
       </div>
