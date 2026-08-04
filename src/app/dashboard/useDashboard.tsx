@@ -165,7 +165,7 @@ const useDashboard = () => {
           })),
         }));
       }
-    } catch (error) {}
+    } catch (error) { }
   };
 
   const applyCancelledOrderState = useCallback(
@@ -175,13 +175,13 @@ const useDashboard = () => {
         data: prev.data.map((order) =>
           order.idOrder === idOrder
             ? {
-                ...order,
-                statusPay: "cancelled",
-                products: order.products.map((product) => ({
-                  ...product,
-                  statusShip: "cancelado",
-                })),
-              }
+              ...order,
+              statusPay: "cancelled",
+              products: order.products.map((product) => ({
+                ...product,
+                statusShip: "cancelado",
+              })),
+            }
             : order,
         ),
       }));
@@ -332,7 +332,7 @@ const useDashboard = () => {
           ),
         }));
       }
-    } catch (error) {}
+    } catch (error) { }
   };
 
   return {

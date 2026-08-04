@@ -140,6 +140,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
           item.description &&
           item.description.trim() !== String(item.productName || "").trim();
 
+
         // Obtener la imagen
         const imageUrl =
           (Array.isArray(item.image_url) ? item.image_url[0] : item.image_url) ||
