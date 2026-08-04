@@ -48,8 +48,39 @@ const ModalComponent = ({
   //   };
   // }, [isOpen, type]);
 
+  const initialSnapshot = useRef<string | null>(null);
+
+  const getSnapshot = () => {
+    if (!boxRef.current) return null;
+    const inputs = boxRef.current.querySelectorAll("input, textarea");
+    const vals: any[] = [];
+    inputs.forEach((input: any) => {
+      if (
+        input.type !== "submit" &&
+        input.type !== "button" &&
+        input.type !== "file" &&
+        !input.readOnly &&
+        !input.disabled
+      ) {
+        if (input.type === "checkbox" || input.type === "radio") {
+          vals.push(input.checked);
+        } else {
+          vals.push(input.value);
+        }
+      }
+    });
+    return JSON.stringify(vals);
+  };
+
   useEffect(() => {
     if (isOpen) {
+      initialSnapshot.current = null;
+
+      // Retrasar el snapshot 800ms para ignorar autocompletado y carga de datos asíncrona
+      const timer = setTimeout(() => {
+        initialSnapshot.current = getSnapshot();
+      }, 800);
+
       const scrollY = window.scrollY;
       setIsVisible(true);
       document.documentElement.style.overflow = "hidden";
@@ -58,6 +89,7 @@ const ModalComponent = ({
       document.documentElement.style.width = "100%";
 
       return () => {
+        clearTimeout(timer);
         document.documentElement.style.overflow = "";
         document.documentElement.style.position = "";
         document.documentElement.style.top = "";
@@ -67,25 +99,9 @@ const ModalComponent = ({
   }, [isOpen, type]);
 
   const handleClose = () => {
-    if (boxRef.current) {
-      const inputs = boxRef.current.querySelectorAll("input, textarea");
-      let hasData = false;
-      inputs.forEach((input: any) => {
-        if (
-          input.type !== "hidden" &&
-          input.type !== "submit" &&
-          input.type !== "button" &&
-          input.type !== "checkbox" &&
-          input.type !== "radio" &&
-          input.type !== "file"
-        ) {
-          if (input.value && input.value.trim() !== "") {
-            hasData = true;
-          }
-        }
-      });
-
-      if (hasData) {
+    if (initialSnapshot.current !== null) {
+      const currentSnapshot = getSnapshot();
+      if (currentSnapshot !== null && currentSnapshot !== initialSnapshot.current) {
         setShowConfirmClose(true);
         return;
       }

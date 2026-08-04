@@ -140,21 +140,42 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
           item.description &&
           item.description.trim() !== String(item.productName || "").trim();
 
+        // Obtener la imagen
+        const imageUrl =
+          (Array.isArray(item.image_url) ? item.image_url[0] : item.image_url) ||
+          item.image ||
+          item.coverImage;
+
         return (
           <article key={item.idShipment ?? index} className="admin-product-card">
             <header className="admin-product-card__header">
-              <div className="admin-product-card__title-wrap">
-                <span className="admin-product-card__index">
-                  Producto {index + 1}
-                </span>
-                <h3 className="admin-product-card__name">
-                  {item.productName}
-                </h3>
-                {showDescription ? (
-                  <p className="admin-product-card__description">
-                    {item.description}
-                  </p>
-                ) : null}
+              <div className="admin-product-card__content">
+                {imageUrl ? (
+                  <div className="admin-product-card__image-container">
+                    <img
+                      src={imageUrl}
+                      alt={item.productName}
+                      className="admin-product-card__image"
+                    />
+                  </div>
+                ) : (
+                  <div className="admin-product-card__image-placeholder">
+                    <Package size={24} color="#9ca3af" />
+                  </div>
+                )}
+                <div className="admin-product-card__title-wrap">
+                  <span className="admin-product-card__index">
+                    Producto {index + 1}
+                  </span>
+                  <h3 className="admin-product-card__name">
+                    {item.productName}
+                  </h3>
+                  {showDescription ? (
+                    <p className="admin-product-card__description">
+                      {item.description}
+                    </p>
+                  ) : null}
+                </div>
               </div>
               <div className="admin-product-card__badges">
                 <Chip
@@ -162,6 +183,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                   label={providerLabel}
                   color={providerChipColor}
                   variant="outlined"
+                  sx={{ fontWeight: 600 }}
                 />
                 <span className="admin-product-card__qty">
                   × {item.quantity}
@@ -170,15 +192,9 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
             </header>
 
             <ModalDetailGrid columns={3}>
-              {item.sku ? (
-                <ModalDetailField label="SKU" value={item.sku} />
-              ) : null}
-              {item.upc ? (
-                <ModalDetailField label="UPC" value={item.upc} />
-              ) : null}
-              {item.clave ? (
-                <ModalDetailField label="Clave" value={item.clave} />
-              ) : null}
+              <ModalDetailField label="SKU" value={item.sku || "N/A"} />
+              <ModalDetailField label="UPC" value={item.upc || "N/A"} />
+              <ModalDetailField label="Clave" value={item.clave || "N/A"} />
             </ModalDetailGrid>
 
             <Divider sx={{ my: 1.5, borderColor: "#eef0f4" }} />
