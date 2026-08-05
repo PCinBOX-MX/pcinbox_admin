@@ -77,7 +77,7 @@ const RegisterProduct = () => {
   const [selectedCategoria, setSelectedCategoria] = useState<number>(0);
   const { dataProveedores } = useTheContext();
 
-  const { control } = useForm();
+  const { control, setValue } = useForm();
 
   const [dataNewComponent, setDataNewComponent] = useState<DataNewProductI>({
     name: "",
@@ -115,11 +115,103 @@ const RegisterProduct = () => {
     caracteristicas: [],
     upc: "",
   });
+  /** Texto visible en el textarea (nunca incluye "tipo"). */
+  const [pcGamerCaracteristicasText, setPcGamerCaracteristicasText] =
+    useState("");
+  /** Tipo de PC solo interno; se inyecta en caracteristicas al guardar. */
+  const [selectedPcTipo, setSelectedPcTipo] = useState<string | null>(null);
   const [typeProduct, setTypeProduct] = useState("");
 
   const [loadinNewProduct, setLoadingNewProduct] = useState<boolean>(false);
 
   const { requestPostProveedores } = ProveedoresUtils();
+
+  const PC_TIPO_OPTIONS = [
+    {
+      tipo: "Oficina y Gaming",
+      label: "Laptops, Escritorios y sillas Gamer",
+    },
+    { tipo: "workStation", label: "PC Estación de trabajo" },
+    { tipo: "pro", label: "Pc Gamer Pro" },
+    { tipo: "intermedia", label: "Pc Gamer Intermedio" },
+    { tipo: "entrada", label: "Pc Gamer de entrada" },
+  ];
+
+  const stripTipoLinesFromText = (text: string) =>
+    text
+      .split(/\r?\n/)
+      .filter((line) => !/^\s*tipo\s*:/i.test(line))
+      .join("\n");
+
+  const parseCharacteristics = (text: string) => {
+    if (!text) return [];
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        let prop = "";
+        let value = "";
+        if (line.includes(":")) {
+          const parts = line.split(":");
+          prop = parts.shift() || "";
+          value = parts.join(":");
+        } else {
+          const match = line.match(/^(.*?)(\d+.*)$/);
+          if (match) {
+            prop = match[1];
+            value = match[2];
+          } else {
+            prop = line;
+          }
+        }
+        return { prop: prop.trim(), value: value.trim() };
+      })
+      .filter(
+        (item) => item.prop !== "" && item.prop.toLowerCase() !== "tipo",
+      );
+  };
+
+  /** Arma el array final: tipo interno + líneas del textarea. */
+  const buildPcCaracteristicas = (
+    text: string,
+    tipo: string | null,
+  ): { prop: string; value: string }[] => {
+    const fromText = parseCharacteristics(text);
+    if (!tipo) return fromText;
+    return [{ prop: "tipo", value: tipo }, ...fromText];
+  };
+
+  const serializeCaracteristicas = (
+    raw: string | { prop: string; value: string }[],
+  ) => {
+    const parsed =
+      typeof raw === "string" ? parseCharacteristics(raw) : [...raw];
+    return JSON.stringify(parsed);
+  };
+
+  const handlePcTipoChange = (tipo: string | null) => {
+    setValue("Tipo", tipo);
+    setSelectedPcTipo(tipo);
+    // Solo estado interno: el textarea no se toca.
+    setDataNewPcGamer((prev) => ({
+      ...prev,
+      caracteristicas: buildPcCaracteristicas(
+        pcGamerCaracteristicasText,
+        tipo,
+      ),
+    }));
+  };
+
+  const handlePcCaracteristicasTextChange = (text: string) => {
+    // Si pegan "tipo: ...", se elimina del textarea para que no lo editen.
+    const cleaned = stripTipoLinesFromText(text);
+    setPcGamerCaracteristicasText(cleaned);
+    setDataNewPcGamer((prev) => ({
+      ...prev,
+      caracteristicas: buildPcCaracteristicas(cleaned, selectedPcTipo),
+    }));
+  };
 
   const calculateFinalPrice = (cost: number, margin: number) => {
     const IVA = 0.16;
@@ -168,6 +260,11 @@ const RegisterProduct = () => {
       return;
     }
 
+    if (typeProduct?.toLowerCase() === "pcgamer" && !selectedPcTipo) {
+      alert("Selecciona el tipo de PC");
+      return;
+    }
+
     try {
       setLoadingNewProduct(true);
 
@@ -207,9 +304,7 @@ const RegisterProduct = () => {
         formData.append("isPc", "0");
         formData.append(
           "caracteristicas",
-          typeof dataNewComponent.caracteristicas === 'string' 
-            ? dataNewComponent.caracteristicas 
-            : JSON.stringify(dataNewComponent.caracteristicas)
+          serializeCaracteristicas(dataNewComponent.caracteristicas),
         );
       } else if (typeProduct?.toLowerCase() === "pcgamer") {
         formData.append("name", dataNewPcGamer.name);
@@ -218,11 +313,15 @@ const RegisterProduct = () => {
         formData.append("sku", dataNewPcGamer.sku);
         formData.append("stock", dataNewPcGamer.stock.toString());
         formData.append("clave", dataNewComponent?.clave || "");
-        formData.append("upc", dataNewComponent?.upc || "");
+        formData.append("upc", dataNewPcGamer?.upc || dataNewComponent?.upc || "");
 
+        const caracteristicasPayload = buildPcCaracteristicas(
+          pcGamerCaracteristicasText,
+          selectedPcTipo,
+        );
         formData.append(
           "caracteristicas",
-          JSON.stringify(dataNewPcGamer.caracteristicas),
+          JSON.stringify(caracteristicasPayload),
         );
 
         const filesArray = Array.from(files || []);
@@ -703,12 +802,16 @@ const RegisterProduct = () => {
           </div>
           <div className="admin-row admin-mb-md">
             <TextField
-              label="Características"
+              label="Características (propiedad: valor, una por línea)"
               multiline
               rows={4}
               variant="outlined"
               name="caracteristicas"
-              value={typeof dataNewComponent.caracteristicas === 'string' ? dataNewComponent.caracteristicas : ""}
+              value={
+                typeof dataNewComponent.caracteristicas === "string"
+                  ? dataNewComponent.caracteristicas
+                  : ""
+              }
               onChange={(event) =>
                 setDataNewComponent((prev) => ({
                   ...prev,
@@ -716,6 +819,7 @@ const RegisterProduct = () => {
                 }))
               }
               fullWidth
+              placeholder={"Procesador: AMD Ryzen 7...\nMemoria RAM: 32 GB..."}
             />
           </div>
         </>
@@ -892,37 +996,14 @@ const RegisterProduct = () => {
                 render={({ field }) => (
                   <Autocomplete
                     fullWidth
-                    options={[
-                      {
-                        tipo: "Oficina y Gaming",
-                        label: "Laptops, Escritorios y sillas Gamer",
-                      },
-                      { tipo: "workStation", label: "PC Estación de trabajo" },
-                      // { tipo: "", label: "" },
-                      { tipo: "pro", label: "Pc Gamer Pro" },
-                      { tipo: "intermedia", label: "Pc Gamer Intermedio" },
-                      { tipo: "entrada", label: "Pc Gamer de entrada" },
-                    ]}
+                    options={PC_TIPO_OPTIONS}
                     value={
-                      [
-                        {
-                          tipo: "Oficina y Gaming",
-                          label: "Laptops, Escritorios y sillas Gamer",
-                        },
-                        {
-                          tipo: "workStation",
-                          label: "PC Estación de trabajo",
-                        },
-                        // { tipo: "", label: "" },
-                        { tipo: "pro", label: "Pc Gamer Pro" },
-                        { tipo: "intermedia", label: "Pc Gamer Intermedio" },
-                        { tipo: "entrada", label: "Pc Gamer de entrada" },
-                      ].find((p: any) => p.tipo == field.value) || null
+                      PC_TIPO_OPTIONS.find((p) => p.tipo == field.value) || null
                     }
-                    onChange={(event, newValue) => {
-                      const id = newValue ? newValue.tipo : null;
-
-                      field.onChange(id);
+                    onChange={(_, newValue) => {
+                      const tipo = newValue ? newValue.tipo : null;
+                      field.onChange(tipo);
+                      handlePcTipoChange(tipo);
                     }}
                     getOptionLabel={(option) => `${option.label}`}
                     renderInput={(params) => (
@@ -996,18 +1077,18 @@ const RegisterProduct = () => {
 
           <div className="admin-row admin-mb-md">
             <TextField
-              label="Características"
+              label="Características (propiedad: valor, una por línea)"
               multiline
               rows={4}
               variant="outlined"
               name="caracteristicas"
-              value={typeof dataNewPcGamer.caracteristicas === 'string' ? dataNewPcGamer.caracteristicas : ''}
+              value={pcGamerCaracteristicasText}
               onChange={(event) => {
-                setDataNewPcGamer((prev) => ({
-                  ...prev,
-                  caracteristicas: event.target.value as any,
-                }));
+                handlePcCaracteristicasTextChange(event.target.value);
               }}
+              fullWidth
+              placeholder={"Procesador: AMD Ryzen 7...\nMemoria RAM: 32 GB..."}
+              helperText="El tipo de PC no aparece aquí: se guarda solo al elegir el selector de arriba."
             />
           </div>
         </>

@@ -55,6 +55,9 @@ const ALLOWED_CATEGORIES = [
   "VIDEO Y ACCESORIOS"
 ];
 
+const isSameProduct = (item: ProductsI, product: ProductsI) =>
+  Number(item.idProduct) === Number(product.idProduct);
+
 const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const { requestPostProveedores } = ProveedoresUtils();
   const {
@@ -69,16 +72,39 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const [loadingUpdateProduct, setLoadingUpdateProduct] =
     useState<boolean>(false);
 
+  // Imágenes locales: las mismas que muestra la tarjeta al abrir editar.
+  // No se leen del estado global para evitar mezclar imágenes de otro producto.
+  const [productImages, setProductImages] = useState<string[]>(() => [
+    ...(dataProductProp.image_url || []),
+  ]);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { register, handleSubmit, control } = useForm();
 
+  const updateCurrentProduct = (
+    updater: (item: ProductsI) => ProductsI,
+  ) => {
+    setProductsProveedor((prev) => ({
+      ...prev,
+      data: prev.data.map((item) =>
+        isSameProduct(item, dataProductProp) ? updater(item) : item,
+      ),
+      copyData: prev.copyData?.map((item) =>
+        isSameProduct(item, dataProductProp) ? updater(item) : item,
+      ),
+    }));
+  };
+
+  const syncImagesToStore = (images: string[]) => {
+    setProductImages(images);
+    updateCurrentProduct((item) => ({ ...item, image_url: images }));
+  };
+
   const handleEditProduct = async (event: any) => {
-    const findDataProduct = dataProductProveedor?.data?.find(
-      (prevProductProveedor) =>
-        prevProductProveedor.idProduct == dataProductProp.idProduct,
+    const findDataProduct = dataProductProveedor?.data?.find((item) =>
+      isSameProduct(item, dataProductProp),
     );
-    // if (event) {
     try {
       setLoadingUpdateProduct(true);
       const resp = await requestPostProveedores(
@@ -93,20 +119,20 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           price: event.price,
           sku: event.sku,
           upc: event.upc,
-          providerId: findDataProduct?.providerId,
-          profitMargin: providerUsesProfitMargin(findDataProduct?.providerId)
+          providerId: findDataProduct?.providerId ?? dataProductProp.providerId,
+          profitMargin: providerUsesProfitMargin(
+            findDataProduct?.providerId ?? dataProductProp.providerId,
+          )
             ? event?.profitMargin
             : 0,
           isPc: dataProductProp?.isPc || (dataProductProp as any)?.isPC,
           caracteristicas: findDataProduct
             ? findDataProduct?.caracteristicas
-            : [],
-          image_url: findDataProduct ? findDataProduct?.image_url : [],
+            : dataProductProp.caracteristicas || [],
+          image_url: productImages,
         },
         "/editProductPcinbox",
       );
-      //     setLoadingUpdateProduct(false);
-      //     if (resp.status == 200) {
       const data = resp.data;
       setDataModal({
         isOpen: true,
@@ -121,46 +147,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           setDataModal((prev) => ({ ...prev, isOpen: false }));
         },
       });
-      //       setProductsProveedor((prev) => {
-      //         const updateItem = (prevItem: any) => {
-      //           if (
-      //             Number(prevItem.idProduct) === Number(data?.data?.idProduct)
-      //           ) {
-      //             return {
-      //               ...prevItem,
-      //               idProduct: Number(data?.data?.idProduct),
-      //               idProductExt: data?.data?.idProductExt,
-      //               name: data?.data?.name,
-      //               description: data?.data?.description,
-      //               caracteristicas: data?.data?.caracteristicas,
-      //               price: Number(data?.data?.price),
-      //               stock: Number(data?.data?.stock),
-      //               sku: data?.data?.sku,
-      //               upc: data?.data?.upc,
-      //               width: Number(data?.data?.width),
-      //               height: Number(data?.data?.height),
-      //               largo: Number(data?.data?.largo),
-      //               peso: data?.data?.peso,
-      //               rating: Number(data?.data?.rating),
-      //               image_url: data?.data?.image_url,
-      //               categoryId: Number(data?.data?.categoryId),
-      //               marcaId: Number(data?.data?.marcaId),
-      //               providerId: Number(data?.data?.providerId),
-      //               isPC: Number(data?.data?.isPC),
-      //               createdAt: data?.data?.createdAt,
-      //               active: Number(data?.data?.active),
-      //             };
-      //           }
-      //           return prevItem;
-      //         };
-      //         return {
-      //           ...prev,
-      //           loading: false,
-      //           data: prev.data.map(updateItem),
-      //           copyData: prev.copyData!.map(updateItem), // 🔥 ESTA LÍNEA ES LA CLAVE
-      //         };
-      //       });
-      //     }
     } catch (error: any) {
       setLoadingUpdateProduct(false);
       setDataModal({
@@ -179,11 +165,10 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     } finally {
       setLoadingUpdateProduct(false);
     }
-    // }
   };
 
-  const currentProduct = dataProductProveedor.data.find(
-    (p) => p.idProduct == dataProductProp.idProduct,
+  const currentProduct = dataProductProveedor.data.find((p) =>
+    isSameProduct(p, dataProductProp),
   );
 
   useEffect(() => {
@@ -196,21 +181,32 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const lastProductIdRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // Solo al abrir/cambiar de producto: mismas imágenes que la tarjeta.
+    setProductImages([...(dataProductProp.image_url || [])]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot al abrir editar
+  }, [dataProductProp.idProduct]);
+
+  useEffect(() => {
     if (lastProductIdRef.current === dataProductProp.idProduct) return;
-    
-    const currentProduct = dataProductProveedor.data.find(
-      (p) => p.idProduct === dataProductProp.idProduct,
-    );
-    if (!currentProduct) return;
-    if (currentProduct.caracteristicas) {
+
+    const product =
+      dataProductProveedor.data.find((p) =>
+        isSameProduct(p, dataProductProp),
+      ) || dataProductProp;
+
+    if (product.caracteristicas) {
       try {
-        const parsed = typeof currentProduct.caracteristicas === "string" 
-          ? JSON.parse(currentProduct.caracteristicas) 
-          : currentProduct.caracteristicas;
+        const parsed =
+          typeof product.caracteristicas === "string"
+            ? JSON.parse(product.caracteristicas as unknown as string)
+            : product.caracteristicas;
         if (Array.isArray(parsed)) {
           const text = parsed
             .map((c: any) => {
-              if (c.prop === "Característica" && !c.value.includes("Característica")) {
+              if (
+                c.prop === "Característica" &&
+                !c.value.includes("Característica")
+              ) {
                 return c.value;
               }
               return `${c.prop}: ${c.value}`;
@@ -222,9 +218,11 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       } catch (e) {
         console.error("Error parsing caracteristicas", e);
       }
+    } else {
+      setBulkText("");
+      lastProductIdRef.current = dataProductProp.idProduct;
     }
-  }, [dataProductProveedor.data, dataProductProp.idProduct]);
-
+  }, [dataProductProveedor.data, dataProductProp]);
   return (
     <Box
       component="form"
@@ -240,17 +238,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             required: "Se requiere nombre",
             value: dataProductProp?.name,
             onChange(event) {
-              setProductsProveedor((prev) => ({
-                ...prev,
-                data: prev.data.map((item) => {
-                  if (
-                    item.idProduct === dataProductProp.idProduct ||
-                    item.idProductExt == dataProductProp.idProductExt
-                  ) {
-                    return { ...item, name: event.target.value };
-                  }
-                  return item;
-                }),
+              updateCurrentProduct((item) => ({
+                ...item,
+                name: event.target.value,
               }));
             },
           })}
@@ -264,17 +254,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           {...register("description", {
             value: dataProductProp?.description,
             onChange(event) {
-              setProductsProveedor((prev) => ({
-                ...prev,
-                data: prev.data.map((item) => {
-                  if (
-                    item.idProduct === dataProductProp.idProduct ||
-                    item.idProductExt == dataProductProp.idProductExt
-                  ) {
-                    return { ...item, description: event.target.value };
-                  }
-                  return item;
-                }),
+              updateCurrentProduct((item) => ({
+                ...item,
+                description: event.target.value,
               }));
             },
           })}
@@ -304,14 +286,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
                   field.onChange(id);
 
-                  setProductsProveedor((prev) => ({
-                    ...prev,
-                    data: prev.data.map((item) =>
-                      item.idProduct === dataProductProp.idProduct ||
-                      item.idProductExt === dataProductProp.idProductExt
-                        ? { ...item, categoryId: id }
-                        : item,
-                    ),
+                  updateCurrentProduct((item) => ({
+                    ...item,
+                    categoryId: id,
                   }));
                 }}
                 getOptionLabel={(option) =>
@@ -348,14 +325,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
                   field.onChange(id);
 
-                  setProductsProveedor((prev) => ({
-                    ...prev,
-                    data: prev.data.map((item) =>
-                      item.idProduct === dataProductProp.idProduct ||
-                      item.idProductExt === dataProductProp.idProductExt
-                        ? { ...item, marcaId: id }
-                        : item,
-                    ),
+                  updateCurrentProduct((item) => ({
+                    ...item,
+                    marcaId: id,
                   }));
                 }}
                 getOptionLabel={(option) =>
@@ -380,17 +352,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           {...register("stock", {
             value: dataProductProp?.stock || 0,
             onChange(event) {
-              setProductsProveedor((prev) => ({
-                ...prev,
-                data: prev.data.map((item) => {
-                  if (
-                    item.idProduct === dataProductProp.idProduct ||
-                    item.idProductExt == dataProductProp.idProductExt
-                  ) {
-                    return { ...item, stock: event.target.value };
-                  }
-                  return item;
-                }),
+              updateCurrentProduct((item) => ({
+                ...item,
+                stock: event.target.value,
               }));
             },
           })}
@@ -408,17 +372,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             value: dataProductProp?.price,
 
             onChange(event) {
-              setProductsProveedor((prev) => ({
-                ...prev,
-                data: prev.data.map((item) => {
-                  if (
-                    item.idProduct === dataProductProp.idProduct ||
-                    item.idProductExt == dataProductProp.idProductExt
-                  ) {
-                    return { ...item, price: event.target.value };
-                  }
-                  return item;
-                }),
+              updateCurrentProduct((item) => ({
+                ...item,
+                price: event.target.value,
               }));
             },
           })}
@@ -434,54 +390,28 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           {...register("sku", {
             value: dataProductProp?.sku,
             onChange(event) {
-              setProductsProveedor((prev) => ({
-                ...prev,
-                data: prev.data.map((item) => {
-                  if (
-                    item.idProduct === dataProductProp.idProduct ||
-                    item.idProductExt == dataProductProp.idProductExt
-                  ) {
-                    return { ...item, sku: event.target.value };
-                  }
-                  return item;
-                }),
+              updateCurrentProduct((item) => ({
+                ...item,
+                sku: event.target.value,
               }));
             },
           })}
         />
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label htmlFor={`file-upload-edit`} style={{ fontSize: "14px" }}>Imagen</label>
+          <label htmlFor={`file-upload-edit-${dataProductProp.idProduct}`} style={{ fontSize: "14px" }}>Imagen</label>
           <input
-            id={`file-upload-edit`}
+            id={`file-upload-edit-${dataProductProp.idProduct}`}
             type="file"
             onChange={(event) => {
               const files = (event.target as HTMLInputElement).files;
               if (!files) return;
 
-              // Iteramos uno por uno
-              for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+              const fileList = Array.from(files);
+              const previewUrls = fileList.map((file) =>
+                URL.createObjectURL(file),
+              );
 
-                // Si quieres, puedes crear un preview de cada imagen
-                const previewUrl = URL.createObjectURL(file);
-
-                // O agregarlas individualmente al estado
-                setProductsProveedor((prev) => ({
-                  ...prev,
-                  data: prev.data.map((item) => {
-                    if (
-                      item.idProduct === dataProductProp.idProduct ||
-                      item.idProductExt === dataProductProp.idProductExt
-                    ) {
-                      return {
-                        ...item,
-                        image_url: [...(item.image_url || []), previewUrl],
-                      };
-                    }
-                    return item;
-                  }),
-                }));
-              }
+              syncImagesToStore([...productImages, ...previewUrls]);
               event.target.value = "";
             }}
             multiple
@@ -491,14 +421,8 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       </div>
 
       <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-        {dataProductProveedor.data
-          .find(
-            (p) =>
-              p.idProduct === dataProductProp.idProduct ||
-              p.idProductExt === dataProductProp.idProductExt,
-          )
-          ?.image_url?.map((img: string, indexImg: number) => (
-            <Card key={indexImg} sx={{ position: "relative", width: 130 }}>
+        {productImages.map((img: string, indexImg: number) => (
+            <Card key={`${dataProductProp.idProduct}-${img}-${indexImg}`} sx={{ position: "relative", width: 130 }}>
               <CardMedia
                 component="img"
                 image={img}
@@ -521,23 +445,13 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                   size="small"
                   color="error"
                   onClick={() => {
-                    setProductsProveedor((prev) => ({
-                      ...prev,
-                      data: prev.data.map((item) => {
-                        if (
-                          item.idProduct === dataProductProp.idProduct ||
-                          item.idProductExt === dataProductProp.idProductExt
-                        ) {
-                          return {
-                            ...item,
-                            image_url: item.image_url.filter(
-                              (_: any, i: number) => i !== indexImg,
-                            ), // eliminamos todas
-                          };
-                        }
-                        return item;
-                      }),
-                    }));
+                    const removed = productImages[indexImg];
+                    if (removed?.startsWith("blob:")) {
+                      URL.revokeObjectURL(removed);
+                    }
+                    syncImagesToStore(
+                      productImages.filter((_, i) => i !== indexImg),
+                    );
                   }}
                 >
                   <Trash2 size={16} />
@@ -558,17 +472,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           {...register("upc", {
             value: dataProductProp?.upc,
             onChange(event) {
-              setProductsProveedor((prev) => ({
-                ...prev,
-                data: prev.data.map((item) => {
-                  if (
-                    item.idProduct === dataProductProp.idProduct ||
-                    item.idProductExt == dataProductProp.idProductExt
-                  ) {
-                    return { ...item, upc: event.target.value };
-                  }
-                  return item;
-                }),
+              updateCurrentProduct((item) => ({
+                ...item,
+                upc: event.target.value,
               }));
             },
           })}
@@ -597,14 +503,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
                   field.onChange(id);
 
-                  setProductsProveedor((prev) => ({
-                    ...prev,
-                    data: prev.data.map((item) =>
-                      item.idProduct === dataProductProp.idProduct ||
-                      item.idProductExt === dataProductProp.idProductExt
-                        ? { ...item, providerId: Number(id) }
-                        : item,
-                    ),
+                  updateCurrentProduct((item) => ({
+                    ...item,
+                    providerId: Number(id),
                   }));
                 }}
                 getOptionLabel={(option) => `${option.companyName}`}
@@ -629,17 +530,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             {...register("profitMargin", {
               value: dataProductProp?.profitMargin,
               onChange(event) {
-                setProductsProveedor((prev) => ({
-                  ...prev,
-                  data: prev.data.map((item) => {
-                    if (
-                      item.idProduct === dataProductProp.idProduct ||
-                      item.idProductExt == dataProductProp.idProductExt
-                    ) {
-                      return { ...item, profitMargin: event.target.value };
-                    }
-                    return item;
-                  }),
+                updateCurrentProduct((item) => ({
+                  ...item,
+                  profitMargin: event.target.value,
                 }));
               },
             })}
@@ -673,13 +566,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 return { prop: "Característica", value: line.trim() };
               });
 
-            setProductsProveedor((prev) => ({
-              ...prev,
-              data: prev.data.map((prod) =>
-                prod.idProduct === dataProductProp.idProduct
-                  ? { ...prod, caracteristicas: newCaracs }
-                  : prod,
-              ),
+            updateCurrentProduct((prod) => ({
+              ...prod,
+              caracteristicas: newCaracs,
             }));
           }}
         />
