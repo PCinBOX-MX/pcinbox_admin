@@ -190,11 +190,9 @@ export default function AppContent({
     if (!socket || !socketServerReady) return;
 
     const handlerUpdateProduct = (data: ProductsI) => {
-      setProductsProveedor((prev) => ({
-        ...prev,
-        data: prev.data.map((item) => {
+      setProductsProveedor((prev) => {
+        const applyUpdate = (item: ProductsI) => {
           const match = Number(item.idProduct) === Number(data.idProduct);
-
           return match
             ? {
                 ...item,
@@ -206,23 +204,14 @@ export default function AppContent({
                 sku: data.sku,
               }
             : item;
-        }),
-        copyData: prev.data.map((item) => {
-          const match = Number(item.idProduct) === Number(data.idProduct);
+        };
 
-          return match
-            ? {
-                ...item,
-                name: data.name,
-                description: data.description,
-                caracteristicas: data.caracteristicas,
-                price: Number(data.price),
-                stock: Number(data.stock),
-                sku: data.sku,
-              }
-            : item;
-        }),
-      }));
+        return {
+          ...prev,
+          data: prev.data.map(applyUpdate),
+          copyData: (prev.copyData ?? prev.data).map(applyUpdate),
+        };
+      });
     };
 
     socket.on("updateProductComponent", handlerUpdateProduct);

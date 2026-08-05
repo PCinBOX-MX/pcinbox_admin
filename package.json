@@ -8,7 +8,10 @@
     "build:qa": "dotenv -e .env.local next build",
     "build:prod": "dotenv -e .env.prod next build",
     "start": "npx dotenv -e .env.prod -- next start -p 3002",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cy:open": "cypress open",
+    "cy:run": "cypress run --e2e",
+    "test:e2e": "cypress run --e2e"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -39,14 +42,15 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^20.19.43",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "baseline-browser-mapping": "^2.10.42",
+    "cypress": "^15.20.0",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4.1.14",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

@@ -25,6 +25,12 @@ import { useTheContext } from "@/app/hooks/global.hook";
 import { MdAdd, MdRemove } from "react-icons/md";
 import { Controller, useForm } from "react-hook-form";
 import rpStyles from "./registerProduct.module.css";
+import {
+  buildPcCaracteristicas,
+  PC_TIPO_OPTIONS,
+  serializeCaracteristicas,
+  stripTipoLinesFromText,
+} from "@/app/utils/caracteristicas.utils";
 
 const ALLOWED_CATEGORIES = [
   "ALMACENAMIENTO",
@@ -104,6 +110,8 @@ const RegisterProduct = () => {
     price: number | string;
     image_url: File[];
     upc?: string;
+    providerId: number;
+    clave?: string;
     caracteristicas: { prop: string; value: string }[];
   }>({
     name: "",
@@ -114,6 +122,8 @@ const RegisterProduct = () => {
     image_url: [],
     caracteristicas: [],
     upc: "",
+    providerId: 1,
+    clave: "",
   });
   /** Texto visible en el textarea (nunca incluye "tipo"). */
   const [pcGamerCaracteristicasText, setPcGamerCaracteristicasText] =
@@ -125,70 +135,6 @@ const RegisterProduct = () => {
   const [loadinNewProduct, setLoadingNewProduct] = useState<boolean>(false);
 
   const { requestPostProveedores } = ProveedoresUtils();
-
-  const PC_TIPO_OPTIONS = [
-    {
-      tipo: "Oficina y Gaming",
-      label: "Laptops, Escritorios y sillas Gamer",
-    },
-    { tipo: "workStation", label: "PC Estación de trabajo" },
-    { tipo: "pro", label: "Pc Gamer Pro" },
-    { tipo: "intermedia", label: "Pc Gamer Intermedio" },
-    { tipo: "entrada", label: "Pc Gamer de entrada" },
-  ];
-
-  const stripTipoLinesFromText = (text: string) =>
-    text
-      .split(/\r?\n/)
-      .filter((line) => !/^\s*tipo\s*:/i.test(line))
-      .join("\n");
-
-  const parseCharacteristics = (text: string) => {
-    if (!text) return [];
-    return text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .map((line) => {
-        let prop = "";
-        let value = "";
-        if (line.includes(":")) {
-          const parts = line.split(":");
-          prop = parts.shift() || "";
-          value = parts.join(":");
-        } else {
-          const match = line.match(/^(.*?)(\d+.*)$/);
-          if (match) {
-            prop = match[1];
-            value = match[2];
-          } else {
-            prop = line;
-          }
-        }
-        return { prop: prop.trim(), value: value.trim() };
-      })
-      .filter(
-        (item) => item.prop !== "" && item.prop.toLowerCase() !== "tipo",
-      );
-  };
-
-  /** Arma el array final: tipo interno + líneas del textarea. */
-  const buildPcCaracteristicas = (
-    text: string,
-    tipo: string | null,
-  ): { prop: string; value: string }[] => {
-    const fromText = parseCharacteristics(text);
-    if (!tipo) return fromText;
-    return [{ prop: "tipo", value: tipo }, ...fromText];
-  };
-
-  const serializeCaracteristicas = (
-    raw: string | { prop: string; value: string }[],
-  ) => {
-    const parsed =
-      typeof raw === "string" ? parseCharacteristics(raw) : [...raw];
-    return JSON.stringify(parsed);
-  };
 
   const handlePcTipoChange = (tipo: string | null) => {
     setValue("Tipo", tipo);
@@ -213,6 +159,13 @@ const RegisterProduct = () => {
     }));
   };
 
+  const resetMediaState = () => {
+    setFiles([]);
+    setPreviewUrls([]);
+    setDataNewComponent((prev) => ({ ...prev, image_url: [] }));
+    setDataNewPcGamer((prev) => ({ ...prev, image_url: [] }));
+  };
+
   const calculateFinalPrice = (cost: number, margin: number) => {
     const IVA = 0.16;
     const OPENPAY_PERCENT = 0.036;
@@ -235,7 +188,12 @@ const RegisterProduct = () => {
   }, [dataNewPcGamer.caracteristicas, dataNewComponent.caracteristicas]);
 
   const handleRemoveFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setDataNewComponent((c) => ({ ...c, image_url: next }));
+      setDataNewPcGamer((p) => ({ ...p, image_url: next }));
+      return next;
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -248,16 +206,16 @@ const RegisterProduct = () => {
       return;
     }
 
-    if (
-      (typeProduct == "component" &&
-        dataNewComponent &&
-        dataNewComponent.image_url.length == 0) ||
-      (typeProduct == "pcgamer" &&
-        dataNewPcGamer &&
-        dataNewPcGamer.image_url.length == 0)
-    ) {
+    if (files.length === 0) {
       alert("Sube por lo menos 1 imagen");
       return;
+    }
+
+    if (typeProduct?.toLowerCase() === "component") {
+      if (!dataNewComponent.categoria || !dataNewComponent.marca) {
+        alert("Selecciona categoría y marca");
+        return;
+      }
     }
 
     if (typeProduct?.toLowerCase() === "pcgamer" && !selectedPcTipo) {
@@ -298,8 +256,7 @@ const RegisterProduct = () => {
           }
         }
 
-        const filesArray = Array.from(files || []);
-        filesArray.forEach((file) => formData.append("files", file));
+        files.forEach((file) => formData.append("files", file));
         formData.append("providerId", dataNewComponent.providerId.toString());
         formData.append("isPc", "0");
         formData.append(
@@ -312,8 +269,8 @@ const RegisterProduct = () => {
         formData.append("newPrice", dataNewPcGamer.price.toString());
         formData.append("sku", dataNewPcGamer.sku);
         formData.append("stock", dataNewPcGamer.stock.toString());
-        formData.append("clave", dataNewComponent?.clave || "");
-        formData.append("upc", dataNewPcGamer?.upc || dataNewComponent?.upc || "");
+        formData.append("clave", dataNewPcGamer.clave || "");
+        formData.append("upc", dataNewPcGamer.upc || "");
 
         const caracteristicasPayload = buildPcCaracteristicas(
           pcGamerCaracteristicasText,
@@ -324,9 +281,8 @@ const RegisterProduct = () => {
           JSON.stringify(caracteristicasPayload),
         );
 
-        const filesArray = Array.from(files || []);
-        filesArray.forEach((file) => formData.append("files", file));
-        formData.append("providerId", dataNewComponent.providerId.toString());
+        files.forEach((file) => formData.append("files", file));
+        formData.append("providerId", dataNewPcGamer.providerId.toString());
         formData.append("isPc", "1");
       }
 
@@ -356,7 +312,8 @@ const RegisterProduct = () => {
         });
 
         setProductsProveedor((prev) => {
-          const newProduct = data.data.data;
+          const newProduct = data?.data?.data ?? data?.data;
+          if (!newProduct) return prev;
           const newData = [newProduct, ...prev.data];
           return { ...prev, data: newData, copyData: newData };
         });
@@ -381,16 +338,24 @@ const RegisterProduct = () => {
     const newUrls = files.map((file) => URL.createObjectURL(file));
     setPreviewUrls(newUrls);
 
-    // Limpia las URLs anteriores al desmontar o actualizar
     return () => {
       newUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [files]);
 
+  useEffect(() => {
+    resetMediaState();
+    setSelectedPcTipo(null);
+    setPcGamerCaracteristicasText("");
+    setValue("Tipo", null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeProduct]);
+
   return (
     <form
       onSubmit={handleSubmit}
       className="admin-form-shell"
+      data-testid="form-register-product"
       style={{ display: "flex", flexDirection: "column", gap: "16px", background: "#ffffff", padding: "16px 20px", borderRadius: "16px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", width: "100%" }}
     >
       <style>{`
@@ -407,6 +372,7 @@ const RegisterProduct = () => {
         <select
           id="select-tipo-producto"
           name="type-product"
+          data-testid="select-tipo-producto"
           required
           value={typeProduct}
           onChange={(event) => setTypeProduct(event.target.value)}
@@ -555,8 +521,11 @@ const RegisterProduct = () => {
                         const currentStocks = prev.branchStocks || [];
                         const index = currentStocks.findIndex(b => b.tienda === sucursal);
                         const newStocks = [...currentStocks];
-                        if (index >= 0) newStocks[index].stock = stockVal;
-                        else newStocks.push({ tienda: sucursal, stock: stockVal });
+                        if (index >= 0) {
+                          newStocks[index] = { ...newStocks[index], stock: stockVal };
+                        } else {
+                          newStocks.push({ tienda: sucursal, stock: stockVal });
+                        }
                         return { ...prev, branchStocks: newStocks };
                       });
                     }}
@@ -576,8 +545,11 @@ const RegisterProduct = () => {
                         const currentStocks = prev.branchStocks || [];
                         const index = currentStocks.findIndex(b => b.tienda === sucursal);
                         const newStocks = [...currentStocks];
-                        if (index >= 0) newStocks[index].stock = stockVal;
-                        else newStocks.push({ tienda: sucursal, stock: stockVal });
+                        if (index >= 0) {
+                          newStocks[index] = { ...newStocks[index], stock: stockVal };
+                        } else {
+                          newStocks.push({ tienda: sucursal, stock: stockVal });
+                        }
                         return { ...prev, branchStocks: newStocks };
                       });
                     }}
@@ -664,16 +636,15 @@ const RegisterProduct = () => {
               variant="outlined"
               name="image_url"
               onChange={(event) => {
-                const imgs = (event.target as any).files;
+                const imgs = (event.target as HTMLInputElement).files;
+                if (!imgs) return;
 
-                const fileList: File[] = Array.isArray(imgs)
-                  ? imgs
-                  : Array.from(imgs);
-                setDataNewComponent((prev) => ({
-                  ...prev,
-                  image_url: fileList as any,
-                }));
-                setFiles((prev) => [...prev, ...fileList]);
+                const fileList = Array.from(imgs);
+                setFiles((prev) => {
+                  const next = [...prev, ...fileList].slice(0, 5);
+                  setDataNewComponent((c) => ({ ...c, image_url: next }));
+                  return next;
+                });
                 event.target.value = "";
               }}
               slotProps={{
@@ -683,8 +654,6 @@ const RegisterProduct = () => {
                   accept: "image/*",
                 },
               }}
-              // value={dataNewProduct.image_url}
-              // // onChange={handleChange}
             />
           </div>
 
@@ -692,7 +661,7 @@ const RegisterProduct = () => {
             className="admin-row admin-row--wrap admin-mb-md"
           >
             {files.map((file, indexFile) => {
-              const imageUrl = URL.createObjectURL(file);
+              const imageUrl = previewUrls[indexFile];
               return (
                 <Card key={indexFile} sx={{ position: "relative", width: 130 }}>
                   <CardMedia
@@ -909,18 +878,16 @@ const RegisterProduct = () => {
               variant="outlined"
               name="image_url"
               onChange={(event) => {
-                const files = (event.target as HTMLInputElement).files;
-                if (!files) return;
+                const inputFiles = (event.target as HTMLInputElement).files;
+                if (!inputFiles) return;
 
-                const fileList = Array.from(files);
-
-                setDataNewPcGamer((prev) => ({
-                  ...prev,
-                  image_url: fileList, // guarda ambos tipos
-                }));
-
-                setFiles((prev) => [...prev, ...fileList]);
-                event.target.value = ""; // limpia input
+                const fileList = Array.from(inputFiles);
+                setFiles((prev) => {
+                  const next = [...prev, ...fileList].slice(0, 5);
+                  setDataNewPcGamer((p) => ({ ...p, image_url: next }));
+                  return next;
+                });
+                event.target.value = "";
               }}
               slotProps={{
                 htmlInput: {
@@ -938,7 +905,7 @@ const RegisterProduct = () => {
             <TextField
               label="UPC"
               variant="outlined"
-              name="name"
+              name="upc"
               value={dataNewPcGamer?.upc || ""}
               onChange={(event) => {
                 setDataNewPcGamer((prev) => ({
@@ -973,7 +940,7 @@ const RegisterProduct = () => {
 
                       setDataNewPcGamer((prev) => ({
                         ...prev,
-                        providerId: Number(id),
+                        providerId: Number(id) || 1,
                       }));
                     }}
                     getOptionLabel={(option) => `${option.companyName}`}
@@ -996,7 +963,7 @@ const RegisterProduct = () => {
                 render={({ field }) => (
                   <Autocomplete
                     fullWidth
-                    options={PC_TIPO_OPTIONS}
+                    options={[...PC_TIPO_OPTIONS]}
                     value={
                       PC_TIPO_OPTIONS.find((p) => p.tipo == field.value) || null
                     }
@@ -1087,6 +1054,7 @@ const RegisterProduct = () => {
                 handlePcCaracteristicasTextChange(event.target.value);
               }}
               fullWidth
+              inputProps={{ "data-testid": "register-caracteristicas-pc" }}
               placeholder={"Procesador: AMD Ryzen 7...\nMemoria RAM: 32 GB..."}
               helperText="El tipo de PC no aparece aquí: se guarda solo al elegir el selector de arriba."
             />
@@ -1115,6 +1083,7 @@ const RegisterProduct = () => {
           <button
             disabled={loadinNewProduct}
             type="submit"
+            data-testid="register-submit"
             style={{
               padding: "12px 28px",
               backgroundColor: "#bb3d4b",

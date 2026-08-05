@@ -137,7 +137,12 @@ const Proveedores = () => {
             <MdAdd size={20} />
             Agregar proveedor
           </button>
-          <button type="button" className="admin-btn-secondary" onClick={handleAddProduct}>
+          <button
+            type="button"
+            className="admin-btn-secondary"
+            data-testid="btn-agregar-producto"
+            onClick={handleAddProduct}
+          >
             <MdAdd size={20} />
             Agregar producto
           </button>

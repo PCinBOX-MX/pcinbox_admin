@@ -7,6 +7,7 @@ import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
+import { productsMatchForMerge } from "../utils/productIdentity.utils";
 import dynamic from "next/dynamic";
 
 const RegisterProduct = dynamic(
@@ -90,19 +91,18 @@ const useProveedores = () => {
             const originals = data.data.data ?? [];
             const updates = data.data.dataExist ?? [];
 
+            const productsMatch = productsMatchForMerge;
+
             const merged = originals.map((item: ProductsI) => {
-              const match = updates.find(
-                (u: ProductsI) => Number(u.idProduct) === Number(item.idProduct),
+              const match = updates.find((u: ProductsI) =>
+                productsMatch(u, item),
               );
               return match ? { ...item, ...match } : item;
             });
 
             const newOnes = updates.filter(
               (u: ProductsI) =>
-                !originals.some(
-                  (o: ProductsI) =>
-                    Number(o.idProduct) === Number(u.idProduct),
-                ),
+                !originals.some((o: ProductsI) => productsMatch(o, u)),
             );
 
             return {

@@ -18,22 +18,20 @@ import {
   Stack,
 } from "@mui/material";
 import { Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { MdAutorenew } from "react-icons/md";
 import {
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  Controller,
-  FieldValues,
-  SubmitErrorHandler,
-  SubmitHandler,
-  useForm,
-} from "react-hook-form";
-import { MdAutorenew, MdRemove } from "react-icons/md";
+  buildCaracteristicasPayload,
+  caracteristicasToTextarea,
+  extractTipo,
+  isPcProduct,
+  parseCaracteristicasRaw,
+  PC_TIPO_OPTIONS,
+  remoteImageUrls,
+  stripTipoLinesFromText,
+} from "@/app/utils/caracteristicas.utils";
+import { isSameProduct } from "@/app/utils/productIdentity.utils";
 
 const ALLOWED_CATEGORIES = [
   "ALMACENAMIENTO",
@@ -52,11 +50,8 @@ const ALLOWED_CATEGORIES = [
   "TARJETAS MADRE",
   "TECLADOS",
   "VENTILADORES",
-  "VIDEO Y ACCESORIOS"
+  "VIDEO Y ACCESORIOS",
 ];
-
-const isSameProduct = (item: ProductsI, product: ProductsI) =>
-  Number(item.idProduct) === Number(product.idProduct);
 
 const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const { requestPostProveedores } = ProveedoresUtils();
@@ -72,19 +67,24 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const [loadingUpdateProduct, setLoadingUpdateProduct] =
     useState<boolean>(false);
 
-  // Imágenes locales: las mismas que muestra la tarjeta al abrir editar.
-  // No se leen del estado global para evitar mezclar imágenes de otro producto.
-  const [productImages, setProductImages] = useState<string[]>(() => [
-    ...(dataProductProp.image_url || []),
-  ]);
+  const productIsPc = isPcProduct(dataProductProp);
+
+  const [productImages, setProductImages] = useState<string[]>(() =>
+    remoteImageUrls(dataProductProp.image_url),
+  );
+
+  const initialCaracs = parseCaracteristicasRaw(dataProductProp.caracteristicas);
+  const [selectedPcTipo, setSelectedPcTipo] = useState<string | null>(() =>
+    productIsPc ? extractTipo(initialCaracs) : null,
+  );
+  const [bulkText, setBulkText] = useState(() =>
+    caracteristicasToTextarea(initialCaracs),
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const { register, handleSubmit, control, setValue } = useForm();
 
-  const { register, handleSubmit, control } = useForm();
-
-  const updateCurrentProduct = (
-    updater: (item: ProductsI) => ProductsI,
-  ) => {
+  const updateCurrentProduct = (updater: (item: ProductsI) => ProductsI) => {
     setProductsProveedor((prev) => ({
       ...prev,
       data: prev.data.map((item) =>
@@ -96,15 +96,40 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     }));
   };
 
-  const syncImagesToStore = (images: string[]) => {
-    setProductImages(images);
-    updateCurrentProduct((item) => ({ ...item, image_url: images }));
+  const syncImages = (updater: (prev: string[]) => string[]) => {
+    setProductImages((prev) => {
+      const next = updater(prev);
+      updateCurrentProduct((item) => ({ ...item, image_url: next }));
+      return next;
+    });
+  };
+
+  const syncCaracteristicasFromText = (text: string, tipo: string | null) => {
+    const cleaned = stripTipoLinesFromText(text);
+    setBulkText(cleaned);
+    const payload = buildCaracteristicasPayload(cleaned, tipo, productIsPc);
+    updateCurrentProduct((item) => ({
+      ...item,
+      caracteristicas: payload,
+    }));
   };
 
   const handleEditProduct = async (event: any) => {
     const findDataProduct = dataProductProveedor?.data?.find((item) =>
       isSameProduct(item, dataProductProp),
     );
+
+    if (productIsPc && !selectedPcTipo) {
+      alert("Selecciona el tipo de PC");
+      return;
+    }
+
+    const caracteristicas = buildCaracteristicasPayload(
+      bulkText,
+      selectedPcTipo,
+      productIsPc,
+    );
+
     try {
       setLoadingUpdateProduct(true);
       const resp = await requestPostProveedores(
@@ -125,11 +150,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           )
             ? event?.profitMargin
             : 0,
-          isPc: dataProductProp?.isPc || (dataProductProp as any)?.isPC,
-          caracteristicas: findDataProduct
-            ? findDataProduct?.caracteristicas
-            : dataProductProp.caracteristicas || [],
-          image_url: productImages,
+          isPc: productIsPc ? 1 : 0,
+          caracteristicas,
+          image_url: remoteImageUrls(productImages),
         },
         "/editProductPcinbox",
       );
@@ -148,11 +171,13 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         },
       });
     } catch (error: any) {
-      setLoadingUpdateProduct(false);
       setDataModal({
         isOpen: true,
         type: "error",
-        content: error?.response?.data?.message || error?.message || "Ocurrió un error al actualizar el producto",
+        content:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Ocurrió un error al actualizar el producto",
         title: "Error",
         showActions: true,
         onClose: () => {
@@ -167,73 +192,42 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     }
   };
 
-  const currentProduct = dataProductProveedor.data.find((p) =>
-    isSameProduct(p, dataProductProp),
-  );
-
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [currentProduct?.caracteristicas]);
-
-  const [bulkText, setBulkText] = useState("");
-  const lastProductIdRef = useRef<number | null>(null);
+  }, [bulkText]);
 
   useEffect(() => {
-    // Solo al abrir/cambiar de producto: mismas imágenes que la tarjeta.
-    setProductImages([...(dataProductProp.image_url || [])]);
+    setProductImages(remoteImageUrls(dataProductProp.image_url));
+
+    const caracs = parseCaracteristicasRaw(dataProductProp.caracteristicas);
+    const tipo = productIsPc ? extractTipo(caracs) : null;
+    setSelectedPcTipo(tipo);
+    if (tipo) setValue("Tipo", tipo);
+    setBulkText(caracteristicasToTextarea(caracs));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot al abrir editar
   }, [dataProductProp.idProduct]);
 
-  useEffect(() => {
-    if (lastProductIdRef.current === dataProductProp.idProduct) return;
-
-    const product =
-      dataProductProveedor.data.find((p) =>
-        isSameProduct(p, dataProductProp),
-      ) || dataProductProp;
-
-    if (product.caracteristicas) {
-      try {
-        const parsed =
-          typeof product.caracteristicas === "string"
-            ? JSON.parse(product.caracteristicas as unknown as string)
-            : product.caracteristicas;
-        if (Array.isArray(parsed)) {
-          const text = parsed
-            .map((c: any) => {
-              if (
-                c.prop === "Característica" &&
-                !c.value.includes("Característica")
-              ) {
-                return c.value;
-              }
-              return `${c.prop}: ${c.value}`;
-            })
-            .join("\n");
-          setBulkText(text);
-          lastProductIdRef.current = dataProductProp.idProduct;
-        }
-      } catch (e) {
-        console.error("Error parsing caracteristicas", e);
-      }
-    } else {
-      setBulkText("");
-      lastProductIdRef.current = dataProductProp.idProduct;
-    }
-  }, [dataProductProveedor.data, dataProductProp]);
   return (
     <Box
       component="form"
       onSubmit={handleSubmit(handleEditProduct)}
-      style={{ display: "flex", flexDirection: "column", gap: "20px", minWidth: "700px", padding: "10px" }}
+      data-testid="form-edit-product"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "20px",
+        minWidth: "700px",
+        padding: "10px",
+      }}
     >
       <div style={{ display: "flex", gap: "16px" }}>
         <TextField
           style={{ flex: 1 }}
           label="Nombre"
           variant="outlined"
+          inputProps={{ "data-testid": "edit-name" }}
           {...register("name", {
             required: "Se requiere nombre",
             value: dataProductProp?.name,
@@ -262,7 +256,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           })}
         />
       </div>
-      
+
       <div style={{ display: "flex", gap: "16px" }}>
         <FormControl style={{ flex: 1 }}>
           <Controller
@@ -272,9 +266,11 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             render={({ field }) => (
               <Autocomplete
                 fullWidth
-                options={(dataCategoria || []).filter((c: any) => 
-                  ALLOWED_CATEGORIES.includes(c.name?.trim().toUpperCase()) ||
-                  c.idCategorie === dataProductProp.categoryId
+                options={(dataCategoria || []).filter(
+                  (c: any) =>
+                    ALLOWED_CATEGORIES.includes(
+                      c.name?.trim().toUpperCase(),
+                    ) || c.idCategorie === dataProductProp.categoryId,
                 )}
                 value={
                   dataCategoria?.find(
@@ -283,9 +279,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 }
                 onChange={(event, newValue) => {
                   const id = newValue ? newValue.idCategorie : null;
-
                   field.onChange(id);
-
                   updateCurrentProduct((item) => ({
                     ...item,
                     categoryId: id,
@@ -305,6 +299,44 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             )}
           />
         </FormControl>
+
+        {productIsPc && (
+          <FormControl style={{ flex: 1 }}>
+            <Controller
+              name="Tipo"
+              control={control}
+              defaultValue={selectedPcTipo}
+              render={({ field }) => (
+                <Autocomplete
+                  fullWidth
+                  options={[...PC_TIPO_OPTIONS]}
+                  value={
+                    PC_TIPO_OPTIONS.find((p) => p.tipo == field.value) || null
+                  }
+                  onChange={(_, newValue) => {
+                    const tipo = newValue ? newValue.tipo : null;
+                    field.onChange(tipo);
+                    setSelectedPcTipo(tipo);
+                    syncCaracteristicasFromText(bulkText, tipo);
+                  }}
+                  getOptionLabel={(option) => `${option.label}`}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Tipo de PC"
+                      placeholder="Buscar Tipo de PC"
+                      required
+                      inputProps={{
+                        ...params.inputProps,
+                        "data-testid": "edit-tipo-pc",
+                      }}
+                    />
+                  )}
+                />
+              )}
+            />
+          </FormControl>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: "16px" }}>
@@ -322,9 +354,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 }
                 onChange={(event, newValue) => {
                   const id = newValue ? newValue.idMarca : null;
-
                   field.onChange(id);
-
                   updateCurrentProduct((item) => ({
                     ...item,
                     marcaId: id,
@@ -366,11 +396,10 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           type="number"
           variant="outlined"
           inputProps={{
-            step: "0.01", // permite 2 decimales
+            step: "0.01",
           }}
           {...register("price", {
             value: dataProductProp?.price,
-
             onChange(event) {
               updateCurrentProduct((item) => ({
                 ...item,
@@ -380,6 +409,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           })}
         />
       </div>
+
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
         <TextField
           style={{ flex: 1 }}
@@ -397,21 +427,32 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             },
           })}
         />
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label htmlFor={`file-upload-edit-${dataProductProp.idProduct}`} style={{ fontSize: "14px" }}>Imagen</label>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+          }}
+        >
+          <label
+            htmlFor={`file-upload-edit-${dataProductProp.idProduct}`}
+            style={{ fontSize: "14px" }}
+          >
+            Imagen
+          </label>
           <input
             id={`file-upload-edit-${dataProductProp.idProduct}`}
+            data-testid="edit-file-input"
             type="file"
             onChange={(event) => {
               const files = (event.target as HTMLInputElement).files;
               if (!files) return;
 
-              const fileList = Array.from(files);
-              const previewUrls = fileList.map((file) =>
+              const previewUrls = Array.from(files).map((file) =>
                 URL.createObjectURL(file),
               );
-
-              syncImagesToStore([...productImages, ...previewUrls]);
+              syncImages((prev) => [...prev, ...previewUrls]);
               event.target.value = "";
             }}
             multiple
@@ -420,50 +461,55 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+      <div
+        style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}
+        data-testid="edit-product-images"
+      >
         {productImages.map((img: string, indexImg: number) => (
-            <Card key={`${dataProductProp.idProduct}-${img}-${indexImg}`} sx={{ position: "relative", width: 130 }}>
-              <CardMedia
-                component="img"
-                image={img}
-                alt={""}
-                sx={{ height: 50, objectFit: "cover" }}
+          <Card
+            key={`${dataProductProp.idProduct}-${img}-${indexImg}`}
+            sx={{ position: "relative", width: 130 }}
+            data-testid={`edit-image-${indexImg}`}
+            data-image-src={img}
+          >
+            <CardMedia
+              component="img"
+              image={img}
+              alt={""}
+              sx={{ height: 50, objectFit: "cover" }}
+            />
+            <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: 100,
+                }}
               />
-              <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: 100,
-                  }}
-                >
-                  {/* Nombre o info opcional */}
-                </Typography>
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => {
-                    const removed = productImages[indexImg];
+              <IconButton
+                size="small"
+                color="error"
+                data-testid={`edit-remove-image-${indexImg}`}
+                onClick={() => {
+                  syncImages((prev) => {
+                    const removed = prev[indexImg];
                     if (removed?.startsWith("blob:")) {
                       URL.revokeObjectURL(removed);
                     }
-                    syncImagesToStore(
-                      productImages.filter((_, i) => i !== indexImg),
-                    );
-                  }}
-                >
-                  <Trash2 size={16} />
-                </IconButton>
-              </CardActions>
-            </Card>
-          ))}
+                    return prev.filter((_, i) => i !== indexImg);
+                  });
+                }}
+              >
+                <Trash2 size={16} />
+              </IconButton>
+            </CardActions>
+          </Card>
+        ))}
       </div>
 
-      <div
-        style={{ display: "flex", gap: "16px" }}
-      >
+      <div style={{ display: "flex", gap: "16px" }}>
         <TextField
           style={{ flex: 1 }}
           label="UPC"
@@ -500,9 +546,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 }
                 onChange={(event, newValue) => {
                   const id = newValue ? newValue.idProvider : null;
-
                   field.onChange(id);
-
                   updateCurrentProduct((item) => ({
                     ...item,
                     providerId: Number(id),
@@ -548,29 +592,15 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           variant="outlined"
           fullWidth
           value={bulkText}
+          inputProps={{ "data-testid": "edit-caracteristicas" }}
           onChange={(e) => {
-            const val = e.target.value;
-            setBulkText(val);
-
-            const newCaracs = val
-              .split("\n")
-              .filter((line) => line.trim().length > 0)
-              .map((line) => {
-                const parts = line.split(":");
-                if (parts.length >= 2) {
-                  return {
-                    prop: parts[0].trim(),
-                    value: parts.slice(1).join(":").trim(),
-                  };
-                }
-                return { prop: "Característica", value: line.trim() };
-              });
-
-            updateCurrentProduct((prod) => ({
-              ...prod,
-              caracteristicas: newCaracs,
-            }));
+            syncCaracteristicasFromText(e.target.value, selectedPcTipo);
           }}
+          helperText={
+            productIsPc
+              ? "El tipo de PC no aparece aquí: se guarda con el selector de arriba."
+              : undefined
+          }
         />
       </Stack>
 
@@ -579,6 +609,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         type="submit"
         fullWidth
         variant="contained"
+        data-testid="edit-submit"
         sx={{
           background: "linear-gradient(135deg, #b92b3d 0%, #992230 100%)",
           color: "white",

@@ -187,10 +187,11 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           </button>
         ) : null}
 
-        {dataProduct && dataProduct?.image_url.length > 0 && dataProduct?.active !== 0 && (
+        {dataProduct && (dataProduct?.image_url?.length ?? 0) > 0 && dataProduct?.active !== 0 && (
           <button
             type="button"
             className="admin-btn-secondary"
+            data-testid={`edit-product-${dataProduct.idProduct}`}
             style={{ width: "100%", justifyContent: "center", background: "#f3f4f6", color: "#374151", border: "1px solid #d1d5db" }}
             onClick={() => {
               handleEditProduct(dataProduct);
@@ -200,10 +201,11 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             <MdEdit size={20} />
           </button>
         )}
-        {dataProduct && dataProduct?.image_url?.length > 0 && dataProduct?.active !== 0 && (
+        {dataProduct && (dataProduct?.image_url?.length ?? 0) > 0 && dataProduct?.active !== 0 && (
           <button
             type="button"
             disabled={loadingRemoveProduct}
+            data-testid={`remove-product-${dataProduct.idProduct}`}
             className="admin-btn-primary"
             style={{ width: "100%", justifyContent: "center", background: "linear-gradient(135deg, #1f2937 0%, #111827 100%)", boxShadow: "0 4px 10px rgba(0,0,0,0.2)" }}
             onClick={async () => {
@@ -232,31 +234,36 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                       setDataModal((prev) => ({ ...prev, loading: false }));
 
                       if (resp.status == 200) {
-                        setProductsProveedor((prev) => ({
+                        setProductsProveedor((prev) => {
+                          const same = (item: ProductsI) =>
+                            Number(item.idProduct) === Number(dataProduct.idProduct);
+
+                          return {
                           ...prev,
                           data: prev.data
                             .filter((item) =>
-                              dataProduct.providerId === 1 && item.idProduct === dataProduct.idProduct
-                                ? false // Remove completely for provider 1
+                              dataProduct.providerId === 1 && same(item)
+                                ? false
                                 : true
                             )
                             .map((item) =>
-                              item.idProduct === dataProduct.idProduct
+                              same(item)
                                 ? { ...item, active: 0 }
                                 : item
                             ),
                           copyData: prev.copyData
                             ?.filter((item) =>
-                              dataProduct.providerId === 1 && item.idProduct === dataProduct.idProduct
+                              dataProduct.providerId === 1 && same(item)
                                 ? false
                                 : true
                             )
                             .map((item) =>
-                              item.idProduct === dataProduct.idProduct
+                              same(item)
                                 ? { ...item, active: 0 }
                                 : item
                             ),
-                        }));
+                        };
+                        });
                         setDataModal({
                           isOpen: true,
                           title: "Correcto",
