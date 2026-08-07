@@ -137,6 +137,25 @@ const UtilsService = () => {
     [setShowSpinner, handleRequestError],
   );
 
+  const requestBlob = useCallback(
+    async (endPoint: string, options?: RequestOptions) => {
+      const silent = options?.silent === true;
+      try {
+        if (!silent) setShowSpinner(true);
+        const res = await mainApi.get<Blob>(endPoint, {
+          responseType: "blob",
+        });
+        if (!silent) setShowSpinner(false);
+        return res;
+      } catch (error) {
+        if (!silent) setShowSpinner(false);
+        handleRequestError(error, silent);
+        throw error;
+      }
+    },
+    [setShowSpinner, handleRequestError],
+  );
+
   const requestDelete = useCallback(
     async (endPoint: string, options?: RequestOptions) => {
       const silent = options?.silent === true;
@@ -177,6 +196,7 @@ const UtilsService = () => {
     onRouterPush,
     requestPost,
     requestGet,
+    requestBlob,
     requestDelete,
     formatCurrency,
     BRANCHES_DICO,

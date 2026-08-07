@@ -26,6 +26,8 @@ const ROUTES_BY_TAB: Record<string, string> = {
 
   reservas: "/reservas",
 
+  cotizaciones: "/cotizaciones",
+
 };
 
 

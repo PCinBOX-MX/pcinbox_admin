@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import GridNavbar from "../common/navbar/gridNavbar";
 import useNavbar from "../common/navbar/useNavbar";
 import styles from "./admin-sidebar.module.css";
+import usePermissions from "@/app/hooks/usePermissions";
+import { NAV_PERMISSIONS } from "@/app/constants/permissions";
 
 const PATH_TO_TAB: Record<string, string> = {
   "/dashboard": "ventas",
@@ -15,6 +17,7 @@ const PATH_TO_TAB: Record<string, string> = {
   "/linkPagos": "linkPago",
   "/ventasInvitados": "ventasInvitados",
   "/reservas": "reservas",
+  "/cotizaciones": "cotizaciones",
 };
 
 const SIDEBAR_PREF_KEY = "pcinbox-admin-sidebar-open";
@@ -29,6 +32,7 @@ function readSidebarPreference(): boolean {
 const AdminSidebar = () => {
   const pathName = usePathname();
   const { navItems } = GridNavbar();
+  const { can, hydrated } = usePermissions();
   const {
     activeTab,
     setActiveTab,
@@ -39,6 +43,22 @@ const AdminSidebar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [sidebarHydrated, setSidebarHydrated] = useState(false);
+  const visibleNavItems = useMemo(() => {
+    if (!hydrated) return [];
+
+    return navItems
+      .map((item) => {
+        if (!item.subItems) return item;
+        return {
+          ...item,
+          subItems: item.subItems.filter((subItem) => {
+            const permission = NAV_PERMISSIONS[subItem.id];
+            return permission ? can(permission) : true;
+          }),
+        };
+      })
+      .filter((item) => !item.subItems || item.subItems.length > 0);
+  }, [can, hydrated, navItems]);
 
   useEffect(() => {
     const open = readSidebarPreference();
@@ -70,7 +90,7 @@ const AdminSidebar = () => {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const parentGroup = navItems.find((item) =>
+    const parentGroup = visibleNavItems.find((item) =>
       item.subItems?.some((sub) => sub.id === activeTab)
     );
     if (parentGroup) {
@@ -79,8 +99,7 @@ const AdminSidebar = () => {
         return { ...prev, [parentGroup.id]: true };
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, visibleNavItems]);
 
   const toggleGroup = (groupId: string) => {
     setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -148,7 +167,7 @@ const AdminSidebar = () => {
         </div>
 
         <nav className={styles.nav}>
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const hasSubItems = item.subItems && item.subItems.length > 0;
             

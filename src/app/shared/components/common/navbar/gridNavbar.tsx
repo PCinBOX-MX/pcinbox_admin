@@ -1,27 +1,25 @@
 "use client";
 
+import { useMemo } from "react";
 import {
-  ShoppingCart,
   Package,
   Settings,
-  User,
-  Link,
   Calendar,
   CreditCard,
   LayoutDashboard,
-  Users,
+  type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = {
   id: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   href?: string;
   subItems?: { id: string; label: string; href: string }[];
 };
 
 const GridNavbar = () => {
-  const navItems: NavItem[] = [
+  const navItems = useMemo<NavItem[]>(() => [
     {
       id: "ventas_group",
       label: "Ventas",
@@ -29,6 +27,7 @@ const GridNavbar = () => {
       subItems: [
         { id: "ventas", label: "Panel de Ventas", href: "/dashboard" },
         { id: "ventasInvitados", label: "Ventas Invitados", href: "/ventasInvitados" },
+        { id: "cotizaciones", label: "Cotizaciones", href: "/cotizaciones" },
       ],
     },
     {
@@ -64,7 +63,7 @@ const GridNavbar = () => {
         { id: "ajustes", label: "Ajustes Generales", href: "/settings" },
       ],
     },
-  ];
+  ], []);
 
   return {
     navItems,
