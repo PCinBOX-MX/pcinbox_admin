@@ -132,11 +132,17 @@ describe("Proveedores product flows (errores deliberados)", () => {
     cy.get('[data-testid="license-fields"]').should("be.visible");
     cy.get('[data-testid="license-type"]').select("windows");
     cy.get('[data-testid="license-edition"]').type("Windows 11 Pro");
-    cy.get('[data-testid="license-modality"]').type("ESD");
-    cy.get('[data-testid="license-duration"]').type("Permanente");
-    cy.get('[data-testid="license-seats"]').type("1 dispositivo");
-    cy.get('[data-testid="license-language"]').type("Español");
-    cy.get('[data-testid="license-architecture"]').type("64 bits");
+    cy.get('[data-testid="license-modality"]').parent().click();
+    cy.contains('[role="option"]', "ESD (entrega digital)").click();
+    cy.get('[data-testid="license-duration"]').parent().click();
+    cy.contains('[role="option"]', "Permanente").click();
+    cy.get('[data-testid="license-coverageUnit"]').parent().click();
+    cy.contains('[role="option"]', "Dispositivos").click();
+    cy.get('[data-testid="license-seats"]').type("1");
+    cy.get('[data-testid="license-language"]').parent().click();
+    cy.contains('[role="option"]', "Español").click();
+    cy.get('[data-testid="license-architecture"]').parent().click();
+    cy.contains('[role="option"]', "64 bits").click();
     cy.contains("label", "Proveedor")
       .parents(".MuiFormControl-root")
       .find("input")

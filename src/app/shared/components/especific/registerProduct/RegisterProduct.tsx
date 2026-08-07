@@ -15,6 +15,7 @@ import {
   CardMedia,
   FormControl,
   IconButton,
+  MenuItem,
   TextField,
   Typography,
 } from "@mui/material";
@@ -31,6 +32,11 @@ import {
   serializeCaracteristicas,
   stripTipoLinesFromText,
 } from "@/app/utils/caracteristicas.utils";
+import {
+  LICENSE_SELECT_OPTIONS,
+  LICENSE_TYPE_OPTIONS,
+  LicenseSelectField,
+} from "@/app/constants/softwareLicenses";
 
 const ALLOWED_CATEGORIES = [
   "ALMACENAMIENTO",
@@ -53,17 +59,12 @@ const ALLOWED_CATEGORIES = [
   "SOFTWARE",
 ];
 
-const LICENSE_TYPE_OPTIONS = [
-  { value: "windows", label: "Windows" },
-  { value: "antivirus", label: "Antivirus" },
-  { value: "office", label: "Paquetería Office" },
-] as const;
-
 type LicenseFields = {
   licenseType: string;
   edition: string;
   modality: string;
   duration: string;
+  coverageUnit: string;
   seats: string;
   language: string;
   architecture: string;
@@ -153,6 +154,7 @@ const RegisterProduct = () => {
     edition: "",
     modality: "",
     duration: "",
+    coverageUnit: "",
     seats: "",
     language: "",
     architecture: "",
@@ -301,6 +303,7 @@ const RegisterProduct = () => {
                 { prop: "edicion", value: licenseFields.edition },
                 { prop: "modalidad", value: licenseFields.modality },
                 { prop: "vigencia", value: licenseFields.duration },
+                { prop: "tipoCobertura", value: licenseFields.coverageUnit },
                 { prop: "usuariosDispositivos", value: licenseFields.seats },
                 { prop: "idioma", value: licenseFields.language },
                 { prop: "arquitectura", value: licenseFields.architecture },
@@ -851,7 +854,6 @@ const RegisterProduct = () => {
             >
               <TextField
                 select
-                SelectProps={{ native: true }}
                 label="Bloque de licencia"
                 value={licenseFields.licenseType}
                 onChange={(event) =>
@@ -862,21 +864,56 @@ const RegisterProduct = () => {
                 }
                 required
                 inputProps={{ "data-testid": "license-type" }}
+                slotProps={{ inputLabel: { shrink: true } }}
               >
-                <option value="">Selecciona una opción</option>
+                <MenuItem value="" disabled>
+                  Selecciona una opción
+                </MenuItem>
                 {LICENSE_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <MenuItem key={option.value} value={option.value}>
                     {option.label}
-                  </option>
+                  </MenuItem>
                 ))}
               </TextField>
+              {(
+                [
+                  ["modality", "Modalidad"],
+                  ["duration", "Vigencia"],
+                  ["coverageUnit", "Tipo de cobertura"],
+                  ["language", "Idioma"],
+                  ["architecture", "Arquitectura"],
+                ] as const
+              ).map(([key, label]) => (
+                <TextField
+                  key={key}
+                  select
+                  label={label}
+                  value={licenseFields[key]}
+                  onChange={(event) =>
+                    setLicenseFields((previous) => ({
+                      ...previous,
+                      [key]: event.target.value,
+                    }))
+                  }
+                  required
+                  inputProps={{ "data-testid": `license-${key}` }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                >
+                  <MenuItem value="" disabled>
+                    Selecciona una opción
+                  </MenuItem>
+                  {LICENSE_SELECT_OPTIONS[key as LicenseSelectField].map(
+                    (option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ),
+                  )}
+                </TextField>
+              ))}
               {[
                 ["edition", "Versión o edición"],
-                ["modality", "Modalidad (OEM, Retail o ESD)"],
-                ["duration", "Vigencia"],
-                ["seats", "Dispositivos o usuarios"],
-                ["language", "Idioma"],
-                ["architecture", "Arquitectura"],
+                ["seats", "Cantidad de usuarios o dispositivos"],
               ].map(([key, label]) => (
                 <TextField
                   key={key}
@@ -889,6 +926,12 @@ const RegisterProduct = () => {
                     }))
                   }
                   required
+                  type={key === "seats" ? "number" : "text"}
+                  slotProps={
+                    key === "seats"
+                      ? { htmlInput: { min: 1, step: 1 } }
+                      : undefined
+                  }
                   inputProps={{ "data-testid": `license-${key}` }}
                 />
               ))}
