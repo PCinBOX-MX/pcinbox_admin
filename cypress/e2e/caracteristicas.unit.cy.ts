@@ -8,6 +8,7 @@ import {
   parseCharacteristics,
   remoteImageUrls,
   serializeCaracteristicas,
+  stripLicenseControlledLinesFromText,
   stripTipoLinesFromText,
 } from "../../src/app/utils/caracteristicas.utils";
 import {
@@ -117,6 +118,23 @@ describe("caracteristicas.utils — casos felices y errores", () => {
         null,
       ]),
     ).to.deep.equal(["https://cdn.example/a.jpg"]);
+  });
+
+  it("textarea de licencia omite props controladas", () => {
+    const text = caracteristicasToTextarea(
+      [
+        { prop: "edicion", value: "1" },
+        { prop: "modalidad", value: "ESD" },
+        { prop: "Nota", value: "Extra libre" },
+      ],
+      { stripLicenseControlled: true },
+    );
+    expect(text).to.eq("Nota: Extra libre");
+    expect(
+      stripLicenseControlledLinesFromText(
+        "Nota: Extra\nedicion: hack\nmodalidad: hack",
+      ),
+    ).to.eq("Nota: Extra");
   });
 });
 

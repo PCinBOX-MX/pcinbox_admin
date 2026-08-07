@@ -73,6 +73,34 @@ export const extractTipo = (list: Caracteristica[]) =>
 export const stripTipoFromList = (list: Caracteristica[]) =>
   list.filter((c) => c.prop.toLowerCase() !== "tipo");
 
+/** Props de licencia manejadas solo por los selects del formulario (no van al textarea). */
+export const LICENSE_CONTROLLED_PROPS = [
+  "edicion",
+  "modalidad",
+  "vigencia",
+  "tipoCobertura",
+  "usuariosDispositivos",
+  "idioma",
+  "arquitectura",
+] as const;
+
+export const isLicenseControlledProp = (prop: string) =>
+  LICENSE_CONTROLLED_PROPS.some(
+    (item) => item.toLowerCase() === prop.trim().toLowerCase(),
+  );
+
+export const stripLicenseControlledFromList = (list: Caracteristica[]) =>
+  list.filter((c) => !isLicenseControlledProp(c.prop));
+
+export const stripLicenseControlledLinesFromText = (text: string) =>
+  text
+    .split(/\r?\n/)
+    .filter((line) => {
+      const prop = line.split(":")[0] || "";
+      return !isLicenseControlledProp(prop);
+    })
+    .join("\n");
+
 /** Array final para PC: tipo interno + líneas del textarea. */
 export const buildPcCaracteristicas = (
   text: string,
@@ -107,14 +135,22 @@ export const serializeCaracteristicas = (
   );
 };
 
-export const caracteristicasToTextarea = (list: Caracteristica[]) =>
-  stripTipoFromList(list)
+export const caracteristicasToTextarea = (
+  list: Caracteristica[],
+  options?: { stripLicenseControlled?: boolean },
+) => {
+  let items = stripTipoFromList(list);
+  if (options?.stripLicenseControlled) {
+    items = stripLicenseControlledFromList(items);
+  }
+  return items
     .map((c) =>
       c.prop === "Característica" && !c.value.includes("Característica")
         ? c.value
         : `${c.prop}: ${c.value}`,
     )
     .join("\n");
+};
 
 export const isPcProduct = (product: {
   isPc?: unknown;

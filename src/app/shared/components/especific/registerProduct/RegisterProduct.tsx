@@ -794,6 +794,7 @@ const RegisterProduct = () => {
                   <Autocomplete
                     fullWidth
                     disabled={typeProduct === "license"}
+                    data-testid="register-provider"
                     options={
                       dataProveedores.data && dataProveedores.data.length > 0
                         ? dataProveedores.data
@@ -805,6 +806,7 @@ const RegisterProduct = () => {
                       ) || null
                     }
                     onChange={(event, newValue) => {
+                      if (typeProduct === "license") return;
                       const id = newValue ? newValue.idProvider : null;
 
                       field.onChange(id);
@@ -820,6 +822,11 @@ const RegisterProduct = () => {
                         {...params}
                         label="Proveedor"
                         placeholder="Buscar Proveedor"
+                        disabled={typeProduct === "license"}
+                        inputProps={{
+                          ...params.inputProps,
+                          "data-testid": "register-provider-input",
+                        }}
                       />
                     )}
                   />
@@ -863,8 +870,10 @@ const RegisterProduct = () => {
                   }))
                 }
                 required
-                inputProps={{ "data-testid": "license-type" }}
-                slotProps={{ inputLabel: { shrink: true } }}
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  htmlInput: { "data-testid": "license-type" },
+                }}
               >
                 <MenuItem value="" disabled>
                   Selecciona una opción
@@ -896,8 +905,10 @@ const RegisterProduct = () => {
                     }))
                   }
                   required
-                  inputProps={{ "data-testid": `license-${key}` }}
-                  slotProps={{ inputLabel: { shrink: true } }}
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { "data-testid": `license-${key}` },
+                  }}
                 >
                   <MenuItem value="" disabled>
                     Selecciona una opción
@@ -927,12 +938,12 @@ const RegisterProduct = () => {
                   }
                   required
                   type={key === "seats" ? "number" : "text"}
-                  slotProps={
-                    key === "seats"
-                      ? { htmlInput: { min: 1, step: 1 } }
-                      : undefined
-                  }
-                  inputProps={{ "data-testid": `license-${key}` }}
+                  slotProps={{
+                    htmlInput: {
+                      "data-testid": `license-${key}`,
+                      ...(key === "seats" ? { min: 1, step: 1 } : {}),
+                    },
+                  }}
                 />
               ))}
             </div>

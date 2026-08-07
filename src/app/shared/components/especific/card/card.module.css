@@ -9,6 +9,9 @@
 .modalShell {
   width: 100%;
   max-width: 100%;
+  max-height: min(78vh, 720px);
+  overflow-y: auto;
+  padding-bottom: 8px;
 }
 
 .carouselSlide {
