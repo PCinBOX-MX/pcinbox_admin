@@ -106,14 +106,29 @@ const Proveedores = () => {
     });
   }, [search, dataProductProveedor.data, setProductsProveedor]);
 
-  if (!mounted) return null;
+  const catalogProducts = Array.isArray(dataProductProveedor.copyData)
+    ? dataProductProveedor.copyData
+    : Array.isArray(dataProductProveedor.data)
+      ? dataProductProveedor.data
+      : [];
+
+  if (!mounted) {
+    return (
+      <AdminPageShell
+        title="Proveedores"
+        subtitle="Catálogo de productos por proveedor"
+      >
+        <div className="admin-empty-state">Cargando catálogo…</div>
+      </AdminPageShell>
+    );
+  }
 
   const startIndex = (page - 1) * itemsPerPage;
-  const visibleDataProveedores = dataProductProveedor.copyData!.slice(
+  const visibleDataProveedores = catalogProducts.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
-  const totalItems = dataProductProveedor.copyData?.length ?? 0;
+  const totalItems = catalogProducts.length;
   const pageCount = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
   const paginationBlock = (

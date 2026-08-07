@@ -1,25 +1,23 @@
 "use client";
 
 import { ProductsI } from "@/app/interfaces/products/products.interface";
-import {
-  Button,
-  Card,
-  CardActions,
-  CardMedia,
-  IconButton,
-  TextField,
-  Typography,
-  Stack,
-  Box,
-} from "@mui/material";
+import { Button, TextField, Stack, Box } from "@mui/material";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
-import { Trash2 } from "lucide-react";
-
 import { useState, useEffect, useRef } from "react";
 import { useTheContext } from "@/app/hooks/global.hook";
-import { MdAutorenew, MdRemove, MdCloudUpload } from "react-icons/md";
+import { MdAutorenew } from "react-icons/md";
 import useProveedores from "@/app/proveedores/useProveedores";
-import rpStyles from "./registerProduct.module.css";
+import {
+  PROVIDER_PCINBOX,
+  PROVIDER_TECHSMART,
+  providerUsesProfitMargin,
+} from "@/app/constants/providers.constants";
+import {
+  takeFilesWithinLimit,
+  validateProductImagesCount,
+} from "@/app/constants/productImages.constants";
+import ProductImagesField from "../productImages/ProductImagesField";
+import StickyFormAction from "../productImages/StickyFormAction";
 
 const UploadImgProductProvider2 = ({
   dataProductProp,
@@ -39,6 +37,8 @@ const UploadImgProductProvider2 = ({
   const [price, setPrice] = useState<any>();
   const [profitMargin, setProfitMargin] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageSectionRef = useRef<HTMLDivElement>(null);
   const [caracteristicas, setCaracteristicas] = useState<
     { prop: string; value: string }[]
   >([]);
@@ -59,9 +59,20 @@ const UploadImgProductProvider2 = ({
     }
   }, [caracteristicas]);
 
+  useEffect(() => {
+    if (!imageError || !imageSectionRef.current) return;
+    imageSectionRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [imageError]);
+
   return (
-    <Stack spacing={3} sx={{ mt: 2, pb: 2, minWidth: { xs: '100%', sm: '550px' } }}>
-      {dataProductProp && Number(dataProductProp?.providerId) === 1 && (
+    <Stack
+      spacing={3}
+      sx={{ mt: 2, pb: 2, minWidth: { xs: "100%", sm: "550px" }, textAlign: "left" }}
+    >
+      {Number(dataProductProp?.providerId) === PROVIDER_PCINBOX && (
         <TextField
           label="Precio"
           type="number"
@@ -73,107 +84,47 @@ const UploadImgProductProvider2 = ({
           }}
         />
       )}
-      
-      {dataProductProp &&
-        (Number(dataProductProp?.providerId) === 3 ||
-          Number(dataProductProp?.providerId) === 2) && (
-          <TextField
-            label="Margen de Utilidad"
-            type="number"
-            variant="outlined"
-            name="profitMargin"
-            fullWidth
-            onChange={(event) => {
-              setProfitMargin(Number(event.target.value));
-            }}
-          />
-        )}
 
-      <Box>
-        <Button
+      {providerUsesProfitMargin(dataProductProp?.providerId) && (
+        <TextField
+          label="Margen de Utilidad"
+          type="number"
           variant="outlined"
-          component="label"
+          name="profitMargin"
           fullWidth
-          startIcon={<MdCloudUpload />}
-          sx={{ height: 56, borderStyle: "dashed", borderWidth: 2 }}
-        >
-          {files.length > 0 ? `${files.length} archivo(s) seleccionado(s)` : "Seleccionar Imágenes / Videos"}
-          <input
-            type="file"
-            hidden
-            multiple
-            accept="image/*,video/*"
-            onChange={(event) => {
-              const selectedFiles = (event.target as HTMLInputElement).files;
-              if (!selectedFiles) return;
-              const fileList = Array.from(selectedFiles).slice(0, 5); // limit to 5
-              setFiles((prev) => [...prev, ...fileList]);
-              event.target.value = ""; // limpia input
-            }}
-          />
-        </Button>
-      </Box>
-
-      {files.length > 0 && (
-        <Stack direction="row" spacing={2} sx={{ overflowX: "auto", pb: 1 }}>
-          {files.map((file, indexFile) => {
-            const fileUrl = previewUrls[indexFile];
-            const isVideo = file.type.startsWith("video/");
-
-            if (!fileUrl) return null;
-
-            return (
-              <Card
-                key={`${file.name}-${indexFile}`}
-                sx={{ position: "relative", minWidth: 130, width: 130 }}
-              >
-                {isVideo ? (
-                  <video
-                    src={fileUrl}
-                    controls
-                    style={{
-                      width: "100%",
-                      height: 80,
-                      objectFit: "cover",
-                      borderRadius: 4,
-                    }}
-                  />
-                ) : (
-                  <CardMedia
-                    component="img"
-                    image={fileUrl}
-                    alt={file.name}
-                    sx={{ height: 80, objectFit: "cover" }}
-                  />
-                )}
-
-                <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      maxWidth: 100,
-                    }}
-                  >
-                    {file.name}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => {
-                      setFiles((prev) => prev.filter((_, i) => i !== indexFile));
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </IconButton>
-                </CardActions>
-              </Card>
-            );
-          })}
-        </Stack>
+          onChange={(event) => {
+            setProfitMargin(Number(event.target.value));
+          }}
+        />
       )}
+
+      <ProductImagesField
+        sectionRef={imageSectionRef}
+        previews={previewUrls}
+        files={files}
+        error={imageError}
+        accept="image/*,video/*"
+        errorTestId="alta-image-error"
+        imagesTestId="alta-product-images"
+        onAddFiles={(incoming) => {
+          setFiles((prev) => {
+            const { accepted, error } = takeFilesWithinLimit(
+              prev.length,
+              incoming,
+            );
+            setImageError(error);
+            if (!accepted.length) return prev;
+            return [...prev, ...accepted];
+          });
+        }}
+        onRemove={(indexFile) => {
+          setFiles((prev) => {
+            const next = prev.filter((_, i) => i !== indexFile);
+            setImageError(validateProductImagesCount(next.length));
+            return next;
+          });
+        }}
+      />
 
       <Stack spacing={2}>
         <TextField
@@ -270,7 +221,8 @@ const UploadImgProductProvider2 = ({
         >
           +
         </Button>
-      </div> */}      <Box sx={{ mt: 3 }}>
+      </div> */}
+      <StickyFormAction>
         <Button
           type="button"
           variant="contained"
@@ -278,11 +230,25 @@ const UploadImgProductProvider2 = ({
           size="large"
           fullWidth
           disabled={loadingUploadImgProvider}
+          sx={{
+            background: "linear-gradient(135deg, #b92b3d 0%, #992230 100%)",
+            fontWeight: "bold",
+            "&:hover": { background: "#992230" },
+          }}
           onClick={async () => {
             try {
               if (!dataProductProp) {
                 return;
               }
+
+              const imagesValidationError = validateProductImagesCount(
+                files.length,
+              );
+              if (imagesValidationError) {
+                setImageError(imagesValidationError);
+                return;
+              }
+              setImageError(null);
 
               let parsed;
 
@@ -329,13 +295,10 @@ const UploadImgProductProvider2 = ({
 
               formData.append("description", dataProductProp.description);
 
-              if (
-                Number(dataProductProp.providerId) === 3 ||
-                Number(dataProductProp.providerId) === 2
-              ) {
-                formData.append("newPrice", dataProductProp.price.toString());
-              } else {
+              if (Number(dataProductProp.providerId) === PROVIDER_PCINBOX) {
                 formData.append("newPrice", price?.toString() ?? "0");
+              } else {
+                formData.append("newPrice", dataProductProp.price.toString());
               }
 
               formData?.append(
@@ -344,11 +307,11 @@ const UploadImgProductProvider2 = ({
                   dataProductProp?.originPriceMxn ?? dataProductProp?.price ?? 0,
                 ),
               );
-              if (Number(dataProductProp.providerId) !== 1) {
+              if (providerUsesProfitMargin(dataProductProp.providerId)) {
                 formData?.append("profitMargin", profitMargin?.toString());
               }
 
-              if (Number(dataProductProp.providerId) === 2) {
+              if (Number(dataProductProp.providerId) === PROVIDER_TECHSMART) {
                 formData.append(
                   "isDolares",
                   String(Boolean(dataProductProp?.isDolares)),
@@ -467,7 +430,7 @@ const UploadImgProductProvider2 = ({
             "Dar de Alta Producto"
           )}
         </Button>
-      </Box>
+      </StickyFormAction>
     </Stack>
   );
 };

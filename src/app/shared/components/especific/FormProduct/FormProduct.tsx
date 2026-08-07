@@ -8,16 +8,11 @@ import {
   Autocomplete,
   Box,
   Button,
-  Card,
-  CardActions,
-  CardMedia,
   FormControl,
-  IconButton,
+  MenuItem,
   TextField,
-  Typography,
   Stack,
 } from "@mui/material";
-import { Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { MdAutorenew } from "react-icons/md";
@@ -26,12 +21,25 @@ import {
   caracteristicasToTextarea,
   extractTipo,
   isPcProduct,
+  LICENSE_CONTROLLED_PROPS,
   parseCaracteristicasRaw,
   PC_TIPO_OPTIONS,
   remoteImageUrls,
+  stripLicenseControlledLinesFromText,
   stripTipoLinesFromText,
 } from "@/app/utils/caracteristicas.utils";
 import { isSameProduct } from "@/app/utils/productIdentity.utils";
+import {
+  LICENSE_SELECT_OPTIONS,
+  LICENSE_TYPE_OPTIONS,
+  LicenseSelectField,
+} from "@/app/constants/softwareLicenses";
+import {
+  takeFilesWithinLimit,
+  validateProductImagesCount,
+} from "@/app/constants/productImages.constants";
+import ProductImagesField from "../productImages/ProductImagesField";
+import StickyFormAction from "../productImages/StickyFormAction";
 
 const ALLOWED_CATEGORIES = [
   "ALMACENAMIENTO",
@@ -72,13 +80,42 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const [productImages, setProductImages] = useState<string[]>(() =>
     remoteImageUrls(dataProductProp.image_url),
   );
+  /** Archivos nuevos pendientes de subir (mismo orden que los blobs en productImages). */
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageSectionRef = useRef<HTMLDivElement>(null);
+  const initialImageUrlsRef = useRef<string[]>(
+    remoteImageUrls(dataProductProp.image_url),
+  );
 
   const initialCaracs = parseCaracteristicasRaw(dataProductProp.caracteristicas);
+  const productIsLicense = Boolean(dataProductProp.licenseType);
+  const licenseValue = (prop: string) =>
+    initialCaracs.find((item) => item.prop === prop)?.value || "";
+  const legacyCoverage = licenseValue("usuariosDispositivos");
+  const [licenseFields, setLicenseFields] = useState({
+    licenseType: dataProductProp.licenseType || "",
+    edition: licenseValue("edicion"),
+    modality: licenseValue("modalidad"),
+    duration: licenseValue("vigencia"),
+    coverageUnit:
+      licenseValue("tipoCobertura") ||
+      (legacyCoverage
+        ? /usuario/i.test(legacyCoverage)
+          ? "Usuarios"
+          : "Dispositivos"
+        : ""),
+    seats: legacyCoverage.match(/\d+/)?.[0] || legacyCoverage,
+    language: licenseValue("idioma"),
+    architecture: licenseValue("arquitectura"),
+  });
   const [selectedPcTipo, setSelectedPcTipo] = useState<string | null>(() =>
     productIsPc ? extractTipo(initialCaracs) : null,
   );
   const [bulkText, setBulkText] = useState(() =>
-    caracteristicasToTextarea(initialCaracs),
+    caracteristicasToTextarea(initialCaracs, {
+      stripLicenseControlled: productIsLicense,
+    }),
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,15 +134,20 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   };
 
   const syncImages = (updater: (prev: string[]) => string[]) => {
+    // No actualizar GlobalProvider dentro del updater de setProductImages.
+    let nextImages = productImages;
     setProductImages((prev) => {
-      const next = updater(prev);
-      updateCurrentProduct((item) => ({ ...item, image_url: next }));
-      return next;
+      nextImages = updater(prev);
+      return nextImages;
     });
+    updateCurrentProduct((item) => ({ ...item, image_url: nextImages }));
   };
 
   const syncCaracteristicasFromText = (text: string, tipo: string | null) => {
-    const cleaned = stripTipoLinesFromText(text);
+    let cleaned = stripTipoLinesFromText(text);
+    if (productIsLicense) {
+      cleaned = stripLicenseControlledLinesFromText(cleaned);
+    }
     setBulkText(cleaned);
     const payload = buildCaracteristicasPayload(cleaned, tipo, productIsPc);
     updateCurrentProduct((item) => ({
@@ -124,39 +166,100 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       return;
     }
 
-    const caracteristicas = buildCaracteristicasPayload(
+    const imagesValidationError = validateProductImagesCount(
+      productImages.length,
+    );
+    if (imagesValidationError) {
+      setImageError(imagesValidationError);
+      return;
+    }
+    setImageError(null);
+
+    let caracteristicas = buildCaracteristicasPayload(
       bulkText,
       selectedPcTipo,
       productIsPc,
     );
+    if (productIsLicense) {
+      const controlled = new Set<string>(LICENSE_CONTROLLED_PROPS);
+      caracteristicas = [
+        ...caracteristicas.filter((item) => !controlled.has(item.prop)),
+        { prop: "edicion", value: licenseFields.edition },
+        { prop: "modalidad", value: licenseFields.modality },
+        { prop: "vigencia", value: licenseFields.duration },
+        { prop: "tipoCobertura", value: licenseFields.coverageUnit },
+        { prop: "usuariosDispositivos", value: licenseFields.seats },
+        { prop: "idioma", value: licenseFields.language },
+        { prop: "arquitectura", value: licenseFields.architecture },
+      ];
+    }
 
     try {
       setLoadingUpdateProduct(true);
+      const keptRemoteUrls = remoteImageUrls(productImages);
+      const providerId =
+        findDataProduct?.providerId ?? dataProductProp.providerId;
+
+      const formData = new FormData();
+      formData.append("idProduct", String(dataProductProp.idProduct));
+      if (dataProductProp.idProductExt != null) {
+        formData.append("idProductExt", String(dataProductProp.idProductExt));
+      }
+      formData.append("name", String(event.name ?? ""));
+      formData.append("description", String(event.description ?? ""));
+      formData.append("categoryId", String(event.categoria ?? ""));
+      formData.append("marcaId", String(event.marca ?? ""));
+      formData.append("stock", String(event.stock ?? ""));
+      formData.append("price", String(event.price ?? ""));
+      formData.append("sku", String(event.sku ?? ""));
+      formData.append("upc", String(event.upc ?? ""));
+      formData.append("providerId", String(providerId ?? ""));
+      formData.append(
+        "profitMargin",
+        String(
+          providerUsesProfitMargin(providerId) ? (event?.profitMargin ?? 0) : 0,
+        ),
+      );
+      formData.append("isPc", productIsPc ? "1" : "0");
+      if (productIsLicense) {
+        formData.append("licenseType", licenseFields.licenseType);
+      }
+      formData.append("caracteristicas", JSON.stringify(caracteristicas));
+
+      const initialUrls = initialImageUrlsRef.current;
+      const imagesChanged =
+        newImageFiles.length > 0 ||
+        keptRemoteUrls.length !== initialUrls.length ||
+        keptRemoteUrls.some((url, index) => url !== initialUrls[index]);
+
+      if (imagesChanged) {
+        formData.append("image_url", JSON.stringify(keptRemoteUrls));
+        newImageFiles.forEach((file) => formData.append("files", file));
+      }
+
       const resp = await requestPostProveedores(
-        {
-          idProduct: dataProductProp.idProduct,
-          idProductExt: dataProductProp.idProductExt,
-          name: event.name,
-          description: event.description,
-          categoryId: event.categoria,
-          marcaId: event.marca,
-          stock: event.stock,
-          price: event.price,
-          sku: event.sku,
-          upc: event.upc,
-          providerId: findDataProduct?.providerId ?? dataProductProp.providerId,
-          profitMargin: providerUsesProfitMargin(
-            findDataProduct?.providerId ?? dataProductProp.providerId,
-          )
-            ? event?.profitMargin
-            : 0,
-          isPc: productIsPc ? 1 : 0,
-          caracteristicas,
-          image_url: remoteImageUrls(productImages),
-        },
+        formData,
         "/editProductPcinbox",
       );
       const data = resp.data;
+      const updatedProduct =
+        data?.data?.data ?? data?.data ?? null;
+
+      if (imagesChanged) {
+        const nextUrls = remoteImageUrls(
+          updatedProduct?.image_url ??
+            updatedProduct?.imageUrl ??
+            keptRemoteUrls,
+        );
+        productImages.forEach((url) => {
+          if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+        });
+        setNewImageFiles([]);
+        setProductImages(nextUrls);
+        initialImageUrlsRef.current = nextUrls;
+        updateCurrentProduct((item) => ({ ...item, image_url: nextUrls }));
+      }
+
       setDataModal({
         isOpen: true,
         type: "success",
@@ -199,13 +302,32 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   }, [bulkText]);
 
   useEffect(() => {
-    setProductImages(remoteImageUrls(dataProductProp.image_url));
+    if (!imageError || !imageSectionRef.current) return;
+    imageSectionRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [imageError]);
+
+  useEffect(() => {
+    productImages.forEach((url) => {
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+    });
+    const initialUrls = remoteImageUrls(dataProductProp.image_url);
+    initialImageUrlsRef.current = initialUrls;
+    setNewImageFiles([]);
+    setProductImages(initialUrls);
+    setImageError(null);
 
     const caracs = parseCaracteristicasRaw(dataProductProp.caracteristicas);
     const tipo = productIsPc ? extractTipo(caracs) : null;
     setSelectedPcTipo(tipo);
     if (tipo) setValue("Tipo", tipo);
-    setBulkText(caracteristicasToTextarea(caracs));
+    setBulkText(
+      caracteristicasToTextarea(caracs, {
+        stripLicenseControlled: productIsLicense,
+      }),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot al abrir editar
   }, [dataProductProp.idProduct]);
 
@@ -214,12 +336,13 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       component="form"
       onSubmit={handleSubmit(handleEditProduct)}
       data-testid="form-edit-product"
-      style={{
+      sx={{
         display: "flex",
         flexDirection: "column",
         gap: "20px",
-        minWidth: "700px",
+        minWidth: { xs: "100%", sm: "700px" },
         padding: "10px",
+        textAlign: "left",
       }}
     >
       <div style={{ display: "flex", gap: "16px" }}>
@@ -410,104 +533,60 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         />
       </div>
 
-      <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-        <TextField
-          style={{ flex: 1 }}
-          required
-          label="SKU"
-          type="text"
-          variant="outlined"
-          {...register("sku", {
-            value: dataProductProp?.sku,
-            onChange(event) {
-              updateCurrentProduct((item) => ({
-                ...item,
-                sku: event.target.value,
-              }));
-            },
-          })}
-        />
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}
-        >
-          <label
-            htmlFor={`file-upload-edit-${dataProductProp.idProduct}`}
-            style={{ fontSize: "14px" }}
-          >
-            Imagen
-          </label>
-          <input
-            id={`file-upload-edit-${dataProductProp.idProduct}`}
-            data-testid="edit-file-input"
-            type="file"
-            onChange={(event) => {
-              const files = (event.target as HTMLInputElement).files;
-              if (!files) return;
+      <TextField
+        required
+        label="SKU"
+        type="text"
+        variant="outlined"
+        fullWidth
+        {...register("sku", {
+          value: dataProductProp?.sku,
+          onChange(event) {
+            updateCurrentProduct((item) => ({
+              ...item,
+              sku: event.target.value,
+            }));
+          },
+        })}
+      />
 
-              const previewUrls = Array.from(files).map((file) =>
-                URL.createObjectURL(file),
-              );
-              syncImages((prev) => [...prev, ...previewUrls]);
-              event.target.value = "";
-            }}
-            multiple
-            accept="image/*"
-          />
-        </div>
-      </div>
-
-      <div
-        style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}
-        data-testid="edit-product-images"
-      >
-        {productImages.map((img: string, indexImg: number) => (
-          <Card
-            key={`${dataProductProp.idProduct}-${img}-${indexImg}`}
-            sx={{ position: "relative", width: 130 }}
-            data-testid={`edit-image-${indexImg}`}
-            data-image-src={img}
-          >
-            <CardMedia
-              component="img"
-              image={img}
-              alt={""}
-              sx={{ height: 50, objectFit: "cover" }}
-            />
-            <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
-              <Typography
-                variant="caption"
-                sx={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  maxWidth: 100,
-                }}
-              />
-              <IconButton
-                size="small"
-                color="error"
-                data-testid={`edit-remove-image-${indexImg}`}
-                onClick={() => {
-                  syncImages((prev) => {
-                    const removed = prev[indexImg];
-                    if (removed?.startsWith("blob:")) {
-                      URL.revokeObjectURL(removed);
-                    }
-                    return prev.filter((_, i) => i !== indexImg);
-                  });
-                }}
-              >
-                <Trash2 size={16} />
-              </IconButton>
-            </CardActions>
-          </Card>
-        ))}
-      </div>
+      <ProductImagesField
+        sectionRef={imageSectionRef}
+        previews={productImages}
+        error={imageError}
+        inputTestId="edit-file-input"
+        triggerTestId="edit-file-input-trigger"
+        errorTestId="edit-image-error"
+        imagesTestId="edit-product-images"
+        imageItemTestIdPrefix="edit-image"
+        removeTestIdPrefix="edit-remove-image"
+        onAddFiles={(incoming) => {
+          const { accepted, error } = takeFilesWithinLimit(
+            productImages.length,
+            incoming,
+          );
+          setImageError(error);
+          if (!accepted.length) return;
+          const previewUrls = accepted.map((file) => URL.createObjectURL(file));
+          setNewImageFiles((prev) => [...prev, ...accepted]);
+          syncImages((prev) => [...prev, ...previewUrls]);
+        }}
+        onRemove={(indexImg) => {
+          const removed = productImages[indexImg];
+          if (removed?.startsWith("blob:")) {
+            URL.revokeObjectURL(removed);
+            const blobIndex = productImages
+              .slice(0, indexImg)
+              .filter((u) => u.startsWith("blob:")).length;
+            setNewImageFiles((files) =>
+              files.filter((_, i) => i !== blobIndex),
+            );
+          }
+          const next = productImages.filter((_, i) => i !== indexImg);
+          setImageError(validateProductImagesCount(next.length));
+          syncImages(() => next);
+        }}
+      />
 
       <div style={{ display: "flex", gap: "16px" }}>
         <TextField
@@ -584,6 +663,98 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         )}
       </div>
 
+      {productIsLicense && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: "12px",
+          }}
+          data-testid="edit-license-fields"
+        >
+          <TextField
+            select
+            label="Bloque de licencia"
+            value={licenseFields.licenseType}
+            onChange={(event) =>
+              setLicenseFields((previous) => ({
+                ...previous,
+                licenseType: event.target.value as
+                  | "windows"
+                  | "antivirus"
+                  | "office",
+              }))
+            }
+            required
+            slotProps={{ inputLabel: { shrink: true } }}
+          >
+            {LICENSE_TYPE_OPTIONS.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          {(
+            [
+              ["modality", "Modalidad"],
+              ["duration", "Vigencia"],
+              ["coverageUnit", "Tipo de cobertura"],
+              ["language", "Idioma"],
+              ["architecture", "Arquitectura"],
+            ] as const
+          ).map(([key, label]) => (
+            <TextField
+              key={key}
+              select
+              label={label}
+              value={licenseFields[key]}
+              onChange={(event) =>
+                setLicenseFields((previous) => ({
+                  ...previous,
+                  [key]: event.target.value,
+                }))
+              }
+              required
+              slotProps={{ inputLabel: { shrink: true } }}
+            >
+              <MenuItem value="" disabled>
+                Selecciona una opción
+              </MenuItem>
+              {LICENSE_SELECT_OPTIONS[key as LicenseSelectField].map(
+                (option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ),
+              )}
+            </TextField>
+          ))}
+          {[
+            ["edition", "Versión o edición"],
+            ["seats", "Cantidad de usuarios o dispositivos"],
+          ].map(([key, label]) => (
+            <TextField
+              key={key}
+              label={label}
+              value={licenseFields[key as keyof typeof licenseFields]}
+              onChange={(event) =>
+                setLicenseFields((previous) => ({
+                  ...previous,
+                  [key]: event.target.value,
+                }))
+              }
+              required
+              type={key === "seats" ? "number" : "text"}
+              slotProps={
+                key === "seats"
+                  ? { htmlInput: { min: 1, step: 1 } }
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+      )}
+
       <Stack spacing={2} className="admin-mt-sm admin-py-sm">
         <TextField
           label="Características (propiedad: valor, una por línea)"
@@ -597,35 +768,39 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             syncCaracteristicasFromText(e.target.value, selectedPcTipo);
           }}
           helperText={
-            productIsPc
-              ? "El tipo de PC no aparece aquí: se guarda con el selector de arriba."
-              : undefined
+            productIsLicense
+              ? "Los campos de licencia (edición, modalidad, vigencia, etc.) no van aquí: se guardan con los selectores de arriba."
+              : productIsPc
+                ? "El tipo de PC no aparece aquí: se guarda con el selector de arriba."
+                : undefined
           }
         />
       </Stack>
 
-      <Button
-        disabled={loadingUpdateProduct}
-        type="submit"
-        fullWidth
-        variant="contained"
-        data-testid="edit-submit"
-        sx={{
-          background: "linear-gradient(135deg, #b92b3d 0%, #992230 100%)",
-          color: "white",
-          fontWeight: "bold",
-          padding: "12px",
-          fontSize: "1.1rem",
-          boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
-          "&:hover": { background: "#992230" },
-        }}
-      >
-        {loadingUpdateProduct ? (
-          <MdAutorenew size={20} className="admin-m-auto the-spinner" />
-        ) : (
-          <>Actualizar</>
-        )}
-      </Button>
+      <StickyFormAction>
+        <Button
+          disabled={loadingUpdateProduct}
+          type="submit"
+          fullWidth
+          variant="contained"
+          data-testid="edit-submit"
+          sx={{
+            background: "linear-gradient(135deg, #b92b3d 0%, #992230 100%)",
+            color: "white",
+            fontWeight: "bold",
+            padding: "12px",
+            fontSize: "1.1rem",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+            "&:hover": { background: "#992230" },
+          }}
+        >
+          {loadingUpdateProduct ? (
+            <MdAutorenew size={20} className="admin-m-auto the-spinner" />
+          ) : (
+            <>Actualizar</>
+          )}
+        </Button>
+      </StickyFormAction>
     </Box>
   );
 };

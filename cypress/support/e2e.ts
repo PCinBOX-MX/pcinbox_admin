@@ -8,10 +8,11 @@ Cypress.on("uncaught:exception", (err) => {
     msg.includes("Hydration") ||
     msg.includes("Minified React error") ||
     msg.includes("ResizeObserver") ||
-    msg.includes("Failed to load chunk") ||
+    msg.includes("ChunkLoadError") ||
     msg.includes("Loading chunk") ||
-    msg.includes("ChunkLoadError")
+    msg.includes("Failed to load chunk")
   ) {
+    // HMR/chunk tras editar código: visitProveedores reintenta.
     return false;
   }
   return true;
@@ -62,6 +63,11 @@ Cypress.Commands.add("stubProveedoresApis", (products = []) => {
             name: "PROCESADORES",
             description: "",
           },
+          {
+            idCategorie: 99,
+            name: "SOFTWARE",
+            description: "Licencias",
+          },
         ],
       },
     },
@@ -78,29 +84,50 @@ Cypress.Commands.add("stubProveedoresApis", (products = []) => {
   }).as("getProducts");
 });
 
-Cypress.Commands.add("visitProveedores", () => {
-  cy.visit("/proveedores?provider=1", {
-    onBeforeLoad(win) {
-      win.localStorage.setItem("token", "cypress-test-token");
-      win.localStorage.setItem("adminRole", "admin");
-      win.localStorage.setItem("email", "cypress@test.com");
-    },
-    failOnStatusCode: false,
-  });
+const seedAdminSession = (win: Window) => {
+  win.localStorage.setItem("token", "cypress-test-token");
+  win.localStorage.setItem("adminRole", "admin");
+  win.localStorage.setItem("email", "cypress@test.com");
+};
 
-  // Si el auth redirect nos mandó a login, forzamos de nuevo.
-  cy.location("pathname", { timeout: 15000 }).then((path) => {
-    if (path.includes("/features/auth/Login") || path === "/") {
-      cy.window().then((win) => {
-        win.localStorage.setItem("token", "cypress-test-token");
-        win.localStorage.setItem("adminRole", "admin");
-        win.localStorage.setItem("email", "cypress@test.com");
-      });
-      cy.visit("/proveedores?provider=1");
+Cypress.Commands.add("visitProveedores", () => {
+  cy.viewport(1440, 900);
+  cy.intercept("GET", "**/socket.io/**", { statusCode: 200, body: {} });
+
+  const openPage = () =>
+    cy.visit("/proveedores?provider=1", {
+      onBeforeLoad: seedAdminSession,
+      failOnStatusCode: false,
+      timeout: 60000,
+    });
+
+  const ensureReady = (attempt: number) => {
+    openPage();
+    cy.location("pathname", { timeout: 15000 }).should(
+      "include",
+      "/proveedores",
+    );
+    cy.wait(attempt === 1 ? 500 : 2000);
+    cy.get("body", { timeout: 30000 }).then(($body) => {
+      const ready = $body.text().includes("Agregar producto");
+      if (!ready && attempt < 3) {
+        ensureReady(attempt + 1);
+      }
+    });
+  };
+
+  ensureReady(1);
+
+  // Cierra residuales de modales de tests previos.
+  cy.get("body").then(($body) => {
+    if ($body.find('button[aria-label="Cerrar modal"]').length) {
+      cy.get('button[aria-label="Cerrar modal"]').click({ force: true });
+    }
+    if ($body.text().includes("Descartar cambios")) {
+      cy.contains("button", "Sí, cerrar").click({ force: true });
     }
   });
 
-  cy.get('[data-testid="btn-agregar-producto"]', { timeout: 30000 }).should(
-    "exist",
-  );
+  cy.contains("Agregar producto", { timeout: 60000 }).should("be.visible");
+  cy.get('[data-testid="btn-agregar-producto"]').should("be.visible");
 });

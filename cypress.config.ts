@@ -7,8 +7,19 @@ export default defineConfig({
     specPattern: "cypress/e2e/**/*.cy.{js,jsx,ts,tsx}",
     video: false,
     screenshotOnRunFailure: true,
-    defaultCommandTimeout: 10000,
+    viewportWidth: 1440,
+    viewportHeight: 900,
+    defaultCommandTimeout: 15000,
+    pageLoadTimeout: 120000,
+    numTestsKeptInMemory: 0,
+    experimentalMemoryManagement: true,
     setupNodeEvents(on, config) {
+      on("task", {
+        log(message) {
+          console.log(JSON.stringify(message, null, 2));
+          return null;
+        },
+      });
       return config;
     },
   },

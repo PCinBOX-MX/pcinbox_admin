@@ -15,6 +15,7 @@ import {
   CardMedia,
   FormControl,
   IconButton,
+  MenuItem,
   TextField,
   Typography,
 } from "@mui/material";
@@ -31,6 +32,11 @@ import {
   serializeCaracteristicas,
   stripTipoLinesFromText,
 } from "@/app/utils/caracteristicas.utils";
+import {
+  LICENSE_SELECT_OPTIONS,
+  LICENSE_TYPE_OPTIONS,
+  LicenseSelectField,
+} from "@/app/constants/softwareLicenses";
 
 const ALLOWED_CATEGORIES = [
   "ALMACENAMIENTO",
@@ -49,8 +55,20 @@ const ALLOWED_CATEGORIES = [
   "TARJETAS MADRE",
   "TECLADOS",
   "VENTILADORES",
-  "VIDEO Y ACCESORIOS"
+  "VIDEO Y ACCESORIOS",
+  "SOFTWARE",
 ];
+
+type LicenseFields = {
+  licenseType: string;
+  edition: string;
+  modality: string;
+  duration: string;
+  coverageUnit: string;
+  seats: string;
+  language: string;
+  architecture: string;
+};
 
 interface DataNewProductI {
   name: string;
@@ -131,6 +149,16 @@ const RegisterProduct = () => {
   /** Tipo de PC solo interno; se inyecta en caracteristicas al guardar. */
   const [selectedPcTipo, setSelectedPcTipo] = useState<string | null>(null);
   const [typeProduct, setTypeProduct] = useState("");
+  const [licenseFields, setLicenseFields] = useState<LicenseFields>({
+    licenseType: "",
+    edition: "",
+    modality: "",
+    duration: "",
+    coverageUnit: "",
+    seats: "",
+    language: "",
+    architecture: "",
+  });
 
   const [loadinNewProduct, setLoadingNewProduct] = useState<boolean>(false);
 
@@ -211,11 +239,18 @@ const RegisterProduct = () => {
       return;
     }
 
-    if (typeProduct?.toLowerCase() === "component") {
+    if (["component", "license"].includes(typeProduct?.toLowerCase())) {
       if (!dataNewComponent.categoria || !dataNewComponent.marca) {
         alert("Selecciona categoría y marca");
         return;
       }
+    }
+    if (
+      typeProduct === "license" &&
+      Object.values(licenseFields).some((value) => !value.trim())
+    ) {
+      alert("Completa todos los campos de la licencia");
+      return;
     }
 
     if (typeProduct?.toLowerCase() === "pcgamer" && !selectedPcTipo) {
@@ -228,7 +263,7 @@ const RegisterProduct = () => {
 
       const formData = new FormData();
 
-      if (typeProduct?.toLowerCase() === "component") {
+      if (["component", "license"].includes(typeProduct?.toLowerCase())) {
         formData.append("name", dataNewComponent.name);
         formData.append("clave", dataNewComponent?.clave || "");
         formData.append("description", dataNewComponent.description);
@@ -259,10 +294,29 @@ const RegisterProduct = () => {
         files.forEach((file) => formData.append("files", file));
         formData.append("providerId", dataNewComponent.providerId.toString());
         formData.append("isPc", "0");
-        formData.append(
-          "caracteristicas",
+        const baseCharacteristics = JSON.parse(
           serializeCaracteristicas(dataNewComponent.caracteristicas),
         );
+        const licenseCharacteristics =
+          typeProduct === "license"
+            ? [
+                { prop: "edicion", value: licenseFields.edition },
+                { prop: "modalidad", value: licenseFields.modality },
+                { prop: "vigencia", value: licenseFields.duration },
+                { prop: "tipoCobertura", value: licenseFields.coverageUnit },
+                { prop: "usuariosDispositivos", value: licenseFields.seats },
+                { prop: "idioma", value: licenseFields.language },
+                { prop: "arquitectura", value: licenseFields.architecture },
+              ]
+            : [];
+        formData.append(
+          "caracteristicas",
+          JSON.stringify([...baseCharacteristics, ...licenseCharacteristics]),
+        );
+        if (typeProduct === "license") {
+          formData.append("licenseType", licenseFields.licenseType);
+          formData.set("providerId", "1");
+        }
       } else if (typeProduct?.toLowerCase() === "pcgamer") {
         formData.append("name", dataNewPcGamer.name);
         formData.append("description", dataNewPcGamer.description);
@@ -348,6 +402,20 @@ const RegisterProduct = () => {
     setSelectedPcTipo(null);
     setPcGamerCaracteristicasText("");
     setValue("Tipo", null);
+    if (typeProduct === "license") {
+      const software = dataCategoria.find(
+        (category: any) =>
+          category.name?.trim().toUpperCase() === "SOFTWARE",
+      );
+      const categoryId = Number(software?.idCategorie || 0);
+      setSelectedCategoria(categoryId);
+      setDataNewComponent((previous) => ({
+        ...previous,
+        providerId: 1,
+        categoria: categoryId,
+      }));
+      setValue("Proveedor", 1);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeProduct]);
 
@@ -385,10 +453,13 @@ const RegisterProduct = () => {
           <option value="pcgamer">
             PC Gamers y Workstation
           </option>
+          <option value="license">
+            Licencias (Windows, Antivirus y Paquetería Office)
+          </option>
         </select>
       </div>
 
-      {typeProduct == "component" ? (
+      {typeProduct === "component" || typeProduct === "license" ? (
         <>
           <div
             style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
@@ -424,6 +495,7 @@ const RegisterProduct = () => {
             <FormControl fullWidth>
               <Autocomplete
                 fullWidth
+                disabled={typeProduct === "license"}
                 options={(dataCategoria || []).filter((c: any) => ALLOWED_CATEGORIES.includes(c.name?.trim().toUpperCase()))}
                 getOptionLabel={(option: any) =>
                   `${option.name} ${
@@ -721,6 +793,8 @@ const RegisterProduct = () => {
                 render={({ field }) => (
                   <Autocomplete
                     fullWidth
+                    disabled={typeProduct === "license"}
+                    data-testid="register-provider"
                     options={
                       dataProveedores.data && dataProveedores.data.length > 0
                         ? dataProveedores.data
@@ -732,6 +806,7 @@ const RegisterProduct = () => {
                       ) || null
                     }
                     onChange={(event, newValue) => {
+                      if (typeProduct === "license") return;
                       const id = newValue ? newValue.idProvider : null;
 
                       field.onChange(id);
@@ -747,6 +822,11 @@ const RegisterProduct = () => {
                         {...params}
                         label="Proveedor"
                         placeholder="Buscar Proveedor"
+                        disabled={typeProduct === "license"}
+                        inputProps={{
+                          ...params.inputProps,
+                          "data-testid": "register-provider-input",
+                        }}
                       />
                     )}
                   />
@@ -769,6 +849,105 @@ const RegisterProduct = () => {
               }
             />
           </div>
+          {typeProduct === "license" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: "12px",
+                width: "100%",
+              }}
+              data-testid="license-fields"
+            >
+              <TextField
+                select
+                label="Bloque de licencia"
+                value={licenseFields.licenseType}
+                onChange={(event) =>
+                  setLicenseFields((previous) => ({
+                    ...previous,
+                    licenseType: event.target.value,
+                  }))
+                }
+                required
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  htmlInput: { "data-testid": "license-type" },
+                }}
+              >
+                <MenuItem value="" disabled>
+                  Selecciona una opción
+                </MenuItem>
+                {LICENSE_TYPE_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {(
+                [
+                  ["modality", "Modalidad"],
+                  ["duration", "Vigencia"],
+                  ["coverageUnit", "Tipo de cobertura"],
+                  ["language", "Idioma"],
+                  ["architecture", "Arquitectura"],
+                ] as const
+              ).map(([key, label]) => (
+                <TextField
+                  key={key}
+                  select
+                  label={label}
+                  value={licenseFields[key]}
+                  onChange={(event) =>
+                    setLicenseFields((previous) => ({
+                      ...previous,
+                      [key]: event.target.value,
+                    }))
+                  }
+                  required
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { "data-testid": `license-${key}` },
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    Selecciona una opción
+                  </MenuItem>
+                  {LICENSE_SELECT_OPTIONS[key as LicenseSelectField].map(
+                    (option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ),
+                  )}
+                </TextField>
+              ))}
+              {[
+                ["edition", "Versión o edición"],
+                ["seats", "Cantidad de usuarios o dispositivos"],
+              ].map(([key, label]) => (
+                <TextField
+                  key={key}
+                  label={label}
+                  value={licenseFields[key as keyof LicenseFields]}
+                  onChange={(event) =>
+                    setLicenseFields((previous) => ({
+                      ...previous,
+                      [key]: event.target.value,
+                    }))
+                  }
+                  required
+                  type={key === "seats" ? "number" : "text"}
+                  slotProps={{
+                    htmlInput: {
+                      "data-testid": `license-${key}`,
+                      ...(key === "seats" ? { min: 1, step: 1 } : {}),
+                    },
+                  }}
+                />
+              ))}
+            </div>
+          )}
           <div className="admin-row admin-mb-md">
             <TextField
               label="Características (propiedad: valor, una por línea)"

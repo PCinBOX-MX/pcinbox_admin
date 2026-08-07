@@ -24,6 +24,7 @@ export interface ProductsI {
   profitMargin?: any;
   branches?: any;
   active?: number;
+  licenseType?: "windows" | "antivirus" | "office" | null;
   caracteristicas?: {
     prop: string;
     value: string;

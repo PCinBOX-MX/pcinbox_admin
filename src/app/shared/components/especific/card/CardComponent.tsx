@@ -36,16 +36,22 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   const [loadingRemoveProduct, setLoadingRemoveProduct] =
     useState<boolean>(false);
 
+  /** Alta: no está en catálogo o está dado de baja. No se basa en imágenes. */
+  const needsAlta =
+    !Number.isFinite(Number(dataProduct?.idProduct)) ||
+    Number(dataProduct.idProduct) <= 0 ||
+    Number(dataProduct.active) === 0;
+  const isInSystem = !needsAlta;
+
   const handleEditProduct = async (dataProductProp: ProductsI) => {
     setDataModal({
       isOpen: true,
       title: "Editar producto",
       maxWidth: "min(95vw, 850px)",
       content: (
-        <FormProduct
-          dataProductProp={dataProductProp}
-          // setProductsProveedor={setProductsProveedor}
-        />
+        <div className={styles.modalShell}>
+          <FormProduct dataProductProp={dataProductProp} />
+        </div>
       ),
       type: "info",
       showActions: false,
@@ -59,26 +65,24 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   };
 
   const handleAltaProduct = async (dataProductProp: ProductsI) => {
-    if (dataProductProp?.providerId != 1) {
-      setDataModal({
-        isOpen: true,
-        title: "Ingresa los datos",
-        maxWidth: "min(95vw, 700px)",
-        content: (
-          <div className={styles.modalShell}>
-            <UploadImgProductProvider2 dataProductProp={dataProductProp} />
-          </div>
-        ),
-        type: "success",
-        showActions: false,
-        onClose: () => {
-          setDataModal((prev) => ({ ...prev, isOpen: false }));
-        },
-        onConfirm: () => {
-          setDataModal((prev) => ({ ...prev, isOpen: false }));
-        },
-      });
-    }
+    setDataModal({
+      isOpen: true,
+      title: "Dar de alta al sistema",
+      maxWidth: "min(95vw, 700px)",
+      content: (
+        <div className={styles.modalShell}>
+          <UploadImgProductProvider2 dataProductProp={dataProductProp} />
+        </div>
+      ),
+      type: "success",
+      showActions: false,
+      onClose: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+      onConfirm: () => {
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   return (
@@ -174,7 +178,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           gap: "10px",
         }}
       >
-        {(dataProduct && dataProduct?.image_url?.length === 0) || dataProduct?.active === 0 ? (
+        {needsAlta ? (
           <button
             onClick={() => {
               handleAltaProduct(dataProduct);
@@ -187,7 +191,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
           </button>
         ) : null}
 
-        {dataProduct && (dataProduct?.image_url?.length ?? 0) > 0 && dataProduct?.active !== 0 && (
+        {isInSystem && (
           <button
             type="button"
             className="admin-btn-secondary"
@@ -201,7 +205,7 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             <MdEdit size={20} />
           </button>
         )}
-        {dataProduct && (dataProduct?.image_url?.length ?? 0) > 0 && dataProduct?.active !== 0 && (
+        {isInSystem && (
           <button
             type="button"
             disabled={loadingRemoveProduct}
@@ -240,28 +244,12 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
 
                           return {
                           ...prev,
-                          data: prev.data
-                            .filter((item) =>
-                              dataProduct.providerId === 1 && same(item)
-                                ? false
-                                : true
-                            )
-                            .map((item) =>
-                              same(item)
-                                ? { ...item, active: 0 }
-                                : item
-                            ),
-                          copyData: prev.copyData
-                            ?.filter((item) =>
-                              dataProduct.providerId === 1 && same(item)
-                                ? false
-                                : true
-                            )
-                            .map((item) =>
-                              same(item)
-                                ? { ...item, active: 0 }
-                                : item
-                            ),
+                          data: prev.data.map((item) =>
+                            same(item) ? { ...item, active: 0 } : item,
+                          ),
+                          copyData: prev.copyData?.map((item) =>
+                            same(item) ? { ...item, active: 0 } : item,
+                          ),
                         };
                         });
                         setDataModal({
