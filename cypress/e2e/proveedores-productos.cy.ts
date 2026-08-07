@@ -126,6 +126,24 @@ describe("Proveedores product flows (errores deliberados)", () => {
     discardAndCloseModal();
   });
 
+  it("registrar: muestra campos estructurados para licencias PCInBOX", () => {
+    cy.get('[data-testid="btn-agregar-producto"]').click({ force: true });
+    cy.get('[data-testid="select-tipo-producto"]').select("license");
+    cy.get('[data-testid="license-fields"]').should("be.visible");
+    cy.get('[data-testid="license-type"]').select("windows");
+    cy.get('[data-testid="license-edition"]').type("Windows 11 Pro");
+    cy.get('[data-testid="license-modality"]').type("ESD");
+    cy.get('[data-testid="license-duration"]').type("Permanente");
+    cy.get('[data-testid="license-seats"]').type("1 dispositivo");
+    cy.get('[data-testid="license-language"]').type("Español");
+    cy.get('[data-testid="license-architecture"]').type("64 bits");
+    cy.contains("label", "Proveedor")
+      .parents(".MuiFormControl-root")
+      .find("input")
+      .should("be.disabled");
+    discardAndCloseModal();
+  });
+
   it("editar: imágenes correctas, tipo protegido y payload limpio", () => {
     cy.get(`[data-testid="edit-product-${productA.idProduct}"]`).click({
       force: true,

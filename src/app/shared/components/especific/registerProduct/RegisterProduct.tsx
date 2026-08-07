@@ -49,8 +49,25 @@ const ALLOWED_CATEGORIES = [
   "TARJETAS MADRE",
   "TECLADOS",
   "VENTILADORES",
-  "VIDEO Y ACCESORIOS"
+  "VIDEO Y ACCESORIOS",
+  "SOFTWARE",
 ];
+
+const LICENSE_TYPE_OPTIONS = [
+  { value: "windows", label: "Windows" },
+  { value: "antivirus", label: "Antivirus" },
+  { value: "office", label: "Paquetería Office" },
+] as const;
+
+type LicenseFields = {
+  licenseType: string;
+  edition: string;
+  modality: string;
+  duration: string;
+  seats: string;
+  language: string;
+  architecture: string;
+};
 
 interface DataNewProductI {
   name: string;
@@ -131,6 +148,15 @@ const RegisterProduct = () => {
   /** Tipo de PC solo interno; se inyecta en caracteristicas al guardar. */
   const [selectedPcTipo, setSelectedPcTipo] = useState<string | null>(null);
   const [typeProduct, setTypeProduct] = useState("");
+  const [licenseFields, setLicenseFields] = useState<LicenseFields>({
+    licenseType: "",
+    edition: "",
+    modality: "",
+    duration: "",
+    seats: "",
+    language: "",
+    architecture: "",
+  });
 
   const [loadinNewProduct, setLoadingNewProduct] = useState<boolean>(false);
 
@@ -211,11 +237,18 @@ const RegisterProduct = () => {
       return;
     }
 
-    if (typeProduct?.toLowerCase() === "component") {
+    if (["component", "license"].includes(typeProduct?.toLowerCase())) {
       if (!dataNewComponent.categoria || !dataNewComponent.marca) {
         alert("Selecciona categoría y marca");
         return;
       }
+    }
+    if (
+      typeProduct === "license" &&
+      Object.values(licenseFields).some((value) => !value.trim())
+    ) {
+      alert("Completa todos los campos de la licencia");
+      return;
     }
 
     if (typeProduct?.toLowerCase() === "pcgamer" && !selectedPcTipo) {
@@ -228,7 +261,7 @@ const RegisterProduct = () => {
 
       const formData = new FormData();
 
-      if (typeProduct?.toLowerCase() === "component") {
+      if (["component", "license"].includes(typeProduct?.toLowerCase())) {
         formData.append("name", dataNewComponent.name);
         formData.append("clave", dataNewComponent?.clave || "");
         formData.append("description", dataNewComponent.description);
@@ -259,10 +292,28 @@ const RegisterProduct = () => {
         files.forEach((file) => formData.append("files", file));
         formData.append("providerId", dataNewComponent.providerId.toString());
         formData.append("isPc", "0");
-        formData.append(
-          "caracteristicas",
+        const baseCharacteristics = JSON.parse(
           serializeCaracteristicas(dataNewComponent.caracteristicas),
         );
+        const licenseCharacteristics =
+          typeProduct === "license"
+            ? [
+                { prop: "edicion", value: licenseFields.edition },
+                { prop: "modalidad", value: licenseFields.modality },
+                { prop: "vigencia", value: licenseFields.duration },
+                { prop: "usuariosDispositivos", value: licenseFields.seats },
+                { prop: "idioma", value: licenseFields.language },
+                { prop: "arquitectura", value: licenseFields.architecture },
+              ]
+            : [];
+        formData.append(
+          "caracteristicas",
+          JSON.stringify([...baseCharacteristics, ...licenseCharacteristics]),
+        );
+        if (typeProduct === "license") {
+          formData.append("licenseType", licenseFields.licenseType);
+          formData.set("providerId", "1");
+        }
       } else if (typeProduct?.toLowerCase() === "pcgamer") {
         formData.append("name", dataNewPcGamer.name);
         formData.append("description", dataNewPcGamer.description);
@@ -348,6 +399,20 @@ const RegisterProduct = () => {
     setSelectedPcTipo(null);
     setPcGamerCaracteristicasText("");
     setValue("Tipo", null);
+    if (typeProduct === "license") {
+      const software = dataCategoria.find(
+        (category: any) =>
+          category.name?.trim().toUpperCase() === "SOFTWARE",
+      );
+      const categoryId = Number(software?.idCategorie || 0);
+      setSelectedCategoria(categoryId);
+      setDataNewComponent((previous) => ({
+        ...previous,
+        providerId: 1,
+        categoria: categoryId,
+      }));
+      setValue("Proveedor", 1);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeProduct]);
 
@@ -385,10 +450,13 @@ const RegisterProduct = () => {
           <option value="pcgamer">
             PC Gamers y Workstation
           </option>
+          <option value="license">
+            Licencias (Windows, Antivirus y Paquetería Office)
+          </option>
         </select>
       </div>
 
-      {typeProduct == "component" ? (
+      {typeProduct === "component" || typeProduct === "license" ? (
         <>
           <div
             style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
@@ -424,6 +492,7 @@ const RegisterProduct = () => {
             <FormControl fullWidth>
               <Autocomplete
                 fullWidth
+                disabled={typeProduct === "license"}
                 options={(dataCategoria || []).filter((c: any) => ALLOWED_CATEGORIES.includes(c.name?.trim().toUpperCase()))}
                 getOptionLabel={(option: any) =>
                   `${option.name} ${
@@ -721,6 +790,7 @@ const RegisterProduct = () => {
                 render={({ field }) => (
                   <Autocomplete
                     fullWidth
+                    disabled={typeProduct === "license"}
                     options={
                       dataProveedores.data && dataProveedores.data.length > 0
                         ? dataProveedores.data
@@ -769,6 +839,61 @@ const RegisterProduct = () => {
               }
             />
           </div>
+          {typeProduct === "license" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: "12px",
+                width: "100%",
+              }}
+              data-testid="license-fields"
+            >
+              <TextField
+                select
+                SelectProps={{ native: true }}
+                label="Bloque de licencia"
+                value={licenseFields.licenseType}
+                onChange={(event) =>
+                  setLicenseFields((previous) => ({
+                    ...previous,
+                    licenseType: event.target.value,
+                  }))
+                }
+                required
+                inputProps={{ "data-testid": "license-type" }}
+              >
+                <option value="">Selecciona una opción</option>
+                {LICENSE_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </TextField>
+              {[
+                ["edition", "Versión o edición"],
+                ["modality", "Modalidad (OEM, Retail o ESD)"],
+                ["duration", "Vigencia"],
+                ["seats", "Dispositivos o usuarios"],
+                ["language", "Idioma"],
+                ["architecture", "Arquitectura"],
+              ].map(([key, label]) => (
+                <TextField
+                  key={key}
+                  label={label}
+                  value={licenseFields[key as keyof LicenseFields]}
+                  onChange={(event) =>
+                    setLicenseFields((previous) => ({
+                      ...previous,
+                      [key]: event.target.value,
+                    }))
+                  }
+                  required
+                  inputProps={{ "data-testid": `license-${key}` }}
+                />
+              ))}
+            </div>
+          )}
           <div className="admin-row admin-mb-md">
             <TextField
               label="Características (propiedad: valor, una por línea)"

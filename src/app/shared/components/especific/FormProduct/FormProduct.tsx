@@ -74,6 +74,18 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   );
 
   const initialCaracs = parseCaracteristicasRaw(dataProductProp.caracteristicas);
+  const productIsLicense = Boolean(dataProductProp.licenseType);
+  const licenseValue = (prop: string) =>
+    initialCaracs.find((item) => item.prop === prop)?.value || "";
+  const [licenseFields, setLicenseFields] = useState({
+    licenseType: dataProductProp.licenseType || "",
+    edition: licenseValue("edicion"),
+    modality: licenseValue("modalidad"),
+    duration: licenseValue("vigencia"),
+    seats: licenseValue("usuariosDispositivos"),
+    language: licenseValue("idioma"),
+    architecture: licenseValue("arquitectura"),
+  });
   const [selectedPcTipo, setSelectedPcTipo] = useState<string | null>(() =>
     productIsPc ? extractTipo(initialCaracs) : null,
   );
@@ -124,11 +136,30 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       return;
     }
 
-    const caracteristicas = buildCaracteristicasPayload(
+    let caracteristicas = buildCaracteristicasPayload(
       bulkText,
       selectedPcTipo,
       productIsPc,
     );
+    if (productIsLicense) {
+      const controlled = new Set([
+        "edicion",
+        "modalidad",
+        "vigencia",
+        "usuariosDispositivos",
+        "idioma",
+        "arquitectura",
+      ]);
+      caracteristicas = [
+        ...caracteristicas.filter((item) => !controlled.has(item.prop)),
+        { prop: "edicion", value: licenseFields.edition },
+        { prop: "modalidad", value: licenseFields.modality },
+        { prop: "vigencia", value: licenseFields.duration },
+        { prop: "usuariosDispositivos", value: licenseFields.seats },
+        { prop: "idioma", value: licenseFields.language },
+        { prop: "arquitectura", value: licenseFields.architecture },
+      ];
+    }
 
     try {
       setLoadingUpdateProduct(true);
@@ -151,6 +182,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             ? event?.profitMargin
             : 0,
           isPc: productIsPc ? 1 : 0,
+          licenseType: productIsLicense ? licenseFields.licenseType : null,
           caracteristicas,
           image_url: remoteImageUrls(productImages),
         },
@@ -583,6 +615,59 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           />
         )}
       </div>
+
+      {productIsLicense && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: "12px",
+          }}
+          data-testid="edit-license-fields"
+        >
+          <TextField
+            select
+            SelectProps={{ native: true }}
+            label="Bloque de licencia"
+            value={licenseFields.licenseType}
+            onChange={(event) =>
+              setLicenseFields((previous) => ({
+                ...previous,
+                licenseType: event.target.value as
+                  | "windows"
+                  | "antivirus"
+                  | "office",
+              }))
+            }
+            required
+          >
+            <option value="windows">Windows</option>
+            <option value="antivirus">Antivirus</option>
+            <option value="office">Paquetería Office</option>
+          </TextField>
+          {[
+            ["edition", "Versión o edición"],
+            ["modality", "Modalidad"],
+            ["duration", "Vigencia"],
+            ["seats", "Dispositivos o usuarios"],
+            ["language", "Idioma"],
+            ["architecture", "Arquitectura"],
+          ].map(([key, label]) => (
+            <TextField
+              key={key}
+              label={label}
+              value={licenseFields[key as keyof typeof licenseFields]}
+              onChange={(event) =>
+                setLicenseFields((previous) => ({
+                  ...previous,
+                  [key]: event.target.value,
+                }))
+              }
+              required
+            />
+          ))}
+        </div>
+      )}
 
       <Stack spacing={2} className="admin-mt-sm admin-py-sm">
         <TextField
