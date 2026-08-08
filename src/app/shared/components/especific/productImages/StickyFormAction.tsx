@@ -9,15 +9,17 @@ const StickyFormAction = ({ children }: { children: ReactNode }) => (
     sx={{
       position: "sticky",
       bottom: 0,
-      zIndex: 6,
+      zIndex: 20,
       mt: 1,
-      pt: 1.5,
-      pb: 0.5,
+      pt: 2,
+      pb: 3,
+      mb: -3,
+      mx: -3,
+      px: 3,
       flexShrink: 0,
-      background:
-        "linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 28%, #fff 100%)",
-      // Evita que el sticky tape campos del formulario en viewports cortos.
-      boxShadow: "0 -8px 16px rgba(255,255,255,0.9)",
+      background: "#ffffff",
+      // Sombra superior + “placa” blanca inferior para que no se filtre el formulario
+      boxShadow: "0 -8px 16px rgba(0,0,0,0.06), 0 40px 0 0 #ffffff",
     }}
   >
     {children}

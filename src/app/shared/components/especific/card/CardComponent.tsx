@@ -35,13 +35,19 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
 
   const [loadingRemoveProduct, setLoadingRemoveProduct] =
     useState<boolean>(false);
+  const [loadingReactivateProduct, setLoadingReactivateProduct] =
+    useState<boolean>(false);
 
-  /** Alta: no está en catálogo o está dado de baja. No se basa en imágenes. */
-  const needsAlta =
-    !Number.isFinite(Number(dataProduct?.idProduct)) ||
-    Number(dataProduct.idProduct) <= 0 ||
-    Number(dataProduct.active) === 0;
-  const isInSystem = !needsAlta;
+  const hasCatalogRecord =
+    Number.isFinite(Number(dataProduct?.idProduct)) &&
+    Number(dataProduct.idProduct) > 0;
+  /** Ya existió en sistema y solo está inactivo → reactivar (active=1). */
+  const canReactivate =
+    hasCatalogRecord && Number(dataProduct.active) === 0;
+  /** Primera alta (sin registro en catálogo). */
+  const needsFirstAlta = !hasCatalogRecord;
+  const needsAlta = canReactivate || needsFirstAlta;
+  const isInSystem = hasCatalogRecord && Number(dataProduct.active) !== 0;
 
   const handleEditProduct = async (dataProductProp: ProductsI) => {
     setDataModal({
@@ -65,6 +71,90 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   };
 
   const handleAltaProduct = async (dataProductProp: ProductsI) => {
+    // Producto ya en BD pero inactive: solo confirmar reactivación.
+    if (
+      Number.isFinite(Number(dataProductProp.idProduct)) &&
+      Number(dataProductProp.idProduct) > 0 &&
+      Number(dataProductProp.active) === 0
+    ) {
+      setDataModal({
+        isOpen: true,
+        title: "Volver a Activar",
+        type: "info",
+        content: `¿Deseas volver a publicar "${dataProductProp.name}" en el sistema?`,
+        showActions: true,
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onConfirm: async () => {
+          try {
+            setLoadingReactivateProduct(true);
+            setDataModal((prev) => ({ ...prev, loading: true }));
+
+            const resp = await requestPostProveedores(
+              { idProduct: dataProductProp.idProduct },
+              "/reactivateProductPcinbox",
+            );
+
+            setLoadingReactivateProduct(false);
+            setDataModal((prev) => ({ ...prev, loading: false }));
+
+            if (resp.status === 200) {
+              setProductsProveedor((prev) => {
+                const same = (item: ProductsI) =>
+                  Number(item.idProduct) === Number(dataProductProp.idProduct);
+                return {
+                  ...prev,
+                  data: prev.data.map((item) =>
+                    same(item) ? { ...item, active: 1 } : item,
+                  ),
+                  copyData: prev.copyData?.map((item) =>
+                    same(item) ? { ...item, active: 1 } : item,
+                  ),
+                };
+              });
+              setDataModal({
+                isOpen: true,
+                title: "Correcto",
+                type: "success",
+                content:
+                  resp.data?.message || "Producto dado de alta correctamente",
+                showActions: false,
+                onClose: () => {
+                  setDataModal((prev) => ({ ...prev, isOpen: false }));
+                },
+                onConfirm: () => {
+                  setDataModal((prev) => ({ ...prev, isOpen: false }));
+                },
+              });
+              setTimeout(() => {
+                setDataModal((prev) => ({ ...prev, isOpen: false }));
+              }, 1500);
+            }
+          } catch (error: any) {
+            setLoadingReactivateProduct(false);
+            setDataModal({
+              isOpen: true,
+              title: "Error",
+              type: "error",
+              content:
+                error?.response?.data?.message ||
+                "Ocurrió un error al dar de alta el producto.",
+              showActions: false,
+              onClose: () => {
+                setDataModal((prev) => ({ ...prev, isOpen: false }));
+              },
+              onConfirm: () => {
+                setDataModal((prev) => ({ ...prev, isOpen: false }));
+              },
+            });
+          }
+        },
+      });
+      return;
+    }
+
+    // Primera alta: formulario con imágenes / datos.
     setDataModal({
       isOpen: true,
       title: "Dar de alta al sistema",
@@ -180,14 +270,27 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
       >
         {needsAlta ? (
           <button
+            type="button"
+            disabled={loadingReactivateProduct}
             onClick={() => {
               handleAltaProduct(dataProduct);
             }}
             className="admin-btn-primary"
             style={{ width: "100%", justifyContent: "center" }}
+            data-testid={
+              canReactivate
+                ? `reactivate-product-${dataProduct.idProduct}`
+                : `alta-product-${dataProduct.idProductExt || "new"}`
+            }
           >
-            Dar de alta al sistema
-            <MdFileUpload size={20} />
+            {loadingReactivateProduct ? (
+              <MdAutorenew size={20} className={`${styles.spinnerCenter} the-spinner`} />
+            ) : (
+              <>
+                {canReactivate ? "Volver a Activar" : "Dar de alta al sistema"}
+                <MdFileUpload size={20} />
+              </>
+            )}
           </button>
         ) : null}
 

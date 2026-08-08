@@ -289,22 +289,22 @@ const ModalComponent = ({
           </div>
           {/* Botones de Accion */}
           {showActions && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", flexShrink: 0, padding: "8px 24px 0 24px" }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", flexShrink: 0, padding: "12px 24px 0 24px", background: "#ffffff" }}>
               <button
                 disabled={loading}
                 style={{
                   padding: "10px 24px",
-                  backgroundColor: "#f3f4f6",
+                  backgroundColor: "#ffffff",
                   color: "#374151",
                   fontWeight: "500",
                   borderRadius: "8px",
-                  border: "none",
+                  border: "1px solid #d1d5db",
                   cursor: loading ? "not-allowed" : "pointer",
                   transition: "background-color 0.2s",
                   opacity: loading ? 0.6 : 1
                 }}
-                onMouseEnter={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#e5e7eb" }}
-                onMouseLeave={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#f3f4f6" }}
+                onMouseEnter={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#f9fafb" }}
+                onMouseLeave={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#ffffff" }}
                 onClick={handleClose}
               >
                 Cancelar
@@ -376,8 +376,8 @@ const ModalComponent = ({
                 style={{
                   padding: "10px 24px",
                   borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: "#f3f4f6",
+                  border: "1px solid #d1d5db",
+                  backgroundColor: "#ffffff",
                   color: "#374151",
                   fontWeight: "500",
                   cursor: "pointer",

@@ -1252,11 +1252,17 @@ const RegisterProduct = () => {
             display: "flex", 
             justifyContent: "flex-end",
             position: "sticky",
-            bottom: "-16px",
-            background: "linear-gradient(to bottom, rgba(255,255,255,0.9), #ffffff)",
-            paddingBottom: "16px",
-            zIndex: 10,
-            borderTop: "1px solid #f3f4f6"
+            bottom: 0,
+            background: "#ffffff",
+            paddingBottom: "28px",
+            marginBottom: "-24px",
+            marginLeft: "-8px",
+            marginRight: "-8px",
+            paddingLeft: "8px",
+            paddingRight: "8px",
+            zIndex: 20,
+            borderTop: "1px solid #f3f4f6",
+            boxShadow: "0 -8px 16px rgba(0,0,0,0.06), 0 40px 0 0 #ffffff",
           }}
         >
           <button
