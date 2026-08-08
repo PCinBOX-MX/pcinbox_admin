@@ -483,9 +483,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                     marcaId: id,
                   }));
                 }}
-                getOptionLabel={(option) =>
-                  `${option.name} ${option.description ?? ""}`
-                }
+                getOptionLabel={(option) => option.name || ""}
                 renderInput={(params) => (
                   <TextField
                     {...params}

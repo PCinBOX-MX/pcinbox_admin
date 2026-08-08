@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import {
+  Alert,
   FormControl,
   MenuItem,
   Select,
@@ -23,12 +24,18 @@ import {
   formatOrderMoney,
 } from "@/app/utils/orderCostBreakdown";
 import {
+  Mail,
   MapPin,
   Package,
   ShieldCheck,
   Store,
   Truck,
 } from "lucide-react";
+import SendLicenseKeyPanel from "./SendLicenseKeyPanel";
+import {
+  getPaymentStatusLabel,
+  isOrderPaid,
+} from "@/app/utils/paymentStatus.util";
 
 type BranchOption = {
   idBranche: number;
@@ -42,7 +49,12 @@ const SHIPPING_LABELS: Record<string, string> = {
   estafeta: "Estafeta",
   paqueteexpress: "Paquete Express",
   envioLeon: "Envío personalizado PCinBOX",
+  digital: "Entrega digital",
 };
+
+function isDigitalShippingMethod(method?: string | null): boolean {
+  return String(method ?? "").toLowerCase() === "digital";
+}
 
 const DataProducts = ({ params, handleChangeStatusShip }: any) => {
   const { requestGetProveedores } = ProveedoresUtils();
@@ -115,8 +127,67 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
     );
   }
 
+  const customerEmail =
+    params?.row?.dataUser?.email ||
+    params?.row?.email ||
+    null;
+  const customerName = [
+    params?.row?.dataUser?.name,
+    params?.row?.dataUser?.lastName || params?.row?.dataUser?.lastname,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const idOrder = Number(params?.row?.idOrder || 0);
+  const statusPay = params?.row?.statusPay;
+  const orderPaid = isOrderPaid(statusPay);
+
+  const hasPendingDigital = products.some(
+    (item: any) =>
+      isDigitalShippingMethod(item.address?.shipping_method) &&
+      !["entregado", "cancelado"].includes(
+        String(item.statusShip || "").toLowerCase(),
+      ),
+  );
+
   return (
     <div className="admin-modal-products">
+      {hasPendingDigital ? (
+        <Alert
+          severity={orderPaid ? "warning" : "info"}
+          icon={<Mail size={20} />}
+          sx={{ mb: 1, borderRadius: "12px" }}
+        >
+          {orderPaid ? (
+            <>
+              <strong>Licencia digital pendiente de envío.</strong> Usa el
+              panel de cada producto para enviar la información de activación
+              al correo del cliente
+              {customerEmail ? (
+                <>
+                  :{" "}
+                  <a
+                    href={`mailto:${customerEmail}`}
+                    style={{ fontWeight: 700 }}
+                  >
+                    {customerEmail}
+                  </a>
+                </>
+              ) : (
+                " (ver Datos del cliente)."
+              )}
+              . Al enviarla, el estado pasa a <strong>Clave enviada</strong>.
+            </>
+          ) : (
+            <>
+              <strong>Licencia digital en espera del pago.</strong> El envío
+              desde Admin solo se habilita cuando la orden esté{" "}
+              <strong>Pagada</strong> (estado actual:{" "}
+              {getPaymentStatusLabel(statusPay)}).
+            </>
+          )}
+        </Alert>
+      ) : null}
+
       {products.map((item: any, index: number) => {
         const providerLabel = getProviderLabel(item.providerId);
         const providerChipColor =
@@ -126,11 +197,15 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
               ? "info"
               : "default";
 
-        const hasStreetAddress = item.address?.street != null;
-        const branchName =
-          item.address?.branche ||
-          branchNameByStoreId.get(Number(item.address?.storeId)) ||
-          (branchesLoading ? null : "PCinBOX-LEON");
+        const isDigital = isDigitalShippingMethod(
+          item.address?.shipping_method,
+        );
+        const hasStreetAddress = !isDigital && item.address?.street != null;
+        const branchName = isDigital
+          ? null
+          : item.address?.branche ||
+            branchNameByStoreId.get(Number(item.address?.storeId)) ||
+            (branchesLoading ? null : "PCinBOX-LEON");
 
         const shippingLabel =
           SHIPPING_LABELS[item.address?.shipping_method] ??
@@ -179,6 +254,16 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                 </div>
               </div>
               <div className="admin-product-card__badges">
+                {isDigital ? (
+                  <Chip
+                    size="small"
+                    icon={<Mail size={14} />}
+                    label="Licencia digital"
+                    color="secondary"
+                    variant="filled"
+                    sx={{ fontWeight: 700 }}
+                  />
+                ) : null}
                 <Chip
                   size="small"
                   label={providerLabel}
@@ -201,21 +286,57 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
             <Divider sx={{ my: 1.5, borderColor: "#eef0f4" }} />
 
             <ModalDetailSection
-              title="Entrega y envío"
-              icon={<Package size={16} />}
+              title={isDigital ? "Entrega digital" : "Entrega y envío"}
+              icon={isDigital ? <Mail size={16} /> : <Package size={16} />}
               variant="accent"
             >
               <ModalDetailField
                 label="Tipo de entrega"
                 value={
-                  hasStreetAddress
-                    ? "Domicilio"
-                    : branchName
-                      ? `Sucursal — ${branchName}`
-                      : "Sucursal"
+                  isDigital
+                    ? "Entrega digital (clave por correo)"
+                    : hasStreetAddress
+                      ? "Domicilio"
+                      : branchName
+                        ? `Sucursal — ${branchName}`
+                        : "Sucursal"
                 }
                 fullWidth
               />
+
+              {isDigital ? (
+                <ModalDetailField
+                  label="Correo para enviar la clave"
+                  value={customerEmail || "Ver Datos del cliente"}
+                  fullWidth
+                />
+              ) : null}
+
+              {isDigital &&
+              !["entregado", "cancelado", "enviado"].includes(
+                String(item.statusShip || "").toLowerCase(),
+              ) ? (
+                <Alert
+                  severity={orderPaid ? "info" : "warning"}
+                  sx={{ width: "100%", borderRadius: "10px" }}
+                >
+                  {orderPaid ? (
+                    <>
+                      Envía la información de la licencia a{" "}
+                      <strong>
+                        {customerEmail || "el correo del cliente"}
+                      </strong>{" "}
+                      desde el panel inferior. Solo aplica con pago confirmado.
+                    </>
+                  ) : (
+                    <>
+                      Esta licencia se enviará cuando la orden esté pagada.
+                      Estado de pago:{" "}
+                      <strong>{getPaymentStatusLabel(statusPay)}</strong>.
+                    </>
+                  )}
+                </Alert>
+              ) : null}
 
               {hasStreetAddress ? (
                 <div className="admin-product-card__address">
@@ -259,7 +380,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                   </span>
                 ) : null}
 
-                {branchName ? (
+                {!isDigital && branchName ? (
                   <span className="admin-product-card__tag">
                     <Store size={14} />
                     {branchesLoading && !item.address?.branche ? (
@@ -272,7 +393,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
 
                 {shippingLabel ? (
                   <span className="admin-product-card__tag">
-                    <Truck size={14} />
+                    {isDigital ? <Mail size={14} /> : <Truck size={14} />}
                     {shippingLabel}
                   </span>
                 ) : null}
@@ -286,7 +407,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
 
               <div className="admin-product-card__status">
                 <label htmlFor={`ship-status-${item.idShipment}`}>
-                  Estado de envío
+                  {isDigital ? "Estado de entrega digital" : "Estado de envío"}
                 </label>
                 <FormControl fullWidth size="small">
                   <Select
@@ -300,13 +421,42 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                     }}
                   >
                     <MenuItem value="procesando">Procesando</MenuItem>
-                    <MenuItem value="disponible">Disponible</MenuItem>
-                    <MenuItem value="enviado">Enviado</MenuItem>
+                    {!isDigital ? (
+                      <MenuItem value="disponible">Disponible</MenuItem>
+                    ) : null}
+                    {!isDigital ? (
+                      <MenuItem value="enviado">Enviado</MenuItem>
+                    ) : (
+                      <MenuItem value="enviado">Clave enviada</MenuItem>
+                    )}
                     <MenuItem value="entregado">Entregado</MenuItem>
                     <MenuItem value="cancelado">Cancelado</MenuItem>
                   </Select>
                 </FormControl>
               </div>
+
+              {isDigital &&
+              idOrder > 0 &&
+              item.idShipment &&
+              !["cancelado"].includes(
+                String(item.statusShip || "").toLowerCase(),
+              ) ? (
+                <SendLicenseKeyPanel
+                  idOrder={idOrder}
+                  idShipment={Number(item.idShipment)}
+                  productName={item.productName || item.name || "Licencia"}
+                  defaultEmail={customerEmail || ""}
+                  customerName={customerName}
+                  statusPay={statusPay}
+                  shipmentStatus={item.statusShip}
+                  onSent={(nextStatus) => {
+                    handleChange(
+                      { target: { value: nextStatus } },
+                      Number(item.idShipment),
+                    );
+                  }}
+                />
+              ) : null}
             </ModalDetailSection>
           </article>
         );

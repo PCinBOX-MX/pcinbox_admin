@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -13,22 +13,17 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton,
-  LinearProgress
+  LinearProgress,
 } from "@mui/material";
-import { MdCloudUpload, MdAutorenew, MdClose } from "react-icons/md";
+import { MdCloudUpload, MdAutorenew } from "react-icons/md";
 import * as XLSX from "xlsx";
 import { useTheContext } from "@/app/hooks/global.hook";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import UtilsService from "@/app/services/utils/index";
 import useProveedores from "@/app/proveedores/useProveedores";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
-
-interface ExcelRow {
-  UPC: string;
-  "Margen de Utilidad": number;
-  "Características": string;
-}
+import { takeFilesWithinLimit } from "@/app/constants/productImages.constants";
+import ProductImagesField from "../productImages/ProductImagesField";
 
 interface BulkProduct {
   upc: string;
@@ -36,9 +31,52 @@ interface BulkProduct {
   characteristics: string;
   matchedProduct: ProductsI | null;
   files: File[];
-  status: 'pending' | 'uploading' | 'success' | 'error';
+  imageError: string | null;
+  status: "pending" | "uploading" | "success" | "error";
   errorMsg?: string;
 }
+
+const BulkRowImages = ({
+  files,
+  error,
+  onAddFiles,
+  onRemove,
+  rowIndex,
+}: {
+  files: File[];
+  error: string | null;
+  onAddFiles: (files: File[]) => void;
+  onRemove: (index: number) => void;
+  rowIndex: number;
+}) => {
+  const [previews, setPreviews] = useState<string[]>([]);
+
+  useEffect(() => {
+    const urls = files.map((file) => URL.createObjectURL(file));
+    setPreviews(urls);
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [files]);
+
+  return (
+    <ProductImagesField
+      compact
+      previews={previews}
+      files={files}
+      error={error}
+      accept="image/*,video/*"
+      inputTestId={`bulk-file-input-${rowIndex}`}
+      triggerTestId={`bulk-file-trigger-${rowIndex}`}
+      errorTestId={`bulk-image-error-${rowIndex}`}
+      imagesTestId={`bulk-product-images-${rowIndex}`}
+      imageItemTestIdPrefix={`bulk-image-${rowIndex}`}
+      removeTestIdPrefix={`bulk-remove-image-${rowIndex}`}
+      onAddFiles={onAddFiles}
+      onRemove={onRemove}
+    />
+  );
+};
 
 const BulkUploadProvider = () => {
   const [step, setStep] = useState<1 | 2>(1);
@@ -81,7 +119,8 @@ const BulkUploadProvider = () => {
           characteristics: String(lowerRow["características"] || lowerRow["caracteristicas"] || ""),
           matchedProduct,
           files: [],
-          status: 'pending'
+          imageError: null,
+          status: "pending" as const,
         };
       });
 
@@ -91,28 +130,33 @@ const BulkUploadProvider = () => {
     reader.readAsBinaryString(file);
   };
 
-  const handleFileChangeForProduct = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles) return;
-    const fileList = Array.from(selectedFiles).slice(0, 5); // limit to 5
-    
+  const handleAddFilesForProduct = (index: number, incoming: File[]) => {
     setBulkData((prev) => {
       const newData = [...prev];
-      newData[index] = { 
-        ...newData[index], 
-        files: [...newData[index].files, ...fileList] 
+      const current = newData[index];
+      const { accepted, error } = takeFilesWithinLimit(
+        current.files.length,
+        incoming,
+      );
+      newData[index] = {
+        ...current,
+        files: accepted.length
+          ? [...current.files, ...accepted]
+          : current.files,
+        imageError: error,
       };
       return newData;
     });
-    e.target.value = "";
   };
 
   const handleRemoveFile = (prodIndex: number, fileIndex: number) => {
     setBulkData((prev) => {
       const newData = [...prev];
+      const nextFiles = newData[prodIndex].files.filter((_, i) => i !== fileIndex);
       newData[prodIndex] = {
         ...newData[prodIndex],
-        files: newData[prodIndex].files.filter((_, i) => i !== fileIndex)
+        files: nextFiles,
+        imageError: null,
       };
       return newData;
     });
@@ -292,7 +336,7 @@ const BulkUploadProvider = () => {
                   <TableCell>Nombre</TableCell>
                   <TableCell>Margen</TableCell>
                   <TableCell>Características</TableCell>
-                  <TableCell>Imágenes (Arrastrar aquí)</TableCell>
+                  <TableCell sx={{ minWidth: 220 }}>Imágenes</TableCell>
                   <TableCell>Estado</TableCell>
                 </TableRow>
               </TableHead>
@@ -316,31 +360,19 @@ const BulkUploadProvider = () => {
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell>
-                      {row.matchedProduct && row.status !== 'success' && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Button component="label" size="small" variant="outlined" sx={{ minWidth: 0, p: 0.5 }}>
-                            <MdCloudUpload size={18} />
-                            <input
-                              type="file"
-                              hidden
-                              multiple
-                              accept="image/*,video/*"
-                              onChange={(e) => handleFileChangeForProduct(idx, e)}
-                            />
-                          </Button>
-                          <Stack direction="row" spacing={0.5}>
-                            {row.files.map((f, fi) => (
-                              <Box key={fi} sx={{ position: 'relative', width: 30, height: 30 }}>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={URL.createObjectURL(f)} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }} />
-                                <IconButton size="small" sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(255,255,255,0.8)', p: 0.1 }} onClick={() => handleRemoveFile(idx, fi)}>
-                                  <MdClose size={12} color="red" />
-                                </IconButton>
-                              </Box>
-                            ))}
-                          </Stack>
-                        </Box>
+                    <TableCell sx={{ verticalAlign: "top", py: 1.5 }}>
+                      {row.matchedProduct && row.status !== "success" && (
+                        <BulkRowImages
+                          rowIndex={idx}
+                          files={row.files}
+                          error={row.imageError}
+                          onAddFiles={(incoming) =>
+                            handleAddFilesForProduct(idx, incoming)
+                          }
+                          onRemove={(fileIndex) =>
+                            handleRemoveFile(idx, fileIndex)
+                          }
+                        />
                       )}
                     </TableCell>
                     <TableCell>

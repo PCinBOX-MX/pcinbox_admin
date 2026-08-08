@@ -27,6 +27,9 @@ type ProductImagesFieldProps = {
   onRemove: (index: number) => void;
   sectionRef?: RefObject<HTMLDivElement | null>;
   accept?: string;
+  title?: string;
+  /** Versión más compacta para celdas de tabla / layouts densos. */
+  compact?: boolean;
   inputTestId?: string;
   triggerTestId?: string;
   errorTestId?: string;
@@ -36,7 +39,7 @@ type ProductImagesFieldProps = {
 };
 
 /**
- * Selector de imágenes compartido para Editar / Dar de alta (todos los proveedores).
+ * Selector de imágenes compartido para Editar / Dar de alta / Registrar.
  */
 const ProductImagesField = ({
   previews,
@@ -46,6 +49,8 @@ const ProductImagesField = ({
   onRemove,
   sectionRef,
   accept = "image/*",
+  title = "Imágenes del producto",
+  compact = false,
   inputTestId = "product-images-input",
   triggerTestId = "product-images-trigger",
   errorTestId = "product-images-error",
@@ -54,28 +59,40 @@ const ProductImagesField = ({
   removeTestIdPrefix = "product-remove-image",
 }: ProductImagesFieldProps) => {
   const count = previews.length;
+  const previewHeight = compact ? 56 : 88;
+  const cardWidth = compact ? 72 : 120;
 
   return (
     <Box
       ref={sectionRef}
-      sx={{ display: "flex", flexDirection: "column", gap: 1.5, textAlign: "left" }}
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        gap: compact ? 1 : 1.5,
+        textAlign: "left",
+        minWidth: compact ? 180 : undefined,
+      }}
     >
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#374151" }}>
-        Imágenes del producto
-      </Typography>
-      <Typography variant="caption" sx={{ color: "#6b7280", mt: -1 }}>
-        Mínimo {MIN_PRODUCT_IMAGES}, máximo {MAX_PRODUCT_IMAGES}. {count}/
-        {MAX_PRODUCT_IMAGES} cargadas.
-      </Typography>
+      {!compact && (
+        <>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#374151" }}>
+            {title}
+          </Typography>
+          <Typography variant="caption" sx={{ color: "#6b7280", mt: -1 }}>
+            Mínimo {MIN_PRODUCT_IMAGES}, máximo {MAX_PRODUCT_IMAGES}. {count}/
+            {MAX_PRODUCT_IMAGES} cargadas.
+          </Typography>
+        </>
+      )}
 
       <Button
         variant="outlined"
         component="label"
         fullWidth
-        startIcon={<MdCloudUpload size={22} />}
+        startIcon={<MdCloudUpload size={compact ? 18 : 22} />}
         data-testid={triggerTestId}
         sx={{
-          minHeight: 64,
+          minHeight: compact ? 44 : 64,
           borderStyle: "dashed",
           borderWidth: 2,
           borderColor: error ? "#f59e0b" : "#b92b3d",
@@ -83,7 +100,8 @@ const ProductImagesField = ({
           backgroundColor: error ? "#fffbeb" : "#fdf2f4",
           textTransform: "none",
           fontWeight: 600,
-          fontSize: "0.95rem",
+          fontSize: compact ? "0.8rem" : "0.95rem",
+          px: compact ? 1 : 2,
           "&:hover": {
             borderStyle: "dashed",
             borderWidth: 2,
@@ -93,8 +111,10 @@ const ProductImagesField = ({
         }}
       >
         {count > 0
-          ? `Agregar más archivos (${count}/${MAX_PRODUCT_IMAGES})`
-          : "Seleccionar imágenes"}
+          ? `Agregar (${count}/${MAX_PRODUCT_IMAGES})`
+          : compact
+            ? "Subir imágenes"
+            : "Seleccionar imágenes"}
         <input
           data-testid={inputTestId}
           type="file"
@@ -112,13 +132,23 @@ const ProductImagesField = ({
       </Button>
 
       {error && (
-        <Alert severity="warning" data-testid={errorTestId}>
+        <Alert
+          severity="warning"
+          data-testid={errorTestId}
+          sx={compact ? { py: 0, fontSize: "0.75rem" } : undefined}
+        >
           {error}
         </Alert>
       )}
 
+      {compact && count > 0 && (
+        <Typography variant="caption" sx={{ color: "#6b7280" }}>
+          {count}/{MAX_PRODUCT_IMAGES}
+        </Typography>
+      )}
+
       <Box
-        sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}
+        sx={{ display: "flex", gap: compact ? 1 : 1.5, flexWrap: "wrap" }}
         data-testid={imagesTestId}
       >
         {previews.map((src, index) => {
@@ -130,7 +160,7 @@ const ProductImagesField = ({
               key={`${src}-${index}`}
               sx={{
                 position: "relative",
-                width: 120,
+                width: cardWidth,
                 borderRadius: 2,
                 overflow: "hidden",
                 border: "1px solid #e5e7eb",
@@ -145,7 +175,7 @@ const ProductImagesField = ({
                   controls
                   style={{
                     width: "100%",
-                    height: 88,
+                    height: previewHeight,
                     objectFit: "cover",
                   }}
                 />
@@ -154,7 +184,7 @@ const ProductImagesField = ({
                   component="img"
                   image={src}
                   alt=""
-                  sx={{ height: 88, objectFit: "cover" }}
+                  sx={{ height: previewHeight, objectFit: "cover" }}
                 />
               )}
               <CardActions sx={{ justifyContent: "flex-end", px: 0.5, py: 0.25 }}>
@@ -164,7 +194,7 @@ const ProductImagesField = ({
                   data-testid={`${removeTestIdPrefix}-${index}`}
                   onClick={() => onRemove(index)}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={compact ? 14 : 16} />
                 </IconButton>
               </CardActions>
             </Card>

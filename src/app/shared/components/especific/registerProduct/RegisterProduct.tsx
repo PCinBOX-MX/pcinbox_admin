@@ -1,27 +1,13 @@
 "use client";
-import {
-  Dispatch,
-  FormEventHandler,
-  SetStateAction,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Autocomplete,
   Button,
-  Card,
-  CardActions,
-  CardMedia,
   FormControl,
-  IconButton,
   MenuItem,
   TextField,
-  Typography,
 } from "@mui/material";
-import { Trash2 } from "lucide-react";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
-import { ProductsI } from "@/app/interfaces/products/products.interface";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { MdAdd, MdRemove } from "react-icons/md";
 import { Controller, useForm } from "react-hook-form";
@@ -37,6 +23,11 @@ import {
   LICENSE_TYPE_OPTIONS,
   LicenseSelectField,
 } from "@/app/constants/softwareLicenses";
+import {
+  takeFilesWithinLimit,
+  validateProductImagesCount,
+} from "@/app/constants/productImages.constants";
+import ProductImagesField from "../productImages/ProductImagesField";
 
 const ALLOWED_CATEGORIES = [
   "ALMACENAMIENTO",
@@ -92,8 +83,10 @@ const RegisterProduct = () => {
   const { setDataModal, dataMarca, dataCategoria, setProductsProveedor } =
     useTheContext();
   const [files, setFiles] = useState<File[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const containerRef2 = useRef<HTMLDivElement>(null);
+  const imageSectionRef = useRef<HTMLDivElement>(null);
 
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<number>(0);
@@ -190,8 +183,28 @@ const RegisterProduct = () => {
   const resetMediaState = () => {
     setFiles([]);
     setPreviewUrls([]);
+    setImageError(null);
     setDataNewComponent((prev) => ({ ...prev, image_url: [] }));
     setDataNewPcGamer((prev) => ({ ...prev, image_url: [] }));
+  };
+
+  const syncFiles = (next: File[]) => {
+    setFiles(next);
+    setDataNewComponent((c) => ({ ...c, image_url: next }));
+    setDataNewPcGamer((p) => ({ ...p, image_url: next }));
+  };
+
+  const handleAddFiles = (incoming: File[]) => {
+    const { accepted, error } = takeFilesWithinLimit(files.length, incoming);
+    setImageError(error);
+    if (!accepted.length) return;
+    syncFiles([...files, ...accepted]);
+  };
+
+  const handleRemoveFile = (index: number) => {
+    const next = files.filter((_, i) => i !== index);
+    syncFiles(next);
+    setImageError(validateProductImagesCount(next.length));
   };
 
   const calculateFinalPrice = (cost: number, margin: number) => {
@@ -215,15 +228,6 @@ const RegisterProduct = () => {
     }
   }, [dataNewPcGamer.caracteristicas, dataNewComponent.caracteristicas]);
 
-  const handleRemoveFile = (index: number) => {
-    setFiles((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      setDataNewComponent((c) => ({ ...c, image_url: next }));
-      setDataNewPcGamer((p) => ({ ...p, image_url: next }));
-      return next;
-    });
-  };
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -234,8 +238,13 @@ const RegisterProduct = () => {
       return;
     }
 
-    if (files.length === 0) {
-      alert("Sube por lo menos 1 imagen");
+    const imagesValidationError = validateProductImagesCount(files.length);
+    if (imagesValidationError) {
+      setImageError(imagesValidationError);
+      imageSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       return;
     }
 
@@ -383,12 +392,6 @@ const RegisterProduct = () => {
   };
 
   useEffect(() => {
-    if (files.length > 5) {
-      setFiles((prev) => prev.slice(0, 5));
-    }
-  }, [files]);
-
-  useEffect(() => {
     const newUrls = files.map((file) => URL.createObjectURL(file));
     setPreviewUrls(newUrls);
 
@@ -534,12 +537,8 @@ const RegisterProduct = () => {
             <FormControl fullWidth>
               <Autocomplete
                 fullWidth
-                options={dataMarca || []} // tu array de marcas
-                getOptionLabel={(option: any) =>
-                  `${option.name} ${
-                    option.description == null ? "" : option.description
-                  }`
-                } // cómo mostrar cada opción
+                options={dataMarca || []}
+                getOptionLabel={(option: any) => option.name || ""}
                 value={
                   dataMarca.find((m: any) => m.idMarca === selectedMarca) ||
                   null
@@ -684,88 +683,37 @@ const RegisterProduct = () => {
               </>
             )}
           </div>
-          <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
-          >
-            <TextField
-              required
-              label="SKU"
-              type="text"
-              variant="outlined"
-              name="sku"
-              value={dataNewComponent.sku || ""}
-              onChange={(event) =>
-                setDataNewComponent((prev) => ({
-                  ...prev,
-                  sku: event.target.value,
-                }))
-              }
-            />
+          <TextField
+            required
+            label="SKU"
+            type="text"
+            variant="outlined"
+            name="sku"
+            fullWidth
+            value={dataNewComponent.sku || ""}
+            onChange={(event) =>
+              setDataNewComponent((prev) => ({
+                ...prev,
+                sku: event.target.value,
+              }))
+            }
+          />
 
-            <TextField
-              label=""
-              type="file"
-              variant="outlined"
-              name="image_url"
-              onChange={(event) => {
-                const imgs = (event.target as HTMLInputElement).files;
-                if (!imgs) return;
-
-                const fileList = Array.from(imgs);
-                setFiles((prev) => {
-                  const next = [...prev, ...fileList].slice(0, 5);
-                  setDataNewComponent((c) => ({ ...c, image_url: next }));
-                  return next;
-                });
-                event.target.value = "";
-              }}
-              slotProps={{
-                htmlInput: {
-                  multiple: true,
-                  max: 5,
-                  accept: "image/*",
-                },
-              }}
-            />
-          </div>
-
-          <div
-            className="admin-row admin-row--wrap admin-mb-md"
-          >
-            {files.map((file, indexFile) => {
-              const imageUrl = previewUrls[indexFile];
-              return (
-                <Card key={indexFile} sx={{ position: "relative", width: 130 }}>
-                  <CardMedia
-                    component="img"
-                    image={imageUrl}
-                    alt={file.name}
-                    sx={{ height: 50, objectFit: "cover" }}
-                  />
-                  <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: 100,
-                      }}
-                    >
-                      {file.name}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleRemoveFile(indexFile)}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-              );
-            })}
-          </div>
+          <ProductImagesField
+            sectionRef={imageSectionRef}
+            previews={previewUrls}
+            files={files}
+            error={imageError}
+            accept="image/*"
+            inputTestId="register-file-input"
+            triggerTestId="register-file-input-trigger"
+            errorTestId="register-image-error"
+            imagesTestId="register-product-images"
+            imageItemTestIdPrefix="register-image"
+            removeTestIdPrefix="register-remove-image"
+            onAddFiles={handleAddFiles}
+            onRemove={handleRemoveFile}
+          />
 
           <div
             style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
@@ -1034,49 +982,38 @@ const RegisterProduct = () => {
             />
           </div>
 
-          <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
-          >
-            <TextField
-              label="Existencia"
-              type="number"
-              variant="outlined"
-              name="stock"
-              value={dataNewPcGamer.stock ?? ""}
-              onChange={(event) => {
-                  setDataNewPcGamer((prev) => ({
-                    ...prev,
-                    stock: event.target.value === "" ? "" : Number(event.target.value),
-                  }));
-              }}
-              required
-            />
-            <TextField
-              label=""
-              type="file"
-              variant="outlined"
-              name="image_url"
-              onChange={(event) => {
-                const inputFiles = (event.target as HTMLInputElement).files;
-                if (!inputFiles) return;
+          <TextField
+            label="Existencia"
+            type="number"
+            variant="outlined"
+            name="stock"
+            fullWidth
+            value={dataNewPcGamer.stock ?? ""}
+            onChange={(event) => {
+              setDataNewPcGamer((prev) => ({
+                ...prev,
+                stock:
+                  event.target.value === "" ? "" : Number(event.target.value),
+              }));
+            }}
+            required
+          />
 
-                const fileList = Array.from(inputFiles);
-                setFiles((prev) => {
-                  const next = [...prev, ...fileList].slice(0, 5);
-                  setDataNewPcGamer((p) => ({ ...p, image_url: next }));
-                  return next;
-                });
-                event.target.value = "";
-              }}
-              slotProps={{
-                htmlInput: {
-                  multiple: true,
-                  max: 5,
-                  accept: "image/*,video/*",
-                },
-              }}
-            />
-          </div>
+          <ProductImagesField
+            sectionRef={imageSectionRef}
+            previews={previewUrls}
+            files={files}
+            error={imageError}
+            accept="image/*,video/*"
+            inputTestId="register-pc-file-input"
+            triggerTestId="register-pc-file-input-trigger"
+            errorTestId="register-pc-image-error"
+            imagesTestId="register-pc-product-images"
+            imageItemTestIdPrefix="register-pc-image"
+            removeTestIdPrefix="register-pc-remove-image"
+            onAddFiles={handleAddFiles}
+            onRemove={handleRemoveFile}
+          />
 
           <div
             style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
@@ -1164,61 +1101,6 @@ const RegisterProduct = () => {
                 )}
               />
             </FormControl>
-          </div>
-
-          <div
-            className="admin-row admin-row--wrap"
-            style={{ marginBottom: "16px", padding: 0 }}
-          >
-            {files.map((file, indexFile) => {
-              const fileUrl = previewUrls[indexFile];
-              const isVideo = file.type.startsWith("video/");
-
-              return (
-                <Card key={indexFile} sx={{ position: "relative", width: 130 }}>
-                  {isVideo ? (
-                    <video
-                      src={fileUrl}
-                      controls
-                      style={{
-                        width: "100%",
-                        height: 80,
-                        objectFit: "cover",
-                        borderRadius: 4,
-                      }}
-                    />
-                  ) : (
-                    <CardMedia
-                      component="img"
-                      image={fileUrl}
-                      alt={file.name}
-                      sx={{ height: 80, objectFit: "cover" }}
-                    />
-                  )}
-
-                  <CardActions sx={{ justifyContent: "space-between", px: 1 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: 100,
-                      }}
-                    >
-                      {file.name}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleRemoveFile(indexFile)}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-              );
-            })}
           </div>
 
           <div className="admin-row admin-mb-md">

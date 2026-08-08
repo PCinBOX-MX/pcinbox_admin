@@ -30,6 +30,12 @@ const PAYMENT_STATUS_COLORS: Record<string, PaymentStatusChipColor> = {
 export const normalizePaymentStatus = (status?: string | null) =>
   String(status || "pending").toLowerCase().trim();
 
+/** Orden con pago confirmado (habilita envío de licencias, TechSmart, etc.). */
+export const isOrderPaid = (status?: string | null) => {
+  const normalized = normalizePaymentStatus(status);
+  return normalized === "paid" || normalized === "approved";
+};
+
 export const getPaymentStatusLabel = (status?: string | null) => {
   const normalized = normalizePaymentStatus(status);
   return PAYMENT_STATUS_LABELS[normalized] ?? normalized;

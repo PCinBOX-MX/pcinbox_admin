@@ -4,6 +4,7 @@ import styles from "./dashboard.module.css";
 import { GridColDef, GridRowsProp } from "@mui/x-data-grid";
 import UtilsService from "../services/utils";
 import {
+  Alert,
   Chip,
 } from "@mui/material";
 //  import useDashboard from "./useDashboard";
@@ -16,6 +17,7 @@ import {
   MdErrorOutline,
   MdMoney,
 } from "react-icons/md";
+import { Mail } from "lucide-react";
 import { useTheContext } from "../hooks/global.hook";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import DataProducts from "../shared/components/especific/dashboard/DataProducts";
@@ -28,6 +30,7 @@ import OrderCancelSection from "../components/admin/OrderCancelSection";
 import {
   getPaymentStatusChipColor,
   getPaymentStatusLabel,
+  isOrderPaid,
 } from "../utils/paymentStatus.util";
 import {
   BillingDetailsContent,
@@ -254,10 +257,66 @@ const GridDashboard = ({
                             ? "1 producto en la orden"
                             : `${orderRow?.products?.length ?? 0} productos en la orden`}
                         </h3>
+                        {(() => {
+                          const digitalProducts = (
+                            orderRow?.products || []
+                          ).filter(
+                            (p: any) =>
+                              String(
+                                p?.address?.shipping_method || "",
+                              ).toLowerCase() === "digital",
+                          );
+                          if (!digitalProducts.length) return null;
+                          const email =
+                            orderRow?.dataUser?.email ||
+                            params.row?.dataUser?.email;
+                          const payStatus =
+                            orderRow?.statusPay ?? params.row?.statusPay;
+                          const paid = isOrderPaid(payStatus);
+                          return (
+                            <Alert
+                              severity={paid ? "warning" : "info"}
+                              icon={<Mail size={18} />}
+                              sx={{ mb: 1.5, borderRadius: "12px" }}
+                            >
+                              Esta orden incluye{" "}
+                              <strong>
+                                {digitalProducts.length} licencia
+                                {digitalProducts.length === 1 ? "" : "s"} digital
+                                {digitalProducts.length === 1 ? "" : "es"}
+                              </strong>
+                              .{" "}
+                              {paid ? (
+                                <>
+                                  Con pago confirmado, envía la información de
+                                  activación desde el panel de cada producto al
+                                  correo{" "}
+                                  <strong>{email || "del cliente"}</strong>
+                                  {email ? (
+                                    <>
+                                      {" "}
+                                      (<a href={`mailto:${email}`}>{email}</a>)
+                                    </>
+                                  ) : null}
+                                  .
+                                </>
+                              ) : (
+                                <>
+                                  El envío desde Admin se habilita cuando el
+                                  pago esté confirmado (estado:{" "}
+                                  <strong>
+                                    {getPaymentStatusLabel(payStatus)}
+                                  </strong>
+                                  ).
+                                </>
+                              )}
+                            </Alert>
+                          );
+                        })()}
                         <DataProducts
                           params={{
                             value: orderRow?.products,
-                            row: params.row,
+                            row: orderRow || params.row,
                           }}
                           handleChangeStatusShip={handleChangeStatusShip}
                         />
