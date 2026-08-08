@@ -9,8 +9,7 @@
 .modalShell {
   width: 100%;
   max-width: 100%;
-  max-height: min(78vh, 720px);
-  overflow-y: auto;
+  /* El scroll lo maneja solo ModalComponent (evita doble scrollbar). */
   padding-bottom: 8px;
 }
 

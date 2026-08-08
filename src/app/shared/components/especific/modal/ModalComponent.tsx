@@ -196,7 +196,7 @@ const ModalComponent = ({
             minWidth: "min(90vw, 320px)",
             maxWidth: maxWidth || "min(90vw, 600px)",
             maxHeight: "90vh",
-            overflowY: "auto",
+            overflow: "hidden",
             borderRadius: "16px",
             boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
             outline: "none",
@@ -207,7 +207,7 @@ const ModalComponent = ({
           className="animate-in fade-in zoom-in-95 duration-200"
         >
           {/* Cabecera con boton cerrar */}
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: "16px 16px 0 0" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "16px 16px 0 0" }}>
           <button
             onClick={handleClose}
             disabled={loading}
@@ -243,7 +243,7 @@ const ModalComponent = ({
         </div>
 
           {/* Ícono y Título */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px 8px 24px", textAlign: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, padding: "0 24px 8px 24px", textAlign: "center" }}>
             <div 
               className={`${config.bgColor} ${config.iconColor}`}
               style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "64px", height: "64px", borderRadius: "50%", marginBottom: "16px" }}
@@ -267,14 +267,29 @@ const ModalComponent = ({
             </Typography>
           </div>
 
-          {/* Contenido */}
-          <div style={{ display: "flex", justifyContent: "center", padding: "0 24px 24px 24px", color: "#4b5563", textAlign: "center", fontSize: "16px", lineHeight: "1.5" }}>
+          {/* Contenido: unico contenedor con scroll */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              flex: "1 1 auto",
+              minHeight: 0,
+              overflowX: "hidden",
+              overflowY: "auto",
+              padding: "0 24px 24px 24px",
+              color: "#4b5563",
+              textAlign: "center",
+              fontSize: "16px",
+              lineHeight: "1.5",
+            }}
+          >
             <div style={{ width: "100%", textAlign: "center" }}>
               {content}
             </div>
-          </div>          {/* Botones de Accion */}
+          </div>
+          {/* Botones de Accion */}
           {showActions && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", padding: "8px 24px 0 24px" }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", flexShrink: 0, padding: "8px 24px 0 24px" }}>
               <button
                 disabled={loading}
                 style={{
