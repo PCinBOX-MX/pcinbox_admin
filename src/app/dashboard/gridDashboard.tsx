@@ -260,12 +260,22 @@ const GridDashboard = ({
                         {(() => {
                           const digitalProducts = (
                             orderRow?.products || []
-                          ).filter(
-                            (p: any) =>
-                              String(
-                                p?.address?.shipping_method || "",
-                              ).toLowerCase() === "digital",
-                          );
+                          ).filter((p: any) => {
+                            const method = String(
+                              p?.address?.shipping_method ||
+                                p?.shipping_method ||
+                                "",
+                            ).toLowerCase();
+                            const licenseType = String(
+                              p?.licenseType || "",
+                            ).toLowerCase();
+                            return (
+                              method === "digital" ||
+                              licenseType === "windows" ||
+                              licenseType === "antivirus" ||
+                              licenseType === "office"
+                            );
+                          });
                           if (!digitalProducts.length) return null;
                           const email =
                             orderRow?.dataUser?.email ||

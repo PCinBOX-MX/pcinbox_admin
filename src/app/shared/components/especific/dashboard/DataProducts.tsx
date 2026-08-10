@@ -56,6 +56,24 @@ function isDigitalShippingMethod(method?: string | null): boolean {
   return String(method ?? "").toLowerCase() === "digital";
 }
 
+function isLicenseProduct(item: any): boolean {
+  const licenseType = String(item?.licenseType ?? "").toLowerCase();
+  return (
+    licenseType === "windows" ||
+    licenseType === "antivirus" ||
+    licenseType === "office"
+  );
+}
+
+/** Entrega digital: shipping digital o producto con licenseType. */
+function isDigitalDeliveryProduct(item: any): boolean {
+  return (
+    isDigitalShippingMethod(item?.address?.shipping_method) ||
+    isDigitalShippingMethod(item?.shipping_method) ||
+    isLicenseProduct(item)
+  );
+}
+
 const DataProducts = ({ params, handleChangeStatusShip }: any) => {
   const { requestGetProveedores } = ProveedoresUtils();
 
@@ -143,7 +161,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
 
   const hasPendingDigital = products.some(
     (item: any) =>
-      isDigitalShippingMethod(item.address?.shipping_method) &&
+      isDigitalDeliveryProduct(item) &&
       !["entregado", "cancelado"].includes(
         String(item.statusShip || "").toLowerCase(),
       ),
@@ -197,9 +215,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
               ? "info"
               : "default";
 
-        const isDigital = isDigitalShippingMethod(
-          item.address?.shipping_method,
-        );
+        const isDigital = isDigitalDeliveryProduct(item);
         const hasStreetAddress = !isDigital && item.address?.street != null;
         const branchName = isDigital
           ? null
