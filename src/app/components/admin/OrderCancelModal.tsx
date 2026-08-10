@@ -28,7 +28,10 @@ export default function OrderCancelModal({
   const blocked = eligibility != null && !eligibility.canCancel;
   const overrideForbidden =
     eligibility?.code === "TECHSMART_WINDOW" ||
-    eligibility?.code === "TECHSMART_SENT";
+    eligibility?.code === "TECHSMART_SENT" ||
+    // Enviado / entregado / listo para recoger: no override ni reembolso automático.
+    eligibility?.code === "SHIPMENT_STATUS" ||
+    eligibility?.code === "DICOTECH_PROCESSING";
   const needsOverride = blocked && canOverride && !overrideForbidden;
 
   const handleSubmit = () => {
@@ -77,9 +80,10 @@ export default function OrderCancelModal({
             }}
           />
           <span className="order-cancel-modal__override-text">
-            <strong>Override manual</strong> — forzar cancelación aunque la orden
-            no cumpla reglas de envío o surtido (no aplica al plazo de 24 h ni
-            si TechSmart ya recibió el pedido).
+            <strong>Override manual</strong> — solo para casos operativos
+            excepcionales. No aplica si el envío ya fue enviado/entregado, si
+            hay licencia digital entregada, Dicotech en surtido, plazo TechSmart
+            vencido o TechSmart ya recibió el pedido.
           </span>
         </label>
       ) : null}
