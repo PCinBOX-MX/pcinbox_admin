@@ -190,7 +190,12 @@ const SendLicenseKeyPanel = ({
         justifyContent="space-between"
         sx={{ px: 1.75, py: 1.5 }}
       >
-        <Stack direction="row" spacing={1.25} alignItems="flex-start">
+        <Stack
+          direction="row"
+          spacing={1.25}
+          alignItems="flex-start"
+          sx={{ flex: 1, minWidth: 0 }}
+        >
           <Box
             sx={{
               width: 40,
@@ -205,7 +210,7 @@ const SendLicenseKeyPanel = ({
           >
             {paid ? <KeyRound size={18} /> : <Lock size={18} />}
           </Box>
-          <Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
               sx={{ fontWeight: 700, fontSize: "0.95rem", color: "#111827" }}
             >
@@ -257,6 +262,11 @@ const SendLicenseKeyPanel = ({
               bgcolor: "#bb3d4b",
               boxShadow: "none",
               whiteSpace: "nowrap",
+              flexShrink: 0,
+              alignSelf: { xs: "stretch", sm: "center" },
+              minWidth: "max-content",
+              overflow: "visible",
+              "& .MuiButton-startIcon": { marginRight: 0.75 },
               "&:hover": { bgcolor: "#992230", boxShadow: "none" },
             }}
           >
