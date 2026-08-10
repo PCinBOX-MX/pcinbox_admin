@@ -449,6 +449,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                   customerName={customerName}
                   statusPay={statusPay}
                   shipmentStatus={item.statusShip}
+                  quantity={item.quantity}
                   onSent={(nextStatus) => {
                     handleChange(
                       { target: { value: nextStatus } },

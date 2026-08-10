@@ -27,6 +27,8 @@ type SendLicenseKeyPanelProps = {
   customerName?: string;
   statusPay?: string | null;
   shipmentStatus?: string | null;
+  /** Unidades compradas del producto (para exigir N claves). */
+  quantity?: number | null;
   onSent?: (nextStatus: "enviado" | "entregado") => void;
 };
 
@@ -41,6 +43,7 @@ const SendLicenseKeyPanel = ({
   customerName,
   statusPay,
   shipmentStatus,
+  quantity,
   onSent,
 }: SendLicenseKeyPanelProps) => {
   const { requestPost } = UtilsService();
@@ -55,6 +58,7 @@ const SendLicenseKeyPanel = ({
   const alreadySent = ["enviado", "entregado"].includes(
     String(shipmentStatus || "").toLowerCase(),
   );
+  const expectedKeys = Math.max(1, Number(quantity) || 1);
 
   const licenseKeys = useMemo(
     () =>
@@ -98,6 +102,19 @@ const SendLicenseKeyPanel = ({
         type: "warning",
         title: "Clave requerida",
         content: "Escribe al menos una clave de activación (una por línea).",
+        showActions: false,
+        onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+      });
+      return;
+    }
+
+    if (licenseKeys.length < expectedKeys) {
+      setDataModal({
+        isOpen: true,
+        type: "warning",
+        title: "Faltan claves",
+        content: `El cliente compró ${expectedKeys} unidad(es). Debes ingresar ${expectedKeys} clave(s) (una por línea). Ahora hay ${licenseKeys.length}.`,
         showActions: false,
         onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
         onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
@@ -275,6 +292,7 @@ const SendLicenseKeyPanel = ({
         >
           <Typography variant="caption" color="text.secondary">
             Pedido #{idOrder} · {productName}
+            {expectedKeys > 1 ? ` · ${expectedKeys} unidades` : ""}
           </Typography>
 
           <TextField
@@ -295,9 +313,20 @@ const SendLicenseKeyPanel = ({
             size="small"
             required
             multiline
-            minRows={2}
-            helperText="Una clave por línea si son varias."
-            placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
+            minRows={Math.min(Math.max(expectedKeys, 2), 6)}
+            helperText={
+              expectedKeys > 1
+                ? `El cliente compró ${expectedKeys} unidades: ingresa ${expectedKeys} claves (una por línea). Llevas ${licenseKeys.length}.`
+                : "Si hay más de una, una clave por línea."
+            }
+            placeholder={
+              expectedKeys > 1
+                ? "CLAVE-UNIDAD-1\nCLAVE-UNIDAD-2"
+                : "XXXXX-XXXXX-XXXXX-XXXXX"
+            }
+            error={
+              licenseKeys.length > 0 && licenseKeys.length < expectedKeys
+            }
             InputProps={{
               sx: { fontFamily: "Consolas, Monaco, monospace" },
             }}
@@ -319,8 +348,9 @@ const SendLicenseKeyPanel = ({
             sx={{ fontSize: "0.8rem", borderRadius: "10px" }}
           >
             Se enviará desde PCInbox Admin: pedido #{idOrder}, producto,{" "}
-            {licenseKeys.length || 0} clave(s) e instrucciones a{" "}
-            <strong>{toEmail || "—"}</strong>.
+            {licenseKeys.length || 0} clave(s)
+            {expectedKeys > 1 ? ` (se esperan ${expectedKeys})` : ""} e
+            instrucciones a <strong>{toEmail || "—"}</strong>.
           </Alert>
 
           <Stack direction="row" spacing={1}>
