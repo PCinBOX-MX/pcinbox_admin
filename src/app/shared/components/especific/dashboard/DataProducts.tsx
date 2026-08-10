@@ -193,7 +193,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
               ) : (
                 " (ver Datos del cliente)."
               )}
-              . Al enviarla, el estado pasa a <strong>Clave enviada</strong>.
+              . Al enviarla, el estado pasa a <strong>Entregado</strong>.
             </>
           ) : (
             <>
@@ -329,7 +329,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
               ) : null}
 
               {isDigital &&
-              !["entregado", "cancelado", "enviado"].includes(
+              !["entregado", "cancelado"].includes(
                 String(item.statusShip || "").toLowerCase(),
               ) ? (
                 <Alert
@@ -442,9 +442,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                     ) : null}
                     {!isDigital ? (
                       <MenuItem value="enviado">Enviado</MenuItem>
-                    ) : (
-                      <MenuItem value="enviado">Clave enviada</MenuItem>
-                    )}
+                    ) : null}
                     <MenuItem value="entregado">Entregado</MenuItem>
                     <MenuItem value="cancelado">Cancelado</MenuItem>
                   </Select>

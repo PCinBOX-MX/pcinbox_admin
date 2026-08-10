@@ -29,7 +29,7 @@ type SendLicenseKeyPanelProps = {
   shipmentStatus?: string | null;
   /** Unidades compradas del producto (para exigir N claves). */
   quantity?: number | null;
-  onSent?: (nextStatus: "enviado" | "entregado") => void;
+  onSent?: (nextStatus: "entregado") => void;
 };
 
 const DEFAULT_INSTRUCTIONS =
@@ -55,9 +55,8 @@ const SendLicenseKeyPanel = ({
   const [loading, setLoading] = useState(false);
 
   const paid = isOrderPaid(statusPay);
-  const alreadySent = ["enviado", "entregado"].includes(
-    String(shipmentStatus || "").toLowerCase(),
-  );
+  const alreadySent =
+    String(shipmentStatus || "").toLowerCase() === "entregado";
   const expectedKeys = Math.max(1, Number(quantity) || 1);
 
   const licenseKeys = useMemo(
@@ -142,14 +141,14 @@ const SendLicenseKeyPanel = ({
       if (resp.status === 200) {
         setOpen(false);
         setLicenseKeysText("");
-        onSent?.("enviado");
+        onSent?.("entregado");
         setDataModal({
           isOpen: true,
           type: "success",
           title: "Licencia enviada",
           content:
             resp.data?.message ||
-            `Información de licencia enviada a ${toEmail.trim()}. Estado: clave enviada.`,
+            `Información de licencia enviada a ${toEmail.trim()}. Estado: Entregado.`,
           showActions: false,
           onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
           onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
@@ -235,7 +234,7 @@ const SendLicenseKeyPanel = ({
               {alreadySent ? (
                 <Chip
                   size="small"
-                  label="Clave ya enviada"
+                  label="Entregado"
                   color="info"
                   variant="outlined"
                   sx={{ fontWeight: 700, height: 24 }}
