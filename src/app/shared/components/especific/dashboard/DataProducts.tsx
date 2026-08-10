@@ -430,6 +430,9 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                     id={`ship-status-${item.idShipment}`}
                     value={item.statusShip ?? "procesando"}
                     onChange={(e) => handleChange(e, item.idShipment)}
+                    disabled={["entregado", "cancelado"].includes(
+                      String(item.statusShip || "").toLowerCase(),
+                    )}
                     sx={{
                       borderRadius: "12px",
                       bgcolor: "#fff",

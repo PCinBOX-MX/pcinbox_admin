@@ -306,6 +306,9 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                     labelId="demo-simple-select-label"
                     id="demo-simple-select"
                     value={currentStatusShip || ""}
+                    disabled={["entregado", "cancelado"].includes(
+                      String(currentStatusShip || "").toLowerCase(),
+                    )}
                     onChange={(event) => {
                       handleChangeStatusShip(
                         params?.row?.id,
