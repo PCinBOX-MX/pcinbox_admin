@@ -8,7 +8,10 @@ export function useQueryParams() {
 
   const setQueryParams = useCallback(
     (params: Record<string, string | number | null | undefined>) => {
-      const current = new URLSearchParams(Array.from(searchParams.entries()));
+      const current =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams(Array.from(searchParams.entries()));
       let hasChanges = false;
 
       Object.entries(params).forEach(([key, value]) => {
@@ -29,7 +32,12 @@ export function useQueryParams() {
       if (hasChanges) {
         const search = current.toString();
         const query = search ? `?${search}` : "";
-        router.replace(`${pathname}${query}`, { scroll: false });
+        const url = `${pathname}${query}`;
+        if (typeof window !== "undefined") {
+          window.history.replaceState(window.history.state, "", url);
+        } else {
+          router.replace(url, { scroll: false });
+        }
       }
     },
     [pathname, router, searchParams]

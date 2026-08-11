@@ -1,0 +1,285 @@
+.filters {
+  display: grid;
+  grid-template-columns: minmax(260px, 2fr) repeat(2, minmax(155px, 1fr)) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: 13px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.table td {
+  padding: 16px;
+  border-bottom: 1px solid #edf0f4;
+  color: #1f2937;
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+.table tbody tr {
+  transition: background 160ms ease;
+}
+
+.table tbody tr:hover {
+  background: #fdf7f8;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table td > strong,
+.table td > span {
+  display: block;
+}
+
+.secondary {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.tertiary {
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 0.74rem;
+}
+
+.amount {
+  color: #9a3139 !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.iconButton {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dfe3e8;
+  border-radius: 9px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.iconButton:hover:not(:disabled) {
+  border-color: #bb3d4b;
+  background: #fdf2f3;
+  color: #9a3139;
+}
+
+.iconButton:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.dangerButton:hover:not(:disabled) {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.state,
+.centerState,
+.emptyState {
+  min-height: 220px;
+  padding: 32px;
+}
+
+.centerState,
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.centerState {
+  gap: 12px;
+}
+
+.emptyState {
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.emptyState svg {
+  margin-bottom: 4px;
+  color: #bb3d4b;
+}
+
+.emptyState strong {
+  color: #334155;
+  font-size: 1.05rem;
+}
+
+.alertAction {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.cards {
+  display: none;
+}
+
+.card {
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.cardHeader,
+.cardCustomer {
+  display: flex;
+}
+
+.cardHeader {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardHeader > div,
+.cardCustomer {
+  min-width: 0;
+  flex-direction: column;
+}
+
+.cardHeader span,
+.cardCustomer span {
+  overflow: hidden;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardHeader svg {
+  flex-shrink: 0;
+  color: #bb3d4b;
+}
+
+.cardCustomer {
+  margin-top: 15px;
+  padding-top: 14px;
+  border-top: 1px solid #eef0f3;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.cardGrid dt {
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.cardGrid dd {
+  margin-top: 3px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.assembly {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 16px 0;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filters > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .filters > :first-child {
+    grid-column: auto;
+  }
+
+  .tableWrap {
+    display: none;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .card .actions {
+    justify-content: stretch;
+  }
+
+  .card .iconButton {
+    flex: 1;
+    width: auto;
+  }
+
+  .state,
+  .centerState,
+  .emptyState {
+    min-height: 180px;
+    padding: 24px 14px;
+  }
+}

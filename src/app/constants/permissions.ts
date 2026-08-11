@@ -8,6 +8,7 @@ export type AdminPermission =
   | "orders.cancel.override"
   | "techsmart.manage"
   | "reservas.manage"
+  | "quotes.manage"
   | "catalog.manage"
   | "users.view"
   | "settings.manage";
@@ -21,6 +22,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "orders.cancel.override",
     "techsmart.manage",
     "reservas.manage",
+    "quotes.manage",
     "catalog.manage",
     "users.view",
     "settings.manage",
@@ -42,6 +44,7 @@ export const NAV_PERMISSIONS: Record<string, AdminPermission> = {
   ventasInvitados: "orders.view",
   linkPagos: "orders.view",
   reservas: "reservas.manage",
+  cotizaciones: "quotes.manage",
   ajustes: "settings.manage",
 };
 
