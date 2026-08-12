@@ -33,11 +33,10 @@ export function useQueryParams() {
         const search = current.toString();
         const query = search ? `?${search}` : "";
         const url = `${pathname}${query}`;
-        if (typeof window !== "undefined") {
-          window.history.replaceState(window.history.state, "", url);
-        } else {
-          router.replace(url, { scroll: false });
-        }
+        // Debe pasar por el router de Next: replaceState solo cambia la barra
+        // de URL y NO actualiza useSearchParams(), así que page/filtros quedan
+        // desincronizados (p. ej. /proveedores solo cambia la URL).
+        router.replace(url, { scroll: false });
       }
     },
     [pathname, router, searchParams]
