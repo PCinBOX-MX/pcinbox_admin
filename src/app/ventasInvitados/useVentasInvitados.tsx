@@ -10,6 +10,11 @@ import {
 } from "../utils/pagination.util";
 import { useCallback, useState } from "react";
 
+export type VentasInvitadosFilters = {
+  search?: string;
+  status?: string;
+};
+
 const useVentasInvitados = () => {
   const { requestGetProveedores } = ProveedoresUtils();
   const { requestPostPagos } = PagosUtils();
@@ -17,25 +22,37 @@ const useVentasInvitados = () => {
   const [loading, setLoading] = useState(false);
 
   const handleGetAllSalesInvitados = useCallback(
-    async (pagination: PaginationModel = { page: 0, pageSize: 25 }) => {
+    async (
+      pagination: PaginationModel = { page: 0, pageSize: 10 },
+      filters: VentasInvitadosFilters = {},
+    ) => {
       setLoading(true);
       try {
         const resp = await requestGetProveedores(
-          buildPaginatedUrl("/getAllSalesInvitados", pagination)
+          buildPaginatedUrl("/getAllSalesInvitados", pagination, {
+            search: filters.search?.trim() || undefined,
+            status:
+              filters.status && filters.status !== "all"
+                ? filters.status
+                : undefined,
+          }),
+          { silent: true },
         );
 
         if (resp.status == 200) {
           const { rows, totalRows } = parsePaginatedResponse(resp.data);
 
-          setRowsVentasInvitados(
-            rows.map((item: any) => ({
+          setRowsVentasInvitados({
+            totalRows,
+            data: rows.map((item: any) => ({
               ...item,
               id: item.idLinkPago ?? item.id,
-            }))
-          );
+              statusPay: item.statusPay ?? item.status,
+            })),
+          });
         }
-      } catch (error) {
-        setRowsVentasInvitados([]);
+      } catch {
+        setRowsVentasInvitados({ totalRows: 0, data: [] });
       } finally {
         setLoading(false);
       }
@@ -60,12 +77,16 @@ const useVentasInvitados = () => {
       if (resp.status == 200) {
         setRowsVentasInvitados((prev) => ({
           ...prev,
-          data: prev.map((row) =>
-            row.id === idLinkPago ? { ...row, statusShip: newStatus } : row,
+          data: prev.data.map((row) =>
+            row.id === idLinkPago || row.idLinkPago === idLinkPago
+              ? { ...row, statusShip: newStatus }
+              : row,
           ),
         }));
       }
-    } catch (error) { }
+    } catch {
+      /* noop */
+    }
   };
 
   return {

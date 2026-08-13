@@ -2,7 +2,6 @@
 
 import {
   Alert,
-  Button,
   FormControl,
   InputLabel,
   MenuItem,
@@ -28,12 +27,13 @@ const fieldSx = {
   "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
 };
 
+const ITEMS_PER_PAGE = 12;
+
 const Proveedores = () => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const { dataProveedores, dataProductProveedor, setProductsProveedor } =
-    useTheContext();
+  const { dataProveedores, dataProductProveedor } = useTheContext();
   const {
     slcProveedor,
     handleGetProductsByProveedor,
@@ -48,69 +48,42 @@ const Proveedores = () => {
   const pageParam = parseInt(searchParams.get("page") || "1", 10);
 
   const [search, setSearch] = useState(searchParam);
-  const itemsPerPage = 12;
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
   const [page, setPage] = useState(pageParam);
 
-  // Sincronizar hacia atrás
   useEffect(() => {
     if (searchParam !== search) setSearch(searchParam);
+    if (searchParam !== debouncedSearch) setDebouncedSearch(searchParam);
     if (pageParam !== page) setPage(pageParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
-    if (slcProveedor) {
-      // Check if we already have this provider's data to avoid redundant fetches if not needed,
-      // but to ensure sync on back/forward, we just call it. 
-      // Proveedores fetch is fast or handled by the backend efficiently.
-      const currentLoadedProvider = dataProductProveedor.data[0]?.providerId;
-      if (String(currentLoadedProvider) !== String(slcProveedor) || dataProductProveedor.data.length === 0) {
-        handleGetProductsByProveedor(slcProveedor);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slcProveedor]);
-
-  // Sincronizar debounce al escribir
-  useEffect(() => {
     const handler = setTimeout(() => {
-      if (search !== searchParam) {
-        setQueryParams({ search, page: 1 });
+      const trimmed = search.trim();
+      setDebouncedSearch(trimmed);
+      if (trimmed !== searchParam) {
+        setPage(1);
+        setQueryParams({ search: trimmed, page: 1 });
       }
     }, 450);
     return () => clearTimeout(handler);
   }, [search, searchParam, setQueryParams]);
 
   useEffect(() => {
-    setProductsProveedor((prev) => {
-      if (!search) {
-        return { ...prev, copyData: prev.data };
-      }
-
-      const q = search.toLowerCase();
-      const filtered = prev.data.filter((item) => {
-        const name = item.name?.toLowerCase()?.trim() || "";
-        const description = item.description?.toLowerCase()?.trim() || "";
-        const upc = String((item as any).upc || "").toLowerCase()?.trim();
-        const idProductExt = item?.idProductExt?.toLowerCase()?.trim() || "";
-
-        return (
-          name.includes(q) ||
-          description.includes(q) ||
-          upc.includes(q) ||
-          idProductExt.includes(q)
-        );
-      });
-
-      return { ...prev, copyData: filtered };
+    if (!slcProveedor) return;
+    void handleGetProductsByProveedor(slcProveedor, {
+      page: pageParam,
+      pageSize: ITEMS_PER_PAGE,
+      search: debouncedSearch,
     });
-  }, [search, dataProductProveedor.data, setProductsProveedor]);
+  }, [slcProveedor, pageParam, debouncedSearch, handleGetProductsByProveedor]);
 
-  const catalogProducts = Array.isArray(dataProductProveedor.copyData)
-    ? dataProductProveedor.copyData
-    : Array.isArray(dataProductProveedor.data)
-      ? dataProductProveedor.data
-      : [];
+  const catalogProducts = Array.isArray(dataProductProveedor.data)
+    ? dataProductProveedor.data
+    : [];
+  const totalItems = dataProductProveedor.totalRows ?? catalogProducts.length;
+  const pageCount = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
 
   if (!mounted) {
     return (
@@ -123,21 +96,16 @@ const Proveedores = () => {
     );
   }
 
-  const startIndex = (page - 1) * itemsPerPage;
-  const visibleDataProveedores = catalogProducts.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
-  const totalItems = catalogProducts.length;
-  const pageCount = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-
   const paginationBlock = (
     <ModernPagination
-      page={page}
+      page={pageParam}
       pageCount={pageCount}
-      pageSize={itemsPerPage}
+      pageSize={ITEMS_PER_PAGE}
       totalItems={totalItems}
-      onPageChange={(newPage) => setQueryParams({ page: newPage })}
+      onPageChange={(newPage) => {
+        setPage(newPage);
+        setQueryParams({ page: newPage });
+      }}
       label="productos"
     />
   );
@@ -161,7 +129,7 @@ const Proveedores = () => {
             <MdAdd size={20} />
             Agregar producto
           </button>
-          {(String(slcProveedor) === "3") && (
+          {String(slcProveedor) === "3" && (
             <button
               type="button"
               className="admin-btn-secondary"
@@ -221,8 +189,13 @@ const Proveedores = () => {
                 className="admin-btn-primary"
                 onClick={() => {
                   if (!slcProveedor) return;
+                  setPage(1);
                   setQueryParams({ page: 1 });
-                  handleGetProductsByProveedor(slcProveedor);
+                  void handleGetProductsByProveedor(slcProveedor, {
+                    page: 1,
+                    pageSize: ITEMS_PER_PAGE,
+                    search: debouncedSearch,
+                  });
                 }}
               >
                 Consultar
@@ -233,6 +206,8 @@ const Proveedores = () => {
               className="admin-btn-ghost"
               onClick={() => {
                 setSearch("");
+                setDebouncedSearch("");
+                setPage(1);
                 setQueryParams({ search: "", page: 1 });
               }}
               disabled={!search}
@@ -243,13 +218,13 @@ const Proveedores = () => {
           </div>
         </>
       }
-      paginationTop={visibleDataProveedores.length ? paginationBlock : undefined}
-      paginationBottom={visibleDataProveedores.length ? paginationBlock : undefined}
+      paginationTop={totalItems > 0 ? paginationBlock : undefined}
+      paginationBottom={totalItems > 0 ? paginationBlock : undefined}
     >
       <div className="admin-products-grid">
         {!dataProductProveedor.loading ? (
-          visibleDataProveedores.length > 0 ? (
-            visibleDataProveedores.map((product, index) => (
+          catalogProducts.length > 0 ? (
+            catalogProducts.map((product, index) => (
               <CardComponent
                 key={`${product.idProduct}-${String(product.idProductExt ?? "")}-${product.sku ?? ""}-${index}`}
                 dataProduct={product}

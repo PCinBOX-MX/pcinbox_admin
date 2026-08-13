@@ -10,7 +10,6 @@ import SpinnerComponent from "../spinner/Spinner";
 import useProveedores from "@/app/proveedores/useProveedores";
 import useDashboard from "@/app/dashboard/useDashboard";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
-import useVentasInvitados from "@/app/ventasInvitados/useVentasInvitados";
 import { isAuthPathname } from "@/app/utils/authRoutes";
 import { orderIdsMatch } from "@/app/utils/orderIdMatch";
 import { SalesI } from "@/app/interfaces/sales/sales.interface";
@@ -35,7 +34,6 @@ export default function AppContent({
 
   const { handleGetProveedores } = useProveedores();
   const { handleGetAllSales } = useDashboard();
-  const { handleGetAllSalesInvitados } = useVentasInvitados();
 
   useProtected(pathName);
 
@@ -76,7 +74,10 @@ export default function AppContent({
     };
 
     const handleNewOrderInvitacion = (data: any) => {
-      setRowsVentasInvitados((prev) => [data, ...prev]);
+      setRowsVentasInvitados((prev) => ({
+        totalRows: prev.totalRows + 1,
+        data: [data, ...prev.data],
+      }));
       setTableKey((prev) => prev + 1);
     };
 
@@ -117,8 +118,9 @@ export default function AppContent({
     };
 
     const handleUpdateOrderInvitacion = (data: any) => {
-      setRowsVentasInvitados((prev) =>
-        prev.map((item) =>
+      setRowsVentasInvitados((prev) => ({
+        ...prev,
+        data: prev.data.map((item) =>
           item.id == data.id || item.referencia == data.idOrder
             ? {
                 ...item,
@@ -129,7 +131,7 @@ export default function AppContent({
               }
             : item,
         ),
-      );
+      }));
     };
 
     const handleUpdatedStock = (data: any) => {
@@ -229,8 +231,6 @@ export default function AppContent({
         handleGetAllSales();
       } else if (pathName == "/proveedores") {
         handleGetProveedores();
-      } else if (pathName == "/ventasInvitados") {
-        handleGetAllSalesInvitados();
       }
     }
   }, [pathName]);

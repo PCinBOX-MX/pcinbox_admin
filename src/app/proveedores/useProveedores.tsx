@@ -69,46 +69,58 @@ const useProveedores = () => {
   }, [requestGetProveedores, setDataProveedores]);
 
   const handleGetProductsByProveedor = useCallback(
-    async (idProveedor: string | number) => {
+    async (
+      idProveedor: string | number,
+      options: { page?: number; pageSize?: number; search?: string } = {},
+    ) => {
+      const page = options.page && options.page > 0 ? options.page : 1;
+      const pageSize =
+        options.pageSize && options.pageSize > 0 ? options.pageSize : 12;
+      const search = options.search?.trim() ?? "";
+
       try {
         setProductsProveedor((prev) => ({ ...prev, loading: true }));
 
         const resp = await requestPostProveedores(
-          { idProveedor },
-          "/getProductsByProveedor"
+          { idProveedor, page, pageSize, search },
+          "/getProductsByProveedor",
+          { silent: true },
         );
         setProductsProveedor((prev) => ({ ...prev, loading: false }));
 
         if (resp?.status == 200) {
-          const data = resp.data;
+          const payload = resp.data?.data ?? {};
+          const rows = (payload.data ?? []) as ProductsI[];
+          const updates = (payload.dataExist ?? []) as ProductsI[];
 
-          setProductsProveedor((prev) => {
-            const originals = data.data.data ?? [];
-            const updates = data.data.dataExist ?? [];
-
-            const productsMatch = productsMatchForMerge;
-
-            const merged = originals.map((item: ProductsI) => {
-              const match = updates.find((u: ProductsI) =>
-                productsMatch(u, item),
-              );
-              return match ? { ...item, ...match } : item;
-            });
-
-            const newOnes = updates.filter(
-              (u: ProductsI) =>
-                !originals.some((o: ProductsI) => productsMatch(o, u)),
-            );
-
-            return {
-              ...prev,
-              data: [...merged, ...newOnes],
-              copyData: [...merged, ...newOnes],
-            };
+          // Compat: si el server aún manda dataExist, merge local.
+          const merged = rows.map((item) => {
+            const match = updates.find((u) => productsMatchForMerge(u, item));
+            return match ? { ...item, ...match } : item;
           });
+          const newOnes = updates.filter(
+            (u) => !rows.some((o) => productsMatchForMerge(o, u)),
+          );
+          const catalog = [...merged, ...newOnes];
+          const totalRows =
+            Number(payload.pagination?.totalRows ?? payload.totalRows) ||
+            catalog.length;
+
+          setProductsProveedor((prev) => ({
+            ...prev,
+            data: catalog,
+            copyData: catalog,
+            totalRows,
+          }));
         }
-      } catch (error) {
-        setProductsProveedor((prev) => ({ ...prev, loading: false }));
+      } catch {
+        setProductsProveedor((prev) => ({
+          ...prev,
+          loading: false,
+          data: [],
+          copyData: [],
+          totalRows: 0,
+        }));
       }
     },
     [requestPostProveedores, setProductsProveedor],

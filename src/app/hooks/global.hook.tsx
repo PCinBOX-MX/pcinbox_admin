@@ -53,12 +53,14 @@ interface ContextProps {
     copyData?: ProductsI[];
     loading: boolean;
     data: ProductsI[];
+    totalRows: number;
   };
   setProductsProveedor: Dispatch<
     SetStateAction<{
       loading: boolean;
       data: ProductsI[];
       copyData?: ProductsI[];
+      totalRows: number;
     }>
   >;
   socketPagos: RefObject<Socket | null>;
@@ -77,8 +79,16 @@ interface ContextProps {
       data: SalesI[];
     }>
   >;
-  rowsVentasInvitados: any[];
-  setRowsVentasInvitados: Dispatch<SetStateAction<any[]>>;
+  rowsVentasInvitados: {
+    totalRows: number;
+    data: any[];
+  };
+  setRowsVentasInvitados: Dispatch<
+    SetStateAction<{
+      totalRows: number;
+      data: any[];
+    }>
+  >;
   showSpinner: boolean;
   setShowSpinner: Dispatch<SetStateAction<boolean>>;
   dataProducts: ProductsI[];
@@ -112,6 +122,7 @@ const CreateContext = createContext<ContextProps>({
     loading: false,
     data: [],
     copyData: [],
+    totalRows: 0,
   },
   setProductsProveedor: () => {},
   socketPagos: { current: null },
@@ -135,7 +146,10 @@ const CreateContext = createContext<ContextProps>({
   setDataCategoria: () => {},
   tableKey: 0,
   setTableKey: () => {},
-  rowsVentasInvitados: [],
+  rowsVentasInvitados: {
+    totalRows: 0,
+    data: [],
+  },
   setRowsVentasInvitados: () => {},
 });
 
@@ -161,10 +175,12 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     loading: boolean;
     data: ProductsI[];
     copyData?: ProductsI[];
+    totalRows: number;
   }>({
     loading: false,
     data: [],
     copyData: [],
+    totalRows: 0,
   });
 
   const [rowsVentas, setRowsVentas] = useState<{
@@ -174,7 +190,13 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     totalRows: 0,
     data: [],
   });
-  const [rowsVentasInvitados, setRowsVentasInvitados] = useState<any[]>([]);
+  const [rowsVentasInvitados, setRowsVentasInvitados] = useState<{
+    totalRows: number;
+    data: any[];
+  }>({
+    totalRows: 0,
+    data: [],
+  });
 
   const [showSpinner, setShowSpinner] = useState<boolean>(false);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert } from "@mui/material";
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryParams } from "../hooks/useQueryParams";
 import { useTheContext } from "../hooks/global.hook";
 import TableComponent from "../shared/components/especific/table/TableComponent";
@@ -10,6 +10,8 @@ import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import { Filter, Search, X } from "lucide-react";
 import { TextField, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import useVentasInvitados from "./useVentasInvitados";
+import { MdAutorenew } from "react-icons/md";
 
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
@@ -20,58 +22,53 @@ const fieldSx = {
   "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
 };
 
+const PAGE_SIZE = 10;
+
 const VentasInvitados = () => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const { rowsVentasInvitados } = useTheContext();
+  const { handleGetAllSalesInvitados, loading } = useVentasInvitados();
   const { searchParams, setQueryParams } = useQueryParams();
 
   const searchParam = searchParams.get("search") || "";
   const statusFilter = searchParams.get("status") || "all";
   const page = parseInt(searchParams.get("page") || "1", 10);
-  
+
   const [search, setSearch] = useState(searchParam);
-  const pageSize = 10;
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
 
   useEffect(() => {
-    if (searchParam !== search) {
-      setSearch(searchParam);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (searchParam !== search) setSearch(searchParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParam]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      if (searchParam !== search) {
-        setQueryParams({ search, page: 1 });
+      const trimmed = search.trim();
+      setDebouncedSearch(trimmed);
+      if (trimmed !== searchParam) {
+        setQueryParams({ search: trimmed, page: 1 });
       }
     }, 400);
     return () => clearTimeout(handler);
   }, [search, searchParam, setQueryParams]);
 
-  const filtered = useMemo(() => {
-    return rowsVentasInvitados.filter((item) => {
-      const q = search.trim().toLowerCase();
-      const matchesSearch =
-        !q ||
-        String(item.referencia ?? "").toLowerCase().includes(q) ||
-        String(item.email ?? "").toLowerCase().includes(q) ||
-        String(item.name ?? "").toLowerCase().includes(q) ||
-        String(item.lastname ?? "").toLowerCase().includes(q);
+  useEffect(() => {
+    void handleGetAllSalesInvitados(
+      { page: Math.max(0, page - 1), pageSize: PAGE_SIZE },
+      { search: debouncedSearch, status: statusFilter },
+    );
+  }, [page, debouncedSearch, statusFilter, handleGetAllSalesInvitados]);
 
-      const payStatus = item.statusPay ?? item.status ?? "";
-      const matchesStatus =
-        statusFilter === "all" || payStatus === statusFilter;
+  const rows = Array.isArray(rowsVentasInvitados.data)
+    ? rowsVentasInvitados.data
+    : [];
+  const totalRows = rowsVentasInvitados.totalRows ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [rowsVentasInvitados, search, statusFilter]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  const rowsWithId = paginated.map((item, index) => ({
+  const rowsWithId = rows.map((item, index) => ({
     email: item.email,
     monto: item.monto,
     description: item.description,
@@ -100,8 +97,8 @@ const VentasInvitados = () => {
     <ModernPagination
       page={page}
       pageCount={pageCount}
-      pageSize={pageSize}
-      totalItems={filtered.length}
+      pageSize={PAGE_SIZE}
+      totalItems={totalRows}
       onPageChange={(p) => setQueryParams({ page: p })}
       label="órdenes"
     />
@@ -152,6 +149,7 @@ const VentasInvitados = () => {
               className="admin-btn-ghost"
               onClick={() => {
                 setSearch("");
+                setDebouncedSearch("");
                 setQueryParams({ search: "", status: "all", page: 1 });
               }}
               disabled={!search && statusFilter === "all"}
@@ -162,10 +160,15 @@ const VentasInvitados = () => {
           </div>
         </>
       }
-      paginationTop={rowsWithId.length ? paginationBlock : undefined}
-      paginationBottom={rowsWithId.length ? paginationBlock : undefined}
+      paginationTop={totalRows > 0 ? paginationBlock : undefined}
+      paginationBottom={totalRows > 0 ? paginationBlock : undefined}
     >
-      {rowsWithId.length > 0 ? (
+      {loading ? (
+        <div className="admin-empty-state flex items-center justify-center gap-2">
+          <MdAutorenew size={20} className="the-spinner" />
+          <span>Cargando órdenes...</span>
+        </div>
+      ) : rowsWithId.length > 0 ? (
         <TableComponent columnsDataGrid={columns} rowsDataGrid={rowsWithId} hideFooter />
       ) : (
         <div className="admin-empty-state">
