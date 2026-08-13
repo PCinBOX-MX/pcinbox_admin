@@ -1,40 +1,271 @@
 .card {
   width: 100%;
   max-width: 300px;
-  padding: 0.65rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e8e8e8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.2s ease;
+  overflow: hidden;
+  background: #fff;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
 }
 
 .modalShell {
   width: 100%;
   max-width: 100%;
-  /* El scroll lo maneja solo ModalComponent (evita doble scrollbar). */
   padding-bottom: 8px;
 }
 
+.media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 220px;
+  min-height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.media :global(.carousel),
+.media :global(.carousel.carousel-slider),
+.media :global(.slider-wrapper),
+.media :global(.slider) {
+  width: 100% !important;
+  height: 100%;
+}
+
+.media :global(.carousel.carousel-slider) {
+  overflow: hidden !important;
+  border-radius: 10px;
+}
+
+.media :global(.control-dots) {
+  bottom: 8px !important;
+  margin: 0 !important;
+  z-index: 4 !important;
+}
+
+.media :global(.control-dots .dot) {
+  width: 7px !important;
+  height: 7px !important;
+  margin: 0 4px !important;
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.28),
+    0 1px 4px rgba(0, 0, 0, 0.35) !important;
+}
+
+.media :global(.control-dots .dot.selected) {
+  background: #ffffff !important;
+  transform: scale(1.18);
+}
+
 .carouselSlide {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  padding: 10px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.carouselSlide img {
+  max-height: 100%;
+  max-width: 100%;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain;
+}
+
+.emptySlide {
+  height: 100%;
+  min-height: 180px;
   display: flex;
   justify-content: center;
-  height: 150px;
+  align-items: center;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 13px;
+  font-style: italic;
+  border-radius: 10px;
+}
+
+.navBtn {
+  position: absolute;
+  top: 50%;
+  z-index: 6;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #111827;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(0, 0, 0, 0.08);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.navBtn:hover {
+  background: #fff;
+  transform: translateY(-50%) scale(1.06);
+}
+
+.navPrev {
+  left: 6px;
+}
+
+.navNext {
+  right: 6px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  padding: 12px 2px 4px !important;
 }
 
 .title {
-  min-height: 65px;
+  color: #bb3d4b !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  line-height: 1.35 !important;
+  min-height: 2.7em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0 !important;
+  word-break: break-word;
 }
 
-.label {
-  color: #000;
-  font-weight: 700;
-  font-size: 17px;
-}
-
-.btnRow {
+.metaRow {
   display: flex;
-  width: 100%;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.metaLine {
+  margin: 0 !important;
+  font-size: 12px !important;
+  color: #6b7280 !important;
+  word-break: break-all;
+}
+
+.metaLabel {
+  color: #374151;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.priceStockRow {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.price {
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  color: #111827 !important;
+  margin: 0 !important;
+}
+
+.stockRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stockDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stockDotHigh {
+  background: #22c55e;
+}
+
+.stockDotLow {
+  background: #f59e0b;
+}
+
+.stockDotOut {
+  background: #9ca3af;
+}
+
+.stockText {
+  font-size: 12px;
+  color: #606060;
+  border-bottom: 1px dashed #c4c4c4;
+}
+
+.statusBadge {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.statusActive {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.statusInactive {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.statusNew {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.actions {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  padding: 10px 0 0 !important;
+  margin-top: auto;
 }
 
 .spinnerCenter {

@@ -255,11 +255,26 @@ export default function LinkPagosPage() {
                                 </div>
                               </div>
                               <img
-                                src={option.image_url[0]}
+                                src={
+                                  Array.isArray(option.image_url) &&
+                                  option.image_url[0]
+                                    ? option.image_url[0]
+                                    : "/imagen-no-encontrada.png"
+                                }
                                 width="50px"
                                 height="50px"
                                 style={{
                                   objectFit: "contain",
+                                }}
+                                onError={(event) => {
+                                  const target = event.currentTarget;
+                                  if (
+                                    target.src.includes(
+                                      "imagen-no-encontrada.png",
+                                    )
+                                  )
+                                    return;
+                                  target.src = "/imagen-no-encontrada.png";
                                 }}
                               />
                             </div>

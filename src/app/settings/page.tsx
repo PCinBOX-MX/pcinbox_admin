@@ -296,290 +296,396 @@ export default function Settings() {
       title="Ajustes Generales"
       subtitle="Configuración global del sistema, banners promocionales y opciones de la tienda"
     >
-      <div className="admin-panel" style={{ marginBottom: "24px" }}>
-        <div className="admin-panel__header">
-          <h2 className="admin-panel__title">Banners del carrusel principal</h2>
-          <p className="admin-panel__subtitle">
-            Reemplaza hasta 5 imágenes PNG del carrusel de la tienda
-          </p>
-        </div>
-        <div className="admin-panel__body">
-        <div className={styles.bannerGrid}>
-          {slots.map((slot, index) => {
-            const slotNumber = index + 1;
-            const isSelected = slot.file !== null;
-            const isUploaded = slot.status === "uploaded";
-            const hasError = slot.status === "error";
+      <div className={styles.pageStack}>
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionIcon} aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M3 9h18" />
+              </svg>
+            </div>
+            <div>
+              <h2 className={styles.sectionTitle}>Banners del carrusel principal</h2>
+              <p className={styles.sectionSubtitle}>
+                Reemplaza hasta 5 imágenes PNG del carrusel de la tienda
+              </p>
+            </div>
+          </div>
 
-            const slotClass = [
-              styles.slot,
-              isUploaded ? styles.slotUploaded : "",
-              hasError ? styles.slotError : "",
-              isSelected && !isUploaded && !hasError ? styles.slotSelected : "",
-            ]
-              .filter(Boolean)
-              .join(" ");
+          <div className={styles.sectionBody}>
+            <div className={styles.bannerGrid}>
+              {slots.map((slot, index) => {
+                const slotNumber = index + 1;
+                const isSelected = slot.file !== null;
+                const isUploaded = slot.status === "uploaded";
+                const hasError = slot.status === "error";
 
-            return (
-              <div key={index} className={slotClass}>
-                <div className={styles.thumb}>
-                  {slot.preview ? (
+                const slotClass = [
+                  styles.slot,
+                  isUploaded ? styles.slotUploaded : "",
+                  hasError ? styles.slotError : "",
+                  isSelected && !isUploaded && !hasError ? styles.slotSelected : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <div key={index} className={slotClass}>
+                    <div className={styles.thumb}>
+                      {slot.preview ? (
+                        <Image
+                          src={slot.preview}
+                          alt={`Banner ${slotNumber}`}
+                          fill
+                          priority
+                          className={styles.thumbImg}
+                        />
+                      ) : (
+                        banners[index] && (
+                          <Image
+                            src={banners[index]}
+                            alt={`Banner ${slotNumber}`}
+                            fill
+                            priority
+                            className={styles.thumbImg}
+                          />
+                        )
+                      )}
+                    </div>
+
+                    <div className={styles.slotBody}>
+                      <div className={styles.slotHead}>
+                        <span className={styles.slotLabel}>Banner {slotNumber}</span>
+                        {isUploaded && (
+                          <span className={styles.badgeSuccess}>✓ Subido</span>
+                        )}
+                        {hasError && <span className={styles.badgeError}>Error</span>}
+                        {isSelected && !isUploaded && !hasError && (
+                          <span className={styles.badgeSelected}>Nueva imagen</span>
+                        )}
+                        {!isSelected && !isUploaded && !hasError && (
+                          <span className={styles.badgeIdle}>Actual</span>
+                        )}
+                      </div>
+
+                      {slot.file && (
+                        <p className={styles.fileName}>{slot.file.name}</p>
+                      )}
+                      {slot.error && (
+                        <p className={styles.errorText}>{slot.error}</p>
+                      )}
+
+                      <div className={styles.slotActions}>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRefs.current[index]?.click()}
+                          disabled={isSubmittingPrincipal}
+                          className={styles.replaceBtn}
+                        >
+                          <svg
+                            className={styles.iconSm}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
+                          </svg>
+                          {slot.file ? "Cambiar" : "Reemplazar"}
+                        </button>
+                        {slot.file && (
+                          <button
+                            type="button"
+                            onClick={() => handleClear(index)}
+                            disabled={isSubmittingPrincipal}
+                            title="Quitar selección"
+                            className={styles.clearBtn}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        ref={(el) => {
+                          fileInputRefs.current[index] = el;
+                        }}
+                        type="file"
+                        accept="image/png"
+                        className={styles.hiddenInput}
+                        onChange={(e) =>
+                          handleFileChange(index, e.target.files?.[0] ?? null)
+                        }
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {principalMessage?.show && (
+              <div
+                className={
+                  principalMessage.type === "success"
+                    ? styles.messageSuccess
+                    : styles.messageError
+                }
+              >
+                {principalMessage.text}
+              </div>
+            )}
+
+            <div className={styles.footer}>
+              <button
+                type="button"
+                onClick={handleSubmitPrincipal}
+                disabled={isSubmittingPrincipal || selectedCount === 0}
+                className={`${styles.submitBtn} ${styles.btnRow}`}
+              >
+                {isSubmittingPrincipal ? (
+                  <>
+                    <svg className={styles.spinner} viewBox="0 0 24 24" fill="none">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
+                    </svg>
+                    Subiendo...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className={styles.iconSm}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
+                    </svg>
+                    Subir
+                    {selectedCount > 0
+                      ? ` ${selectedCount} banner${selectedCount > 1 ? "s" : ""}`
+                      : ""}
+                  </>
+                )}
+              </button>
+              {selectedCount > 0 && !isSubmittingPrincipal ? (
+                <p className={styles.footerHint}>
+                  {selectedCount} de {TOTAL_SLOTS} banners seleccionados
+                </p>
+              ) : (
+                <p className={styles.footerHint}>
+                  Selecciona al menos un banner para habilitar la subida
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionIcon} aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M4 7h16M4 12h10M4 17h14" />
+              </svg>
+            </div>
+            <div>
+              <h2 className={styles.sectionTitle}>Banner de categoría</h2>
+              <p className={styles.sectionSubtitle}>
+                Actualiza el banner de una categoría específica
+              </p>
+            </div>
+          </div>
+
+          <div className={styles.sectionBody}>
+            <div className={styles.categoryRow}>
+              <div className={styles.categorySelect}>
+                <label className={styles.fieldLabel}>Categoría</label>
+                <select
+                  value={categorySlot.categoryId}
+                  onChange={(e) =>
+                    setCategorySlot((prev) => ({
+                      ...prev,
+                      categoryId: e.target.value,
+                      file: null,
+                      preview: (() => {
+                        if (prev.preview) URL.revokeObjectURL(prev.preview);
+                        return null;
+                      })(),
+                      status: "idle",
+                      error: null,
+                    }))
+                  }
+                  className={styles.select}
+                >
+                  <option value="" disabled>
+                    Selecciona una categoría
+                  </option>
+                  {BANNERS_X_CATEGORY.map((cat, index) => (
+                    <option key={index} value={cat.category}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.dropZoneWrap}>
+                <label className={styles.fieldLabel}>Nueva imagen</label>
+                <div
+                  onClick={() => categoryInputRef.current?.click()}
+                  className={`${styles.dropZone} ${
+                    categorySlot.preview ? styles.dropZoneActive : ""
+                  }`}
+                >
+                  {categorySlot.preview ? (
                     <Image
-                      src={slot.preview}
-                      alt={`Banner ${slotNumber}`}
+                      src={categorySlot.preview}
+                      alt="Preview nueva imagen"
                       fill
-                      priority
                       className={styles.thumbImg}
                     />
                   ) : (
-                    banners[index] && (
-                      <Image
-                        src={banners[index]}
-                        alt={`Banner ${slotNumber}`}
-                        fill
-                        priority
-                        className={styles.thumbImg}
-                      />
-                    )
+                    <div className={styles.dropPlaceholder}>
+                      <svg
+                        className={styles.dropIcon}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
+                      </svg>
+                      <p className={styles.dropText}>Haz clic para seleccionar</p>
+                      <p className={styles.dropHint}>Solo PNG</p>
+                    </div>
                   )}
                 </div>
 
-                <div className={styles.slotBody}>
-                  <div className={styles.slotHead}>
-                    <span className={styles.slotLabel}>Banner {slotNumber}</span>
-                    {isUploaded && <span className={styles.badgeSuccess}>✓ Subido</span>}
-                    {hasError && <span className={styles.badgeError}>Error</span>}
-                    {isSelected && !isUploaded && !hasError && (
-                      <span className={styles.badgeSelected}>Nueva imagen</span>
-                    )}
-                    {!isSelected && !isUploaded && !hasError && (
-                      <span className={styles.badgeIdle}>Actual</span>
-                    )}
-                  </div>
+                <input
+                  ref={categoryInputRef}
+                  type="file"
+                  accept="image/png"
+                  className={styles.hiddenInput}
+                  onChange={(e) =>
+                    handleCategoryFileChange(e.target.files?.[0] ?? null)
+                  }
+                />
 
-                  {slot.file && <p className={styles.fileName}>{slot.file.name}</p>}
-                  {slot.error && <p className={styles.errorText}>{slot.error}</p>}
-
-                  <div className={styles.slotActions}>
+                {categorySlot.file && (
+                  <div className={styles.fileRow}>
+                    <p className={styles.fileRowName}>{categorySlot.file.name}</p>
                     <button
                       type="button"
-                      onClick={() => fileInputRefs.current[index]?.click()}
-                      disabled={isSubmittingPrincipal}
-                      className={styles.replaceBtn}
+                      onClick={handleClearCategory}
+                      className={styles.removeFileBtn}
                     >
-                      <svg className={styles.iconSm} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                        <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
-                      </svg>
-                      {slot.file ? "Cambiar" : "Reemplazar"}
+                      Quitar
                     </button>
-                    {slot.file && (
-                      <button
-                        type="button"
-                        onClick={() => handleClear(index)}
-                        disabled={isSubmittingPrincipal}
-                        title="Quitar selección"
-                        className={styles.clearBtn}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-
-                  <input
-                    ref={(el) => { fileInputRefs.current[index] = el; }}
-                    type="file"
-                    accept="image/png"
-                    className={styles.hiddenInput}
-                    onChange={(e) => handleFileChange(index, e.target.files?.[0] ?? null)}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {principalMessage?.show && (
-          <div className={principalMessage.type === "success" ? styles.messageSuccess : styles.messageError}>
-            {principalMessage.text}
-          </div>
-        )}
-
-        <div className={styles.footer}>
-          <button
-            type="button"
-            onClick={handleSubmitPrincipal}
-            disabled={isSubmittingPrincipal || selectedCount === 0}
-            className={`admin-btn admin-btn--primary ${styles.btnRow}`}
-            style={{ padding: "10px 22px", margin: 0, minWidth: "220px" }}
-          >
-            {isSubmittingPrincipal ? (
-              <>
-                <svg className={styles.spinner} viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Subiendo...
-              </>
-            ) : (
-              <>
-                <svg className={styles.iconSm} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
-                </svg>
-                Subir
-                {selectedCount > 0 ? ` ${selectedCount} banner${selectedCount > 1 ? "s" : ""}` : ""}
-              </>
-            )}
-          </button>
-          {selectedCount > 0 && !isSubmittingPrincipal && (
-            <p className={styles.footerHint}>
-              {selectedCount} de {TOTAL_SLOTS} banners seleccionados
-            </p>
-          )}
-        </div>
-        </div>
-      </div>
-
-      <div className="admin-panel">
-        <div className="admin-panel__header">
-          <h2 className="admin-panel__title">Banner de categoría</h2>
-          <p className="admin-panel__subtitle">
-            Actualiza el banner de una categoría específica
-          </p>
-        </div>
-        <div className="admin-panel__body">
-          <div className={styles.categoryRow}>
-            <div className={styles.categorySelect}>
-              <label className={styles.fieldLabel}>Categoría</label>
-              <select
-                value={categorySlot.categoryId}
-                onChange={(e) =>
-                  setCategorySlot((prev) => ({
-                    ...prev,
-                    categoryId: e.target.value,
-                    file: null,
-                    preview: (() => {
-                      if (prev.preview) URL.revokeObjectURL(prev.preview);
-                      return null;
-                    })(),
-                    status: "idle",
-                    error: null,
-                  }))
-                }
-                className={styles.select}
-              >
-                <option value="" disabled>
-                  Selecciona una categoría
-                </option>
-                {BANNERS_X_CATEGORY.map((cat, index) => (
-                  <option key={index} value={cat.category}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={styles.dropZoneWrap}>
-              <label className={styles.fieldLabel}>Nueva imagen</label>
-              <div
-                onClick={() => categoryInputRef.current?.click()}
-                className={`${styles.dropZone} ${categorySlot.preview ? styles.dropZoneActive : ""}`}
-              >
-                {categorySlot.preview ? (
-                  <Image
-                    src={categorySlot.preview}
-                    alt="Preview nueva imagen"
-                    fill
-                    className={styles.thumbImg}
-                  />
-                ) : (
-                  <div className={styles.dropPlaceholder}>
-                    <svg className={styles.dropIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                      <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
-                    </svg>
-                    <p className={styles.dropText}>Haz clic para seleccionar</p>
-                    <p className={styles.dropHint}>Solo PNG</p>
                   </div>
                 )}
               </div>
+            </div>
 
-              <input
-                ref={categoryInputRef}
-                type="file"
-                accept="image/png"
-                className={styles.hiddenInput}
-                onChange={(e) => handleCategoryFileChange(e.target.files?.[0] ?? null)}
-              />
-
-              {categorySlot.file && (
-                <div className={styles.fileRow}>
-                  <p className={styles.fileRowName}>{categorySlot.file.name}</p>
-                  <button type="button" onClick={handleClearCategory} className={styles.removeFileBtn}>
-                    Quitar
-                  </button>
+            {categorySlot.categoryId && currentCategoryBannerUrl && (
+              <div className={styles.currentBanner}>
+                <div className={styles.currentThumb}>
+                  <Image
+                    src={currentCategoryBannerUrl}
+                    alt={`Banner actual — ${categorySlot.categoryId}`}
+                    fill
+                    className={styles.thumbImg}
+                  />
                 </div>
-              )}
-            </div>
-          </div>
-
-          {categorySlot.categoryId && currentCategoryBannerUrl && (
-            <div className={styles.currentBanner}>
-              <div className={styles.currentThumb}>
-                <Image
-                  src={currentCategoryBannerUrl}
-                  alt={`Banner actual — ${categorySlot.categoryId}`}
-                  fill
-                  className={styles.thumbImg}
-                />
+                <div>
+                  <p className={styles.currentLabel}>Banner actual</p>
+                  <p className={styles.currentHint}>
+                    Se reemplazará al subir la nueva imagen
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className={styles.currentLabel}>Banner actual</p>
-              </div>
-            </div>
-          )}
-
-          {categorySlot.error && (
-            <p className={styles.errorText}>{categorySlot.error}</p>
-          )}
-
-          {categoryMessage?.show && (
-            <div className={categoryMessage.type === "success" ? styles.messageSuccess : styles.messageError}>
-              {categoryMessage.text}
-            </div>
-          )}
-
-          <div className={styles.footer} style={{ paddingBottom: "1.25rem" }}>
-            <button
-              type="button"
-              onClick={handleSubmitCategory}
-              disabled={isSubmittingCategory || !categorySlot.file || !categorySlot.categoryId}
-              className={`admin-btn admin-btn--primary ${styles.btnRow}`}
-              style={{ padding: "10px 22px", margin: 0, minWidth: "220px" }}
-            >
-              {isSubmittingCategory ? (
-                <>
-                  <svg className={styles.spinner} viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Subiendo...
-                </>
-              ) : (
-                <>
-                  <svg className={styles.iconSm} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
-                  </svg>
-                  Subir banner de categoría
-                </>
-              )}
-            </button>
-
-            {!categorySlot.file && !categorySlot.categoryId && (
-              <p className={styles.footerHint}>
-                Selecciona una categoría e imagen para continuar
-              </p>
             )}
+
+            {categorySlot.error && (
+              <p className={styles.errorText}>{categorySlot.error}</p>
+            )}
+
+            {categoryMessage?.show && (
+              <div
+                className={
+                  categoryMessage.type === "success"
+                    ? styles.messageSuccess
+                    : styles.messageError
+                }
+              >
+                {categoryMessage.text}
+              </div>
+            )}
+
+            <div className={styles.footer}>
+              <button
+                type="button"
+                onClick={handleSubmitCategory}
+                disabled={
+                  isSubmittingCategory ||
+                  !categorySlot.file ||
+                  !categorySlot.categoryId
+                }
+                className={`${styles.submitBtn} ${styles.btnRow}`}
+              >
+                {isSubmittingCategory ? (
+                  <>
+                    <svg className={styles.spinner} viewBox="0 0 24 24" fill="none">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
+                    </svg>
+                    Subiendo...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className={styles.iconSm}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 8l4-4 4 4" />
+                    </svg>
+                    Subir banner de categoría
+                  </>
+                )}
+              </button>
+
+              {!categorySlot.file || !categorySlot.categoryId ? (
+                <p className={styles.footerHint}>
+                  Selecciona una categoría e imagen para continuar
+                </p>
+              ) : null}
+            </div>
           </div>
-        </div>
+        </section>
       </div>
     </AdminPageShell>
   );

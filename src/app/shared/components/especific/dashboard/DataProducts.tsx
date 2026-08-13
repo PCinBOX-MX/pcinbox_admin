@@ -232,29 +232,29 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
           item.description.trim() !== String(item.productName || "").trim();
 
 
-        // Obtener la imagen
         const imageUrl =
           (Array.isArray(item.image_url) ? item.image_url[0] : item.image_url) ||
           item.image ||
-          item.coverImage;
+          item.coverImage ||
+          "/imagen-no-encontrada.png";
 
         return (
           <article key={item.idShipment ?? index} className="admin-product-card">
             <header className="admin-product-card__header">
               <div className="admin-product-card__content">
-                {imageUrl ? (
-                  <div className="admin-product-card__image-container">
-                    <img
-                      src={imageUrl}
-                      alt={item.productName}
-                      className="admin-product-card__image"
-                    />
-                  </div>
-                ) : (
-                  <div className="admin-product-card__image-placeholder">
-                    <Package size={24} color="#9ca3af" />
-                  </div>
-                )}
+                <div className="admin-product-card__image-container">
+                  <img
+                    src={imageUrl}
+                    alt={item.productName}
+                    className="admin-product-card__image"
+                    onError={(event) => {
+                      const target = event.currentTarget;
+                      if (target.src.includes("imagen-no-encontrada.png"))
+                        return;
+                      target.src = "/imagen-no-encontrada.png";
+                    }}
+                  />
+                </div>
                 <div className="admin-product-card__title-wrap">
                   <span className="admin-product-card__index">
                     Producto {index + 1}
