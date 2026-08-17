@@ -221,27 +221,27 @@ const Proveedores = () => {
       paginationTop={totalItems > 0 ? paginationBlock : undefined}
       paginationBottom={totalItems > 0 ? paginationBlock : undefined}
     >
-      <div className="admin-products-grid">
-        {!dataProductProveedor.loading ? (
-          catalogProducts.length > 0 ? (
-            catalogProducts.map((product, index) => (
+      {!dataProductProveedor.loading ? (
+        catalogProducts.length > 0 ? (
+          <div className="admin-products-grid">
+            {catalogProducts.map((product, index) => (
               <CardComponent
                 key={`${product.idProduct}-${String(product.idProductExt ?? "")}-${product.sku ?? ""}-${index}`}
                 dataProduct={product}
               />
-            ))
-          ) : (
-            <div className="admin-empty-state w-full">
-              <Alert severity="info">Sin productos para mostrar</Alert>
-            </div>
-          )
-        ) : (
-          <div className="admin-empty-state w-full flex items-center justify-center gap-2">
-            <MdAutorenew size={20} className="the-spinner" />
-            <span>Cargando productos...</span>
+            ))}
           </div>
-        )}
-      </div>
+        ) : (
+          <div className="admin-empty-state w-full">
+            <Alert severity="info">Sin productos para mostrar</Alert>
+          </div>
+        )
+      ) : (
+        <div className="admin-empty-state w-full flex items-center justify-center gap-2">
+          <MdAutorenew size={20} className="the-spinner" />
+          <span>Cargando productos...</span>
+        </div>
+      )}
     </AdminPageShell>
   );
 };

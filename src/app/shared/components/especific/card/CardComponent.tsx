@@ -3,18 +3,7 @@
 import { useTheContext } from "@/app/hooks/global.hook";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import UtilsService from "@/app/services/utils";
-import {
-  Card,
-  CardActions,
-  CardContent,
-  Typography,
-} from "@mui/material";
-import {
-  MdAutorenew,
-  MdDownload,
-  MdEdit,
-  MdFileUpload,
-} from "react-icons/md";
+import { MdAutorenew, MdDownload, MdEdit, MdFileUpload } from "react-icons/md";
 import { Carousel } from "react-responsive-carousel";
 import FormProduct from "../FormProduct/FormProduct";
 import { MouseEvent, useState } from "react";
@@ -38,10 +27,8 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   const hasCatalogRecord =
     Number.isFinite(Number(dataProduct?.idProduct)) &&
     Number(dataProduct.idProduct) > 0;
-  /** Ya existió en sistema y solo está inactivo → reactivar (active=1). */
   const canReactivate =
     hasCatalogRecord && Number(dataProduct.active) === 0;
-  /** Primera alta (sin registro en catálogo). */
   const needsFirstAlta = !hasCatalogRecord;
   const needsAlta = canReactivate || needsFirstAlta;
   const isInSystem = hasCatalogRecord && Number(dataProduct.active) !== 0;
@@ -68,7 +55,6 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
   };
 
   const handleAltaProduct = async (dataProductProp: ProductsI) => {
-    // Producto ya en BD pero inactive: solo confirmar reactivación.
     if (
       Number.isFinite(Number(dataProductProp.idProduct)) &&
       Number(dataProductProp.idProduct) > 0 &&
@@ -151,7 +137,6 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
       return;
     }
 
-    // Primera alta: formulario con imágenes / datos.
     setDataModal({
       isOpen: true,
       title: "Dar de alta al sistema",
@@ -252,74 +237,76 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
     productImages.length > 0 ? productImages : [PRODUCT_IMAGE_FALLBACK];
   const hasRealImages = productImages.length > 0;
 
+  const actionsCount = (needsAlta ? 1 : 0) + (isInSystem ? 2 : 0);
+
   return (
-    <Card key={dataProduct.idProduct} className={styles.card} elevation={0}>
+    <article className={styles.card}>
       <div className={styles.media}>
-        <Carousel
-          showIndicators={hasRealImages && carouselImages.length > 1}
-          showThumbs={false}
-          showStatus={false}
-          showArrows={hasRealImages && carouselImages.length > 1}
-          swipeable={false}
-          emulateTouch={false}
-          infiniteLoop={hasRealImages && carouselImages.length > 1}
-          renderArrowPrev={renderArrowPrev}
-          renderArrowNext={renderArrowNext}
-        >
-          {carouselImages.map((img, i) => (
-            <div key={`${img}-${i}`} className={styles.carouselSlide}>
-              <img
-                src={img}
-                alt={dataProduct.name || "producto"}
-                loading="lazy"
-                onError={(event) => {
-                  const target = event.currentTarget;
-                  if (target.src.includes("imagen-no-encontrada.png")) return;
-                  target.src = PRODUCT_IMAGE_FALLBACK;
-                }}
-              />
-            </div>
-          ))}
-        </Carousel>
+        <div className={styles.cardHeader}>
+          <span className={`${styles.statusBadge} ${statusClass}`}>
+            {statusLabel}
+          </span>
+        </div>
+
+        <div className={styles.carouselWrapper}>
+          <Carousel
+            showIndicators={hasRealImages && carouselImages.length > 1}
+            showThumbs={false}
+            showStatus={false}
+            showArrows={hasRealImages && carouselImages.length > 1}
+            swipeable={false}
+            emulateTouch={false}
+            infiniteLoop={hasRealImages && carouselImages.length > 1}
+            renderArrowPrev={renderArrowPrev}
+            renderArrowNext={renderArrowNext}
+          >
+            {carouselImages.map((img, i) => (
+              <div key={`${img}-${i}`} className={styles.carouselSlide}>
+                <img
+                  src={img}
+                  alt={dataProduct.name || "producto"}
+                  loading="lazy"
+                  onError={(event) => {
+                    const target = event.currentTarget;
+                    if (target.src.includes("imagen-no-encontrada.png")) return;
+                    target.src = PRODUCT_IMAGE_FALLBACK;
+                  }}
+                />
+              </div>
+            ))}
+          </Carousel>
+        </div>
       </div>
 
-      <CardContent className={styles.body}>
-        <Typography
-          component="h3"
-          className={styles.title}
-          title={dataProduct.name}
-        >
+      <div className={styles.body}>
+        <h3 className={styles.title} title={dataProduct.name}>
           {dataProduct.name}
-        </Typography>
-
-        <span className={`${styles.statusBadge} ${statusClass}`}>
-          {statusLabel}
-        </span>
+        </h3>
 
         <div className={styles.metaRow}>
-          <Typography className={styles.metaLine}>
+          <p className={styles.metaLine}>
             <span className={styles.metaLabel}>SKU:</span>{" "}
             {dataProduct.sku || "—"}
-          </Typography>
+          </p>
 
           {dataProduct?.upc ? (
-            <Typography className={styles.metaLine}>
+            <p className={styles.metaLine}>
               <span className={styles.metaLabel}>UPC:</span> {dataProduct.upc}
-            </Typography>
+            </p>
           ) : null}
 
           {dataProduct?.idProductExt ? (
-            <Typography className={styles.metaLine}>
+            <p className={styles.metaLine}>
               <span className={styles.metaLabel}>Clave:</span>{" "}
               {dataProduct.idProductExt}
-            </Typography>
+            </p>
           ) : null}
         </div>
 
         <div className={styles.priceStockRow}>
-          <Typography className={styles.price}>
+          <span className={styles.price}>
             {formatCurrency(Number(dataProduct.price))}
-          </Typography>
+          </span>
           <div className={styles.stockRow}>
             <span
               className={`${styles.stockDot} ${stockDotClass}`}
@@ -328,116 +315,135 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             <span className={styles.stockText}>{stockLabel}</span>
           </div>
         </div>
-      </CardContent>
 
-      <CardActions className={styles.actions}>
-        {needsAlta ? (
-          <button
-            type="button"
-            disabled={loadingReactivateProduct}
-            onClick={() => {
-              handleAltaProduct(dataProduct);
-            }}
-            className="admin-btn-primary"
-            style={{ width: "100%", justifyContent: "center" }}
-            data-testid={
-              canReactivate
-                ? `reactivate-product-${dataProduct.idProduct}`
-                : `alta-product-${dataProduct.idProductExt || "new"}`
-            }
-          >
-            {loadingReactivateProduct ? (
-              <MdAutorenew
-                size={20}
-                className={`${styles.spinnerCenter} the-spinner`}
-              />
-            ) : (
-              <>
-                {canReactivate ? "Volver a Activar" : "Dar de alta al sistema"}
-                <MdFileUpload size={20} />
-              </>
-            )}
-          </button>
-        ) : null}
+        <div
+          className={`${styles.actions} ${
+            actionsCount <= 1 ? styles.actionsSingle : ""
+          }`}
+        >
+          {needsAlta ? (
+            <button
+              type="button"
+              disabled={loadingReactivateProduct}
+              onClick={() => {
+                handleAltaProduct(dataProduct);
+              }}
+              className={styles.actionBtn}
+              data-testid={
+                canReactivate
+                  ? `reactivate-product-${dataProduct.idProduct}`
+                  : `alta-product-${dataProduct.idProductExt || "new"}`
+              }
+            >
+              {loadingReactivateProduct ? (
+                <MdAutorenew
+                  size={16}
+                  className={`${styles.spinnerCenter} the-spinner`}
+                />
+              ) : (
+                <>
+                  {canReactivate ? "Volver a Activar" : "Dar de alta"}
+                  <MdFileUpload size={16} />
+                </>
+              )}
+            </button>
+          ) : null}
 
-        {isInSystem && (
-          <button
-            type="button"
-            className="admin-btn-secondary"
-            data-testid={`edit-product-${dataProduct.idProduct}`}
-            style={{
-              width: "100%",
-              justifyContent: "center",
-              background: "#f3f4f6",
-              color: "#374151",
-              border: "1px solid #d1d5db",
-            }}
-            onClick={() => {
-              handleEditProduct(dataProduct);
-            }}
-          >
-            Editar producto
-            <MdEdit size={20} />
-          </button>
-        )}
-        {isInSystem && (
-          <button
-            type="button"
-            disabled={loadingRemoveProduct}
-            data-testid={`remove-product-${dataProduct.idProduct}`}
-            className="admin-btn-primary"
-            style={{
-              width: "100%",
-              justifyContent: "center",
-              background: "linear-gradient(135deg, #1f2937 0%, #111827 100%)",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
-            }}
-            onClick={async () => {
-              setDataModal({
-                isOpen: true,
-                type: "info",
-                content: `¿Seguro que deseas dar de baja el producto ${dataProduct.name}?`,
-                showActions: true,
-                onClose: () => {
-                  setDataModal((prev) => ({ ...prev, isOpen: false }));
-                },
-                onConfirm: async () => {
-                  try {
-                    setLoadingRemoveProduct(true);
-                    setDataModal((prev) => ({ ...prev, loading: true }));
+          {isInSystem ? (
+            <button
+              type="button"
+              className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
+              data-testid={`edit-product-${dataProduct.idProduct}`}
+              onClick={() => {
+                handleEditProduct(dataProduct);
+              }}
+            >
+              Editar
+              <MdEdit size={16} />
+            </button>
+          ) : null}
 
-                    const resp = await requestPostProveedores(
-                      {
-                        idProduct: dataProduct.idProduct,
-                        idProductExt: dataProduct.idProductExt,
-                      },
-                      "/removeProductPcinbox",
-                    );
+          {isInSystem ? (
+            <button
+              type="button"
+              disabled={loadingRemoveProduct}
+              data-testid={`remove-product-${dataProduct.idProduct}`}
+              className={`${styles.actionBtn} ${styles.actionBtnDark}`}
+              onClick={async () => {
+                setDataModal({
+                  isOpen: true,
+                  type: "info",
+                  content: `¿Seguro que deseas dar de baja el producto ${dataProduct.name}?`,
+                  showActions: true,
+                  onClose: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                  onConfirm: async () => {
+                    try {
+                      setLoadingRemoveProduct(true);
+                      setDataModal((prev) => ({ ...prev, loading: true }));
 
-                    setLoadingRemoveProduct(false);
-                    setDataModal((prev) => ({ ...prev, loading: false }));
+                      const resp = await requestPostProveedores(
+                        {
+                          idProduct: dataProduct.idProduct,
+                          idProductExt: dataProduct.idProductExt,
+                        },
+                        "/removeProductPcinbox",
+                      );
 
-                    if (resp.status == 200) {
-                      setProductsProveedor((prev) => {
-                        const same = (item: ProductsI) =>
-                          Number(item.idProduct) ===
-                          Number(dataProduct.idProduct);
+                      setLoadingRemoveProduct(false);
+                      setDataModal((prev) => ({ ...prev, loading: false }));
 
-                        return {
-                          ...prev,
-                          data: prev.data.map((item) =>
-                            same(item) ? { ...item, active: 0 } : item,
-                          ),
-                          copyData: prev.copyData?.map((item) =>
-                            same(item) ? { ...item, active: 0 } : item,
-                          ),
-                        };
-                      });
+                      if (resp.status == 200) {
+                        setProductsProveedor((prev) => {
+                          const same = (item: ProductsI) =>
+                            Number(item.idProduct) ===
+                            Number(dataProduct.idProduct);
+
+                          return {
+                            ...prev,
+                            data: prev.data.map((item) =>
+                              same(item) ? { ...item, active: 0 } : item,
+                            ),
+                            copyData: prev.copyData?.map((item) =>
+                              same(item) ? { ...item, active: 0 } : item,
+                            ),
+                          };
+                        });
+                        setDataModal({
+                          isOpen: true,
+                          title: "Correcto",
+                          type: "success",
+                          content: "Producto dado de baja correctamente",
+                          showActions: false,
+                          onClose: () => {
+                            setDataModal((prev) => ({
+                              ...prev,
+                              isOpen: false,
+                            }));
+                          },
+                          onConfirm: () => {
+                            setDataModal((prev) => ({
+                              ...prev,
+                              isOpen: false,
+                            }));
+                          },
+                        });
+                        setTimeout(() => {
+                          setDataModal((prev) => ({
+                            ...prev,
+                            isOpen: false,
+                          }));
+                        }, 1500);
+                      }
+                    } catch (error) {
+                      setLoadingRemoveProduct(false);
                       setDataModal({
                         isOpen: true,
-                        title: "Correcto",
-                        type: "success",
-                        content: "Producto dado de baja correctamente",
+                        title: "Error",
+                        type: "error",
+                        content:
+                          "Ocurrió un error al intentar dar de baja el producto.",
                         showActions: false,
                         onClose: () => {
                           setDataModal((prev) => ({
@@ -456,46 +462,27 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                         setDataModal((prev) => ({ ...prev, isOpen: false }));
                       }, 1500);
                     }
-                  } catch (error) {
-                    setLoadingRemoveProduct(false);
-                    setDataModal({
-                      isOpen: true,
-                      title: "Error",
-                      type: "error",
-                      content:
-                        "Ocurrió un error al intentar dar de baja el producto.",
-                      showActions: false,
-                      onClose: () => {
-                        setDataModal((prev) => ({ ...prev, isOpen: false }));
-                      },
-                      onConfirm: () => {
-                        setDataModal((prev) => ({ ...prev, isOpen: false }));
-                      },
-                    });
-                    setTimeout(() => {
-                      setDataModal((prev) => ({ ...prev, isOpen: false }));
-                    }, 1500);
-                  }
-                },
-                title: "Cuidado",
-              });
-            }}
-          >
-            {loadingRemoveProduct ? (
-              <MdAutorenew
-                size={20}
-                className={`${styles.spinnerCenter} the-spinner`}
-              />
-            ) : (
-              <>
-                Dar de baja del sistema
-                <MdDownload size={20} />
-              </>
-            )}
-          </button>
-        )}
-      </CardActions>
-    </Card>
+                  },
+                  title: "Cuidado",
+                });
+              }}
+            >
+              {loadingRemoveProduct ? (
+                <MdAutorenew
+                  size={16}
+                  className={`${styles.spinnerCenter} the-spinner`}
+                />
+              ) : (
+                <>
+                  Dar de baja
+                  <MdDownload size={16} />
+                </>
+              )}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </article>
   );
 };
 

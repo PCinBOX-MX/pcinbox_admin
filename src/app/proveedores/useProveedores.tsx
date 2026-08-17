@@ -84,7 +84,6 @@ const useProveedores = () => {
         const resp = await requestPostProveedores(
           { idProveedor, page, pageSize, search },
           "/getProductsByProveedor",
-          { silent: true },
         );
         setProductsProveedor((prev) => ({ ...prev, loading: false }));
 
