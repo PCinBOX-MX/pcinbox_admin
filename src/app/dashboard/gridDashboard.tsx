@@ -21,7 +21,9 @@ import { Mail } from "lucide-react";
 import { useTheContext } from "../hooks/global.hook";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import DataProducts from "../shared/components/especific/dashboard/DataProducts";
-import TechsmartOrderPanel from "../shared/components/especific/dashboard/TechsmartOrderPanel";
+// TechSmart WS bloqueado: no montar panel (generar pedido / vincular guía / facturar).
+// Quedan los selects de "Estado de envío" en DataProducts.
+// import TechsmartOrderPanel from "../shared/components/especific/dashboard/TechsmartOrderPanel";
 import {
   formatOrderMoney,
   getAdminOrderCostBreakdown,
@@ -225,7 +227,9 @@ const GridDashboard = ({
                           })()}
                         </section>
                       ) : null}
-                      {orderRow?.hasTechsmartProducts && can("techsmart.manage") && (
+                      {/* TechSmart WS bloqueado: deshabilitado generar pedido / vincular guía / facturar.
+                          El estatus de entrega se sigue manejando abajo en DataProducts. */}
+                      {/* {orderRow?.hasTechsmartProducts && can("techsmart.manage") && (
                         <section className="admin-order-products-modal__techsmart">
                           <h3 className="admin-order-products-modal__section-title">
                             Gestión TechSmart
@@ -250,7 +254,7 @@ const GridDashboard = ({
                             }}
                           />
                         </section>
-                      )}
+                      )} */}
                       <section className="admin-order-products-modal__list">
                         <h3 className="admin-order-products-modal__section-title">
                           {orderRow?.products?.length === 1
