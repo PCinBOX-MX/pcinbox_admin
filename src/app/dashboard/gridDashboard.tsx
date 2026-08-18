@@ -128,14 +128,31 @@ const GridDashboard = ({
       {
         field: "dataUser",
         headerName: "Datos cliente",
-        flex: 0.95,
-        minWidth: 105,
+        flex: 1.15,
+        minWidth: 140,
         ...centeredColumn,
 
         renderCell: (params) => {
+          const user = params.value;
+          const accountPhone = String(user?.phone ?? "").trim();
+          const deliveryPhones = Array.from(
+            new Set(
+              [
+                ...(Array.isArray(user?.addressPhones) ? user.addressPhones : []),
+                user?.phone1,
+                user?.phone2,
+              ]
+                .map((phone) => String(phone ?? "").trim())
+                .filter(Boolean),
+            ),
+          ).filter(
+            (phone) =>
+              phone.replace(/\s+/g, "") !== accountPhone.replace(/\s+/g, ""),
+          );
+
           return (
             <div
-              className={styles.cell}
+              className={`${styles.cell} ${styles.cellCol}`}
               style={{
                 padding: "10px",
               }}
@@ -157,8 +174,16 @@ const GridDashboard = ({
               }}
             >
               <span className={styles.cellTextMuted}>
-                {params.value?.name}
+                {user?.name}
               </span>
+              {accountPhone ? (
+                <span className={styles.cellPhone}>{accountPhone}</span>
+              ) : null}
+              {deliveryPhones.map((phone) => (
+                <span key={phone} className={styles.cellPhone}>
+                  {phone}
+                </span>
+              ))}
             </div>
           );
         },

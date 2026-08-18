@@ -21,8 +21,10 @@ export interface SalesI {
     name: string;
     lastName: any;
     email: string;
+    phone?: string | null;
     phone1: any;
     phone2: any;
+    addressPhones?: string[];
   };
   method_pay: any;
   idUser: any;
@@ -50,7 +52,10 @@ export interface SalesI {
       shippingCost?: number;
       insuranceCost?: number;
       trackingNumber: any;
+      phone1?: string | null;
+      phone2?: string | null;
       branche: any;
+      originBranche?: string | null;
     };
   }[];
   totalAmount: any;

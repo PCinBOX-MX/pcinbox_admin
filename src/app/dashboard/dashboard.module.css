@@ -29,6 +29,17 @@
   color: #808080;
 }
 
+.cellPhone {
+  display: block;
+  margin-top: 0.15rem;
+  text-align: center;
+  color: #4b5563;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  font-weight: 600;
+  white-space: normal;
+}
+
 .orderCostHint {
   display: block;
   margin-top: 0.2rem;

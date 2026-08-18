@@ -18,8 +18,15 @@ export function CustomerDetailsContent({ data }: { data: any }) {
         fullWidth
       />
       <ModalDetailField label="Correo electrónico" value={data.email} />
-      <ModalDetailField label="Teléfono principal" value={data.phone1} />
-      <ModalDetailField label="Teléfono secundario" value={data.phone2} />
+      <ModalDetailField label="Teléfono de la cuenta" value={data.phone} />
+      <ModalDetailField
+        label="Teléfono de entrega"
+        value={data.phone1}
+      />
+      <ModalDetailField
+        label="Teléfono de entrega 2"
+        value={data.phone2}
+      />
     </ModalDetailGrid>
   );
 }

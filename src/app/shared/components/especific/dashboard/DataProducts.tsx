@@ -8,8 +8,8 @@ import {
   MenuItem,
   Select,
   Chip,
-  Skeleton,
   Divider,
+  Tooltip,
 } from "@mui/material";
 import {
   getProviderLabel,
@@ -46,14 +46,78 @@ type BranchOption = {
 let dicotechBranchesCache: BranchOption[] | null = null;
 
 const SHIPPING_LABELS: Record<string, string> = {
+  sucursal: "Recoger en sucursal",
+  sucursalExt: "Recoger en sucursal",
   estafeta: "Estafeta",
   paqueteexpress: "Paquete Express",
   envioLeon: "Envío personalizado PCinBOX",
   digital: "Entrega digital",
 };
 
+const PICKUP_SHIPPING_METHODS = new Set(["sucursal", "sucursalext"]);
+const HOME_DELIVERY_SHIPPING_METHODS = new Set([
+  "envioleon",
+  "estafeta",
+  "paqueteexpress",
+]);
+const PICKUP_BRANCH_DISPLAY = "PCinBOX-León";
+const TERMINAL_SHIP_STATUSES = new Set(["entregado", "cancelado"]);
+const LOCKED_SHIP_STATUS_TOOLTIP =
+  "Al tener estatus Entregado o Cancelado ya no se puede cambiar el estatus";
+
+function normalizeShippingMethod(method?: string | null): string {
+  return String(method ?? "").trim();
+}
+
+function shippingMethodKey(method?: string | null): string {
+  return normalizeShippingMethod(method).toLowerCase();
+}
+
+function isPickupShippingMethod(method?: string | null): boolean {
+  return PICKUP_SHIPPING_METHODS.has(shippingMethodKey(method));
+}
+
+function isHomeDeliveryShippingMethod(method?: string | null): boolean {
+  return HOME_DELIVERY_SHIPPING_METHODS.has(shippingMethodKey(method));
+}
+
 function isDigitalShippingMethod(method?: string | null): boolean {
-  return String(method ?? "").toLowerCase() === "digital";
+  return shippingMethodKey(method) === "digital";
+}
+
+function isTerminalShipStatus(status?: string | null): boolean {
+  return TERMINAL_SHIP_STATUSES.has(String(status ?? "").toLowerCase());
+}
+
+function looksLikePickupBranch(name?: string | null): boolean {
+  const normalized = String(name ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+  return (
+    normalized.includes("leon") ||
+    normalized.includes("león") ||
+    normalized === "pcinbox-leon"
+  );
+}
+
+function getShippingLabel(method?: string | null): string | null {
+  const raw = normalizeShippingMethod(method);
+  if (!raw) return null;
+  if (SHIPPING_LABELS[raw]) return SHIPPING_LABELS[raw];
+  const match = Object.entries(SHIPPING_LABELS).find(
+    ([key]) => key.toLowerCase() === raw.toLowerCase(),
+  );
+  return match?.[1] ?? null;
+}
+
+function hasAddressLines(address: any): boolean {
+  return Boolean(
+    address?.street ||
+      address?.noExt ||
+      address?.cologne ||
+      address?.cp ||
+      address?.city,
+  );
 }
 
 function isLicenseProduct(item: any): boolean {
@@ -81,7 +145,6 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
   const [dicotechBranches, setDicotechBranches] = useState<BranchOption[]>(
     dicotechBranchesCache ?? [],
   );
-  const [branchesLoading, setBranchesLoading] = useState(!dicotechBranchesCache);
 
   useEffect(() => {
     setProducts(params.value || []);
@@ -90,7 +153,6 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
   useEffect(() => {
     if (dicotechBranchesCache) {
       setDicotechBranches(dicotechBranchesCache);
-      setBranchesLoading(false);
       return;
     }
 
@@ -108,8 +170,6 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
         }
       } catch {
         // Fallback silencioso
-      } finally {
-        if (!cancelled) setBranchesLoading(false);
       }
     })();
 
@@ -215,17 +275,34 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
               ? "info"
               : "default";
 
-        const isDigital = isDigitalDeliveryProduct(item);
-        const hasStreetAddress = !isDigital && item.address?.street != null;
-        const branchName = isDigital
-          ? null
-          : item.address?.branche ||
-            branchNameByStoreId.get(Number(item.address?.storeId)) ||
-            (branchesLoading ? null : "PCinBOX-LEON");
+        const shippingMethod =
+          item.address?.shipping_method ?? item.shipping_method ?? null;
+        const isDigital = isDigitalShippingMethod(shippingMethod);
+        const isPickup = isPickupShippingMethod(shippingMethod);
+        const isHomeDelivery = isHomeDeliveryShippingMethod(shippingMethod);
+        const originBranchName =
+          isDigital || isHomeDelivery
+            ? null
+            : item.address?.originBranche ||
+              item.address?.branche ||
+              branchNameByStoreId.get(Number(item.address?.storeId)) ||
+              null;
+        const branchName = isPickup ? PICKUP_BRANCH_DISPLAY : null;
+        const showOriginWarehouseTag =
+          isPickup &&
+          Boolean(originBranchName) &&
+          !looksLikePickupBranch(originBranchName);
+        const shipStatusLocked = isTerminalShipStatus(item.statusShip);
+        const shippingLabel = getShippingLabel(shippingMethod);
+        const showAddress = isHomeDelivery;
 
-        const shippingLabel =
-          SHIPPING_LABELS[item.address?.shipping_method] ??
-          (item.address?.shipping_method ? "Desconocido" : null);
+        const deliveryTypeValue = isDigital
+          ? "Entrega digital (clave por correo)"
+          : isPickup
+            ? `Sucursal — ${PICKUP_BRANCH_DISPLAY}`
+            : isHomeDelivery
+              ? shippingLabel || "Domicilio"
+              : shippingLabel || "—";
 
         const showDescription =
           item.description &&
@@ -308,15 +385,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
             >
               <ModalDetailField
                 label="Tipo de entrega"
-                value={
-                  isDigital
-                    ? "Entrega digital (clave por correo)"
-                    : hasStreetAddress
-                      ? "Domicilio"
-                      : branchName
-                        ? `Sucursal — ${branchName}`
-                        : "Sucursal"
-                }
+                value={deliveryTypeValue}
                 fullWidth
               />
 
@@ -354,21 +423,27 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                 </Alert>
               ) : null}
 
-              {hasStreetAddress ? (
+              {showAddress ? (
                 <div className="admin-product-card__address">
                   <MapPin size={15} className="admin-product-card__address-icon" />
                   <div className="admin-product-card__address-lines">
-                    <span>
-                      {item.address.street} #{item.address.noExt}
-                      {item.address.noInt ? ` Int. ${item.address.noInt}` : ""}
-                    </span>
-                    <span>
-                      CP {item.address.cp} · {item.address.cologne}
-                    </span>
-                    <span>
-                      {item.address.city}, {item.address.state},{" "}
-                      {item.address.country}
-                    </span>
+                    {hasAddressLines(item.address) ? (
+                      <>
+                        <span>
+                          {item.address.street} #{item.address.noExt}
+                          {item.address.noInt ? ` Int. ${item.address.noInt}` : ""}
+                        </span>
+                        <span>
+                          CP {item.address.cp} · {item.address.cologne}
+                        </span>
+                        <span>
+                          {item.address.city}, {item.address.state},{" "}
+                          {item.address.country}
+                        </span>
+                      </>
+                    ) : (
+                      <span>Sin dirección registrada</span>
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -396,14 +471,17 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                   </span>
                 ) : null}
 
-                {!isDigital && branchName ? (
+                {!isDigital && isPickup && branchName ? (
                   <span className="admin-product-card__tag">
                     <Store size={14} />
-                    {branchesLoading && !item.address?.branche ? (
-                      <Skeleton width={80} height={16} />
-                    ) : (
-                      `Sucursal ${branchName}`
-                    )}
+                    {`Sucursal ${branchName}`}
+                  </span>
+                ) : null}
+
+                {showOriginWarehouseTag ? (
+                  <span className="admin-product-card__tag">
+                    <Package size={14} />
+                    Almacén proveedor: {originBranchName}
                   </span>
                 ) : null}
 
@@ -426,29 +504,36 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                   {isDigital ? "Estado de entrega digital" : "Estado de envío"}
                 </label>
                 <FormControl fullWidth size="small">
-                  <Select
-                    id={`ship-status-${item.idShipment}`}
-                    value={item.statusShip ?? "procesando"}
-                    onChange={(e) => handleChange(e, item.idShipment)}
-                    disabled={["entregado", "cancelado"].includes(
-                      String(item.statusShip || "").toLowerCase(),
-                    )}
-                    sx={{
-                      borderRadius: "12px",
-                      bgcolor: "#fff",
-                      fontWeight: 600,
-                    }}
+                  <Tooltip
+                    title={shipStatusLocked ? LOCKED_SHIP_STATUS_TOOLTIP : ""}
+                    placement="top"
+                    arrow
                   >
-                    <MenuItem value="procesando">Procesando</MenuItem>
-                    {!isDigital ? (
-                      <MenuItem value="disponible">Disponible</MenuItem>
-                    ) : null}
-                    {!isDigital ? (
-                      <MenuItem value="enviado">Enviado</MenuItem>
-                    ) : null}
-                    <MenuItem value="entregado">Entregado</MenuItem>
-                    <MenuItem value="cancelado">Cancelado</MenuItem>
-                  </Select>
+                    <span style={{ display: "block" }}>
+                      <Select
+                        id={`ship-status-${item.idShipment}`}
+                        value={item.statusShip ?? "procesando"}
+                        onChange={(e) => handleChange(e, item.idShipment)}
+                        disabled={shipStatusLocked}
+                        sx={{
+                          borderRadius: "12px",
+                          bgcolor: "#fff",
+                          fontWeight: 600,
+                          width: "100%",
+                        }}
+                      >
+                        <MenuItem value="procesando">Procesando</MenuItem>
+                        {!isDigital ? (
+                          <MenuItem value="disponible">Disponible</MenuItem>
+                        ) : null}
+                        {!isDigital ? (
+                          <MenuItem value="enviado">Enviado</MenuItem>
+                        ) : null}
+                        <MenuItem value="entregado">Entregado</MenuItem>
+                        <MenuItem value="cancelado">Cancelado</MenuItem>
+                      </Select>
+                    </span>
+                  </Tooltip>
                 </FormControl>
               </div>
 

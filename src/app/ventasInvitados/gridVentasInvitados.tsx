@@ -9,6 +9,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  Tooltip,
 } from "@mui/material";
 //  import useDashboard from "./useDashboard";
 import { useMemo } from "react";
@@ -302,26 +303,41 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
               <div className={gridStyles.cellStack}>
                 <span>Estatus Envío</span>
                 <FormControl fullWidth>
-                  <Select
-                    labelId="demo-simple-select-label"
-                    id="demo-simple-select"
-                    value={currentStatusShip || ""}
-                    disabled={["entregado", "cancelado"].includes(
-                      String(currentStatusShip || "").toLowerCase(),
-                    )}
-                    onChange={(event) => {
-                      handleChangeStatusShip(
-                        params?.row?.id,
-                        event.target.value,
-                      );
-                    }}
+                  <Tooltip
+                    title={
+                      ["entregado", "cancelado"].includes(
+                        String(currentStatusShip || "").toLowerCase(),
+                      )
+                        ? "Al tener estatus Entregado o Cancelado ya no se puede cambiar el estatus"
+                        : ""
+                    }
+                    placement="top"
+                    arrow
                   >
-                    <MenuItem value={"entregado"}>Entregado</MenuItem>
-                    <MenuItem value={"cancelado"}>Cancelado</MenuItem>
-                    <MenuItem value={"enviado"}>Enviado</MenuItem>
-                    <MenuItem value={"procesando"}>Procesando</MenuItem>
-                    <MenuItem value={"disponible"}>Disponible</MenuItem>
-                  </Select>
+                    <span>
+                      <Select
+                        labelId="demo-simple-select-label"
+                        id="demo-simple-select"
+                        value={currentStatusShip || ""}
+                        disabled={["entregado", "cancelado"].includes(
+                          String(currentStatusShip || "").toLowerCase(),
+                        )}
+                        onChange={(event) => {
+                          handleChangeStatusShip(
+                            params?.row?.id,
+                            event.target.value,
+                          );
+                        }}
+                        sx={{ width: "100%" }}
+                      >
+                        <MenuItem value={"entregado"}>Entregado</MenuItem>
+                        <MenuItem value={"cancelado"}>Cancelado</MenuItem>
+                        <MenuItem value={"enviado"}>Enviado</MenuItem>
+                        <MenuItem value={"procesando"}>Procesando</MenuItem>
+                        <MenuItem value={"disponible"}>Disponible</MenuItem>
+                      </Select>
+                    </span>
+                  </Tooltip>
                 </FormControl>
               </div>
 
