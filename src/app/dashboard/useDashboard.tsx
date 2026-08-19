@@ -110,7 +110,7 @@ const useDashboard = () => {
 
   const handleChangeStatusShip = async (
     event: any,
-    idShipment: number,
+    idSale: number,
     idUser: any,
   ) => {
     if (!can("orders.update_status_ship")) {
@@ -143,22 +143,21 @@ const useDashboard = () => {
 
     try {
       const resp = await requestPostPagos(
-        { idShipment: Number(idShipment), status: nextStatus, idUser },
+        { idSale: Number(idSale), status: nextStatus, idUser },
         "/openpay/updateStatusShipByOrden",
         { silent: true },
       );
 
       if (resp.status == 200) {
+        const updatedIdSale = Number(resp.data?.data?.data?.idSale ?? idSale);
+        const updatedStatus = resp.data?.data?.data?.status ?? nextStatus;
         setRowsVentas((prev) => ({
           ...prev,
           data: prev.data.map((order) => ({
             ...order,
             products: order.products.map((product) => {
-              if (
-                Number(product.idShipment) ===
-                Number(resp.data.data.data.idShipment)
-              ) {
-                return { ...product, statusShip: resp.data.data.data.status };
+              if (Number(product.idSale) === updatedIdSale) {
+                return { ...product, statusShip: updatedStatus };
               }
               return product;
             }),

@@ -139,7 +139,11 @@ function isDigitalDeliveryProduct(item: any): boolean {
   );
 }
 
-const DataProducts = ({ params, handleChangeStatusShip }: any) => {
+const DataProducts = ({
+  params,
+  handleChangeStatusShip,
+  onSaleLicenseDelivered,
+}: any) => {
   const { requestGetProveedores } = ProveedoresUtils();
 
   const [products, setProducts] = useState(params.value || []);
@@ -190,14 +194,14 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
     return map;
   }, [dicotechBranches]);
 
-  const handleProductStatusChange = (event: any, idShipment: number) => {
+  const handleProductStatusChange = (event: any, idSale: number) => {
     const newProducts = products.map((p: any) =>
-      p.idShipment === idShipment
+      Number(p.idSale) === Number(idSale)
         ? { ...p, statusShip: event.target.value }
         : p,
     );
     setProducts(newProducts);
-    handleChangeStatusShip(event, idShipment, params.row.idUser);
+    handleChangeStatusShip(event, idSale, params.row.idUser);
   };
 
   const markSaleDelivered = (idSale: number, nextStatus: "entregado") => {
@@ -212,6 +216,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
           : p,
       ),
     );
+    onSaleLicenseDelivered?.(idSale, params.row?.idOrder, nextStatus);
   };
 
   if (!products?.length) {
@@ -523,7 +528,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
               </div>
 
               <div className="admin-product-card__status">
-                <label htmlFor={`ship-status-${item.idShipment}`}>
+                <label htmlFor={`ship-status-${item.idSale ?? item.idShipment}`}>
                   {isDigital ? "Estado de entrega digital" : "Estado de envío"}
                 </label>
                 <FormControl fullWidth size="small">
@@ -534,12 +539,12 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                   >
                     <span style={{ display: "block" }}>
                       <Select
-                        id={`ship-status-${item.idShipment}`}
+                        id={`ship-status-${item.idSale ?? item.idShipment}`}
                         value={item.statusShip ?? "procesando"}
                         onChange={(e) =>
-                          handleProductStatusChange(e, item.idShipment)
+                          handleProductStatusChange(e, Number(item.idSale))
                         }
-                        disabled={shipStatusLocked}
+                        disabled={shipStatusLocked || !item.idSale}
                         sx={{
                           borderRadius: "12px",
                           bgcolor: "#fff",

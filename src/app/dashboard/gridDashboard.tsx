@@ -358,6 +358,28 @@ const GridDashboard = ({
                             row: orderRow || params.row,
                           }}
                           handleChangeStatusShip={handleChangeStatusShip}
+                          onSaleLicenseDelivered={(idSale, idOrder) => {
+                            setRowsVentas((prev) => ({
+                              ...prev,
+                              data: prev.data.map((order) =>
+                                order.idOrder === idOrder
+                                  ? {
+                                      ...order,
+                                      products: order.products.map((product) =>
+                                        Number(product.idSale) === Number(idSale)
+                                          ? {
+                                              ...product,
+                                              statusShip: "entregado",
+                                              licenseDeliveredAt:
+                                                new Date().toISOString(),
+                                            }
+                                          : product,
+                                      ),
+                                    }
+                                  : order,
+                              ),
+                            }));
+                          }}
                         />
                       </section>
                       {can("orders.cancel") && (
