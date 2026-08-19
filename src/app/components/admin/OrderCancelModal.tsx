@@ -1,6 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { CanCancelOrderResult } from "@/app/types/orderCancellation";
 
 type Props = {
@@ -14,6 +24,13 @@ type Props = {
   }) => void;
 };
 
+const OVERRIDE_FORBIDDEN_CODES = new Set([
+  "TECHSMART_WINDOW",
+  "TECHSMART_SENT",
+  "SHIPMENT_STATUS",
+  "DICOTECH_PROCESSING",
+]);
+
 export default function OrderCancelModal({
   idOrder,
   eligibility,
@@ -26,13 +43,11 @@ export default function OrderCancelModal({
   const [error, setError] = useState("");
 
   const blocked = eligibility != null && !eligibility.canCancel;
-  const overrideForbidden =
-    eligibility?.code === "TECHSMART_WINDOW" ||
-    eligibility?.code === "TECHSMART_SENT" ||
-    // Enviado / entregado / listo para recoger: no override ni reembolso automático.
-    eligibility?.code === "SHIPMENT_STATUS" ||
-    eligibility?.code === "DICOTECH_PROCESSING";
-  const needsOverride = blocked && canOverride && !overrideForbidden;
+  const overrideForbidden = OVERRIDE_FORBIDDEN_CODES.has(
+    eligibility?.code ?? "",
+  );
+  const canTryOverride = blocked && canOverride && !overrideForbidden;
+  const hardBlocked = blocked && !canTryOverride;
 
   const handleSubmit = () => {
     if (!reason.trim()) {
@@ -43,7 +58,7 @@ export default function OrderCancelModal({
     if (blocked && !manualOverride) {
       setError(
         eligibility?.reason ||
-          "Esta orden no puede cancelarse con las reglas normales.",
+          "Activa el override manual para continuar con esta cancelación.",
       );
       return;
     }
@@ -54,84 +69,143 @@ export default function OrderCancelModal({
     });
   };
 
+  const formDisabled = canTryOverride && !manualOverride;
+  const confirmDisabled = !reason.trim() || (canTryOverride && !manualOverride);
+
+  if (hardBlocked) {
+    return (
+      <Box
+        sx={{
+          width: "100%",
+          minWidth: { xs: "100%", sm: 420 },
+          textAlign: "left",
+        }}
+      >
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Orden{" "}
+          <Box component="span" fontWeight={700} color="text.primary">
+            #{idOrder}
+          </Box>
+        </Typography>
+
+        <Alert severity="warning" sx={{ mb: 2, textAlign: "left" }}>
+          {eligibility?.reason ||
+            "Esta orden no puede cancelarse en este momento."}
+        </Alert>
+
+        <Typography variant="body2" color="text.secondary">
+          Cuando el envío ya está en proceso, la cancelación automática no está
+          disponible. Revisa el estado del pedido o contacta soporte si necesitas
+          ayuda operativa.
+        </Typography>
+
+        <Stack
+          direction="row"
+          justifyContent="flex-end"
+          spacing={1.5}
+          sx={{ mt: 3, pt: 1 }}
+        >
+          <Button variant="contained" onClick={onCancel}>
+            Entendido
+          </Button>
+        </Stack>
+      </Box>
+    );
+  }
+
   return (
-    <div className="order-cancel-modal">
-      <p className="order-cancel-modal__intro">
+    <Box
+      sx={{
+        width: "100%",
+        minWidth: { xs: "100%", sm: 440 },
+        textAlign: "left",
+      }}
+    >
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Vas a cancelar la orden{" "}
-        <strong className="order-cancel-modal__order-id">#{idOrder}</strong>.
-        Se intentará reembolso si el pago ya fue capturado.
-      </p>
+        <Box component="span" fontWeight={700} color="text.primary">
+          #{idOrder}
+        </Box>
+        . Se intentará reembolso si el pago ya fue capturado.
+      </Typography>
 
-      {eligibility?.reason && blocked && !manualOverride ? (
-        <div className="order-cancel-modal__alert" role="status">
+      {canTryOverride && eligibility?.reason ? (
+        <Alert severity="info" sx={{ mb: 2, textAlign: "left" }}>
           {eligibility.reason}
-        </div>
+        </Alert>
       ) : null}
 
-      {needsOverride ? (
-        <label className="order-cancel-modal__override">
-          <input
-            type="checkbox"
-            className="order-cancel-modal__override-input"
-            checked={manualOverride}
-            onChange={(e) => {
-              setManualOverride(e.target.checked);
-              if (e.target.checked) setError("");
-            }}
-          />
-          <span className="order-cancel-modal__override-text">
-            <strong>Override manual</strong> — solo para casos operativos
-            excepcionales. No aplica si el envío ya fue enviado/entregado, si
-            hay licencia digital entregada, Dicotech en surtido, plazo TechSmart
-            vencido o TechSmart ya recibió el pedido.
-          </span>
-        </label>
-      ) : null}
-
-      <div className="order-cancel-modal__field">
-        <label
-          className="order-cancel-modal__label"
-          htmlFor={`cancel-reason-${idOrder}`}
-        >
-          Motivo de la cancelación *
-        </label>
-        <textarea
-          id={`cancel-reason-${idOrder}`}
-          className={`order-cancel-modal__textarea${
-            error ? " order-cancel-modal__textarea--error" : ""
-          }`}
-          placeholder="Describe por qué se cancela esta orden..."
-          rows={4}
-          value={reason}
-          onChange={(e) => {
-            setReason(e.target.value);
-            if (e.target.value.trim()) setError("");
+      {canTryOverride ? (
+        <FormControlLabel
+          sx={{
+            mb: 2,
+            alignItems: "flex-start",
+            mx: 0,
+            "& .MuiCheckbox-root": { pt: 0.25 },
           }}
+          control={
+            <Checkbox
+              checked={manualOverride}
+              onChange={(event) => {
+                setManualOverride(event.target.checked);
+                if (event.target.checked) setError("");
+              }}
+            />
+          }
+          label={
+            <Typography variant="body2" color="text.secondary">
+              <Box component="span" fontWeight={700} color="text.primary">
+                Override manual
+              </Box>{" "}
+              — solo para casos operativos excepcionales. No aplica si el envío
+              ya fue enviado o entregado, hay licencia digital entregada, Dicotech
+              en surtido o TechSmart fuera de plazo.
+            </Typography>
+          }
         />
-        {error ? (
-          <span className="order-cancel-modal__error" role="alert">
-            {error}
-          </span>
-        ) : null}
-      </div>
+      ) : null}
 
-      <div className="order-cancel-modal__actions">
-        <button
-          type="button"
-          className="admin-btn admin-btn--secondary order-cancel-modal__btn"
-          onClick={onCancel}
-        >
+      <TextField
+        fullWidth
+        multiline
+        minRows={4}
+        id={`cancel-reason-${idOrder}`}
+        label="Motivo de la cancelación"
+        required
+        placeholder="Describe por qué se cancela esta orden..."
+        value={reason}
+        disabled={formDisabled}
+        error={Boolean(error)}
+        helperText={
+          error ||
+          (formDisabled
+            ? "Activa el override manual para escribir el motivo."
+            : "Obligatorio para registrar la cancelación.")
+        }
+        onChange={(event) => {
+          setReason(event.target.value);
+          if (event.target.value.trim()) setError("");
+        }}
+      />
+
+      <Stack
+        direction={{ xs: "column-reverse", sm: "row" }}
+        justifyContent="flex-end"
+        spacing={1.5}
+        sx={{ mt: 3, pt: 1 }}
+      >
+        <Button variant="outlined" color="inherit" onClick={onCancel}>
           Cerrar
-        </button>
-        <button
-          type="button"
-          className="admin-btn admin-btn--primary order-cancel-modal__btn order-cancel-modal__btn--confirm"
-          disabled={blocked && (!canOverride || overrideForbidden)}
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          disabled={confirmDisabled}
           onClick={handleSubmit}
         >
           Confirmar cancelación
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Stack>
+    </Box>
   );
 }

@@ -1,6 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import {
+  Box,
+  Button,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import UtilsService from "@/app/services/utils";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
@@ -45,56 +52,49 @@ const CancelModalContent = ({
   };
 
   return (
-    <div className="order-cancel-modal">
-      <p className="order-cancel-modal__intro">
-        ¿Estás seguro de cambiar el estatus de la reserva{" "}
-        <strong className="order-cancel-modal__order-id">{reference}</strong> a{" "}
-        <strong className="order-cancel-modal__order-id">Cancelada</strong>? Se enviará
-        una notificación por correo al cliente.
-      </p>
+    <Box sx={{ width: "100%", minWidth: { xs: "100%", sm: 420 }, textAlign: "left" }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        ¿Cambiar la reserva{" "}
+        <Box component="span" fontWeight={700} color="text.primary">
+          {reference}
+        </Box>{" "}
+        a{" "}
+        <Box component="span" fontWeight={700} color="error.main">
+          Cancelada
+        </Box>
+        ? Se enviará una notificación por correo al cliente.
+      </Typography>
 
-      <div className="order-cancel-modal__field">
-        <label className="order-cancel-modal__label">
-          Motivo de la cancelación *
-        </label>
-        <textarea
-          className={`order-cancel-modal__textarea${
-            error ? " order-cancel-modal__textarea--error" : ""
-          }`}
-          placeholder="Por favor, describe detalladamente la razón de la cancelación..."
-          rows={4}
-          value={reason}
-          onChange={(e) => {
-            setReason(e.target.value);
-            if (e.target.value.trim()) {
-              setError("");
-            }
-          }}
-        />
-        {error ? (
-          <span className="order-cancel-modal__error" role="alert">
-            {error}
-          </span>
-        ) : null}
-      </div>
+      <TextField
+        fullWidth
+        multiline
+        minRows={4}
+        label="Motivo de la cancelación"
+        required
+        placeholder="Describe la razón de la cancelación..."
+        value={reason}
+        error={Boolean(error)}
+        helperText={error || "Obligatorio para registrar la cancelación."}
+        onChange={(event) => {
+          setReason(event.target.value);
+          if (event.target.value.trim()) setError("");
+        }}
+      />
 
-      <div className="order-cancel-modal__actions">
-        <button
-          type="button"
-          className="admin-btn admin-btn--secondary order-cancel-modal__btn"
-          onClick={onCancel}
-        >
+      <Stack
+        direction={{ xs: "column-reverse", sm: "row" }}
+        justifyContent="flex-end"
+        spacing={1.5}
+        sx={{ mt: 3, pt: 1 }}
+      >
+        <Button variant="outlined" color="inherit" onClick={onCancel}>
           Cerrar
-        </button>
-        <button
-          type="button"
-          className="admin-btn admin-btn--primary order-cancel-modal__btn order-cancel-modal__btn--confirm"
-          onClick={handleSubmit}
-        >
+        </Button>
+        <Button variant="contained" color="error" onClick={handleSubmit}>
           Confirmar cancelación
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Stack>
+    </Box>
   );
 };
 
@@ -232,6 +232,7 @@ const useReservas = () => {
         type: "warning",
         title: "Cancelar Reserva",
         showActions: false,
+        maxWidth: "480px",
         content: (
           <CancelModalContent
             reference={reference}

@@ -235,6 +235,7 @@ const useDashboard = () => {
         type: "warning",
         title: "Cancelar orden",
         showActions: false,
+        maxWidth: "480px",
         content: (
           <OrderCancelModal
             idOrder={idOrder}

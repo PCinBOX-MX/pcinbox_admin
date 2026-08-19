@@ -283,7 +283,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
 
         const shippingMethod =
           item.address?.shipping_method ?? item.shipping_method ?? null;
-        const isDigital = isDigitalShippingMethod(shippingMethod);
+        const isDigital = isDigitalDeliveryProduct(item);
         const isPickup = isPickupShippingMethod(shippingMethod);
         const isHomeDelivery = isHomeDeliveryShippingMethod(shippingMethod);
         const originBranchName =
