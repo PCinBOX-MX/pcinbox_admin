@@ -358,7 +358,7 @@ const GridDashboard = ({
                             row: orderRow || params.row,
                           }}
                           handleChangeStatusShip={handleChangeStatusShip}
-                          onSaleLicenseDelivered={(idSale, idOrder) => {
+                          onSaleLicenseDelivered={(idSale: number, idOrder: number) => {
                             setRowsVentas((prev) => ({
                               ...prev,
                               data: prev.data.map((order) =>
