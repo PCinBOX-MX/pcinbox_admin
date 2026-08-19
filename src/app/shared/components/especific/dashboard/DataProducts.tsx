@@ -190,7 +190,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
     return map;
   }, [dicotechBranches]);
 
-  const handleChange = (event: any, idShipment: number) => {
+  const handleProductStatusChange = (event: any, idShipment: number) => {
     const newProducts = products.map((p: any) =>
       p.idShipment === idShipment
         ? { ...p, statusShip: event.target.value }
@@ -198,6 +198,20 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
     );
     setProducts(newProducts);
     handleChangeStatusShip(event, idShipment, params.row.idUser);
+  };
+
+  const markSaleDelivered = (idSale: number, nextStatus: "entregado") => {
+    setProducts((prev: any[]) =>
+      prev.map((p) =>
+        Number(p.idSale) === Number(idSale)
+          ? {
+              ...p,
+              statusShip: nextStatus,
+              licenseDeliveredAt: new Date().toISOString(),
+            }
+          : p,
+      ),
+    );
   };
 
   if (!products?.length) {
@@ -322,7 +336,10 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
           "/imagen-no-encontrada.png";
 
         return (
-          <article key={item.idShipment ?? index} className="admin-product-card">
+          <article
+            key={item.idSale ?? `${item.idShipment}-${index}`}
+            className="admin-product-card"
+          >
             <header className="admin-product-card__header">
               <div className="admin-product-card__content">
                 <div className="admin-product-card__image-container">
@@ -519,7 +536,9 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                       <Select
                         id={`ship-status-${item.idShipment}`}
                         value={item.statusShip ?? "procesando"}
-                        onChange={(e) => handleChange(e, item.idShipment)}
+                        onChange={(e) =>
+                          handleProductStatusChange(e, item.idShipment)
+                        }
                         disabled={shipStatusLocked}
                         sx={{
                           borderRadius: "12px",
@@ -545,12 +564,14 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
 
               {isDigital &&
               idOrder > 0 &&
+              item.idSale &&
               item.idShipment &&
               !["cancelado"].includes(
                 String(item.statusShip || "").toLowerCase(),
               ) ? (
                 <SendLicenseKeyPanel
                   idOrder={idOrder}
+                  idSale={Number(item.idSale)}
                   idShipment={Number(item.idShipment)}
                   productName={item.productName || item.name || "Licencia"}
                   defaultEmail={customerEmail || ""}
@@ -559,10 +580,7 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
                   shipmentStatus={item.statusShip}
                   quantity={item.quantity}
                   onSent={(nextStatus) => {
-                    handleChange(
-                      { target: { value: nextStatus } },
-                      Number(item.idShipment),
-                    );
+                    markSaleDelivered(Number(item.idSale), nextStatus);
                   }}
                 />
               ) : null}

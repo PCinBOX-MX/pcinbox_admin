@@ -29,13 +29,16 @@ export interface SalesI {
   method_pay: any;
   idUser: any;
   products: {
+    idSale?: number;
     productName: string;
     description: string;
     quantity: number;
     upc: string;
     sku: string;
     providerId?: number;
+    licenseType?: string | null;
     statusShip: any;
+    licenseDeliveredAt?: string | null;
     idShipment: number;
     address: null | {
       street: string;
