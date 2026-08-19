@@ -1,5 +1,6 @@
 "use client";
 
+import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import { Alert, CircularProgress, TextField } from "@mui/material";
 import {
   CalendarDays,
@@ -271,11 +272,12 @@ export default function CotizacionesPage() {
           </Alert>
         </div>
       ) : records.length === 0 ? (
-        <div className={styles.emptyState} data-testid="cotizaciones-empty">
-          <FileText size={42} />
-          <strong>No se encontraron cotizaciones</strong>
-          <span>Prueba con otros términos o cambia el periodo.</span>
-        </div>
+        <EmptyState
+          testId="cotizaciones-empty"
+          title="No se encontraron cotizaciones"
+          description="Prueba con otros términos o cambia el periodo."
+          icon="quotes"
+        />
       ) : (
         <>
           <div className={styles.tableWrap}>

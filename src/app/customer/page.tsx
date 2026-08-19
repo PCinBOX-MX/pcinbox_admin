@@ -7,7 +7,8 @@ import GridCustomer from "./gridCustomer";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
-import { Alert, TextField } from "@mui/material";
+import EmptyState from "../shared/components/common/emptyState/EmptyState";
+import { TextField } from "@mui/material";
 import { Filter, Search, X } from "lucide-react";
 
 const fieldSx = {
@@ -178,9 +179,15 @@ const Customer = () => {
         />
       ) : (
         <div className="admin-empty-state">
-          <Alert severity="info">
-            {loading ? "Cargando clientes..." : "No se encontraron clientes"}
-          </Alert>
+          <EmptyState
+            title={loading ? "Cargando clientes..." : "Sin clientes"}
+            description={
+              loading
+                ? "Estamos obteniendo la lista de clientes."
+                : "No se encontraron clientes con los filtros actuales."
+            }
+            icon="customers"
+          />
         </div>
       )}
     </AdminPageShell>

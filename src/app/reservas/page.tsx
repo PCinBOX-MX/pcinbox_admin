@@ -4,6 +4,7 @@ import { useState } from "react";
 import useReservas, { Reservation } from "./useReservas";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
+import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import {
   TextField,
   FormControl,
@@ -11,7 +12,6 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Alert,
   IconButton,
   Tooltip,
 } from "@mui/material";
@@ -289,9 +289,11 @@ const ReservasAdminPage = () => {
               </div>
             ) : reservations.length === 0 ? (
               <div style={{ padding: "32px" }}>
-                <Alert severity="info" className="flex items-center">
-                  No se encontraron reservaciones que coincidan con los criterios de búsqueda.
-                </Alert>
+                <EmptyState
+                  title="Sin reservaciones"
+                  description="No se encontraron reservaciones que coincidan con los criterios de búsqueda."
+                  icon="search"
+                />
               </div>
             ) : (
               <div className="admin-table-scroll">

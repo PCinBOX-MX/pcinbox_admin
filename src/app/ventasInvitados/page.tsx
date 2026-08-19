@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert } from "@mui/material";
+import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import { useEffect, useState } from "react";
 import { useQueryParams } from "../hooks/useQueryParams";
 import { useTheContext } from "../hooks/global.hook";
@@ -172,7 +172,11 @@ const VentasInvitados = () => {
         <TableComponent columnsDataGrid={columns} rowsDataGrid={rowsWithId} hideFooter />
       ) : (
         <div className="admin-empty-state">
-          <Alert severity="info">Sin ventas de invitados que mostrar</Alert>
+          <EmptyState
+            title="Sin ventas de invitados"
+            description="No hay ventas de invitados que mostrar con los filtros actuales."
+            icon="orders"
+          />
         </div>
       )}
     </AdminPageShell>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import EmptyState from "../../common/emptyState/EmptyState";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import {
   Alert,
@@ -201,7 +202,12 @@ const DataProducts = ({ params, handleChangeStatusShip }: any) => {
 
   if (!products?.length) {
     return (
-      <p className="admin-modal-empty">No hay productos en esta orden.</p>
+      <EmptyState
+        title="Sin productos"
+        description="No hay productos en esta orden."
+        icon="products"
+        compact
+      />
     );
   }
 

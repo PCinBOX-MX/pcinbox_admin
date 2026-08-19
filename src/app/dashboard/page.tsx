@@ -6,7 +6,8 @@ import useDashboard from "./useDashboard";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTheContext } from "../hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
-import { Alert, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
+import { FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
+import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
@@ -269,11 +270,15 @@ const DashBoard = () => {
         />
       ) : (
         <div className="admin-empty-state">
-          <Alert severity="info">
-            {loading
-              ? "Cargando ventas..."
-              : "Sin ventas que coincidan con los filtros seleccionados"}
-          </Alert>
+          <EmptyState
+            title={loading ? "Cargando ventas..." : "Sin ventas"}
+            description={
+              loading
+                ? "Estamos obteniendo la información del panel."
+                : "Sin ventas que coincidan con los filtros seleccionados."
+            }
+            icon="orders"
+          />
         </div>
       )}
     </AdminPageShell>

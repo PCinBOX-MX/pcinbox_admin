@@ -1,7 +1,7 @@
 "use client";
 
+import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import {
-  Alert,
   FormControl,
   InputLabel,
   MenuItem,
@@ -233,7 +233,11 @@ const Proveedores = () => {
           </div>
         ) : (
           <div className="admin-empty-state w-full">
-            <Alert severity="info">Sin productos para mostrar</Alert>
+          <EmptyState
+            title="Sin productos para mostrar"
+            description="No hay productos que coincidan con los filtros actuales."
+            icon="products"
+          />
           </div>
         )
       ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import EmptyState from "../../common/emptyState/EmptyState";
 import {
   ModalDetailField,
   ModalDetailGrid,
@@ -7,7 +8,14 @@ import {
 
 export function CustomerDetailsContent({ data }: { data: any }) {
   if (!data) {
-    return <p className="admin-modal-empty">Sin datos del cliente.</p>;
+    return (
+      <EmptyState
+        title="Sin datos del cliente"
+        description="No hay información del cliente para esta orden."
+        icon="customers"
+        compact
+      />
+    );
   }
 
   return (
@@ -35,7 +43,14 @@ export function BillingDetailsContent({ billing }: { billing: any[] }) {
   const data = billing?.[0];
 
   if (!data) {
-    return <p className="admin-modal-empty">Sin datos de facturación.</p>;
+    return (
+      <EmptyState
+        title="Sin datos de facturación"
+        description="No hay información de facturación para esta orden."
+        icon="quotes"
+        compact
+      />
+    );
   }
 
   return (
@@ -62,7 +77,14 @@ export const modalCloseOnly = {
 
 export function InvitadoProductsContent({ products }: { products: any[] }) {
   if (!Array.isArray(products) || products.length === 0) {
-    return <p className="admin-modal-empty">Sin productos en esta orden.</p>;
+    return (
+      <EmptyState
+        title="Sin productos"
+        description="No hay productos en esta orden."
+        icon="products"
+        compact
+      />
+    );
   }
 
   return (

@@ -8,8 +8,8 @@ import {
   RotateCcw,
   CreditCard,
 } from "lucide-react";
+import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import {
-  Alert,
   Autocomplete,
   Box,
   FormControl,
@@ -490,18 +490,13 @@ export default function LinkPagosPage() {
                   </div>
                 ) : (
                   <div className="py-12">
-                    <Alert
-                      severity="info"
+                    <EmptyState
+                      title="Carrito vacío"
+                      description="No hay productos agregados al carrito."
+                      icon="products"
+                      compact
                       className="max-w-md mx-auto"
-                      sx={{
-                        borderRadius: "12px",
-                        "& .MuiAlert-icon": {
-                          fontSize: "28px",
-                        },
-                      }}
-                    >
-                      No hay productos agregados al carrito
-                    </Alert>
+                    />
                   </div>
                 )}
               </div>
