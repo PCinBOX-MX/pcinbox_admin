@@ -66,9 +66,40 @@ const useLogin = () => {
         } else {
           alert("Cuenta no permitida");
         }
+      } else {
+        setDataModal({
+          isOpen: true,
+          content:
+            resp?.data?.message ||
+            "No pudimos iniciar sesión. Verifica tu correo y contraseña.",
+          title: "Error",
+          type: "error",
+          onConfirm: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+          onClose: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+          showActions: true,
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       setLoadingLogin(false);
+      setDataModal({
+        isOpen: true,
+        content:
+          error?.response?.data?.message ||
+          "No pudimos iniciar sesión. Verifica tu correo y contraseña.",
+        title: "Error",
+        type: "error",
+        onConfirm: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        showActions: true,
+      });
     }
   };
 

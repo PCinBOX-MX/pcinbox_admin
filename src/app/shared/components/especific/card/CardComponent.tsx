@@ -113,6 +113,22 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
               setTimeout(() => {
                 setDataModal((prev) => ({ ...prev, isOpen: false }));
               }, 1500);
+            } else {
+              setDataModal({
+                isOpen: true,
+                title: "Error",
+                type: "error",
+                content:
+                  resp?.data?.message ||
+                  "No se pudo reactivar el producto. Intenta de nuevo.",
+                showActions: true,
+                onClose: () => {
+                  setDataModal((prev) => ({ ...prev, isOpen: false }));
+                },
+                onConfirm: () => {
+                  setDataModal((prev) => ({ ...prev, isOpen: false }));
+                },
+              });
             }
           } catch (error: any) {
             setLoadingReactivateProduct(false);
@@ -435,6 +451,28 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                             isOpen: false,
                           }));
                         }, 1500);
+                      } else {
+                        setDataModal({
+                          isOpen: true,
+                          title: "Error",
+                          type: "error",
+                          content:
+                            resp?.data?.message ||
+                            "No se pudo dar de baja el producto. Intenta de nuevo.",
+                          showActions: true,
+                          onClose: () => {
+                            setDataModal((prev) => ({
+                              ...prev,
+                              isOpen: false,
+                            }));
+                          },
+                          onConfirm: () => {
+                            setDataModal((prev) => ({
+                              ...prev,
+                              isOpen: false,
+                            }));
+                          },
+                        });
                       }
                     } catch (error) {
                       setLoadingRemoveProduct(false);

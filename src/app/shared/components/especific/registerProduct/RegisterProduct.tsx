@@ -380,14 +380,42 @@ const RegisterProduct = () => {
           const newData = [newProduct, ...prev.data];
           return { ...prev, data: newData, copyData: newData };
         });
+      } else {
+        setDataModal({
+          isOpen: true,
+          type: "error",
+          title: "No se dio de alta el producto",
+          content:
+            resp?.data?.message ||
+            "No pudimos registrar el producto. Revisa los datos e intenta de nuevo.",
+          showActions: true,
+          onClose: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+          onConfirm: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       setLoadingNewProduct(false);
-      alert(
-        typeProduct?.toLowerCase() === "component"
-          ? `La clave ${dataNewComponent.clave} ya existe u ocurrió un error inesperado `
-          : "Ocurrió un error",
-      );
+      setDataModal({
+        isOpen: true,
+        type: "error",
+        title: "No se dio de alta el producto",
+        content:
+          error?.response?.data?.message ||
+          (typeProduct?.toLowerCase() === "component"
+            ? `La clave ${dataNewComponent.clave} ya existe u ocurrió un error inesperado.`
+            : "Ocurrió un error al registrar el producto. Intenta de nuevo."),
+        showActions: true,
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onConfirm: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
     }
   };
 

@@ -8,8 +8,8 @@ import TableComponent from "../shared/components/especific/table/TableComponent"
 import GridVentasInvitados from "./gridVentasInvitados";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
-import { Filter, Search, X } from "lucide-react";
-import { TextField, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import { Filter, RefreshCw, Search, X } from "lucide-react";
+import { TextField, FormControl, InputLabel, Select, MenuItem, Alert } from "@mui/material";
 import useVentasInvitados from "./useVentasInvitados";
 import { MdAutorenew } from "react-icons/md";
 
@@ -29,7 +29,7 @@ const VentasInvitados = () => {
   useEffect(() => setMounted(true), []);
 
   const { rowsVentasInvitados } = useTheContext();
-  const { handleGetAllSalesInvitados, loading } = useVentasInvitados();
+  const { handleGetAllSalesInvitados, loading, listError } = useVentasInvitados();
   const { searchParams, setQueryParams } = useQueryParams();
 
   const searchParam = searchParams.get("search") || "";
@@ -41,6 +41,7 @@ const VentasInvitados = () => {
 
   useEffect(() => {
     if (searchParam !== search) setSearch(searchParam);
+    if (searchParam !== debouncedSearch) setDebouncedSearch(searchParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParam]);
 
@@ -167,6 +168,23 @@ const VentasInvitados = () => {
         <div className="admin-empty-state flex items-center justify-center gap-2">
           <MdAutorenew size={20} className="the-spinner" />
           <span>Cargando órdenes...</span>
+        </div>
+      ) : listError ? (
+        <div className="admin-empty-state" style={{ display: "grid", gap: 12 }}>
+          <Alert severity="error">{listError}</Alert>
+          <button
+            type="button"
+            className="admin-btn-secondary"
+            onClick={() =>
+              void handleGetAllSalesInvitados(
+                { page: Math.max(0, page - 1), pageSize: PAGE_SIZE },
+                { search: debouncedSearch, status: statusFilter },
+              )
+            }
+          >
+            <RefreshCw size={16} />
+            Reintentar
+          </button>
         </div>
       ) : rowsWithId.length > 0 ? (
         <TableComponent columnsDataGrid={columns} rowsDataGrid={rowsWithId} hideFooter />

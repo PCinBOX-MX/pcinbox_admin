@@ -286,6 +286,20 @@ const SendLicenseKeyPanel = ({
 
         });
 
+      } else {
+
+        showFeedback({
+
+          type: "error",
+
+          message:
+
+            resp?.data?.message ||
+
+            "No se pudo enviar la licencia. Intenta de nuevo.",
+
+        });
+
       }
 
     } catch (error: any) {

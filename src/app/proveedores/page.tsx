@@ -7,6 +7,7 @@ import {
   MenuItem,
   Select,
   TextField,
+  Alert,
 } from "@mui/material";
 import CardComponent from "../shared/components/especific/card/CardComponent";
 import useProveedores from "./useProveedores";
@@ -16,7 +17,7 @@ import { useTheContext } from "../hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
-import { Filter, Search, X } from "lucide-react";
+import { Filter, RefreshCw, Search, X } from "lucide-react";
 
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
@@ -36,7 +37,10 @@ const Proveedores = () => {
   const { dataProveedores, dataProductProveedor } = useTheContext();
   const {
     slcProveedor,
+    catalogError,
+    providersError,
     handleGetProductsByProveedor,
+    handleGetProveedores,
     handleOnChange,
     showModalRegisterProveedor,
     handleAddProduct,
@@ -148,6 +152,19 @@ const Proveedores = () => {
             <span>Consulta y búsqueda</span>
           </div>
           <div className="admin-filters-grid admin-filters-grid-proveedores">
+            {providersError ? (
+              <div className="w-full" style={{ display: "grid", gap: 8, gridColumn: "1 / -1" }}>
+                <Alert severity="error">{providersError}</Alert>
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={() => void handleGetProveedores()}
+                >
+                  <RefreshCw size={16} />
+                  Reintentar proveedores
+                </button>
+              </div>
+            ) : null}
             {!dataProveedores.loading ? (
               <FormControl fullWidth size="small" sx={fieldSx}>
                 <InputLabel>Proveedor</InputLabel>
@@ -208,9 +225,18 @@ const Proveedores = () => {
                 setSearch("");
                 setDebouncedSearch("");
                 setPage(1);
-                setQueryParams({ search: "", page: 1 });
+                // Vuelve al primer proveedor disponible para no dejar catálogo vacío.
+                const firstId =
+                  dataProveedores.data?.[0]?.idProvider != null
+                    ? String(dataProveedores.data[0].idProvider)
+                    : "";
+                if (firstId && firstId !== String(slcProveedor)) {
+                  setQueryParams({ search: "", page: 1, provider: firstId });
+                } else {
+                  setQueryParams({ search: "", page: 1 });
+                }
               }}
-              disabled={!search}
+              disabled={!search && pageParam <= 1}
             >
               <X size={16} />
               Limpiar
@@ -222,7 +248,25 @@ const Proveedores = () => {
       paginationBottom={totalItems > 0 ? paginationBlock : undefined}
     >
       {!dataProductProveedor.loading ? (
-        catalogProducts.length > 0 ? (
+        catalogError ? (
+          <div className="admin-empty-state w-full" style={{ display: "grid", gap: 12 }}>
+            <Alert severity="error">{catalogError}</Alert>
+            <button
+              type="button"
+              className="admin-btn-secondary"
+              onClick={() =>
+                void handleGetProductsByProveedor(slcProveedor, {
+                  page: pageParam,
+                  pageSize: ITEMS_PER_PAGE,
+                  search: debouncedSearch,
+                })
+              }
+            >
+              <RefreshCw size={16} />
+              Reintentar
+            </button>
+          </div>
+        ) : catalogProducts.length > 0 ? (
           <div className="admin-products-grid">
             {catalogProducts.map((product, index) => (
               <CardComponent

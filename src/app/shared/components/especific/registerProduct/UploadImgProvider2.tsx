@@ -418,9 +418,40 @@ const UploadImgProductProvider2 = ({
                     setDataModal((prev) => ({ ...prev, isOpen: false }));
                   },
                 });
+              } else {
+                setDataModal({
+                  isOpen: true,
+                  type: "error",
+                  title: "No se dio de alta el producto",
+                  content:
+                    resp?.data?.message ||
+                    "No pudimos registrar el producto con imágenes. Intenta de nuevo.",
+                  showActions: true,
+                  onClose: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                  onConfirm: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                });
               }
             } catch (error: any) {
               setLoadingUploadImgProvider(false);
+              setDataModal({
+                isOpen: true,
+                type: "error",
+                title: "No se dio de alta el producto",
+                content:
+                  error?.response?.data?.message ||
+                  "Ocurrió un error al subir el producto. Revisa tu conexión e intenta de nuevo.",
+                showActions: true,
+                onClose: () => {
+                  setDataModal((prev) => ({ ...prev, isOpen: false }));
+                },
+                onConfirm: () => {
+                  setDataModal((prev) => ({ ...prev, isOpen: false }));
+                },
+              });
             }
           }}
         >

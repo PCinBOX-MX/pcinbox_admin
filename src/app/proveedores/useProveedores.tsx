@@ -10,6 +10,7 @@ import RegisterFormProovedor from "../shared/components/especific/proveedores/re
 import RegisterProduct from "../shared/components/especific/registerProduct/RegisterProduct";
 import { productsMatchForMerge } from "../utils/productIdentity.utils";
 import dynamic from "next/dynamic";
+import { useRequestSequence } from "../hooks/useRequestSequence";
 
 const BulkUploadProvider = dynamic(
   () =>
@@ -21,6 +22,7 @@ const useProveedores = () => {
   const { setDataModal, setDataProveedores, setProductsProveedor } =
     useTheContext();
   const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
+  const { nextSequence, isCurrent } = useRequestSequence();
 
   const { searchParams, setQueryParams } = useQueryParams();
   const providerParam = searchParams.get("provider") || "";
@@ -39,6 +41,8 @@ const useProveedores = () => {
   const [registerProveedores, setRegisterProveedores] = useState<{
     loading: boolean;
   }>({ loading: false });
+  const [catalogError, setCatalogError] = useState("");
+  const [providersError, setProvidersError] = useState("");
 
   const handleOnChange = (event: SelectChangeEvent) => {
     const newVal = event.target.value;
@@ -48,6 +52,7 @@ const useProveedores = () => {
 
   const handleGetProveedores = useCallback(async () => {
     try {
+      setProvidersError("");
       setDataProveedores((prev) => ({ ...prev, loading: true }));
 
       const resp = await requestGetProveedores("/getAllProveedores");
@@ -62,11 +67,18 @@ const useProveedores = () => {
           setSlcProveedor(firstId);
           setQueryParams({ provider: firstId });
         }
+      } else {
+        setProvidersError(
+          "No pudimos cargar los proveedores. Intenta de nuevo.",
+        );
       }
     } catch (error) {
       setDataProveedores((prev) => ({ ...prev, loading: false }));
+      setProvidersError(
+        "No pudimos cargar los proveedores. Revisa tu conexión e intenta de nuevo.",
+      );
     }
-  }, [requestGetProveedores, setDataProveedores]);
+  }, [requestGetProveedores, setDataProveedores, providerParam, setQueryParams]);
 
   const handleGetProductsByProveedor = useCallback(
     async (
@@ -77,14 +89,17 @@ const useProveedores = () => {
       const pageSize =
         options.pageSize && options.pageSize > 0 ? options.pageSize : 12;
       const search = options.search?.trim() ?? "";
+      const sequence = nextSequence();
 
       try {
+        setCatalogError("");
         setProductsProveedor((prev) => ({ ...prev, loading: true }));
 
         const resp = await requestPostProveedores(
           { idProveedor, page, pageSize, search },
           "/getProductsByProveedor",
         );
+        if (!isCurrent(sequence)) return;
         setProductsProveedor((prev) => ({ ...prev, loading: false }));
 
         if (resp?.status == 200) {
@@ -111,8 +126,22 @@ const useProveedores = () => {
             copyData: catalog,
             totalRows,
           }));
+        } else {
+          setCatalogError(
+            "No se pudo cargar el catálogo. Intenta de nuevo.",
+          );
+          setProductsProveedor((prev) => ({
+            ...prev,
+            data: [],
+            copyData: [],
+            totalRows: 0,
+          }));
         }
       } catch {
+        if (!isCurrent(sequence)) return;
+        setCatalogError(
+          "No se pudo cargar el catálogo. Revisa tu conexión e intenta de nuevo.",
+        );
         setProductsProveedor((prev) => ({
           ...prev,
           loading: false,
@@ -122,7 +151,7 @@ const useProveedores = () => {
         }));
       }
     },
-    [requestPostProveedores, setProductsProveedor],
+    [requestPostProveedores, setProductsProveedor, nextSequence, isCurrent],
   );
 
   const showModalRegisterProveedor = async () => {
@@ -184,9 +213,40 @@ const useProveedores = () => {
         setSlcProveedor(
           data.data.data[data.data.data.length - 1].idProvider.toString(),
         );
+      } else {
+        setRegisterProveedores((prev) => ({ ...prev, loading: false }));
+        setDataModal({
+          isOpen: true,
+          type: "error",
+          title: "No se registró el proveedor",
+          content:
+            resp?.data?.message ||
+            "No pudimos registrar el proveedor. Intenta de nuevo.",
+          showActions: true,
+          onConfirm: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+          onClose: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+        });
       }
     } catch (error) {
       setRegisterProveedores((prev) => ({ ...prev, loading: false }));
+      setDataModal({
+        isOpen: true,
+        type: "error",
+        title: "No se registró el proveedor",
+        content:
+          "Ocurrió un error al registrar el proveedor. Revisa tu conexión e intenta de nuevo.",
+        showActions: true,
+        onConfirm: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
     }
   };
 
@@ -227,6 +287,8 @@ const useProveedores = () => {
   return {
     slcProveedor,
     registerProveedores,
+    catalogError,
+    providersError,
     handleGetProductsByProveedor,
     handleGetProveedores,
     handleOnChange,

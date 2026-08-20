@@ -225,7 +225,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setDataMarca(data.data.data);
       }
     } catch (error) {
-      setDataMarca([]);
+      // Conservar marcas previas: error ≠ catálogo vacío.
     }
   };
 
@@ -238,7 +238,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         setDataCategoria(data.data.data);
       }
     } catch (error) {
-      setDataCategoria([]);
+      // Conservar categorías previas: error ≠ catálogo vacío.
     }
   };
 

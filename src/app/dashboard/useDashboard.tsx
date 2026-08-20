@@ -8,6 +8,8 @@ import { useCallback, useState } from "react";
 import usePermissions from "../hooks/usePermissions";
 import OrderCancelModal from "../components/admin/OrderCancelModal";
 import { CanCancelOrderResult } from "../types/orderCancellation";
+import { useRequestSequence } from "../hooks/useRequestSequence";
+import { safeJsonParse } from "../utils/safeJsonParse";
 
 type SalesFilters = {
   search?: string;
@@ -16,6 +18,7 @@ type SalesFilters = {
   dateFrom?: string;
   dateTo?: string;
   techsmartPending?: boolean;
+  dicotechPending?: boolean;
 };
 
 const useDashboard = () => {
@@ -24,10 +27,14 @@ const useDashboard = () => {
   const { requestPostPagos } = PagosUtils();
   const { can } = usePermissions();
   const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState("");
+  const { nextSequence, isCurrent } = useRequestSequence();
 
   const handleGetAllSales = useCallback(
     async (page?: number, pageSize = 25, filters: SalesFilters = {}) => {
+      const sequence = nextSequence();
       setLoading(true);
+      setListError("");
       try {
         const params = new URLSearchParams();
         params.set("page", String(page ?? 1));
@@ -40,20 +47,26 @@ const useDashboard = () => {
         if (filters.techsmartPending) {
           params.set("techsmartPending", "true");
         }
+        if (filters.dicotechPending) {
+          params.set("dicotechPending", "true");
+        }
 
         const resp = await requestGetProveedores(
-          `/getAllSales?${params.toString()}`
+          `/getAllSales?${params.toString()}`,
+          { silent: true },
         );
+
+        if (!isCurrent(sequence)) return;
 
         if (resp.status == 200) {
           const data = resp.data;
           const grouped = new Map<number, SalesI>();
 
           data.data.data.forEach((item: any) => {
-            const products =
-              typeof item.products === "string"
-                ? JSON.parse(item.products)
-                : (item.products ?? []);
+            const products = safeJsonParse<any[]>(
+              item.products,
+              item.products ?? [],
+            );
 
             const existing = grouped.get(item.idOrder);
 
@@ -98,14 +111,23 @@ const useDashboard = () => {
               id: index,
             })),
           });
+        } else {
+          setListError(
+            "No se pudieron cargar las ventas. Revisa tu conexión e intenta de nuevo.",
+          );
+          setRowsVentas({ totalRows: 0, data: [] });
         }
       } catch {
+        if (!isCurrent(sequence)) return;
+        setListError(
+          "No se pudieron cargar las ventas. Revisa tu conexión e intenta de nuevo.",
+        );
         setRowsVentas({ totalRows: 0, data: [] });
       } finally {
-        setLoading(false);
+        if (isCurrent(sequence)) setLoading(false);
       }
     },
-    [requestGetProveedores, setRowsVentas],
+    [requestGetProveedores, setRowsVentas, nextSequence, isCurrent],
   );
 
   const handleChangeStatusShip = async (
@@ -335,12 +357,90 @@ const useDashboard = () => {
     } catch (error) { }
   };
 
+  const handleRetryDicotechPostPayment = useCallback(
+    async (idOrder: number) => {
+      if (!can("orders.update_status_ship")) {
+        setDataModal({
+          isOpen: true,
+          type: "warning",
+          title: "Sin permiso",
+          showActions: false,
+          content: "Tu rol no puede reintentar el post-pago Dicotech.",
+          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        });
+        return false;
+      }
+
+      try {
+        const resp = await requestPostPagos(
+          { idOrder: Number(idOrder) },
+          "/orders/admin/retryDicotechPostPayment",
+          { silent: true },
+        );
+
+        if (resp.status === 200 && resp.data?.ok !== false) {
+          setRowsVentas((prev) => ({
+            ...prev,
+            data: prev.data.map((order) =>
+              order.idOrder === idOrder
+                ? { ...order, hasDicotechPendingProducts: false }
+                : order,
+            ),
+          }));
+          setDataModal({
+            isOpen: true,
+            type: "success",
+            title: "Dicotech",
+            showActions: false,
+            content:
+              resp.data?.message ||
+              `Post-pago Dicotech reintentado para la orden #${idOrder}.`,
+            onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+            onConfirm: () =>
+              setDataModal((prev) => ({ ...prev, isOpen: false })),
+          });
+          return true;
+        }
+
+        setDataModal({
+          isOpen: true,
+          type: "error",
+          title: "Dicotech incompleto",
+          showActions: false,
+          content:
+            resp.data?.message ||
+            `No se completó el post-pago Dicotech de la orden #${idOrder}. Revisa e intenta de nuevo.`,
+          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        });
+        return false;
+      } catch (error: any) {
+        setDataModal({
+          isOpen: true,
+          type: "error",
+          title: "Error Dicotech",
+          showActions: false,
+          content:
+            error?.response?.data?.message ||
+            `No se pudo reintentar Dicotech para la orden #${idOrder}.`,
+          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        });
+        return false;
+      }
+    },
+    [can, requestPostPagos, setDataModal, setRowsVentas],
+  );
+
   return {
     handleGetAllSales,
     handleChangeStatusShip,
     handleChangeStatusPay,
     openCancelOrderModal,
+    handleRetryDicotechPostPayment,
     loading,
+    listError,
     can,
   };
 };

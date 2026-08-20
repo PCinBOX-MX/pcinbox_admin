@@ -30,7 +30,7 @@ const UtilsService = () => {
   const handleSessionExpired = useCallback(() => {
     setDataModal({
       isOpen: true,
-      content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
+      content: "Tu sesión expiró, debes iniciar sesión nuevamente.",
       title: "Sesión expirada",
       onClose: () => {
         location.href = "/features/auth/Login";

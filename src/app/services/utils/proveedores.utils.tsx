@@ -5,6 +5,7 @@ import axios, { AxiosError } from "axios";
 import { usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { RequestOptions } from "./request-options";
+import { resolveApiErrorMessage } from "@/app/utils/apiErrorMessage";
 
 export type { RequestOptions };
 
@@ -42,7 +43,7 @@ const ProveedoresUtils = () => {
   const handleSessionExpired = useCallback(() => {
     setDataModal({
       isOpen: true,
-      content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
+      content: "Tu sesión expiró, debes iniciar sesión nuevamente.",
       title: "Sesión expirada",
       onClose: () => {
         location.href = "/features/auth/Login";
@@ -59,6 +60,49 @@ const ProveedoresUtils = () => {
     });
   }, [setDataModal]);
 
+  const showRequestError = useCallback(
+    (message: string) => {
+      setDataModal({
+        isOpen: true,
+        content: message,
+        title: "Error",
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onConfirm: async () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        type: "error",
+        showActions: true,
+      });
+    },
+    [setDataModal],
+  );
+
+  const handleRequestError = useCallback(
+    (error: unknown, silent: boolean) => {
+      const axiosError = error as AxiosError;
+      if (
+        axiosError.response?.status === 401 &&
+        pathName !== "/features/auth/Login" &&
+        pathName !== "/"
+      ) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!silent && axiosError.response?.status !== 401) {
+        showRequestError(
+          resolveApiErrorMessage(
+            error,
+            "No se pudo completar la operación con proveedores.",
+          ),
+        );
+      }
+    },
+    [pathName, handleSessionExpired, showRequestError],
+  );
+
   const requestGetProveedores = useCallback(
     async (endPoint: string, options?: RequestOptions) => {
       const silent = options?.silent === true;
@@ -69,20 +113,11 @@ const ProveedoresUtils = () => {
         return resp;
       } catch (error) {
         if (!silent) setShowSpinner(false);
-
-        const axiosError = error as AxiosError;
-        if (
-          axiosError.response?.status === 401 &&
-          pathName !== "/features/auth/Login" &&
-          pathName !== "/"
-        ) {
-          handleSessionExpired();
-        }
-
+        handleRequestError(error, silent);
         throw error;
       }
     },
-    [setShowSpinner, pathName, handleSessionExpired],
+    [setShowSpinner, handleRequestError],
   );
 
   const requestPostProveedores = useCallback(
@@ -95,20 +130,11 @@ const ProveedoresUtils = () => {
         return resp;
       } catch (error) {
         if (!silent) setShowSpinner(false);
-
-        const axiosError = error as AxiosError;
-        if (
-          axiosError.response?.status === 401 &&
-          pathName !== "/features/auth/Login" &&
-          pathName !== "/"
-        ) {
-          handleSessionExpired();
-        }
-
+        handleRequestError(error, silent);
         throw error;
       }
     },
-    [setShowSpinner, pathName, handleSessionExpired],
+    [setShowSpinner, handleRequestError],
   );
 
   return {

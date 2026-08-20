@@ -5,6 +5,7 @@ import axios, { AxiosError } from "axios";
 import { usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { RequestOptions } from "./request-options";
+import { resolveApiErrorMessage } from "@/app/utils/apiErrorMessage";
 
 export const pagosApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL_PAGOS,
@@ -28,7 +29,7 @@ const PagosUtils = () => {
   const handleSessionExpired = useCallback(() => {
     setDataModal({
       isOpen: true,
-      content: "Tu sesión expiro, debes iniciar sesión nuevamente.",
+      content: "Tu sesión expiró, debes iniciar sesión nuevamente.",
       title: "Sesión expirada",
       onClose: () => {
         location.href = "/features/auth/Login";
@@ -45,6 +46,49 @@ const PagosUtils = () => {
     });
   }, [setDataModal]);
 
+  const showRequestError = useCallback(
+    (message: string) => {
+      setDataModal({
+        isOpen: true,
+        content: message,
+        title: "Error",
+        onClose: () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onConfirm: async () => {
+          setDataModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        type: "error",
+        showActions: true,
+      });
+    },
+    [setDataModal],
+  );
+
+  const handleRequestError = useCallback(
+    (error: unknown, silent: boolean) => {
+      const axiosError = error as AxiosError;
+      if (
+        axiosError.response?.status === 401 &&
+        pathName !== "/features/auth/Login" &&
+        pathName !== "/"
+      ) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!silent && axiosError.response?.status !== 401) {
+        showRequestError(
+          resolveApiErrorMessage(
+            error,
+            "No se pudo completar la operación de pagos.",
+          ),
+        );
+      }
+    },
+    [pathName, handleSessionExpired, showRequestError],
+  );
+
   const requestGetPagos = useCallback(
     async (endPoint: string, options?: RequestOptions) => {
       const silent = options?.silent === true;
@@ -55,20 +99,11 @@ const PagosUtils = () => {
         return resp;
       } catch (error) {
         if (!silent) setShowSpinner(false);
-
-        const axiosError = error as AxiosError;
-        if (
-          axiosError.response?.status === 401 &&
-          pathName !== "/features/auth/Login" &&
-          pathName !== "/"
-        ) {
-          handleSessionExpired();
-        }
-
+        handleRequestError(error, silent);
         throw error;
       }
     },
-    [setShowSpinner, pathName, handleSessionExpired],
+    [setShowSpinner, handleRequestError],
   );
 
   const requestPostPagos = useCallback(
@@ -81,20 +116,11 @@ const PagosUtils = () => {
         return resp;
       } catch (error) {
         if (!silent) setShowSpinner(false);
-
-        const axiosError = error as AxiosError;
-        if (
-          axiosError.response?.status === 401 &&
-          pathName !== "/features/auth/Login" &&
-          pathName !== "/"
-        ) {
-          handleSessionExpired();
-        }
-
+        handleRequestError(error, silent);
         throw error;
       }
     },
-    [setShowSpinner, pathName, handleSessionExpired],
+    [setShowSpinner, handleRequestError],
   );
 
   return {

@@ -8,8 +8,9 @@ import ProveedoresUtils from "../services/utils/proveedores.utils";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
-import { TextField } from "@mui/material";
-import { Filter, Search, X } from "lucide-react";
+import { TextField, Alert } from "@mui/material";
+import { Filter, RefreshCw, Search, X } from "lucide-react";
+import { useRequestSequence } from "../hooks/useRequestSequence";
 
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
@@ -25,6 +26,7 @@ const Customer = () => {
   useEffect(() => setMounted(true), []);
 
   const { requestGetProveedores } = ProveedoresUtils();
+  const { nextSequence, isCurrent } = useRequestSequence();
   const [dataRows, setDataRows] = useState<any[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const { searchParams, setQueryParams } = useQueryParams();
@@ -39,6 +41,7 @@ const Customer = () => {
     pageSize: pageSizeParam,
   });
   const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState("");
 
   useEffect(() => {
     if (searchParam !== debouncedSearch) {
@@ -71,7 +74,9 @@ const Customer = () => {
 
   useEffect(() => {
     async function getListUsers() {
+      const sequence = nextSequence();
       setLoading(true);
+      setListError("");
       try {
         const page = paginationModel.page + 1;
         const params = new URLSearchParams({
@@ -81,20 +86,34 @@ const Customer = () => {
         if (debouncedSearch) params.set("search", debouncedSearch);
 
         const resp = await requestGetProveedores(`/listUsers?${params.toString()}`);
+        if (!isCurrent(sequence)) return;
         if (resp.status === 200) {
           setDataRows(resp.data.users);
           setTotalRows(resp.data.totalUsers);
+        } else {
+          setDataRows([]);
+          setTotalRows(0);
+          setListError("No pudimos cargar los clientes. Intenta de nuevo.");
         }
       } catch {
+        if (!isCurrent(sequence)) return;
         setDataRows([]);
         setTotalRows(0);
+        setListError("No pudimos cargar los clientes. Intenta de nuevo.");
       } finally {
-        setLoading(false);
+        if (isCurrent(sequence)) setLoading(false);
       }
     }
 
     getListUsers();
-  }, [paginationModel.page, paginationModel.pageSize, debouncedSearch]);
+  }, [
+    paginationModel.page,
+    paginationModel.pageSize,
+    debouncedSearch,
+    requestGetProveedores,
+    nextSequence,
+    isCurrent,
+  ]);
 
   const { columns } = GridCustomer({
     rows: { data: dataRows, totalRows },
@@ -142,7 +161,6 @@ const Customer = () => {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPaginationModel((prev) => ({ ...prev, page: 0 }));
               }}
               sx={fieldSx}
               InputProps={{
@@ -154,9 +172,11 @@ const Customer = () => {
               className="admin-btn-ghost"
               onClick={() => {
                 setSearch("");
+                setDebouncedSearch("");
                 setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                setQueryParams({ search: "", page: 0 });
               }}
-              disabled={!search}
+              disabled={!search && !debouncedSearch}
             >
               <X size={16} />
               Limpiar
@@ -167,7 +187,22 @@ const Customer = () => {
       paginationTop={rowsWithId.length ? paginationBlock : undefined}
       paginationBottom={rowsWithId.length ? paginationBlock : undefined}
     >
-      {rowsWithId.length > 0 ? (
+      {listError ? (
+        <div className="admin-empty-state" style={{ display: "grid", gap: 12 }}>
+          <Alert severity="error">{listError}</Alert>
+          <button
+            type="button"
+            className="admin-btn-secondary"
+            onClick={() => {
+              setListError("");
+              setPaginationModel((prev) => ({ ...prev }));
+            }}
+          >
+            <RefreshCw size={16} />
+            Reintentar
+          </button>
+        </div>
+      ) : rowsWithId.length > 0 ? (
         <TableComponent
           loading={loading}
           hideFooter

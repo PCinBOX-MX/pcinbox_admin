@@ -1,32 +1,26 @@
 "use client";
 
-import { Bell, Moon, Search, Sun, User } from "lucide-react";
+import { Bell, Sun, User } from "lucide-react";
 import styles from "./admin-header.module.css";
-import useNavbar from "../common/navbar/useNavbar";
 
+/**
+ * Header admin: sin buscador global falso (los filtros viven por pantalla).
+ * Evita confusión en uso rudo / móvil.
+ */
 const AdminHeader = () => {
-  const { handleLogout } = useNavbar();
-
   return (
     <header className={styles.header}>
       <div className={styles.headerContainer}>
-        {/* Search Bar */}
-        <div className={styles.searchContainer}>
-          <Search size={18} className={styles.searchIcon} />
-          <input
-            type="text"
-            placeholder="Buscar..."
-            className={styles.searchInput}
-          />
+        <div className={styles.headerLead}>
+          <span className={styles.headerLeadText}>Panel administrativo</span>
         </div>
 
-        {/* Right side actions */}
         <div className={styles.actionsContainer}>
-          <button type="button" className={styles.actionBtn}>
+          <button type="button" className={styles.actionBtn} aria-label="Tema">
             <Sun size={20} />
           </button>
-          
-          <button type="button" className={styles.actionBtn}>
+
+          <button type="button" className={styles.actionBtn} aria-label="Notificaciones">
             <div className={styles.notificationBadge} />
             <Bell size={20} />
           </button>

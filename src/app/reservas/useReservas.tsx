@@ -105,6 +105,7 @@ const useReservas = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [totalReservations, setTotalReservations] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState("");
 
   const { searchParams, setQueryParams } = useQueryParams();
 
@@ -163,8 +164,9 @@ const useReservas = () => {
   // Debounce para el término de búsqueda
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearch(search);
-      if (search !== debouncedSearch) {
+      const trimmed = search.trim();
+      setDebouncedSearch(trimmed);
+      if (trimmed !== debouncedSearch) {
         setPage(1); // Reiniciar a página 1 solo si el debounced realmente cambió
       }
     }, 450);
@@ -172,9 +174,13 @@ const useReservas = () => {
     return () => clearTimeout(handler);
   }, [search, debouncedSearch]);
 
+  const fetchRequestIdRef = useRef(0);
+
   // Carga de datos de reservas de administrador
   const fetchReservations = async () => {
+    const requestId = ++fetchRequestIdRef.current;
     setLoading(true);
+    setListError("");
     try {
       const queryParams = new URLSearchParams();
       queryParams.append("page", String(page));
@@ -200,16 +206,21 @@ const useReservas = () => {
         `/reservas/admin/getAll?${queryParams.toString()}`,
         { silent: true },
       );
+      if (requestId !== fetchRequestIdRef.current) return;
       if (res && res.status === 200 && res.data) {
         setReservations(res.data.data || []);
         setTotalReservations(res.data.pagination?.total || 0);
       }
     } catch (error: any) {
+      if (requestId !== fetchRequestIdRef.current) return;
       console.error("Error fetching reservations:", error);
       setReservations([]);
       setTotalReservations(0);
+      setListError(
+        "No se pudieron cargar las reservaciones. Revisa tu conexión e intenta de nuevo.",
+      );
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) setLoading(false);
     }
   };
 
@@ -268,6 +279,21 @@ const useReservas = () => {
                 }
               } catch (error: any) {
                 console.error("Error updating reservation status:", error);
+                setDataModal({
+                  isOpen: true,
+                  type: "error",
+                  title: "No se actualizó el estatus",
+                  showActions: true,
+                  content:
+                    error?.response?.data?.message ||
+                    "Ocurrió un problema al cancelar la reserva. Intenta de nuevo.",
+                  onConfirm: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                  onClose: () => {
+                    setDataModal((prev) => ({ ...prev, isOpen: false }));
+                  },
+                });
               }
             }}
           />
@@ -333,6 +359,21 @@ const useReservas = () => {
           }
         } catch (error: any) {
           console.error("Error updating reservation status:", error);
+          setDataModal({
+            isOpen: true,
+            type: "error",
+            title: "No se actualizó el estatus",
+            showActions: true,
+            content:
+              error?.response?.data?.message ||
+              "Ocurrió un problema al cambiar el estatus. Intenta de nuevo.",
+            onConfirm: () => {
+              setDataModal((prev) => ({ ...prev, isOpen: false }));
+            },
+            onClose: () => {
+              setDataModal((prev) => ({ ...prev, isOpen: false }));
+            },
+          });
         }
       },
     });
@@ -342,6 +383,7 @@ const useReservas = () => {
     reservations,
     totalReservations,
     loading,
+    listError,
     search,
     setSearch,
     status,

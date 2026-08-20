@@ -43,11 +43,13 @@ import {
 const GridDashboard = ({
   handleChangeStatusShip,
   openCancelOrderModal,
+  handleRetryDicotechPostPayment,
   can,
   rows,
 }: {
   handleChangeStatusShip: any;
   openCancelOrderModal: (idOrder: number) => void;
+  handleRetryDicotechPostPayment?: (idOrder: number) => Promise<boolean>;
   can: (permission: import("../constants/permissions").AdminPermission) => boolean;
   rows: {
     totalRows: number;
@@ -67,10 +69,11 @@ const GridDashboard = ({
       {
         field: "idOrder",
         headerName: "No. Orden",
-        flex: 0.55,
-        minWidth: 82,
+        flex: 0.7,
+        minWidth: 118,
         ...centeredColumn,
         renderCell: (params) => {
+          const pendingDicotech = Boolean(params.row?.hasDicotechPendingProducts);
           return (
             <div
               className={`${styles.cell} ${styles.cellCol} ${styles.truncateCell}`}
@@ -78,6 +81,22 @@ const GridDashboard = ({
               <span className={styles.cellText}>
                 #{params.value}
               </span>
+              {pendingDicotech ? (
+                <Chip
+                  size="small"
+                  label="Dicotech pendiente"
+                  color="warning"
+                  variant="outlined"
+                  data-testid={`dicotech-pending-${params.value}`}
+                  sx={{
+                    mt: 0.5,
+                    height: 22,
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                    maxWidth: "100%",
+                  }}
+                />
+              ) : null}
             </div>
           );
         },
@@ -350,6 +369,54 @@ const GridDashboard = ({
                                 </>
                               )}
                             </Alert>
+                          );
+                        })()}
+                        {(() => {
+                          const hasDicotech =
+                            Boolean(orderRow?.hasDicotechPendingProducts) ||
+                            (orderRow?.products || []).some(
+                              (p: any) => Number(p?.providerId) === 3,
+                            );
+                          const paid = isOrderPaid(
+                            orderRow?.statusPay ?? params.row?.statusPay,
+                          );
+                          if (
+                            !hasDicotech ||
+                            !paid ||
+                            !can("orders.update_status_ship") ||
+                            !handleRetryDicotechPostPayment
+                          ) {
+                            return null;
+                          }
+                          return (
+                            <div style={{ marginBottom: 12 }}>
+                              <button
+                                type="button"
+                                className="admin-btn-secondary"
+                                data-testid={`retry-dicotech-${orderRow?.idOrder ?? params.row.idOrder}`}
+                                onClick={() => {
+                                  void handleRetryDicotechPostPayment(
+                                    Number(
+                                      orderRow?.idOrder ?? params.row.idOrder,
+                                    ),
+                                  );
+                                }}
+                              >
+                                Reintentar Dicotech
+                              </button>
+                              {orderRow?.hasDicotechPendingProducts ? (
+                                <p
+                                  style={{
+                                    margin: "8px 0 0",
+                                    fontSize: 12,
+                                    color: "#92400e",
+                                  }}
+                                >
+                                  Hay líneas Dicotech sin purchaseId o con
+                                  tracking pendiente.
+                                </p>
+                              ) : null}
+                            </div>
                           );
                         })()}
                         <DataProducts

@@ -100,6 +100,27 @@ const useLinkPagos = () => {
           phone: "",
           status: "payment_pending",
         });
+      } else {
+        let message = "No se pudo generar el link de pago. Intenta de nuevo.";
+        try {
+          const errBody = await resp.json();
+          if (errBody?.message) message = errBody.message;
+        } catch {
+          /* ignore */
+        }
+        setDataModal({
+          isOpen: true,
+          content: message,
+          showActions: true,
+          title: "Error",
+          type: "error",
+          onConfirm: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+          onClose: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+        });
       }
     } catch (error) {
       setLoading(false);

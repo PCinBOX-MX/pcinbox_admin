@@ -104,6 +104,23 @@ export default function useCotizaciones(enabled = true) {
     return () => window.clearTimeout(timer);
   }, [search, searchParams, setQueryParams]);
 
+  // Back/forward del navegador: rehidratar filtros desde la URL.
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") ?? "";
+    const urlFrom = searchParams.get("from") ?? "";
+    const urlTo = searchParams.get("to") ?? "";
+    const urlPage = positivePage(searchParams.get("page"));
+
+    if (urlSearch !== debouncedSearch) {
+      setSearch(urlSearch);
+      setDebouncedSearch(urlSearch);
+    }
+    if (urlFrom !== from) setFromState(urlFrom);
+    if (urlTo !== to) setToState(urlTo);
+    if (urlPage !== page) setPageState(urlPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const loadCotizaciones = useCallback(async () => {
     if (!enabled) return;
 

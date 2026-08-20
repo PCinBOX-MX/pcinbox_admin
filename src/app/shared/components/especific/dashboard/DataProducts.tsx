@@ -147,6 +147,7 @@ const DataProducts = ({
   const { requestGetProveedores } = ProveedoresUtils();
 
   const [products, setProducts] = useState(params.value || []);
+  const [updatingSaleId, setUpdatingSaleId] = useState<number | null>(null);
   const [dicotechBranches, setDicotechBranches] = useState<BranchOption[]>(
     dicotechBranchesCache ?? [],
   );
@@ -194,14 +195,47 @@ const DataProducts = ({
     return map;
   }, [dicotechBranches]);
 
-  const handleProductStatusChange = (event: any, idSale: number) => {
-    const newProducts = products.map((p: any) =>
-      Number(p.idSale) === Number(idSale)
-        ? { ...p, statusShip: event.target.value }
-        : p,
+  const handleProductStatusChange = async (event: any, idSale: number) => {
+    const prevStatus = products.find(
+      (p: any) => Number(p.idSale) === Number(idSale),
+    )?.statusShip;
+    const nextStatus = event.target.value;
+
+    setProducts((prev: any[]) =>
+      prev.map((p: any) =>
+        Number(p.idSale) === Number(idSale)
+          ? { ...p, statusShip: nextStatus }
+          : p,
+      ),
     );
-    setProducts(newProducts);
-    handleChangeStatusShip(event, idSale, params.row.idUser);
+    setUpdatingSaleId(Number(idSale));
+
+    try {
+      const ok = await handleChangeStatusShip(
+        event,
+        idSale,
+        params.row.idUser,
+      );
+      if (ok === false) {
+        setProducts((prev: any[]) =>
+          prev.map((p: any) =>
+            Number(p.idSale) === Number(idSale)
+              ? { ...p, statusShip: prevStatus }
+              : p,
+          ),
+        );
+      }
+    } catch {
+      setProducts((prev: any[]) =>
+        prev.map((p: any) =>
+          Number(p.idSale) === Number(idSale)
+            ? { ...p, statusShip: prevStatus }
+            : p,
+        ),
+      );
+    } finally {
+      setUpdatingSaleId(null);
+    }
   };
 
   const markSaleDelivered = (idSale: number, nextStatus: "entregado") => {
@@ -544,7 +578,11 @@ const DataProducts = ({
                         onChange={(e) =>
                           handleProductStatusChange(e, Number(item.idSale))
                         }
-                        disabled={shipStatusLocked || !item.idSale}
+                        disabled={
+                          shipStatusLocked ||
+                          !item.idSale ||
+                          updatingSaleId === Number(item.idSale)
+                        }
                         sx={{
                           borderRadius: "12px",
                           bgcolor: "#fff",

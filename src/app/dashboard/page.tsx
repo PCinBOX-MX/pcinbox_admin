@@ -6,7 +6,7 @@ import useDashboard from "./useDashboard";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTheContext } from "../hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
-import { FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
+import { FormControl, InputLabel, MenuItem, Select, TextField, Alert } from "@mui/material";
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
@@ -33,6 +33,7 @@ const DashBoard = () => {
   const methodPayParam = searchParams.get("methodPay") || "all";
   const dateFromParam = searchParams.get("dateFrom") || "";
   const dateToParam = searchParams.get("dateTo") || "";
+  const providerPendingParam = searchParams.get("providerPending") || "all";
   const pageParam = parseInt(searchParams.get("page") || "0", 10);
   const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
 
@@ -43,6 +44,7 @@ const DashBoard = () => {
   const [methodPay, setMethodPay] = useState(methodPayParam);
   const [dateFrom, setDateFrom] = useState(dateFromParam);
   const [dateTo, setDateTo] = useState(dateToParam);
+  const [providerPending, setProviderPending] = useState(providerPendingParam);
 
   useEffect(() => {
     if (searchParam !== debouncedSearch) {
@@ -53,6 +55,9 @@ const DashBoard = () => {
     if (methodPayParam !== methodPay) setMethodPay(methodPayParam);
     if (dateFromParam !== dateFrom) setDateFrom(dateFromParam);
     if (dateToParam !== dateTo) setDateTo(dateToParam);
+    if (providerPendingParam !== providerPending) {
+      setProviderPending(providerPendingParam);
+    }
     if (pageParam !== paginationModel.page || pageSizeParam !== paginationModel.pageSize) {
       setPaginationModel({ page: pageParam, pageSize: pageSizeParam });
     }
@@ -66,10 +71,20 @@ const DashBoard = () => {
       methodPay,
       dateFrom,
       dateTo,
+      providerPending,
       page: paginationModel.page,
       pageSize: paginationModel.pageSize,
     });
-  }, [debouncedSearch, statusPay, methodPay, dateFrom, dateTo, paginationModel, setQueryParams]);
+  }, [
+    debouncedSearch,
+    statusPay,
+    methodPay,
+    dateFrom,
+    dateTo,
+    providerPending,
+    paginationModel,
+    setQueryParams,
+  ]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -86,13 +101,16 @@ const DashBoard = () => {
     handleGetAllSales,
     can,
     openCancelOrderModal,
+    handleRetryDicotechPostPayment,
     loading,
+    listError,
   } = useDashboard();
 
   const { columns } = GridDashboard({
     handleChangeStatusShip,
     rows: rowsVentas,
     openCancelOrderModal,
+    handleRetryDicotechPostPayment,
     can,
   });
 
@@ -103,8 +121,10 @@ const DashBoard = () => {
       methodPay: methodPay !== "all" ? methodPay : "",
       dateFrom,
       dateTo,
+      dicotechPending: providerPending === "dicotech",
+      techsmartPending: providerPending === "techsmart",
     }),
-    [debouncedSearch, statusPay, methodPay, dateFrom, dateTo],
+    [debouncedSearch, statusPay, methodPay, dateFrom, dateTo, providerPending],
   );
 
   const loadSales = async () => {
@@ -140,12 +160,26 @@ const DashBoard = () => {
     setMethodPay("all");
     setDateFrom("");
     setDateTo("");
+    setProviderPending("all");
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    setQueryParams({ search: "", statusPay: "all", methodPay: "all", dateFrom: "", dateTo: "", page: 0 });
+    setQueryParams({
+      search: "",
+      statusPay: "all",
+      methodPay: "all",
+      dateFrom: "",
+      dateTo: "",
+      providerPending: "all",
+      page: 0,
+    });
   };
 
   const hasFilters =
-    search || statusPay !== "all" || methodPay !== "all" || dateFrom || dateTo;
+    search ||
+    statusPay !== "all" ||
+    methodPay !== "all" ||
+    dateFrom ||
+    dateTo ||
+    providerPending !== "all";
 
   if (!mounted) return null;
 
@@ -219,6 +253,25 @@ const DashBoard = () => {
                 <MenuItem value="transferencia_bancaria">Transferencia bancaria</MenuItem>
               </Select>
             </FormControl>
+            <FormControl
+              size="small"
+              sx={fieldSx}
+              data-testid="ventas-provider-pending-filter"
+            >
+              <InputLabel>Pendientes proveedor</InputLabel>
+              <Select
+                label="Pendientes proveedor"
+                value={providerPending}
+                onChange={(e) => {
+                  setProviderPending(e.target.value);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                }}
+              >
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="dicotech">Dicotech sin purchaseId</MenuItem>
+                <MenuItem value="techsmart">TechSmart pendiente</MenuItem>
+              </Select>
+            </FormControl>
             <TextField
               size="small"
               label="Desde"
@@ -258,7 +311,20 @@ const DashBoard = () => {
       paginationTop={rowsVentas?.data?.length ? paginationBlock : undefined}
       paginationBottom={rowsVentas?.data?.length ? paginationBlock : undefined}
     >
-      {rowsVentas?.data && rowsVentas.data.length > 0 ? (
+      {listError ? (
+        <div className="admin-empty-state" style={{ display: "grid", gap: 12 }}>
+          <Alert severity="error">{listError}</Alert>
+          <button
+            type="button"
+            className="admin-btn-secondary"
+            onClick={loadSales}
+            disabled={loading}
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            Reintentar
+          </button>
+        </div>
+      ) : rowsVentas?.data && rowsVentas.data.length > 0 ? (
         <TableComponent
           loading={loading}
           hideFooter

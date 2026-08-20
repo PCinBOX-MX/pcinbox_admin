@@ -277,6 +277,32 @@ html[data-admin-sidebar="closed"]:has(aside:hover) .admin-layout {
   align-items: center;
 }
 
+@media (max-width: 767px) {
+  .admin-filters-grid,
+  .admin-filters-grid-proveedores,
+  .admin-filters-grid-reservas {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .admin-filters-card {
+    padding: 12px;
+  }
+
+  .admin-btn-secondary,
+  .admin-btn-ghost,
+  .admin-btn-primary {
+    min-height: 44px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-proveedores-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-filter-icon {
   margin-right: 8px;
   color: #94a3b8;

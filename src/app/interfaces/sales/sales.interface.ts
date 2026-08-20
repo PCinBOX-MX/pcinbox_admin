@@ -36,6 +36,7 @@ export interface SalesI {
     upc: string;
     sku: string;
     providerId?: number;
+    purchaseId?: string | null;
     licenseType?: string | null;
     statusShip: any;
     licenseDeliveredAt?: string | null;
@@ -72,6 +73,7 @@ export interface SalesI {
   updatedAt: string;
   id: number;
   hasTechsmartProducts?: boolean;
+  hasDicotechPendingProducts?: boolean;
   techsmartOrder?: {
     idTechsmartOrder: number;
     idOrder: number;

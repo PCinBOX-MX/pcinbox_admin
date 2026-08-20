@@ -14,6 +14,7 @@ import {
   CircularProgress,
   IconButton,
   Tooltip,
+  Alert,
 } from "@mui/material";
 import {
   Search,
@@ -36,6 +37,7 @@ const ReservasAdminPage = () => {
     reservations,
     totalReservations,
     loading,
+    listError,
     search,
     setSearch,
     status,
@@ -286,6 +288,18 @@ const ReservasAdminPage = () => {
               >
                 <CircularProgress style={{ color: "#bb3d4b" }} />
                 <span className="text-sm text-gray-500 font-medium">Obteniendo reservaciones...</span>
+              </div>
+            ) : listError ? (
+              <div style={{ padding: "32px", display: "grid", gap: 12 }}>
+                <Alert severity="error">{listError}</Alert>
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={() => fetchReservations()}
+                >
+                  <RefreshCw size={16} />
+                  Reintentar
+                </button>
               </div>
             ) : reservations.length === 0 ? (
               <div style={{ padding: "32px" }}>

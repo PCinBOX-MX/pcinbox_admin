@@ -12,7 +12,7 @@ import {
   Tooltip,
 } from "@mui/material";
 //  import useDashboard from "./useDashboard";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   MdAccessTime,
   MdAccountBalance,
@@ -35,6 +35,9 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
   const { setDataModal } = useTheContext();
 
   const { handleChangeStatusShip } = useVentasInvitados();
+  const [updatingShipId, setUpdatingShipId] = useState<
+    string | number | null
+  >(null);
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -319,14 +322,22 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                         labelId="demo-simple-select-label"
                         id="demo-simple-select"
                         value={currentStatusShip || ""}
-                        disabled={["entregado", "cancelado"].includes(
-                          String(currentStatusShip || "").toLowerCase(),
-                        )}
-                        onChange={(event) => {
-                          handleChangeStatusShip(
-                            params?.row?.id,
-                            event.target.value,
-                          );
+                        disabled={
+                          ["entregado", "cancelado"].includes(
+                            String(currentStatusShip || "").toLowerCase(),
+                          ) || updatingShipId === params?.row?.id
+                        }
+                        onChange={async (event) => {
+                          const id = params?.row?.id;
+                          setUpdatingShipId(id);
+                          try {
+                            await handleChangeStatusShip(
+                              id,
+                              event.target.value,
+                            );
+                          } finally {
+                            setUpdatingShipId(null);
+                          }
                         }}
                         sx={{ width: "100%" }}
                       >
@@ -371,7 +382,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
         },
       },
     ],
-    [rows],
+    [rows, handleChangeStatusShip, updatingShipId, formatCurrency, setDataModal],
   );
 
   return {

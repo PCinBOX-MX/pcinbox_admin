@@ -9,6 +9,7 @@ import {
   parsePaginatedResponse,
 } from "../utils/pagination.util";
 import { useCallback, useState } from "react";
+import { useRequestSequence } from "../hooks/useRequestSequence";
 
 export type VentasInvitadosFilters = {
   search?: string;
@@ -18,15 +19,19 @@ export type VentasInvitadosFilters = {
 const useVentasInvitados = () => {
   const { requestGetProveedores } = ProveedoresUtils();
   const { requestPostPagos } = PagosUtils();
-  const { setRowsVentasInvitados } = useTheContext();
+  const { setRowsVentasInvitados, setDataModal } = useTheContext();
   const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState("");
+  const { nextSequence, isCurrent } = useRequestSequence();
 
   const handleGetAllSalesInvitados = useCallback(
     async (
       pagination: PaginationModel = { page: 0, pageSize: 10 },
       filters: VentasInvitadosFilters = {},
     ) => {
+      const sequence = nextSequence();
       setLoading(true);
+      setListError("");
       try {
         const resp = await requestGetProveedores(
           buildPaginatedUrl("/getAllSalesInvitados", pagination, {
@@ -38,6 +43,8 @@ const useVentasInvitados = () => {
           }),
           { silent: true },
         );
+
+        if (!isCurrent(sequence)) return;
 
         if (resp.status == 200) {
           const { rows, totalRows } = parsePaginatedResponse(resp.data);
@@ -52,12 +59,16 @@ const useVentasInvitados = () => {
           });
         }
       } catch {
+        if (!isCurrent(sequence)) return;
+        setListError(
+          "No se pudieron cargar las ventas de invitados. Revisa tu conexión e intenta de nuevo.",
+        );
         setRowsVentasInvitados({ totalRows: 0, data: [] });
       } finally {
-        setLoading(false);
+        if (isCurrent(sequence)) setLoading(false);
       }
     },
-    [requestGetProveedores, setRowsVentasInvitados],
+    [requestGetProveedores, setRowsVentasInvitados, nextSequence, isCurrent],
   );
 
   const handleChangeStatusShip = async (
@@ -83,9 +94,30 @@ const useVentasInvitados = () => {
               : row,
           ),
         }));
+      } else {
+        setDataModal({
+          isOpen: true,
+          type: "error",
+          title: "No se actualizó el envío",
+          content:
+            resp?.data?.message ||
+            "No se pudo cambiar el estatus. Intenta de nuevo.",
+          showActions: true,
+          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        });
       }
     } catch {
-      /* noop */
+      setDataModal({
+        isOpen: true,
+        type: "error",
+        title: "No se actualizó el envío",
+        content:
+          "Ocurrió un error al cambiar el estatus. Revisa tu conexión e intenta de nuevo.",
+        showActions: true,
+        onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+      });
     }
   };
 
@@ -93,6 +125,7 @@ const useVentasInvitados = () => {
     handleGetAllSalesInvitados,
     handleChangeStatusShip,
     loading,
+    listError,
   };
 };
 

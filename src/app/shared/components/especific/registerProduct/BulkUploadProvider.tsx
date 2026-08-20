@@ -284,13 +284,24 @@ const BulkUploadProvider = () => {
     }
 
     setIsUploading(false);
-    
+
+    const failedCount = validProducts.length - successCount;
     setDataModal({
       isOpen: true,
-      type: "success",
-      content: `Se dieron de alta ${successCount} productos de ${validProducts.length}.`,
+      type: successCount === 0 ? "error" : failedCount > 0 ? "warning" : "success",
+      content:
+        successCount === 0
+          ? `No se pudo dar de alta ningún producto (${validProducts.length} fallaron). Revisa el archivo e intenta de nuevo.`
+          : failedCount > 0
+            ? `Se dieron de alta ${successCount} de ${validProducts.length} productos. ${failedCount} fallaron.`
+            : `Se dieron de alta ${successCount} productos de ${validProducts.length}.`,
       showActions: true,
-      title: "Proceso Terminado",
+      title:
+        successCount === 0
+          ? "Proceso con errores"
+          : failedCount > 0
+            ? "Proceso parcial"
+            : "Proceso Terminado",
       onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
       onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
     });
