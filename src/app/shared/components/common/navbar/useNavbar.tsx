@@ -8,6 +8,8 @@ import UtilsService from "@/app/services/utils";
 
 import { useState } from "react";
 
+import { clearAllQuerySessions } from "@/app/utils/querySession";
+
 
 
 const ROUTES_BY_TAB: Record<string, string> = {
@@ -87,6 +89,8 @@ const useNavbar = () => {
         localStorage.removeItem("token");
 
         localStorage.removeItem("email");
+
+        clearAllQuerySessions();
 
         onRouterPush("/features/auth/Login");
 
