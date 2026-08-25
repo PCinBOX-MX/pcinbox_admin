@@ -13,23 +13,15 @@ import { clearAllQuerySessions } from "@/app/utils/querySession";
 
 
 const ROUTES_BY_TAB: Record<string, string> = {
-
   ventas: "/dashboard",
-
   proveedores: "/proveedores",
-
   clientes: "/customer",
-
   ajustes: "/settings",
-
   linkPago: "/linkPagos",
-
   ventasInvitados: "/ventasInvitados",
-
   reservas: "/reservas",
-
   cotizaciones: "/cotizaciones",
-
+  puntoDeVenta: "/punto-de-venta",
 };
 
 
@@ -89,6 +81,8 @@ const useNavbar = () => {
         localStorage.removeItem("token");
 
         localStorage.removeItem("email");
+
+        localStorage.removeItem("adminRole");
 
         clearAllQuerySessions();
 

@@ -13,6 +13,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/linkPagos": "Links de pago",
   "/settings": "Ajustes",
   "/reservas": "Reservas",
+  "/punto-de-venta": "Punto de Venta",
 };
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {

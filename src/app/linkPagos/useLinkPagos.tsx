@@ -84,8 +84,8 @@ const useLinkPagos = () => {
 
       if (resp.ok) {
         const data = await resp.json();
-        const url = data.link;
-        window.open(url, "_blank");
+        const url = data.checkoutLink || data.link;
+        if (url) window.open(url, "_blank");
         setDataLinkPago({
           chargeId: "",
           customerId: "",
@@ -99,6 +99,21 @@ const useLinkPagos = () => {
           referencia: "",
           phone: "",
           status: "payment_pending",
+        });
+        setDataModal({
+          isOpen: true,
+          content: url
+            ? `Link generado correctamente.${data.referencia ? ` Ref: ${data.referencia}` : ""}`
+            : "Link generado, pero no se recibió URL. Revisa la pasarela.",
+          showActions: true,
+          title: "Listo",
+          type: "success",
+          onConfirm: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+          onClose: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
         });
       } else {
         let message = "No se pudo generar el link de pago. Intenta de nuevo.";
