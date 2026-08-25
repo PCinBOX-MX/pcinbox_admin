@@ -31,12 +31,9 @@ const useProveedores = () => {
   useEffect(() => {
     if (providerParam && providerParam !== slcProveedor) {
       setSlcProveedor(providerParam);
-      // Since handleGetProductsByProveedor is defined below, we will use an effect in page.tsx instead,
-      // or we can just update the state here and let page.tsx handle the fetch.
-      // Wait, we can't call handleGetProductsByProveedor here if it's defined after.
-      // Let's just update the state here so it stays in sync.
+      setProductsProveedor((prev) => ({ ...prev, loading: true }));
     }
-  }, [providerParam, slcProveedor]);
+  }, [providerParam, slcProveedor, setProductsProveedor]);
 
   const [registerProveedores, setRegisterProveedores] = useState<{
     loading: boolean;
@@ -47,6 +44,7 @@ const useProveedores = () => {
   const handleOnChange = (event: SelectChangeEvent) => {
     const newVal = event.target.value;
     setSlcProveedor(newVal);
+    setProductsProveedor((prev) => ({ ...prev, loading: true }));
     setQueryParams({ provider: newVal, page: 1 });
   };
 

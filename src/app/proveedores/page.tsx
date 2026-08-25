@@ -88,6 +88,8 @@ const Proveedores = () => {
     : [];
   const totalItems = dataProductProveedor.totalRows ?? catalogProducts.length;
   const pageCount = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+  const showPagination =
+    !dataProductProveedor.loading && totalItems > 0 && Boolean(slcProveedor);
 
   if (!mounted) {
     return (
@@ -244,8 +246,8 @@ const Proveedores = () => {
           </div>
         </>
       }
-      paginationTop={totalItems > 0 ? paginationBlock : undefined}
-      paginationBottom={totalItems > 0 ? paginationBlock : undefined}
+      paginationTop={showPagination ? paginationBlock : undefined}
+      paginationBottom={showPagination ? paginationBlock : undefined}
     >
       {!dataProductProveedor.loading ? (
         catalogError ? (
