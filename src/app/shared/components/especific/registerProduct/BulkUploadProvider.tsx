@@ -84,6 +84,34 @@ function normalizeImageUrl(raw: string): string {
   return url;
 }
 
+/** Clave para deduplicar la misma imagen con URL distinta (query params, CDN, etc.). */
+function canonicalImageKey(url: string): string {
+  const normalized = normalizeImageUrl(url);
+  if (!normalized) return "";
+  try {
+    const u = new URL(normalized);
+    const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+    const name = path.split("/").pop() || path;
+    return `${u.hostname.toLowerCase()}${path}|${name}`;
+  } catch {
+    return normalized.toLowerCase();
+  }
+}
+
+function dedupeImageUrls(urls: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of urls) {
+    const url = normalizeImageUrl(raw);
+    if (!url) continue;
+    const key = canonicalImageKey(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(url);
+  }
+  return out;
+}
+
 function cleanUrlToken(raw: string): string {
   return normalizeImageUrl(
     raw.replace(/^[\s[\('"\\]+|[\s\]'"\)\\]+$/g, ""),
@@ -354,21 +382,16 @@ function BulkRowImagesCompact({
   }, [files]);
 
   const normalizedExcel = useMemo(
-    () => [...new Set(imageUrls.map(normalizeImageUrl).filter(Boolean))],
+    () => dedupeImageUrls(imageUrls),
     [imageUrls],
   );
-  const normalizedCatalog = useMemo(
-    () =>
-      [
-        ...new Set(
-          catalogUrls
-            .map(normalizeImageUrl)
-            .filter(Boolean)
-            .filter((u) => !normalizedExcel.includes(u)),
-        ),
-      ],
-    [catalogUrls, normalizedExcel],
-  );
+  const normalizedCatalog = useMemo(() => {
+    if (normalizedExcel.length > 0) return [];
+    const excelKeys = new Set(normalizedExcel.map(canonicalImageKey));
+    return dedupeImageUrls(catalogUrls).filter(
+      (u) => !excelKeys.has(canonicalImageKey(u)),
+    );
+  }, [catalogUrls, normalizedExcel]);
 
   const previewItems = useMemo(
     () => [
@@ -660,9 +683,10 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
 
           const fromCell = parseImageUrls(pick(r, IMAGENES_COLUMN_NAMES));
           const fromLinks = hyperlinkMap.get(rowIndex) ?? [];
-          const imageUrls = [
-            ...new Set([...fromCell, ...fromLinks].filter(Boolean)),
-          ];
+          const imageUrls = dedupeImageUrls([
+            ...fromCell,
+            ...fromLinks,
+          ]);
 
           return {
             upc: normalizeExcelKey(pick(r, ["upc"])),
@@ -1123,7 +1147,11 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
                         rowIndex={idx}
                         files={row.files}
                         imageUrls={row.imageUrls}
-                        catalogUrls={extractCatalogImages(row.matchedProduct)}
+                        catalogUrls={
+                          row.imageUrls.length > 0
+                            ? []
+                            : extractCatalogImages(row.matchedProduct)
+                        }
                         error={
                           row.imageError ||
                           (!rowHasImages(row)
