@@ -73,27 +73,129 @@ function normalizeExcelKey(raw: unknown): string {
   return String(raw).trim();
 }
 
+function normalizeImageUrl(raw: string): string {
+  let url = String(raw ?? "").trim();
+  if (!url) return "";
+  url = url.replace(/^["']+|["']+$/g, "");
+  url = url.replace(/\\"/g, '"').replace(/\\'/g, "'");
+  if (url.startsWith("//")) return `https:${url}`;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (/^[\w-]+\.[\w.-]+/.test(url)) return `https://${url}`;
+  return url;
+}
+
+function cleanUrlToken(raw: string): string {
+  return normalizeImageUrl(
+    raw.replace(/^[\s[\('"\\]+|[\s\]'"\)\\]+$/g, ""),
+  );
+}
+
 function parseImageUrls(raw: unknown): string[] {
   if (raw == null || raw === "") return [];
-  if (Array.isArray(raw)) {
-    return raw.map((v) => String(v).trim()).filter(Boolean);
+
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    const obj = raw as Record<string, unknown>;
+    const fromObj =
+      obj.Target ?? obj.target ?? obj.href ?? obj.url ?? obj.Hyperlink;
+    if (fromObj != null) return parseImageUrls(fromObj);
   }
+
+  if (Array.isArray(raw)) {
+    return [
+      ...new Set(
+        raw.flatMap((v) => parseImageUrls(v)).filter(Boolean),
+      ),
+    ];
+  }
+
   const str = String(raw).trim();
   if (!str) return [];
-  if (str.startsWith("[")) {
+
+  if (str.startsWith("[") || str.startsWith("{")) {
     try {
       const parsed = JSON.parse(str) as unknown;
       if (Array.isArray(parsed)) {
-        return parsed.map((v) => String(v).trim()).filter(Boolean);
+        return [
+          ...new Set(
+            parsed.map((v) => cleanUrlToken(String(v))).filter(Boolean),
+          ),
+        ];
       }
     } catch {
-      /* usar separadores */
+      try {
+        const parsed = JSON.parse(str.replace(/'/g, '"')) as unknown;
+        if (Array.isArray(parsed)) {
+          return [
+            ...new Set(
+              parsed.map((v) => cleanUrlToken(String(v))).filter(Boolean),
+            ),
+          ];
+        }
+      } catch {
+        /* separadores */
+      }
     }
   }
-  return str
-    .split(/[,;\n|]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+
+  return [
+    ...new Set(
+      str
+        .split(/[,;\n|]+/)
+        .map(cleanUrlToken)
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function extractCatalogImages(product: ProductsI | null): string[] {
+  if (!product?.image_url) return [];
+  const raw = product.image_url;
+  const list = Array.isArray(raw) ? raw : parseImageUrls(raw);
+  return [...new Set(list.map((u) => normalizeImageUrl(String(u))).filter(Boolean))];
+}
+
+const IMAGENES_COLUMN_NAMES = [
+  "imagenes",
+  "imágenes",
+  "img_url",
+  "image_url",
+  "images",
+  "imagen",
+];
+
+function findImagenesColumnIndex(ws: XLSX.WorkSheet): number {
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const cell = ws[XLSX.utils.encode_cell({ r: range.s.r, c })];
+    const label = String(cell?.v ?? "")
+      .trim()
+      .toLowerCase();
+    if (IMAGENES_COLUMN_NAMES.includes(label)) return c;
+  }
+  return -1;
+}
+
+/** URLs de celdas con hipervínculo en Excel (el texto visible no siempre es la URL). */
+function buildHyperlinkMap(
+  ws: XLSX.WorkSheet,
+  colIndex: number,
+  dataStartRow: number,
+): Map<number, string[]> {
+  const map = new Map<number, string[]>();
+  if (colIndex < 0) return map;
+
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+  for (let r = dataStartRow; r <= range.e.r; r++) {
+    const cell = ws[XLSX.utils.encode_cell({ r, c: colIndex })];
+    if (!cell) continue;
+    const urls: string[] = [];
+    if (cell.l?.Target) {
+      const target = normalizeImageUrl(String(cell.l.Target));
+      if (target) urls.push(target);
+    }
+    if (urls.length) map.set(r - dataStartRow, urls);
+  }
+  return map;
 }
 
 /** Igual que UploadImgProvider2: "clave: valor" por línea → { prop, value } */
@@ -168,9 +270,68 @@ function statusClass(status: BulkRow["status"]) {
   }
 }
 
+const PRODUCT_IMAGE_FALLBACK = "/imagen-no-encontrada.png";
+
+/** Vista previa vía proxy del admin: evita bloqueo hotlink en el navegador. */
+function resolvePreviewSrc(src: string): string {
+  if (!src) return PRODUCT_IMAGE_FALLBACK;
+  if (src.startsWith("blob:") || src.startsWith("/")) return src;
+  return `/api/preview-image?url=${encodeURIComponent(src)}`;
+}
+
+function BulkImageThumb({
+  src,
+  rowIndex,
+  index,
+  removable,
+  onRemove,
+}: {
+  src: string;
+  rowIndex: number;
+  index: number;
+  removable: boolean;
+  onRemove?: () => void;
+}) {
+  const [failed, setFailed] = useState(false);
+  const previewSrc = failed ? PRODUCT_IMAGE_FALLBACK : resolvePreviewSrc(src);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  return (
+    <div
+      className={styles.thumb}
+      data-testid={`bulk-image-${rowIndex}-${index}`}
+      title={src}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={previewSrc}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
+      {removable && onRemove ? (
+        <button
+          type="button"
+          className={styles.thumbRemove}
+          data-testid={`bulk-remove-image-${rowIndex}-${index}`}
+          onClick={onRemove}
+          aria-label="Quitar imagen"
+        >
+          <Trash2 size={12} />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function BulkRowImagesCompact({
   files,
   imageUrls,
+  catalogUrls = [],
   error,
   onAddFiles,
   onRemove,
@@ -178,52 +339,113 @@ function BulkRowImagesCompact({
 }: {
   files: File[];
   imageUrls: string[];
+  catalogUrls?: string[];
   error: string | null;
   onAddFiles: (files: File[]) => void;
   onRemove: (index: number) => void;
   rowIndex: number;
 }) {
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [blobUrls, setBlobUrls] = useState<string[]>([]);
 
   useEffect(() => {
-    const blobUrls = files.map((f) => URL.createObjectURL(f));
-    setPreviews([...imageUrls, ...blobUrls]);
-    return () => blobUrls.forEach((u) => URL.revokeObjectURL(u));
-  }, [files, imageUrls]);
+    const urls = files.map((f) => URL.createObjectURL(f));
+    setBlobUrls(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [files]);
+
+  const normalizedExcel = useMemo(
+    () => [...new Set(imageUrls.map(normalizeImageUrl).filter(Boolean))],
+    [imageUrls],
+  );
+  const normalizedCatalog = useMemo(
+    () =>
+      [
+        ...new Set(
+          catalogUrls
+            .map(normalizeImageUrl)
+            .filter(Boolean)
+            .filter((u) => !normalizedExcel.includes(u)),
+        ),
+      ],
+    [catalogUrls, normalizedExcel],
+  );
+
+  const previewItems = useMemo(
+    () => [
+      ...normalizedExcel.map((url) => ({
+        url,
+        kind: "excel" as const,
+      })),
+      ...blobUrls.map((url) => ({
+        url,
+        kind: "file" as const,
+      })),
+      ...normalizedCatalog.map((url) => ({
+        url,
+        kind: "catalog" as const,
+      })),
+    ],
+    [normalizedExcel, blobUrls, normalizedCatalog],
+  );
 
   return (
     <div className={styles.imagesSection}>
       <span className={styles.imagesLabel}>
         Imágenes
-        {previews.length > 0 ? ` · ${previews.length} total` : ""}
-        {imageUrls.length > 0 ? ` (${imageUrls.length} del Excel)` : ""}
+        {previewItems.length > 0 ? ` · ${previewItems.length} en vista previa` : ""}
+        {normalizedExcel.length > 0
+          ? ` (${normalizedExcel.length} del Excel)`
+          : null}
+        {normalizedCatalog.length > 0 && normalizedExcel.length === 0
+          ? ` (${normalizedCatalog.length} del catálogo)`
+          : null}
       </span>
-      <div className={styles.imageStrip}>
-        {previews.map((src, index) => (
-          <div
-            key={`${src}-${index}`}
-            className={styles.thumb}
-            data-testid={`bulk-image-${rowIndex}-${index}`}
+      {previewItems.length > 0 ? (
+        <div className={styles.imageStrip} data-testid={`bulk-product-images-${rowIndex}`}>
+          {previewItems.map((item, index) => (
+            <BulkImageThumb
+              key={`${item.kind}-${item.url}-${index}`}
+              src={item.url}
+              rowIndex={rowIndex}
+              index={index}
+              removable={item.kind !== "catalog"}
+              onRemove={
+                item.kind === "catalog"
+                  ? undefined
+                  : () => onRemove(index)
+              }
+            />
+          ))}
+          <label
+            className={styles.addImageBtn}
+            data-testid={`bulk-file-trigger-${rowIndex}`}
+            title="Agregar imágenes"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" />
-            <button
-              type="button"
-              className={styles.thumbRemove}
-              data-testid={`bulk-remove-image-${rowIndex}-${index}`}
-              onClick={() => onRemove(index)}
-              aria-label="Quitar imagen"
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-        ))}
+            <MdCloudUpload size={22} />
+            <input
+              data-testid={`bulk-file-input-${rowIndex}`}
+              type="file"
+              hidden
+              multiple
+              accept="image/*,video/*"
+              onChange={(event) => {
+                const selected = Array.from(
+                  (event.target as HTMLInputElement).files || [],
+                );
+                if (selected.length) onAddFiles(selected);
+                event.target.value = "";
+              }}
+            />
+          </label>
+        </div>
+      ) : (
         <label
-          className={styles.addImageBtn}
+          className={styles.addImageBtnWide}
           data-testid={`bulk-file-trigger-${rowIndex}`}
           title="Agregar imágenes"
         >
           <MdCloudUpload size={22} />
+          <span>Subir imágenes</span>
           <input
             data-testid={`bulk-file-input-${rowIndex}`}
             type="file"
@@ -239,7 +461,7 @@ function BulkRowImagesCompact({
             }}
           />
         </label>
-      </div>
+      )}
       {error ? (
         <span className={styles.imageError} data-testid={`bulk-image-error-${rowIndex}`}>
           {error}
@@ -400,7 +622,12 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
         ? map.get(`${pid}:${row.idProductExt}`)
         : null;
       const byUpc = row.upc ? map.get(`${pid}:${row.upc}`) : null;
-      return { ...row, matchedProduct: byExt ?? byUpc ?? null };
+      const matchedProduct = byExt ?? byUpc ?? null;
+      const imageUrls =
+        row.imageUrls.length > 0
+          ? row.imageUrls
+          : extractCatalogImages(matchedProduct);
+      return { ...row, matchedProduct, imageUrls };
     });
   };
 
@@ -414,8 +641,11 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
         const wb = XLSX.read(evt.target?.result, { type: "binary" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
+        const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+        const imgColIndex = findImagenesColumnIndex(ws);
+        const hyperlinkMap = buildHyperlinkMap(ws, imgColIndex, range.s.r + 1);
 
-        const parsed: BulkRow[] = rows.map((row) => {
+        const parsed: BulkRow[] = rows.map((row, rowIndex) => {
           const r = normalizeKeys(row);
           const priceRaw = pick(r, [
             "precio",
@@ -427,6 +657,12 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
             priceRaw == null || String(priceRaw).trim() === ""
               ? null
               : Number(priceRaw);
+
+          const fromCell = parseImageUrls(pick(r, IMAGENES_COLUMN_NAMES));
+          const fromLinks = hyperlinkMap.get(rowIndex) ?? [];
+          const imageUrls = [
+            ...new Set([...fromCell, ...fromLinks].filter(Boolean)),
+          ];
 
           return {
             upc: normalizeExcelKey(pick(r, ["upc"])),
@@ -466,16 +702,7 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
               ) ||
               Number(defaultProviderId) ||
               0,
-            imageUrls: parseImageUrls(
-              pick(r, [
-                "imagenes",
-                "imágenes",
-                "img_url",
-                "image_url",
-                "images",
-                "imagen",
-              ]),
-            ),
+            imageUrls,
             matchedProduct: null,
             files: [],
             imageError: null,
@@ -536,7 +763,9 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
   };
 
   const rowHasImages = (row: BulkRow) =>
-    row.imageUrls.length > 0 || row.files.length > 0;
+    row.imageUrls.length > 0 ||
+    row.files.length > 0 ||
+    extractCatalogImages(row.matchedProduct).length > 0;
 
   const canSubmitRow = (row: BulkRow) =>
     Boolean(row.matchedProduct) &&
@@ -616,6 +845,11 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
 
         if (item.imageUrls.length > 0) {
           formData.append("imageUrls", JSON.stringify(item.imageUrls));
+        } else {
+          const catalogUrls = extractCatalogImages(catalog);
+          if (catalogUrls.length > 0) {
+            formData.append("imageUrls", JSON.stringify(catalogUrls));
+          }
         }
         item.files.forEach((f) => formData.append("files", f));
 
@@ -889,6 +1123,7 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
                         rowIndex={idx}
                         files={row.files}
                         imageUrls={row.imageUrls}
+                        catalogUrls={extractCatalogImages(row.matchedProduct)}
                         error={
                           row.imageError ||
                           (!rowHasImages(row)

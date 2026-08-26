@@ -7,8 +7,12 @@ import AppEmotionCacheProvider from "./providers/AppEmotionCacheProvider";
 export const metadata: Metadata = {
   title: "PCInbox Admin",
   icons: {
-    icon: [{ url: "/logo.png?v=2", type: "image/png", sizes: "32x32" }],
+    icon: [
+      { url: "/icon.png", type: "image/png", sizes: "32x32" },
+      { url: "/logo.png", type: "image/png", sizes: "192x192" },
+    ],
     apple: [{ url: "/logo.png" }],
+    shortcut: [{ url: "/icon.png" }],
   },
 };
 

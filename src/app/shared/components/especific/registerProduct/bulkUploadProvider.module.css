@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: min(72vh, 720px);
   text-align: left;
 }
 
@@ -173,21 +172,17 @@
 }
 
 .scrollArea {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 4px;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  padding-bottom: 0.5rem;
 }
 
 .rowCard {
   border: 1px solid #e5e7eb;
   border-radius: 0.875rem;
   background: #fff;
-  overflow: hidden;
+  overflow: visible;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -370,18 +365,54 @@
 .thumb {
   position: relative;
   flex-shrink: 0;
-  width: 52px;
-  height: 52px;
-  border-radius: 0.5rem;
+  width: 72px;
+  height: 72px;
+  border-radius: 0.625rem;
   overflow: hidden;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .thumb img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.thumbFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.addImageBtnWide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 2px dashed #d1d5db;
+  border-radius: 0.625rem;
+  background: #fafafa;
+  color: #992230;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.addImageBtnWide:hover {
+  border-color: #bb3d4b;
+  background: #fdf2f4;
 }
 
 .thumbRemove {
@@ -410,8 +441,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 72px;
+  height: 72px;
   border: 2px dashed #d1d5db;
   border-radius: 0.5rem;
   background: #fafafa;
@@ -463,10 +494,11 @@
   align-items: center;
   justify-content: flex-end;
   gap: 0.75rem;
-  margin-top: 0.75rem;
-  padding: 1rem 0 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #fff 24%);
+  margin-top: 1rem;
+  padding: 1rem 0 0.25rem;
+  background: #fff;
   border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -8px 16px rgba(255, 255, 255, 0.9);
 }
 
 .footerBtnSecondary {
