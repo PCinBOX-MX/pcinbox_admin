@@ -275,7 +275,7 @@ const useProveedores = () => {
       ),
       title: "Alta Masiva por Excel",
       type: "info",
-      maxWidth: "min(95vw, 1000px)",
+      maxWidth: "min(95vw, 720px)",
       showActions: false,
       onClose: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));

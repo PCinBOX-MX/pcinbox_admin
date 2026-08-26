@@ -1,35 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Box,
   Button,
   CircularProgress,
   LinearProgress,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Typography,
 } from "@mui/material";
-import { MdAutorenew, MdCloudUpload, MdDownload } from "react-icons/md";
+import {
+  MdAutorenew,
+  MdCloudUpload,
+  MdDownload,
+  MdExpandLess,
+  MdExpandMore,
+} from "react-icons/md";
+import { Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useTheContext } from "@/app/hooks/global.hook";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import useProveedores from "@/app/proveedores/useProveedores";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import { takeFilesWithinLimit } from "@/app/constants/productImages.constants";
-import ProductImagesField from "../productImages/ProductImagesField";
 import {
   getProviderLabel,
   PROVIDER_PCINBOX,
   PROVIDER_TECHSMART,
   providerUsesProfitMargin,
 } from "@/app/constants/providers.constants";
+import styles from "./bulkUploadProvider.module.css";
 
 type BulkRow = {
   upc: string;
@@ -136,7 +134,41 @@ const TEMPLATE_HEADERS = [
   "Precio",
 ];
 
-function BulkRowImages({
+const COLUMN_HINTS = [
+  { label: "idProductExt", required: true },
+  { label: "UPC", required: false },
+  { label: "Imagenes", required: true },
+  { label: "Margen", required: true },
+  { label: "Precio", required: false },
+];
+
+function statusLabel(status: BulkRow["status"]) {
+  switch (status) {
+    case "uploading":
+      return "Subiendo";
+    case "success":
+      return "OK";
+    case "error":
+      return "Error";
+    default:
+      return "Pendiente";
+  }
+}
+
+function statusClass(status: BulkRow["status"]) {
+  switch (status) {
+    case "uploading":
+      return styles.statusUploading;
+    case "success":
+      return styles.statusSuccess;
+    case "error":
+      return styles.statusError;
+    default:
+      return styles.statusPending;
+  }
+}
+
+function BulkRowImagesCompact({
   files,
   imageUrls,
   error,
@@ -154,34 +186,114 @@ function BulkRowImages({
   const [previews, setPreviews] = useState<string[]>([]);
 
   useEffect(() => {
-    const urls = files.map((f) => URL.createObjectURL(f));
-    setPreviews([...imageUrls, ...urls]);
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+    const blobUrls = files.map((f) => URL.createObjectURL(f));
+    setPreviews([...imageUrls, ...blobUrls]);
+    return () => blobUrls.forEach((u) => URL.revokeObjectURL(u));
   }, [files, imageUrls]);
 
   return (
-    <Stack spacing={0.75}>
-      {imageUrls.length > 0 ? (
-        <Typography variant="caption" color="text.secondary">
-          {imageUrls.length} URL(s) del Excel
-        </Typography>
+    <div className={styles.imagesSection}>
+      <span className={styles.imagesLabel}>
+        Imágenes
+        {previews.length > 0 ? ` · ${previews.length} total` : ""}
+        {imageUrls.length > 0 ? ` (${imageUrls.length} del Excel)` : ""}
+      </span>
+      <div className={styles.imageStrip}>
+        {previews.map((src, index) => (
+          <div
+            key={`${src}-${index}`}
+            className={styles.thumb}
+            data-testid={`bulk-image-${rowIndex}-${index}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt="" />
+            <button
+              type="button"
+              className={styles.thumbRemove}
+              data-testid={`bulk-remove-image-${rowIndex}-${index}`}
+              onClick={() => onRemove(index)}
+              aria-label="Quitar imagen"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+        <label
+          className={styles.addImageBtn}
+          data-testid={`bulk-file-trigger-${rowIndex}`}
+          title="Agregar imágenes"
+        >
+          <MdCloudUpload size={22} />
+          <input
+            data-testid={`bulk-file-input-${rowIndex}`}
+            type="file"
+            hidden
+            multiple
+            accept="image/*,video/*"
+            onChange={(event) => {
+              const selected = Array.from(
+                (event.target as HTMLInputElement).files || [],
+              );
+              if (selected.length) onAddFiles(selected);
+              event.target.value = "";
+            }}
+          />
+        </label>
+      </div>
+      {error ? (
+        <span className={styles.imageError} data-testid={`bulk-image-error-${rowIndex}`}>
+          {error}
+        </span>
       ) : null}
-      <ProductImagesField
-        compact
-        previews={previews}
-        files={files}
-        error={error}
-        accept="image/*,video/*"
-        inputTestId={`bulk-file-input-${rowIndex}`}
-        triggerTestId={`bulk-file-trigger-${rowIndex}`}
-        errorTestId={`bulk-image-error-${rowIndex}`}
-        imagesTestId={`bulk-product-images-${rowIndex}`}
-        imageItemTestIdPrefix={`bulk-image-${rowIndex}`}
-        removeTestIdPrefix={`bulk-remove-image-${rowIndex}`}
-        onAddFiles={onAddFiles}
-        onRemove={onRemove}
-      />
-    </Stack>
+    </div>
+  );
+}
+
+function RowCharacteristics({
+  text,
+  expanded,
+  onToggle,
+}: {
+  text: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const chars = parseCharacteristics(text);
+  if (!chars.length) return null;
+
+  const preview = chars.slice(0, 3);
+  const rest = chars.length - preview.length;
+
+  return (
+    <div>
+      <button type="button" className={styles.charsToggle} onClick={onToggle}>
+        {expanded ? <MdExpandLess size={18} /> : <MdExpandMore size={18} />}
+        {expanded
+          ? "Ocultar características"
+          : `${chars.length} característica${chars.length === 1 ? "" : "s"}`}
+      </button>
+      {!expanded && rest > 0 ? (
+        <div className={styles.charsList}>
+          {preview.map((c, i) => (
+            <span key={i} className={styles.charTag} title={`${c.prop}: ${c.value}`}>
+              {c.prop}
+              {c.value ? `: ${c.value}` : ""}
+            </span>
+          ))}
+          <span className={styles.charTag}>+{rest} más</span>
+        </div>
+      ) : null}
+      {expanded ? (
+        <div className={styles.charsList}>
+          {chars.map((c, i) => (
+            <span key={i} className={styles.charTag} title={`${c.prop}: ${c.value}`}>
+              {c.prop}
+              {c.value ? `: ${c.value}` : ""}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -191,6 +303,7 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [expandedChars, setExpandedChars] = useState<Set<number>>(new Set());
 
   const { setDataModal } = useTheContext();
   const { setProductsProveedor } = useProveedores();
@@ -399,14 +512,25 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
     });
   };
 
-  const handleRemoveFile = (prodIndex: number, fileIndex: number) => {
+  const handleRemoveFile = (prodIndex: number, previewIndex: number) => {
     setBulkData((prev) => {
       const next = [...prev];
-      next[prodIndex] = {
-        ...next[prodIndex],
-        files: next[prodIndex].files.filter((_, i) => i !== fileIndex),
-        imageError: null,
-      };
+      const row = next[prodIndex];
+      const urlCount = row.imageUrls.length;
+      if (previewIndex < urlCount) {
+        next[prodIndex] = {
+          ...row,
+          imageUrls: row.imageUrls.filter((_, i) => i !== previewIndex),
+          imageError: null,
+        };
+      } else {
+        const fileIndex = previewIndex - urlCount;
+        next[prodIndex] = {
+          ...row,
+          files: row.files.filter((_, i) => i !== fileIndex),
+          imageError: null,
+        };
+      }
       return next;
     });
   };
@@ -584,241 +708,214 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
     });
   };
 
+  const reviewStats = useMemo(() => {
+    const matched = bulkData.filter((r) => r.matchedProduct).length;
+    const ready = bulkData.filter(canSubmitRow).length;
+    const done = bulkData.filter((r) => r.status === "success").length;
+    return { matched, ready, done, total: bulkData.length };
+  }, [bulkData]);
+
+  const toggleChars = (idx: number) => {
+    setExpandedChars((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
   return (
-    <Stack spacing={3} sx={{ mt: 2, pb: 2, width: "100%" }}>
+    <div className={styles.root}>
       {step === 1 && (
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 2,
-            py: 4,
-          }}
-        >
-          <Typography variant="h6">Sube tu archivo Excel (.xlsx)</Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            align="center"
-            sx={{ maxWidth: 560 }}
+        <div className={styles.uploadStep}>
+          {defaultProviderId ? (
+            <span className={styles.providerBadge}>
+              Proveedor: {getProviderLabel(defaultProviderId)}
+            </span>
+          ) : null}
+
+          <label
+            className={`${styles.dropzone} ${isMatching ? styles.dropzoneDisabled : ""}`}
           >
-            Mismo alta que &quot;Dar de alta al sistema&quot;, en lote.
-            Columnas: <b>idProductExt</b> (clave principal), <b>UPC</b>{" "}
-            (opcional), <b>Descripcion</b>, <b>Imagenes</b> (JSON o URLs
-            separadas por coma), <b>Caracteristicas</b> (clave: valor por
-            línea), <b>Margen</b>, <b>Precio</b> (precio proveedor). Se busca
-            en catálogo/BD por idProductExt; UPC solo si no hay clave. Se usa
-            el proveedor del filtro
-            {defaultProviderId
-              ? ` (${getProviderLabel(defaultProviderId)})`
-              : ""}
-            .
-          </Typography>
-          <Stack
-            direction="row"
-            spacing={1.5}
-            flexWrap="wrap"
-            justifyContent="center"
-          >
-            <Button
-              variant="text"
-              startIcon={<MdDownload />}
-              onClick={downloadTemplate}
-            >
-              Descargar plantilla
-            </Button>
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={
-                isMatching ? (
-                  <CircularProgress size={18} />
-                ) : (
-                  <MdCloudUpload />
-                )
-              }
+            <div className={styles.dropzoneIcon}>
+              {isMatching ? (
+                <CircularProgress size={28} sx={{ color: "#992230" }} />
+              ) : (
+                <MdCloudUpload size={28} />
+              )}
+            </div>
+            <p className={styles.dropzoneTitle}>
+              {isMatching
+                ? "Buscando productos en catálogo…"
+                : "Arrastra o selecciona tu Excel"}
+            </p>
+            <p className={styles.dropzoneHint}>
+              Alta masiva equivalente a &quot;Dar de alta al sistema&quot;. Un
+              archivo por proveedor; se busca por <strong>idProductExt</strong>.
+            </p>
+            <input
+              type="file"
+              hidden
+              accept=".xlsx,.xls,.csv"
               disabled={isMatching}
-              sx={{
-                height: 56,
-                borderStyle: "dashed",
-                borderWidth: 2,
-                px: 4,
+              onChange={handleFileUpload}
+              onClick={(ev) => {
+                (ev.target as HTMLInputElement).value = "";
               }}
-            >
-              {isMatching ? "Buscando productos…" : "Seleccionar Excel"}
-              <input
-                type="file"
-                hidden
-                accept=".xlsx,.xls,.csv"
-                onChange={handleFileUpload}
-                onClick={(ev) => {
-                  (ev.target as HTMLInputElement).value = "";
-                }}
-              />
-            </Button>
-          </Stack>
-        </Box>
+            />
+          </label>
+
+          <div className={styles.columnChips}>
+            {COLUMN_HINTS.map((col) => (
+              <span
+                key={col.label}
+                className={`${styles.columnChip} ${col.required ? styles.columnChipRequired : ""}`}
+              >
+                {col.label}
+                {col.required ? " *" : ""}
+              </span>
+            ))}
+          </div>
+
+          <Button
+            className={styles.templateBtn}
+            variant="text"
+            startIcon={<MdDownload />}
+            onClick={downloadTemplate}
+            sx={{ color: "#992230", fontWeight: 600, textTransform: "none" }}
+          >
+            Descargar plantilla .xlsx
+          </Button>
+        </div>
       )}
 
       {step === 2 && (
-        <Box>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Revisión ({bulkData.length} filas ·{" "}
-            {bulkData.filter((r) => r.matchedProduct).length} en catálogo)
-          </Typography>
+        <>
+          <div className={styles.reviewHeader}>
+            <div>
+              <h3 className={styles.reviewTitle}>Revisión antes del alta</h3>
+              <p className={styles.reviewSubtitle}>
+                Confirma datos e imágenes. Los botones permanecen fijos abajo.
+              </p>
+            </div>
+            <div className={styles.stats}>
+              <span className={`${styles.stat} ${styles.statTotal}`}>
+                {reviewStats.total} filas
+              </span>
+              <span className={`${styles.stat} ${styles.statOk}`}>
+                {reviewStats.matched} en catálogo
+              </span>
+              <span className={`${styles.stat} ${styles.statPending}`}>
+                {reviewStats.ready} listos
+              </span>
+              {reviewStats.done > 0 ? (
+                <span className={`${styles.stat} ${styles.statDone}`}>
+                  {reviewStats.done} completados
+                </span>
+              ) : null}
+            </div>
+          </div>
 
-          <TableContainer
-            component={Paper}
-            sx={{ maxHeight: "60vh", overflow: "auto" }}
-          >
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Ext / UPC</TableCell>
-                  <TableCell>Proveedor</TableCell>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell>Margen</TableCell>
-                  <TableCell>Precio</TableCell>
-                  <TableCell>Características</TableCell>
-                  <TableCell sx={{ minWidth: 220 }}>Imágenes</TableCell>
-                  <TableCell>Estado</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {bulkData.map((row, idx) => (
-                  <TableRow
-                    key={idx}
-                    sx={{
-                      bgcolor:
-                        row.status === "success" ? "#edf7ed" : "inherit",
-                    }}
-                  >
-                    <TableCell>
+          <div className={styles.scrollArea}>
+            {bulkData.map((row, idx) => {
+              const providerLabel = getProviderLabel(
+                row.providerId ||
+                  row.matchedProduct?.providerId ||
+                  defaultProviderId,
+              );
+              const cardClass = [
+                styles.rowCard,
+                row.status === "success" ? styles.rowCardSuccess : "",
+                row.status === "error" ? styles.rowCardError : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              return (
+                <article key={idx} className={cardClass}>
+                  <header className={styles.rowCardHeader}>
+                    <div className={styles.rowMain}>
+                      <span className={styles.rowIndex}>#{idx + 1}</span>
+                      <h4
+                        className={`${styles.rowName} ${!row.matchedProduct ? styles.rowNameMissing : ""}`}
+                      >
+                        {row.matchedProduct?.name ?? "No encontrado en catálogo"}
+                      </h4>
                       {row.idProductExt ? (
-                        <Typography variant="caption" display="block">
-                          {row.idProductExt}
-                        </Typography>
+                        <code className={styles.rowClave}>{row.idProductExt}</code>
                       ) : null}
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        display="block"
-                      >
-                        {row.upc || "—"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {getProviderLabel(
-                        row.providerId ||
-                          row.matchedProduct?.providerId ||
-                          defaultProviderId,
-                      )}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        maxWidth: 200,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      {row.upc ? (
+                        <code className={styles.rowClave}>UPC {row.upc}</code>
+                      ) : null}
+                    </div>
+                    <span
+                      className={`${styles.statusChip} ${statusClass(row.status)}`}
                     >
-                      {row.matchedProduct ? (
-                        row.matchedProduct.name
-                      ) : (
-                        <Typography color="error" variant="caption">
-                          No encontrado
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>{row.margin}</TableCell>
-                    <TableCell>
-                      {row.price != null ? row.price : "—"}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 220, verticalAlign: "top" }}>
-                      <Box
-                        sx={{
-                          maxHeight: 80,
-                          overflow: "auto",
-                          fontSize: "0.75rem",
-                        }}
-                      >
-                        {parseCharacteristics(row.characteristics).map(
-                          (c, ci) => (
-                            <div key={ci}>
-                              <b>{c.prop}</b>
-                              {c.value ? `: ${c.value}` : ""}
-                            </div>
-                          ),
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ verticalAlign: "top", py: 1.5 }}>
-                      {row.matchedProduct && row.status !== "success" ? (
-                        <BulkRowImages
-                          rowIndex={idx}
-                          files={row.files}
-                          imageUrls={row.imageUrls}
-                          error={
-                            row.imageError ||
-                            (!rowHasImages(row)
-                              ? "Agrega Imagenes en Excel o sube archivos"
-                              : null)
-                          }
-                          onAddFiles={(incoming) =>
-                            handleAddFiles(idx, incoming)
-                          }
-                          onRemove={(fi) => handleRemoveFile(idx, fi)}
-                        />
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {row.status === "pending" && (
-                        <Typography variant="caption" color="text.secondary">
-                          Pendiente
-                        </Typography>
-                      )}
-                      {row.status === "uploading" && (
-                        <MdAutorenew
-                          className="the-spinner"
-                          size={18}
-                          color="blue"
-                        />
-                      )}
-                      {row.status === "success" && (
-                        <Typography variant="caption" color="success.main">
-                          OK
-                        </Typography>
-                      )}
-                      {row.status === "error" && (
-                        <Typography variant="caption" color="error.main">
-                          {row.errorMsg}
-                        </Typography>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                      {row.status === "uploading" ? (
+                        <MdAutorenew className="the-spinner" size={12} />
+                      ) : null}{" "}
+                      {statusLabel(row.status)}
+                    </span>
+                  </header>
 
-          {isUploading && (
-            <Box
-              sx={{
-                mt: 2,
-                p: 1.5,
-                borderRadius: 2,
-                bgcolor: "#fff7ed",
-                border: "1px solid #fdba74",
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{ fontWeight: 700, color: "#9a3412", mb: 1 }}
-              >
-                Importación en curso — no cierres esta ventana ni recargues el
-                navegador
-              </Typography>
+                  <div className={styles.rowBody}>
+                    <div className={styles.metaGrid}>
+                      <div className={styles.metaItem}>
+                        <span className={styles.metaLabel}>Proveedor</span>
+                        <span className={styles.metaValue}>{providerLabel}</span>
+                      </div>
+                      <div className={styles.metaItem}>
+                        <span className={styles.metaLabel}>Margen</span>
+                        <span className={styles.metaValue}>{row.margin}</span>
+                      </div>
+                      <div className={styles.metaItem}>
+                        <span className={styles.metaLabel}>Precio</span>
+                        <span className={styles.metaValue}>
+                          {row.price != null ? `$${row.price}` : "—"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {row.characteristics ? (
+                      <RowCharacteristics
+                        text={row.characteristics}
+                        expanded={expandedChars.has(idx)}
+                        onToggle={() => toggleChars(idx)}
+                      />
+                    ) : null}
+
+                    {row.matchedProduct && row.status !== "success" ? (
+                      <BulkRowImagesCompact
+                        rowIndex={idx}
+                        files={row.files}
+                        imageUrls={row.imageUrls}
+                        error={
+                          row.imageError ||
+                          (!rowHasImages(row)
+                            ? "Agrega imágenes en el Excel o sube archivos"
+                            : null)
+                        }
+                        onAddFiles={(incoming) => handleAddFiles(idx, incoming)}
+                        onRemove={(fi) => handleRemoveFile(idx, fi)}
+                      />
+                    ) : null}
+
+                    {row.status === "error" && row.errorMsg ? (
+                      <Typography variant="caption" color="error.main">
+                        {row.errorMsg}
+                      </Typography>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {isUploading ? (
+            <div className={styles.progressBanner}>
+              <p className={styles.progressTitle}>
+                Importación en curso — no cierres ni recargues
+              </p>
               <LinearProgress
                 variant="determinate"
                 value={
@@ -826,34 +923,36 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
                     ? (progress.current / progress.total) * 100
                     : 0
                 }
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  bgcolor: "#ffedd5",
+                  "& .MuiLinearProgress-bar": { bgcolor: "#ea580c" },
+                }}
               />
-              <Typography
-                variant="caption"
-                align="center"
-                display="block"
-                sx={{ mt: 1, color: "#9a3412" }}
-              >
-                Subiendo {progress.current} de {progress.total}. El modal está
-                bloqueado hasta terminar.
-              </Typography>
-            </Box>
-          )}
+              <p className={styles.progressHint}>
+                Subiendo {progress.current} de {progress.total}
+              </p>
+            </div>
+          ) : null}
 
-          <Box
-            sx={{ mt: 3, display: "flex", justifyContent: "flex-end", gap: 2 }}
-          >
+          <div className={styles.footer}>
             <Button
-              color="error"
+              className={styles.footerBtnSecondary}
+              color="inherit"
               variant="outlined"
               disabled={isUploading}
               onClick={() => {
                 setStep(1);
                 setBulkData([]);
+                setExpandedChars(new Set());
               }}
+              sx={{ borderColor: "#d1d5db", color: "#374151" }}
             >
-              Eliminar Excel / Subir otro
+              Cambiar Excel
             </Button>
             <Button
+              className={styles.footerBtnPrimary}
               variant="contained"
               disabled={isUploading || !bulkData.some(canSubmitRow)}
               onClick={() => void handleBulkSubmit()}
@@ -864,12 +963,13 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
                   <MdCloudUpload />
                 )
               }
+              sx={{ bgcolor: "#bb3d4b", "&:hover": { bgcolor: "#992230" } }}
             >
-              Dar de Alta Todos
+              Dar de alta todos ({reviewStats.ready})
             </Button>
-          </Box>
-        </Box>
+          </div>
+        </>
       )}
-    </Stack>
+    </div>
   );
 }
