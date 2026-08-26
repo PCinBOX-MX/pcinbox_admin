@@ -17,6 +17,7 @@ import { useTheContext } from "../hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import { PROVIDERS_WITH_PROFIT_MARGIN } from "../constants/providers.constants";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
 
 const fieldSx = {
@@ -135,16 +136,20 @@ const Proveedores = () => {
             <MdAdd size={20} />
             Agregar producto
           </button>
-          {String(slcProveedor) === "3" && (
+          {slcProveedor &&
+          PROVIDERS_WITH_PROFIT_MARGIN.includes(
+            Number(slcProveedor) as (typeof PROVIDERS_WITH_PROFIT_MARGIN)[number],
+          ) ? (
             <button
               type="button"
               className="admin-btn-secondary"
+              data-testid="btn-importar-excel"
               onClick={handleBulkUpload}
             >
               <MdFileUpload size={20} />
               Importar Excel
             </button>
-          )}
+          ) : null}
         </div>
       }
       filters={
@@ -226,17 +231,18 @@ const Proveedores = () => {
               onClick={() => {
                 setSearch("");
                 setDebouncedSearch("");
-                setPage(1);
+                setQueryParams({ search: "" });
+                //setPage(1);
                 // Vuelve al primer proveedor disponible para no dejar catálogo vacío.
-                const firstId =
-                  dataProveedores.data?.[0]?.idProvider != null
-                    ? String(dataProveedores.data[0].idProvider)
-                    : "";
-                if (firstId && firstId !== String(slcProveedor)) {
-                  setQueryParams({ search: "", page: 1, provider: firstId });
-                } else {
-                  setQueryParams({ search: "", page: 1 });
-                }
+                // const firstId =
+                //   dataProveedores.data?.[0]?.idProvider != null
+                //     ? String(dataProveedores.data[0].idProvider)
+                //     : "";
+                // if (firstId && firstId !== String(slcProveedor)) {
+                //   setQueryParams({ search: "", page: 1, provider: firstId });
+                // } else {
+                //   setQueryParams({ search: "", page: 1 });
+                // }
               }}
               disabled={!search && pageParam <= 1}
             >

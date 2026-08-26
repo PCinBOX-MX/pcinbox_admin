@@ -99,6 +99,7 @@ const ModalComponent = ({
   }, [isOpen, type]);
 
   const handleClose = () => {
+    if (loading) return;
     if (initialSnapshot.current !== null) {
       const currentSnapshot = getSnapshot();
       if (currentSnapshot !== null && currentSnapshot !== initialSnapshot.current) {
@@ -110,6 +111,7 @@ const ModalComponent = ({
   };
 
   const forceClose = () => {
+    if (loading) return;
     setIsVisible(false);
     setShowConfirmClose(false);
     setTimeout(() => {
@@ -171,7 +173,15 @@ const ModalComponent = ({
       <Modal
         className="flex justify-center items-center"
         open={isVisible}
-        onClose={handleClose}
+        onClose={(_, reason) => {
+          // Bloquear backdrop / Escape mientras loading (p. ej. import Excel).
+          if (loading) return;
+          if (reason === "backdropClick" || reason === "escapeKeyDown") {
+            handleClose();
+            return;
+          }
+          handleClose();
+        }}
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
         sx={{
@@ -183,6 +193,7 @@ const ModalComponent = ({
             sx: {
               backgroundColor: "rgba(15, 23, 42, 0.6)",
               backdropFilter: "blur(4px)",
+              pointerEvents: loading ? "none" : "auto",
             }
           }
         }}

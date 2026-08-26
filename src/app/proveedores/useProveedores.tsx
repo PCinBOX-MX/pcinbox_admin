@@ -268,7 +268,11 @@ const useProveedores = () => {
   const handleBulkUpload = () => {
     setDataModal({
       isOpen: true,
-      content: <BulkUploadProvider />,
+      content: (
+        <BulkUploadProvider
+          defaultProviderId={Number(slcProveedor) || undefined}
+        />
+      ),
       title: "Alta Masiva por Excel",
       type: "info",
       maxWidth: "min(95vw, 1000px)",
