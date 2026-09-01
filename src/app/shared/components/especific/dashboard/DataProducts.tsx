@@ -33,6 +33,7 @@ import {
   Truck,
 } from "lucide-react";
 import SendLicenseKeyPanel from "./SendLicenseKeyPanel";
+import SendDeliveryStatusEmailPanel from "./SendDeliveryStatusEmailPanel";
 import {
   getPaymentStatusLabel,
   isOrderPaid,
@@ -288,6 +289,13 @@ const DataProducts = ({
 
   return (
     <div className="admin-modal-products">
+      <SendDeliveryStatusEmailPanel
+        idOrder={idOrder}
+        statusPay={statusPay}
+        customerEmail={customerEmail}
+        products={products}
+      />
+
       {hasPendingDigital ? (
         <Alert
           severity={orderPaid ? "warning" : "info"}
@@ -437,6 +445,23 @@ const DataProducts = ({
               <ModalDetailField label="UPC" value={item.upc || "N/A"} />
               <ModalDetailField label="Clave" value={item.clave || "N/A"} />
             </ModalDetailGrid>
+
+            {Number(item.lineTotal) > 0 ? (
+              <ModalDetailGrid columns={2}>
+                <ModalDetailField
+                  label="Importe pagado"
+                  value={formatOrderMoney(Number(item.lineTotal))}
+                />
+                {Number(item.quantity) > 1 ? (
+                  <ModalDetailField
+                    label="Precio unitario"
+                    value={formatOrderMoney(
+                      Number(item.lineTotal) / Math.max(1, Number(item.quantity)),
+                    )}
+                  />
+                ) : null}
+              </ModalDetailGrid>
+            ) : null}
 
             <Divider sx={{ my: 1.5, borderColor: "#eef0f4" }} />
 

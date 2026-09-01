@@ -33,6 +33,7 @@ export interface SalesI {
     productName: string;
     description: string;
     quantity: number;
+    lineTotal?: number;
     upc: string;
     sku: string;
     providerId?: number;
