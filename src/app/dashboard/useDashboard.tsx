@@ -7,7 +7,9 @@ import { useTheContext } from "../hooks/global.hook";
 import { useCallback, useState } from "react";
 import usePermissions from "../hooks/usePermissions";
 import OrderCancelModal from "../components/admin/OrderCancelModal";
-import ShipCancelReasonModal from "../components/admin/ShipCancelReasonModal";
+import ShipCancelReasonModal, {
+  type ShipCancelPromptState,
+} from "../components/admin/ShipCancelReasonModal";
 import { CanCancelOrderResult } from "../types/orderCancellation";
 import { useRequestSequence } from "../hooks/useRequestSequence";
 import { safeJsonParse } from "../utils/safeJsonParse";
@@ -33,6 +35,8 @@ const useDashboard = () => {
   const { can } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState("");
+  const [shipCancelPrompt, setShipCancelPrompt] =
+    useState<ShipCancelPromptState>(null);
   const { nextSequence, isCurrent } = useRequestSequence();
 
   const handleGetAllSales = useCallback(
@@ -143,32 +147,27 @@ const useDashboard = () => {
   const promptShipCancelReason = useCallback(
     (description: string) =>
       new Promise<string | null>((resolve) => {
-        setDataModal({
-          isOpen: true,
-          type: "warning",
-          title: "¿Cancelar?",
-          showActions: false,
-          content: (
-            <ShipCancelReasonModal
-              description={description}
-              onCancel={() => {
-                setDataModal((prev) => ({ ...prev, isOpen: false }));
-                resolve(null);
-              }}
-              onConfirm={(cancelReason) => {
-                setDataModal((prev) => ({ ...prev, isOpen: false }));
-                resolve(cancelReason);
-              }}
-            />
-          ),
-          onClose: () => {
-            setDataModal((prev) => ({ ...prev, isOpen: false }));
-            resolve(null);
-          },
-          onConfirm: () => {},
+        setShipCancelPrompt({
+          description,
+          resolve,
         });
       }),
-    [setDataModal],
+    [],
+  );
+
+  const shipCancelReasonDialog = (
+    <ShipCancelReasonModal
+      open={Boolean(shipCancelPrompt)}
+      description={shipCancelPrompt?.description || ""}
+      onCancel={() => {
+        shipCancelPrompt?.resolve(null);
+        setShipCancelPrompt(null);
+      }}
+      onConfirm={(cancelReason) => {
+        shipCancelPrompt?.resolve(cancelReason);
+        setShipCancelPrompt(null);
+      }}
+    />
   );
 
   const handleChangeStatusShip = async (
@@ -282,7 +281,7 @@ const useDashboard = () => {
                 type: "warning",
                 title: "Orden cancelada · reembolso pendiente",
                 showActions: false,
-                content: `La orden se marcó como cancelada, pero el reembolso automático no se completó: ${orderCancelError}. Coordina el reembolso según el método de pago.`,
+                content: `La cancelación sí se registró. El reembolso automático no se completó (${orderCancelError}). Coordina el reembolso con el cliente según su método de pago; el motivo de cancelación ya quedó guardado.`,
                 onClose: () =>
                   setDataModal((prev) => ({ ...prev, isOpen: false })),
                 onConfirm: () =>
@@ -461,7 +460,7 @@ const useDashboard = () => {
                 type: "warning",
                 title: "Orden cancelada · reembolso pendiente",
                 showActions: false,
-                content: `La orden se marcó como cancelada, pero el reembolso automático no se completó: ${orderCancelError}. Coordina el reembolso según el método de pago.`,
+                content: `La cancelación sí se registró. El reembolso automático no se completó (${orderCancelError}). Coordina el reembolso con el cliente según su método de pago; el motivo de cancelación ya quedó guardado.`,
                 onClose: () =>
                   setDataModal((prev) => ({ ...prev, isOpen: false })),
                 onConfirm: () =>
@@ -782,6 +781,7 @@ const useDashboard = () => {
     handleChangeStatusShip,
     handleChangeStatusShipByShipment,
     promptShipCancelReason,
+    shipCancelReasonDialog,
     handleChangeStatusPay,
     openCancelOrderModal,
     handleRetryDicotechPostPayment,

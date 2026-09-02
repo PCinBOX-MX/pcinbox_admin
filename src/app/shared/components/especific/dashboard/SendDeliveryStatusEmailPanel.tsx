@@ -83,7 +83,9 @@ type SendDeliveryStatusEmailPanelProps = {
     address?: { shipping_method?: string | null } | null;
   }>;
   /** Al cambiar el select, sincroniza estatus de productos/envíos físicos. */
-  onBulkStatusChange?: (status: ShipStatusOption) => Promise<void> | void;
+  onBulkStatusChange?: (
+    status: ShipStatusOption,
+  ) => Promise<boolean | void> | boolean | void;
 };
 
 export default function SendDeliveryStatusEmailPanel({
@@ -133,9 +135,11 @@ export default function SendDeliveryStatusEmailPanel({
 
     setSyncingStatus(true);
     try {
-      // Para cancelado el admin confirma en modal; solo aplica el select si confirma.
-      await onBulkStatusChange(next);
-      setStatus(next);
+      // Solo mueve el Select si el cambio (y el modal de motivo, si aplica) confirmó.
+      const ok = await onBulkStatusChange(next);
+      if (ok !== false) {
+        setStatus(next);
+      }
     } finally {
       setSyncingStatus(false);
     }

@@ -101,6 +101,7 @@ const DashBoard = () => {
     handleChangeStatusShip,
     handleChangeStatusShipByShipment,
     promptShipCancelReason,
+    shipCancelReasonDialog,
     handleGetAllSales,
     can,
     handleRetryDicotechPostPayment,
@@ -187,6 +188,7 @@ const DashBoard = () => {
   if (!mounted) return null;
 
   return (
+    <>
     <AdminPageShell
       title="Ventas"
       subtitle="Gestión de órdenes, pagos y envíos en tiempo real"
@@ -343,6 +345,8 @@ const DashBoard = () => {
         </div>
       )}
     </AdminPageShell>
+    {shipCancelReasonDialog}
+    </>
   );
 };
 

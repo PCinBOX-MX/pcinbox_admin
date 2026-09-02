@@ -55,14 +55,18 @@ const DataProducts = ({
       (p: any) => Number(p.idSale) === Number(idSale),
     )?.statusShip;
     const nextStatus = event.target.value;
+    const isCancel = nextStatus === "cancelado";
 
-    setProducts((prev: any[]) =>
-      prev.map((p: any) =>
-        Number(p.idSale) === Number(idSale)
-          ? { ...p, statusShip: nextStatus }
-          : p,
-      ),
-    );
+    // No pintar Cancelado en el Select hasta confirmar motivo + API.
+    if (!isCancel) {
+      setProducts((prev: any[]) =>
+        prev.map((p: any) =>
+          Number(p.idSale) === Number(idSale)
+            ? { ...p, statusShip: nextStatus }
+            : p,
+        ),
+      );
+    }
     setUpdatingSaleId(Number(idSale));
 
     try {
@@ -73,6 +77,27 @@ const DataProducts = ({
         options,
       );
       if (ok === false) {
+        if (!isCancel) {
+          setProducts((prev: any[]) =>
+            prev.map((p: any) =>
+              Number(p.idSale) === Number(idSale)
+                ? { ...p, statusShip: prevStatus }
+                : p,
+            ),
+          );
+        }
+      } else if (isCancel) {
+        setProducts((prev: any[]) =>
+          prev.map((p: any) =>
+            Number(p.idSale) === Number(idSale)
+              ? { ...p, statusShip: nextStatus }
+              : p,
+          ),
+        );
+      }
+      return ok;
+    } catch {
+      if (!isCancel) {
         setProducts((prev: any[]) =>
           prev.map((p: any) =>
             Number(p.idSale) === Number(idSale)
@@ -81,15 +106,6 @@ const DataProducts = ({
           ),
         );
       }
-      return ok;
-    } catch {
-      setProducts((prev: any[]) =>
-        prev.map((p: any) =>
-          Number(p.idSale) === Number(idSale)
-            ? { ...p, statusShip: prevStatus }
-            : p,
-        ),
-      );
       return false;
     } finally {
       setUpdatingSaleId(null);
@@ -102,20 +118,23 @@ const DataProducts = ({
     options?: { cancelReason?: string },
   ) => {
     const nextStatus = event.target.value;
+    const isCancel = nextStatus === "cancelado";
     const previous = products.map((p: any) => ({ ...p }));
     const affectedSaleIds = products
       .filter((p: any) => Number(p.idShipment) === Number(idShipment))
       .map((p: any) => Number(p.idSale))
       .filter((id: number) => Number.isFinite(id) && id > 0);
 
-    setProducts((prev: any[]) =>
-      prev.map((p: any) =>
-        Number(p.idShipment) === Number(idShipment) ||
-        affectedSaleIds.includes(Number(p.idSale))
-          ? { ...p, statusShip: nextStatus }
-          : p,
-      ),
-    );
+    if (!isCancel) {
+      setProducts((prev: any[]) =>
+        prev.map((p: any) =>
+          Number(p.idShipment) === Number(idShipment) ||
+          affectedSaleIds.includes(Number(p.idSale))
+            ? { ...p, statusShip: nextStatus }
+            : p,
+        ),
+      );
+    }
     setUpdatingShipmentId(Number(idShipment));
 
     try {
@@ -127,11 +146,20 @@ const DataProducts = ({
         options,
       );
       if (ok === false) {
-        setProducts(previous);
+        if (!isCancel) setProducts(previous);
+      } else if (isCancel) {
+        setProducts((prev: any[]) =>
+          prev.map((p: any) =>
+            Number(p.idShipment) === Number(idShipment) ||
+            affectedSaleIds.includes(Number(p.idSale))
+              ? { ...p, statusShip: nextStatus }
+              : p,
+          ),
+        );
       }
       return ok;
     } catch {
-      setProducts(previous);
+      if (!isCancel) setProducts(previous);
       return false;
     } finally {
       setUpdatingShipmentId(null);
@@ -164,11 +192,11 @@ const DataProducts = ({
     let cancelReason: string | undefined;
 
     if (nextStatus === "cancelado") {
-      if (typeof promptShipCancelReason !== "function") return;
+      if (typeof promptShipCancelReason !== "function") return false;
       const prompted = await promptShipCancelReason(
-        `Vas a marcar como Cancelado todos los envíos físicos pendientes de la orden #${idOrder}. Cuando todos los productos queden cancelados, se cancelará la orden y se intentará el reembolso (solo dentro de las 24 h). Indica el motivo.`,
+        `Vas a marcar como Cancelado todos los envíos físicos pendientes de la orden #${idOrder}. Cuando todos los productos queden cancelados, se cancelará la orden y se intentará el reembolso (solo dentro de las 24 h). Indica el motivo; el cliente lo verá en su historial y en el correo.`,
       );
-      if (!prompted) return;
+      if (!prompted) return false;
       cancelReason = prompted;
     }
 
@@ -186,12 +214,14 @@ const DataProducts = ({
       ),
     ];
 
+    let anyOk = false;
     for (const idShipment of shipmentIds) {
-      await handleShipmentStatusChange(
+      const ok = await handleShipmentStatusChange(
         { target: { value: nextStatus } },
         idShipment,
         cancelReason ? { cancelReason } : undefined,
       );
+      if (ok) anyOk = true;
     }
 
     const orphanSales = physicalProducts.filter(
@@ -203,12 +233,19 @@ const DataProducts = ({
     );
 
     for (const item of orphanSales) {
-      await handleProductStatusChange(
+      const ok = await handleProductStatusChange(
         { target: { value: nextStatus } },
         Number(item.idSale),
         cancelReason ? { cancelReason } : undefined,
       );
+      if (ok) anyOk = true;
     }
+
+    if (shipmentIds.length === 0 && orphanSales.length === 0) {
+      return nextStatus !== "cancelado";
+    }
+
+    return anyOk;
   };
 
   if (!products?.length) {
