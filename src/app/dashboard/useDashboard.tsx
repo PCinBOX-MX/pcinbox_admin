@@ -615,15 +615,23 @@ const useDashboard = () => {
                 );
 
                 if (resp.status === 200) {
+                  const payload = resp.data?.data?.data ?? {};
+                  const refundError = payload.refundError
+                    ? String(payload.refundError)
+                    : null;
                   applyCancelledOrderState(idOrder, cancelReason);
                   setDataModal({
                     isOpen: true,
-                    type: "info",
-                    title: "Orden cancelada",
+                    type: refundError ? "warning" : "info",
+                    title: refundError
+                      ? "Orden cancelada · reembolso pendiente"
+                      : "Orden cancelada",
                     showActions: false,
-                    content: manualOverride
-                      ? `La orden #${idOrder} se canceló con override manual.`
-                      : `La orden #${idOrder} se canceló correctamente.`,
+                    content: refundError
+                      ? `La orden #${idOrder} se canceló y el motivo quedó registrado. El reembolso automático no se completó (${refundError}). Coordínalo según el método de pago.`
+                      : manualOverride
+                        ? `La orden #${idOrder} se canceló con override manual.`
+                        : `La orden #${idOrder} se canceló correctamente.`,
                     onClose: () =>
                       setDataModal((prev) => ({ ...prev, isOpen: false })),
                     onConfirm: () =>
