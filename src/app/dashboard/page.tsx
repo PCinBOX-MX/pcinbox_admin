@@ -100,6 +100,7 @@ const DashBoard = () => {
   const {
     handleChangeStatusShip,
     handleChangeStatusShipByShipment,
+    promptShipCancelReason,
     handleGetAllSales,
     can,
     handleRetryDicotechPostPayment,
@@ -110,6 +111,7 @@ const DashBoard = () => {
   const { columns } = GridDashboard({
     handleChangeStatusShip,
     handleChangeStatusShipByShipment,
+    promptShipCancelReason,
     rows: rowsVentas,
     handleRetryDicotechPostPayment,
     can,

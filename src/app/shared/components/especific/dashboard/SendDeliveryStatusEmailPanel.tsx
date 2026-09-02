@@ -126,11 +126,16 @@ export default function SendDeliveryStatusEmailPanel({
   }, [defaultStatus]);
 
   const handleStatusSelect = async (next: ShipStatusOption) => {
-    setStatus(next);
-    if (!onBulkStatusChange || !orderPaid) return;
+    if (!onBulkStatusChange || !orderPaid) {
+      setStatus(next);
+      return;
+    }
+
     setSyncingStatus(true);
     try {
+      // Para cancelado el admin confirma en modal; solo aplica el select si confirma.
       await onBulkStatusChange(next);
+      setStatus(next);
     } finally {
       setSyncingStatus(false);
     }

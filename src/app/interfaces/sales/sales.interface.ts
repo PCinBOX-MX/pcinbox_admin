@@ -68,6 +68,7 @@ export interface SalesI {
   insuranceTotal?: number;
   statusPay: any;
   statusShip: any;
+  cancelReason?: string | null;
   billing: any;
   requiredFactura: number;
   createdAt: string;

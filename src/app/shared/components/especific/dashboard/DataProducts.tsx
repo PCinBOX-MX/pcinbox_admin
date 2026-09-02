@@ -21,6 +21,7 @@ const DataProducts = ({
   params,
   handleChangeStatusShip,
   handleChangeStatusShipByShipment,
+  promptShipCancelReason,
   onSaleLicenseDelivered,
 }: any) => {
   const [products, setProducts] = useState(params.value || []);
@@ -43,9 +44,12 @@ const DataProducts = ({
     [products],
   );
 
+  const idOrder = Number(params?.row?.idOrder || 0);
+
   const handleProductStatusChange = async (
     event: { target: { value: string } },
     idSale: number,
+    options?: { cancelReason?: string },
   ) => {
     const prevStatus = products.find(
       (p: any) => Number(p.idSale) === Number(idSale),
@@ -66,6 +70,7 @@ const DataProducts = ({
         event,
         idSale,
         params.row.idUser,
+        options,
       );
       if (ok === false) {
         setProducts((prev: any[]) =>
@@ -94,6 +99,7 @@ const DataProducts = ({
   const handleShipmentStatusChange = async (
     event: { target: { value: string } },
     idShipment: number,
+    options?: { cancelReason?: string },
   ) => {
     const nextStatus = event.target.value;
     const previous = products.map((p: any) => ({ ...p }));
@@ -118,6 +124,7 @@ const DataProducts = ({
         event,
         idShipment,
         params.row.idUser,
+        options,
       );
       if (ok === false) {
         setProducts(previous);
@@ -154,6 +161,17 @@ const DataProducts = ({
     ["entregado", "cancelado"].includes(String(status ?? "").toLowerCase());
 
   const handleBulkPhysicalStatusChange = async (nextStatus: string) => {
+    let cancelReason: string | undefined;
+
+    if (nextStatus === "cancelado") {
+      if (typeof promptShipCancelReason !== "function") return;
+      const prompted = await promptShipCancelReason(
+        `Vas a marcar como Cancelado todos los envíos físicos pendientes de la orden #${idOrder}. Cuando todos los productos queden cancelados, se cancelará la orden y se intentará el reembolso (solo dentro de las 24 h). Indica el motivo.`,
+      );
+      if (!prompted) return;
+      cancelReason = prompted;
+    }
+
     const shipmentIds = [
       ...new Set(
         physical
@@ -172,6 +190,7 @@ const DataProducts = ({
       await handleShipmentStatusChange(
         { target: { value: nextStatus } },
         idShipment,
+        cancelReason ? { cancelReason } : undefined,
       );
     }
 
@@ -187,6 +206,7 @@ const DataProducts = ({
       await handleProductStatusChange(
         { target: { value: nextStatus } },
         Number(item.idSale),
+        cancelReason ? { cancelReason } : undefined,
       );
     }
   };
@@ -210,7 +230,6 @@ const DataProducts = ({
   ]
     .filter(Boolean)
     .join(" ");
-  const idOrder = Number(params?.row?.idOrder || 0);
   const statusPay = params?.row?.statusPay;
   const orderPaid = isOrderPaid(statusPay);
   const digitalProductCount = products.filter((item: any) =>
@@ -256,6 +275,15 @@ const DataProducts = ({
           ) : null}
         </div>
       </header>
+
+      {params?.row?.cancelReason ? (
+        <Alert
+          severity="warning"
+          sx={{ borderRadius: "12px", margin: 0 }}
+        >
+          <strong>Motivo de cancelación:</strong> {params.row.cancelReason}
+        </Alert>
+      ) : null}
 
       {physicalProducts.length > 0 ? (
         <Alert

@@ -43,12 +43,14 @@ import {
 const GridDashboard = ({
   handleChangeStatusShip,
   handleChangeStatusShipByShipment,
+  promptShipCancelReason,
   handleRetryDicotechPostPayment,
   can,
   rows,
 }: {
   handleChangeStatusShip: any;
   handleChangeStatusShipByShipment: any;
+  promptShipCancelReason?: (description: string) => Promise<string | null>;
   handleRetryDicotechPostPayment?: (idOrder: number) => Promise<boolean>;
   can: (permission: import("../constants/permissions").AdminPermission) => boolean;
   rows: {
@@ -397,6 +399,7 @@ const GridDashboard = ({
                           handleChangeStatusShipByShipment={
                             handleChangeStatusShipByShipment
                           }
+                          promptShipCancelReason={promptShipCancelReason}
                           onSaleLicenseDelivered={(idSale: number, idOrder: number) => {
                             setRowsVentas((prev) => ({
                               ...prev,
@@ -807,7 +810,7 @@ const GridDashboard = ({
         },
       },
     ],
-    [rows, can, rowsVentas, setRowsVentas, setDataModal, formatCurrency],
+    [rows, can, rowsVentas, setRowsVentas, setDataModal, formatCurrency, handleChangeStatusShip, handleChangeStatusShipByShipment, promptShipCancelReason],
   );
 
   return {

@@ -7,9 +7,14 @@ import { useTheContext } from "../hooks/global.hook";
 import { useCallback, useState } from "react";
 import usePermissions from "../hooks/usePermissions";
 import OrderCancelModal from "../components/admin/OrderCancelModal";
+import ShipCancelReasonModal from "../components/admin/ShipCancelReasonModal";
 import { CanCancelOrderResult } from "../types/orderCancellation";
 import { useRequestSequence } from "../hooks/useRequestSequence";
 import { safeJsonParse } from "../utils/safeJsonParse";
+
+type ShipStatusChangeOptions = {
+  cancelReason?: string;
+};
 
 type SalesFilters = {
   search?: string;
@@ -135,10 +140,42 @@ const useDashboard = () => {
     [requestGetProveedores, setRowsVentas, nextSequence, isCurrent],
   );
 
+  const promptShipCancelReason = useCallback(
+    (description: string) =>
+      new Promise<string | null>((resolve) => {
+        setDataModal({
+          isOpen: true,
+          type: "warning",
+          title: "¿Cancelar?",
+          showActions: false,
+          content: (
+            <ShipCancelReasonModal
+              description={description}
+              onCancel={() => {
+                setDataModal((prev) => ({ ...prev, isOpen: false }));
+                resolve(null);
+              }}
+              onConfirm={(cancelReason) => {
+                setDataModal((prev) => ({ ...prev, isOpen: false }));
+                resolve(cancelReason);
+              }}
+            />
+          ),
+          onClose: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+            resolve(null);
+          },
+          onConfirm: () => {},
+        });
+      }),
+    [setDataModal],
+  );
+
   const handleChangeStatusShip = async (
     event: any,
     idSale: number,
     idUser: any,
+    options?: ShipStatusChangeOptions,
   ) => {
     if (!can("orders.update_status_ship")) {
       setDataModal({
@@ -150,7 +187,7 @@ const useDashboard = () => {
         onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
         onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
       });
-      return;
+      return false;
     }
 
     const nextStatus = event.target.value;
@@ -165,104 +202,149 @@ const useDashboard = () => {
         onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
         onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
       });
-      return;
+      return false;
     }
 
-    try {
-      const resp = await requestPostPagos(
-        {
-          idSale: Number(idSale),
-          status: nextStatus,
-          idUser,
-          skipDeliveryEmail: true,
-        },
-        "/openpay/updateStatusShipByOrden",
-        { silent: true },
+    let cancelReason =
+      options?.cancelReason != null ? String(options.cancelReason).trim() : "";
+
+    if (nextStatus === "cancelado" && !cancelReason) {
+      const prompted = await promptShipCancelReason(
+        "Si confirmas, el producto pasará a Cancelado. Cuando todos los productos de la orden estén cancelados, se cancelará la orden y se intentará el reembolso (solo dentro de las 24 h posteriores a la compra). Indica el motivo.",
       );
+      if (!prompted) return false;
+      cancelReason = prompted;
+    }
 
-      if (resp.status == 200) {
-        const payload = resp.data?.data?.data ?? {};
-        const updatedIdSale = Number(payload.idSale ?? idSale);
-        const updatedStatus = payload.status ?? nextStatus;
-        const idOrder = Number(payload.idOrder);
-        const orderCancelled = payload.orderCancelled === true;
-        const orderCancelError = payload.orderCancelError
-          ? String(payload.orderCancelError)
-          : null;
+    const applySaleStatusChange = async (): Promise<boolean> => {
+      try {
+        const resp = await requestPostPagos(
+          {
+            idSale: Number(idSale),
+            status: nextStatus,
+            idUser,
+            skipDeliveryEmail: true,
+            ...(nextStatus === "cancelado" ? { cancelReason } : {}),
+          },
+          "/openpay/updateStatusShipByOrden",
+          { silent: true },
+        );
 
-        setRowsVentas((prev) => ({
-          ...prev,
-          data: prev.data.map((order) => {
-            const matchesOrder =
-              orderCancelled &&
-              Number.isFinite(idOrder) &&
-              Number(order.idOrder) === idOrder;
-            return {
-              ...order,
-              ...(matchesOrder ? { statusPay: "cancelled" } : {}),
-              products: order.products.map((product) => {
-                if (Number(product.idSale) === updatedIdSale) {
-                  return { ...product, statusShip: updatedStatus };
-                }
-                if (matchesOrder) {
-                  return { ...product, statusShip: "cancelado" };
-                }
-                return product;
-              }),
-            };
-          }),
-        }));
+        if (resp.status == 200) {
+          const payload = resp.data?.data?.data ?? {};
+          const updatedIdSale = Number(payload.idSale ?? idSale);
+          const updatedStatus = payload.status ?? nextStatus;
+          const idOrder = Number(payload.idOrder);
+          const orderCancelled = payload.orderCancelled === true;
+          const orderCancelError = payload.orderCancelError
+            ? String(payload.orderCancelError)
+            : null;
+          const savedCancelReason =
+            payload.cancelReason != null
+              ? String(payload.cancelReason)
+              : cancelReason || null;
 
-        if (orderCancelled) {
-          const gateway = String(payload.orderCancelGateway || "");
-          setDataModal({
-            isOpen: true,
-            type: "success",
-            title: "Orden cancelada",
-            showActions: false,
-            content:
-              gateway === "manual"
-                ? "Todos los productos quedaron cancelados. La orden se marcó como cancelada; el reembolso se coordina según el método de pago (sucursal / transferencia)."
-                : "Todos los productos quedaron cancelados. Se canceló la orden y se solicitó el reembolso al método de pago del cliente.",
-            onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-            onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-          });
-        } else if (orderCancelError) {
+          setRowsVentas((prev) => ({
+            ...prev,
+            data: prev.data.map((order) => {
+              const matchesOrder =
+                orderCancelled &&
+                Number.isFinite(idOrder) &&
+                Number(order.idOrder) === idOrder;
+              const matchesPartialCancel =
+                nextStatus === "cancelado" &&
+                Number.isFinite(idOrder) &&
+                Number(order.idOrder) === idOrder;
+              return {
+                ...order,
+                ...(matchesOrder ? { statusPay: "cancelled" } : {}),
+                ...(matchesPartialCancel || matchesOrder
+                  ? { cancelReason: savedCancelReason }
+                  : {}),
+                products: order.products.map((product) => {
+                  if (Number(product.idSale) === updatedIdSale) {
+                    return { ...product, statusShip: updatedStatus };
+                  }
+                  if (matchesOrder) {
+                    return { ...product, statusShip: "cancelado" };
+                  }
+                  return product;
+                }),
+              };
+            }),
+          }));
+
+          if (orderCancelled) {
+            const gateway = String(payload.orderCancelGateway || "");
+            if (orderCancelError) {
+              setDataModal({
+                isOpen: true,
+                type: "warning",
+                title: "Orden cancelada · reembolso pendiente",
+                showActions: false,
+                content: `La orden se marcó como cancelada, pero el reembolso automático no se completó: ${orderCancelError}. Coordina el reembolso según el método de pago.`,
+                onClose: () =>
+                  setDataModal((prev) => ({ ...prev, isOpen: false })),
+                onConfirm: () =>
+                  setDataModal((prev) => ({ ...prev, isOpen: false })),
+              });
+            } else {
+              setDataModal({
+                isOpen: true,
+                type: "success",
+                title: "Orden cancelada",
+                showActions: false,
+                content:
+                  gateway === "manual"
+                    ? "Todos los productos quedaron cancelados. La orden se marcó como cancelada; el reembolso se coordina según el método de pago (sucursal / transferencia)."
+                    : "Todos los productos quedaron cancelados. Se canceló la orden y se solicitó el reembolso al método de pago del cliente.",
+                onClose: () =>
+                  setDataModal((prev) => ({ ...prev, isOpen: false })),
+                onConfirm: () =>
+                  setDataModal((prev) => ({ ...prev, isOpen: false })),
+              });
+            }
+          } else if (orderCancelError) {
+            setDataModal({
+              isOpen: true,
+              type: "warning",
+              title: "No se pudo cancelar la orden",
+              showActions: false,
+              content: `Los productos quedaron en cancelado, pero la orden no se canceló: ${orderCancelError}`,
+              onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+              onConfirm: () =>
+                setDataModal((prev) => ({ ...prev, isOpen: false })),
+            });
+          }
+
+          return true;
+        }
+      } catch (error: any) {
+        const message = error?.response?.data?.message;
+        if (nextStatus === "cancelado" && message) {
           setDataModal({
             isOpen: true,
             type: "warning",
-            title: "Reembolso pendiente",
+            title: "No se puede cancelar",
             showActions: false,
-            content: `Los productos quedaron cancelados, pero no se completó el reembolso automático: ${orderCancelError}`,
+            content: message,
             onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
             onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
           });
         }
-
-        return true;
-      }
-    } catch (error: any) {
-      const message = error?.response?.data?.message;
-      if (nextStatus === "cancelado" && message) {
-        setDataModal({
-          isOpen: true,
-          type: "warning",
-          title: "No se puede cancelar",
-          showActions: false,
-          content: message,
-          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-        });
+        return false;
       }
       return false;
-    }
-    return false;
+    };
+
+    return applySaleStatusChange();
   };
 
   const handleChangeStatusShipByShipment = async (
     event: any,
     idShipment: number,
     idUser: any,
+    options?: ShipStatusChangeOptions,
   ) => {
     if (!can("orders.update_status_ship")) {
       setDataModal({
@@ -292,120 +374,166 @@ const useDashboard = () => {
       return false;
     }
 
-    try {
-      const resp = await requestPostPagos(
-        {
-          idShipment: Number(idShipment),
-          status: nextStatus,
-          idUser,
-          skipDeliveryEmail: true,
-        },
-        "/openpay/updateStatusShipByOrden",
-        { silent: true },
+    let cancelReason =
+      options?.cancelReason != null ? String(options.cancelReason).trim() : "";
+
+    if (nextStatus === "cancelado" && !cancelReason) {
+      const prompted = await promptShipCancelReason(
+        "Si confirmas, los productos de este envío pasarán a Cancelado. Cuando todos los productos de la orden estén cancelados, se cancelará la orden y se intentará el reembolso (solo dentro de las 24 h posteriores a la compra). Indica el motivo.",
       );
+      if (!prompted) return false;
+      cancelReason = prompted;
+    }
 
-      if (resp.status == 200) {
-        const payload = resp.data?.data?.data ?? {};
-        const updatedStatus = payload.status ?? nextStatus;
-        const updatedShipmentId = Number(payload.idShipment ?? idShipment);
-        const updatedSaleIds = Array.isArray(payload.idSales)
-          ? payload.idSales.map((id: unknown) => Number(id))
-          : [];
-        const saleIdSet = new Set(updatedSaleIds.filter((id: number) => id > 0));
-        const idOrder = Number(payload.idOrder);
-        const orderCancelled = payload.orderCancelled === true;
-        const orderCancelError = payload.orderCancelError
-          ? String(payload.orderCancelError)
-          : null;
+    const applyShipmentStatusChange = async (): Promise<boolean> => {
+      try {
+        const resp = await requestPostPagos(
+          {
+            idShipment: Number(idShipment),
+            status: nextStatus,
+            idUser,
+            skipDeliveryEmail: true,
+            ...(nextStatus === "cancelado" ? { cancelReason } : {}),
+          },
+          "/openpay/updateStatusShipByOrden",
+          { silent: true },
+        );
 
-        setRowsVentas((prev) => ({
-          ...prev,
-          data: prev.data.map((order) => {
-            const matchesOrder =
-              orderCancelled &&
-              Number.isFinite(idOrder) &&
-              Number(order.idOrder) === idOrder;
-            return {
-              ...order,
-              ...(matchesOrder ? { statusPay: "cancelled" } : {}),
-              products: order.products.map((product) => {
-                const matchesShipment =
-                  Number(product.idShipment) === updatedShipmentId;
-                const matchesSale =
-                  saleIdSet.size > 0 && saleIdSet.has(Number(product.idSale));
-                if (matchesShipment || matchesSale || matchesOrder) {
-                  return {
-                    ...product,
-                    statusShip: matchesOrder ? "cancelado" : updatedStatus,
-                  };
-                }
-                return product;
-              }),
-            };
-          }),
-        }));
+        if (resp.status == 200) {
+          const payload = resp.data?.data?.data ?? {};
+          const updatedStatus = payload.status ?? nextStatus;
+          const updatedShipmentId = Number(payload.idShipment ?? idShipment);
+          const updatedSaleIds = Array.isArray(payload.idSales)
+            ? payload.idSales.map((id: unknown) => Number(id))
+            : [];
+          const saleIdSet = new Set(
+            updatedSaleIds.filter((id: number) => id > 0),
+          );
+          const idOrder = Number(payload.idOrder);
+          const orderCancelled = payload.orderCancelled === true;
+          const orderCancelError = payload.orderCancelError
+            ? String(payload.orderCancelError)
+            : null;
+          const savedCancelReason =
+            payload.cancelReason != null
+              ? String(payload.cancelReason)
+              : cancelReason || null;
 
-        if (orderCancelled) {
-          const gateway = String(payload.orderCancelGateway || "");
-          setDataModal({
-            isOpen: true,
-            type: "success",
-            title: "Orden cancelada",
-            showActions: false,
-            content:
-              gateway === "manual"
-                ? "Todos los productos quedaron cancelados. La orden se marcó como cancelada; el reembolso se coordina según el método de pago (sucursal / transferencia)."
-                : "Todos los productos quedaron cancelados. Se canceló la orden y se solicitó el reembolso al método de pago del cliente.",
-            onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-            onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-          });
-        } else if (orderCancelError) {
+          setRowsVentas((prev) => ({
+            ...prev,
+            data: prev.data.map((order) => {
+              const matchesOrder =
+                orderCancelled &&
+                Number.isFinite(idOrder) &&
+                Number(order.idOrder) === idOrder;
+              const matchesPartialCancel =
+                nextStatus === "cancelado" &&
+                Number.isFinite(idOrder) &&
+                Number(order.idOrder) === idOrder;
+              return {
+                ...order,
+                ...(matchesOrder ? { statusPay: "cancelled" } : {}),
+                ...(matchesPartialCancel || matchesOrder
+                  ? { cancelReason: savedCancelReason }
+                  : {}),
+                products: order.products.map((product) => {
+                  const matchesShipment =
+                    Number(product.idShipment) === updatedShipmentId;
+                  const matchesSale =
+                    saleIdSet.size > 0 && saleIdSet.has(Number(product.idSale));
+                  if (matchesShipment || matchesSale || matchesOrder) {
+                    return {
+                      ...product,
+                      statusShip: matchesOrder ? "cancelado" : updatedStatus,
+                    };
+                  }
+                  return product;
+                }),
+              };
+            }),
+          }));
+
+          if (orderCancelled) {
+            const gateway = String(payload.orderCancelGateway || "");
+            if (orderCancelError) {
+              setDataModal({
+                isOpen: true,
+                type: "warning",
+                title: "Orden cancelada · reembolso pendiente",
+                showActions: false,
+                content: `La orden se marcó como cancelada, pero el reembolso automático no se completó: ${orderCancelError}. Coordina el reembolso según el método de pago.`,
+                onClose: () =>
+                  setDataModal((prev) => ({ ...prev, isOpen: false })),
+                onConfirm: () =>
+                  setDataModal((prev) => ({ ...prev, isOpen: false })),
+              });
+            } else {
+              setDataModal({
+                isOpen: true,
+                type: "success",
+                title: "Orden cancelada",
+                showActions: false,
+                content:
+                  gateway === "manual"
+                    ? "Todos los productos quedaron cancelados. La orden se marcó como cancelada; el reembolso se coordina según el método de pago (sucursal / transferencia)."
+                    : "Todos los productos quedaron cancelados. Se canceló la orden y se solicitó el reembolso al método de pago del cliente.",
+                onClose: () =>
+                  setDataModal((prev) => ({ ...prev, isOpen: false })),
+                onConfirm: () =>
+                  setDataModal((prev) => ({ ...prev, isOpen: false })),
+              });
+            }
+          } else if (orderCancelError) {
+            setDataModal({
+              isOpen: true,
+              type: "warning",
+              title: "No se pudo cancelar la orden",
+              showActions: false,
+              content: `Los productos quedaron en cancelado, pero la orden no se canceló: ${orderCancelError}`,
+              onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+              onConfirm: () =>
+                setDataModal((prev) => ({ ...prev, isOpen: false })),
+            });
+          }
+
+          return true;
+        }
+
+        const failMessage = resp.data?.message;
+        if (nextStatus === "cancelado" && failMessage) {
           setDataModal({
             isOpen: true,
             type: "warning",
-            title: "Reembolso pendiente",
+            title: "No se puede cancelar",
             showActions: false,
-            content: `Los productos quedaron cancelados, pero no se completó el reembolso automático: ${orderCancelError}`,
+            content: String(failMessage),
             onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
             onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
           });
         }
-
-        return true;
-      }
-
-      const failMessage = resp.data?.message;
-      if (nextStatus === "cancelado" && failMessage) {
-        setDataModal({
-          isOpen: true,
-          type: "warning",
-          title: "No se puede cancelar",
-          showActions: false,
-          content: String(failMessage),
-          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-        });
-      }
-    } catch (error: any) {
-      const message = error?.response?.data?.message;
-      if (nextStatus === "cancelado" && message) {
-        setDataModal({
-          isOpen: true,
-          type: "warning",
-          title: "No se puede cancelar",
-          showActions: false,
-          content: message,
-          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
-        });
+      } catch (error: any) {
+        const message = error?.response?.data?.message;
+        if (nextStatus === "cancelado" && message) {
+          setDataModal({
+            isOpen: true,
+            type: "warning",
+            title: "No se puede cancelar",
+            showActions: false,
+            content: message,
+            onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+            onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          });
+        }
+        return false;
       }
       return false;
-    }
-    return false;
+    };
+
+    return applyShipmentStatusChange();
   };
 
   const applyCancelledOrderState = useCallback(
-    (idOrder: number) => {
+    (idOrder: number, cancelReason?: string | null) => {
       setRowsVentas((prev) => ({
         ...prev,
         data: prev.data.map((order) =>
@@ -413,6 +541,7 @@ const useDashboard = () => {
             ? {
               ...order,
               statusPay: "cancelled",
+              ...(cancelReason ? { cancelReason } : {}),
               products: order.products.map((product) => ({
                 ...product,
                 statusShip: "cancelado",
@@ -487,7 +616,7 @@ const useDashboard = () => {
                 );
 
                 if (resp.status === 200) {
-                  applyCancelledOrderState(idOrder);
+                  applyCancelledOrderState(idOrder, cancelReason);
                   setDataModal({
                     isOpen: true,
                     type: "info",
@@ -652,6 +781,7 @@ const useDashboard = () => {
     handleGetAllSales,
     handleChangeStatusShip,
     handleChangeStatusShipByShipment,
+    promptShipCancelReason,
     handleChangeStatusPay,
     openCancelOrderModal,
     handleRetryDicotechPostPayment,
