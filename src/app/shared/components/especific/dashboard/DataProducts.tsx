@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import EmptyState from "../../common/emptyState/EmptyState";
-import { Alert } from "@mui/material";
-import { Mail, Package } from "lucide-react";
+import { Alert, Chip } from "@mui/material";
+import { Clock3, Mail, Package, UserRound } from "lucide-react";
 import SendDeliveryStatusEmailPanel from "./SendDeliveryStatusEmailPanel";
 import ShipmentGroupSection from "./ShipmentGroupSection";
 import {
@@ -16,6 +16,13 @@ import {
   isDigitalDeliveryProduct,
 } from "@/app/utils/orderShipmentGroups";
 import { orderModalSpacing as sp } from "./orderModalSpacing";
+
+const EMAIL_DEBOUNCE_HINT_SEC = Math.max(
+  1,
+  Math.round(
+    Number(process.env.NEXT_PUBLIC_DELIVERY_EMAIL_DEBOUNCE_MS || 45000) / 1000,
+  ),
+);
 
 const DataProducts = ({
   params,
@@ -102,7 +109,6 @@ const DataProducts = ({
       .map((p: any) => Number(p.idSale))
       .filter((id: number) => Number.isFinite(id) && id > 0);
 
-    // Optimistic: todos los productos del bloque de envío cambian de estatus.
     setProducts((prev: any[]) =>
       prev.map((p: any) =>
         Number(p.idShipment) === Number(idShipment) ||
@@ -173,6 +179,9 @@ const DataProducts = ({
   const idOrder = Number(params?.row?.idOrder || 0);
   const statusPay = params?.row?.statusPay;
   const orderPaid = isOrderPaid(statusPay);
+  const digitalProductCount = products.filter((item: any) =>
+    isDigitalDeliveryProduct(item),
+  ).length;
 
   const hasPendingDigital = products.some(
     (item: any) =>
@@ -184,6 +193,50 @@ const DataProducts = ({
 
   return (
     <div className="admin-modal-products" style={sp.productsRoot}>
+      <header className="admin-order-hero" style={sp.orderHero}>
+        <div className="admin-order-hero__main">
+          <p className="admin-order-hero__eyebrow">Detalle de la orden</p>
+          <h2 className="admin-order-hero__title">Orden #{idOrder || "—"}</h2>
+          <p className="admin-order-hero__subtitle">
+            {physical.length > 0
+              ? `${physical.length} envío${physical.length === 1 ? "" : "s"} físico${physical.length === 1 ? "" : "s"}`
+              : "Sin envíos físicos"}
+            {digitalProductCount > 0
+              ? ` · ${digitalProductCount} licencia${digitalProductCount === 1 ? "" : "s"} digital${digitalProductCount === 1 ? "" : "es"}`
+              : ""}
+            {` · ${products.length} producto${products.length === 1 ? "" : "s"}`}
+          </p>
+        </div>
+        <div className="admin-order-hero__meta">
+          <Chip
+            size="small"
+            label={`Pago: ${getPaymentStatusLabel(statusPay)}`}
+            color={orderPaid ? "success" : "default"}
+            sx={{ fontWeight: 700 }}
+          />
+          {customerName || customerEmail ? (
+            <span className="admin-order-hero__customer">
+              <UserRound size={14} />
+              {customerName || customerEmail}
+            </span>
+          ) : null}
+        </div>
+      </header>
+
+      {physicalProducts.length > 0 ? (
+        <Alert
+          severity="info"
+          icon={<Clock3 size={18} />}
+          sx={{ borderRadius: "12px", margin: 0 }}
+        >
+          Al cambiar el <strong>estatus del envío</strong>, el correo al cliente
+          se programa unos <strong>{EMAIL_DEBOUNCE_HINT_SEC} s</strong> después
+          del último cambio (un correo, sin spam). Si cierras el navegador o
+          recargas, el temporizador sigue en el servidor. También puedes
+          enviarlo ya desde el panel de abajo.
+        </Alert>
+      ) : null}
+
       {physicalProducts.length > 0 ? (
         <SendDeliveryStatusEmailPanel
           idOrder={idOrder}
@@ -252,6 +305,7 @@ const DataProducts = ({
               onProductStatusChange={handleProductStatusChange}
               updatingShipmentId={updatingShipmentId}
               updatingSaleId={updatingSaleId}
+              emailDebounceSeconds={EMAIL_DEBOUNCE_HINT_SEC}
             />
           ))}
         </section>

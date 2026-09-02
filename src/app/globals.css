@@ -611,6 +611,57 @@ html[data-admin-sidebar="closed"]:has(aside:hover) .admin-layout {
   max-width: 100%;
 }
 
+.admin-order-hero {
+  border-radius: 16px;
+  border: 1px solid #e8edf3;
+  background:
+    linear-gradient(135deg, rgba(187, 61, 75, 0.06) 0%, rgba(255, 255, 255, 0.95) 42%),
+    #ffffff;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+}
+
+.admin-order-hero__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.admin-order-hero__title {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  font-weight: 800;
+  color: #111827;
+}
+
+.admin-order-hero__subtitle {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.admin-order-hero__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.admin-order-hero__customer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4b5563;
+  max-width: 240px;
+}
+
 .admin-order-products-modal__summary {
   /* spacing inline */
 }
@@ -786,6 +837,11 @@ html[data-admin-sidebar="closed"]:has(aside:hover) .admin-layout {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: #6b7280;
+}
+
+.admin-shipment-block__controls-hint {
+  font-size: 0.72rem;
   color: #6b7280;
 }
 

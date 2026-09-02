@@ -130,7 +130,7 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                 setDataModal({
                   isOpen: true,
                   type: "info",
-                  title: "Productos de la orden",
+                  title: `Orden #${params.row?.idOrder ?? ""}`,
 
                   ...modalCloseOnly,
                   content: (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -14,7 +14,7 @@ import {
   Switch,
   Typography,
 } from "@mui/material";
-import { Mail, Package, Send } from "lucide-react";
+import { Package, Send } from "lucide-react";
 import PagosUtils from "@/app/services/utils/pagos.utils";
 import {
   getPaymentStatusLabel,
@@ -76,7 +76,12 @@ type SendDeliveryStatusEmailPanelProps = {
   statusPay?: string | null;
   customerEmail?: string | null;
   products?: Array<{ statusShip?: string | null }>;
-  allProducts?: Array<{ statusShip?: string | null; licenseType?: string | null; shipping_method?: string | null; address?: { shipping_method?: string | null } | null }>;
+  allProducts?: Array<{
+    statusShip?: string | null;
+    licenseType?: string | null;
+    shipping_method?: string | null;
+    address?: { shipping_method?: string | null } | null;
+  }>;
 };
 
 export default function SendDeliveryStatusEmailPanel({
@@ -103,7 +108,7 @@ export default function SendDeliveryStatusEmailPanel({
     [physicalProducts],
   );
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [status, setStatus] = useState<ShipStatusOption>(defaultStatus);
   const [forceResend, setForceResend] = useState(false);
   const [sending, setSending] = useState(false);
@@ -111,6 +116,10 @@ export default function SendDeliveryStatusEmailPanel({
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    setStatus(defaultStatus);
+  }, [defaultStatus]);
 
   const handleSend = async () => {
     if (!orderPaid || idOrder <= 0 || !physicalProducts.length) return;
@@ -166,7 +175,7 @@ export default function SendDeliveryStatusEmailPanel({
         <span className="admin-delivery-email-panel__toggle-text" style={sp.emailToggleText}>
           Correo de estatus de envío
           <span className="admin-delivery-email-panel__toggle-meta">
-            {physicalProducts.length} físico
+            Orden #{idOrder} · {physicalProducts.length} físico
             {physicalProducts.length === 1 ? "" : "s"}
             {digitalCount > 0
               ? ` · ${digitalCount} licencia${digitalCount === 1 ? "" : "s"} excluida${digitalCount === 1 ? "" : "s"}`
@@ -188,9 +197,10 @@ export default function SendDeliveryStatusEmailPanel({
                 variant="body2"
                 sx={{ mb: 1, color: "#6b7280", lineHeight: 1.6 }}
               >
-                Un correo por orden con los productos físicos, importes y
-                estatus de envío. Las <strong>licencias digitales no se incluyen</strong>{" "}
-                (tienen su propio correo de claves).
+                Envía <strong>ya</strong> el correo de la orden #{idOrder} (productos
+                físicos, importes y datos por envío). Si solo cambias el select de
+                estatus, el sistema espera unos segundos y manda <strong>un</strong>{" "}
+                correo con el último valor. Las licencias digitales van aparte.
               </Typography>
               <Typography variant="body2" sx={{ mb: 1.5, color: "#374151" }}>
                 Destinatario: <strong>{customerEmail || "correo del cliente"}</strong>

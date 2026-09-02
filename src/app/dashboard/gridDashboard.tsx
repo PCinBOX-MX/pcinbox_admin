@@ -229,11 +229,8 @@ const GridDashboard = ({
                 setDataModal({
                   isOpen: true,
                   type: "info",
-                  title:
-                    orderRow?.products?.length === 1
-                      ? "Productos de la orden (1)"
-                      : `Productos de la orden (${orderRow?.products?.length ?? 0})`,
-                  maxWidth: "min(95vw, 820px)",
+                  title: `Orden #${orderRow?.idOrder ?? params.row.idOrder}`,
+                  maxWidth: "min(95vw, 860px)",
                   showActions: true,
 
                   confirmLabel: "Cerrar",

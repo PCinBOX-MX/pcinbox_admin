@@ -8,6 +8,15 @@ export const orderModalSpacing = {
     gap: 24,
     minWidth: "min(100%, 720px)",
   } satisfies CSSProperties,
+  orderHero: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 16,
+    padding: "18px 20px",
+    margin: 0,
+  } satisfies CSSProperties,
   sectionList: {
     display: "flex",
     flexDirection: "column",
@@ -75,6 +84,13 @@ export const orderModalSpacing = {
     display: "block",
     marginBottom: 10,
     padding: 0,
+  } satisfies CSSProperties,
+  shipmentControlsHint: {
+    margin: "10px 0 0",
+    padding: 0,
+    fontSize: 12,
+    lineHeight: 1.45,
+    color: "#6b7280",
   } satisfies CSSProperties,
   shipmentMeta: {
     display: "flex",
