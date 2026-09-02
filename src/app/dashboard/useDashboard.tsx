@@ -241,7 +241,21 @@ const useDashboard = () => {
 
         return true;
       }
-    } catch (error) { }
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      if (nextStatus === "cancelado" && message) {
+        setDataModal({
+          isOpen: true,
+          type: "warning",
+          title: "No se puede cancelar",
+          showActions: false,
+          content: message,
+          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        });
+      }
+      return false;
+    }
     return false;
   };
 
@@ -359,7 +373,34 @@ const useDashboard = () => {
 
         return true;
       }
-    } catch (error) { }
+
+      const failMessage = resp.data?.message;
+      if (nextStatus === "cancelado" && failMessage) {
+        setDataModal({
+          isOpen: true,
+          type: "warning",
+          title: "No se puede cancelar",
+          showActions: false,
+          content: String(failMessage),
+          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        });
+      }
+    } catch (error: any) {
+      const message = error?.response?.data?.message;
+      if (nextStatus === "cancelado" && message) {
+        setDataModal({
+          isOpen: true,
+          type: "warning",
+          title: "No se puede cancelar",
+          showActions: false,
+          content: message,
+          onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        });
+      }
+      return false;
+    }
     return false;
   };
 

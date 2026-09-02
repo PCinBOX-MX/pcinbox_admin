@@ -102,7 +102,6 @@ const DashBoard = () => {
     handleChangeStatusShipByShipment,
     handleGetAllSales,
     can,
-    openCancelOrderModal,
     handleRetryDicotechPostPayment,
     loading,
     listError,
@@ -112,7 +111,6 @@ const DashBoard = () => {
     handleChangeStatusShip,
     handleChangeStatusShipByShipment,
     rows: rowsVentas,
-    openCancelOrderModal,
     handleRetryDicotechPostPayment,
     can,
   });

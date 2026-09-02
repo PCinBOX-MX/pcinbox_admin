@@ -215,8 +215,10 @@ export default function SendDeliveryStatusEmailPanel({
                 Al cambiar el select se actualiza en vivo el estatus de los
                 productos físicos de la orden #{idOrder}. El correo{" "}
                 <strong>solo se envía</strong> cuando pulses{" "}
-                <strong>Enviar correo al cliente</strong>. Las licencias
-                digitales van aparte.
+                <strong>Enviar correo al cliente</strong>. Cancelar (
+                <strong>Cancelado</strong>) solo dentro de las{" "}
+                <strong>24 horas</strong> posteriores a la compra confirmada.
+                Las licencias digitales van aparte.
               </Typography>
               <Typography variant="body2" sx={{ mb: 1.5, color: "#374151" }}>
                 Destinatario: <strong>{customerEmail || "correo del cliente"}</strong>

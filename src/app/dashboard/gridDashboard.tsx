@@ -29,7 +29,6 @@ import {
   formatOrderMoney,
   getAdminOrderCostBreakdown,
 } from "../utils/orderCostBreakdown";
-import OrderCancelSection from "../components/admin/OrderCancelSection";
 import {
   getPaymentStatusChipColor,
   getPaymentStatusLabel,
@@ -44,14 +43,12 @@ import {
 const GridDashboard = ({
   handleChangeStatusShip,
   handleChangeStatusShipByShipment,
-  openCancelOrderModal,
   handleRetryDicotechPostPayment,
   can,
   rows,
 }: {
   handleChangeStatusShip: any;
   handleChangeStatusShipByShipment: any;
-  openCancelOrderModal: (idOrder: number) => void;
   handleRetryDicotechPostPayment?: (idOrder: number) => Promise<boolean>;
   can: (permission: import("../constants/permissions").AdminPermission) => boolean;
   rows: {
@@ -423,14 +420,6 @@ const GridDashboard = ({
                             }));
                           }}
                         />
-                      {can("orders.cancel") && (
-                        <OrderCancelSection
-                          idOrder={orderRow?.idOrder ?? params.row.idOrder}
-                          statusPay={orderRow?.statusPay ?? params.row.statusPay}
-                          canCancelPermission={can("orders.cancel")}
-                          onCancelClick={openCancelOrderModal}
-                        />
-                      )}
                     </div>
                   ),
                 });
@@ -818,7 +807,7 @@ const GridDashboard = ({
         },
       },
     ],
-    [rows, can, openCancelOrderModal, rowsVentas, setRowsVentas, setDataModal, formatCurrency],
+    [rows, can, rowsVentas, setRowsVentas, setDataModal, formatCurrency],
   );
 
   return {
