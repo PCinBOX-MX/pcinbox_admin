@@ -237,6 +237,26 @@ const useReservas = () => {
 
   // Actualizar el estatus de una reserva
   const updateReservationStatus = async (reference: string, newStatus: string) => {
+    const current = reservations.find((item) => item.reference === reference);
+    const currentStatus = String(current?.status || "").toLowerCase();
+    const TERMINAL_STATUSES = new Set(["completed", "cancelled"]);
+
+    if (TERMINAL_STATUSES.has(currentStatus)) {
+      setDataModal({
+        isOpen: true,
+        type: "warning",
+        title: "Estatus bloqueado",
+        showActions: false,
+        content:
+          currentStatus === "cancelled"
+            ? "Esta reserva ya está Cancelada y no se puede cambiar a otro estatus."
+            : "Esta reserva ya está Completada y no se puede cambiar a otro estatus.",
+        onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+      });
+      return;
+    }
+
     if (newStatus === "cancelled") {
       setDataModal({
         isOpen: true,

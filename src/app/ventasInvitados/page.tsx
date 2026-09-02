@@ -8,10 +8,11 @@ import TableComponent from "../shared/components/especific/table/TableComponent"
 import GridVentasInvitados from "./gridVentasInvitados";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import AdminRefreshButton from "../shared/components/common/buttons/AdminRefreshButton";
+import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefreshablePanel";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
 import { TextField, FormControl, InputLabel, Select, MenuItem, Alert } from "@mui/material";
 import useVentasInvitados from "./useVentasInvitados";
-import { MdAutorenew } from "react-icons/md";
 
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
@@ -105,12 +106,22 @@ const VentasInvitados = () => {
     />
   );
 
+  const reloadGuestSales = () => {
+    void handleGetAllSalesInvitados(
+      { page: Math.max(0, page - 1), pageSize: PAGE_SIZE },
+      { search: debouncedSearch, status: statusFilter },
+    );
+  };
+
   if (!mounted) return null;
 
   return (
     <AdminPageShell
       title="Ventas (Invitados)"
       subtitle="Órdenes generadas por links de pago para invitados"
+      actions={
+        <AdminRefreshButton onClick={reloadGuestSales} loading={loading} />
+      }
       filters={
         <>
           <div className="admin-filters-header">
@@ -164,38 +175,44 @@ const VentasInvitados = () => {
       paginationTop={totalRows > 0 ? paginationBlock : undefined}
       paginationBottom={totalRows > 0 ? paginationBlock : undefined}
     >
-      {loading ? (
-        <div className="admin-empty-state flex items-center justify-center gap-2">
-          <MdAutorenew size={20} className="the-spinner" />
-          <span>Cargando órdenes...</span>
-        </div>
-      ) : listError ? (
+      {listError ? (
         <div className="admin-empty-state" style={{ display: "grid", gap: 12 }}>
           <Alert severity="error">{listError}</Alert>
           <button
             type="button"
             className="admin-btn-secondary"
-            onClick={() =>
-              void handleGetAllSalesInvitados(
-                { page: Math.max(0, page - 1), pageSize: PAGE_SIZE },
-                { search: debouncedSearch, status: statusFilter },
-              )
-            }
+            onClick={reloadGuestSales}
+            disabled={loading}
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             Reintentar
           </button>
         </div>
-      ) : rowsWithId.length > 0 ? (
-        <TableComponent columnsDataGrid={columns} rowsDataGrid={rowsWithId} hideFooter />
       ) : (
-        <div className="admin-empty-state">
-          <EmptyState
-            title="Sin ventas de invitados"
-            description="No hay ventas de invitados que mostrar con los filtros actuales."
-            icon="orders"
+        <AdminRefreshablePanel
+          loading={loading}
+          hasContent={rowsWithId.length > 0}
+          emptyState={
+            <div className="admin-empty-state">
+              <EmptyState
+                title={loading ? "Cargando órdenes..." : "Sin ventas de invitados"}
+                description={
+                  loading
+                    ? "Estamos obteniendo la información del panel."
+                    : "No hay ventas de invitados que mostrar con los filtros actuales."
+                }
+                icon="orders"
+              />
+            </div>
+          }
+        >
+          <TableComponent
+            loading={loading}
+            columnsDataGrid={columns}
+            rowsDataGrid={rowsWithId}
+            hideFooter
           />
-        </div>
+        </AdminRefreshablePanel>
       )}
     </AdminPageShell>
   );

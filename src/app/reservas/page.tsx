@@ -4,6 +4,8 @@ import { useState } from "react";
 import useReservas, { Reservation } from "./useReservas";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
+import AdminRefreshButton from "../shared/components/common/buttons/AdminRefreshButton";
+import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefreshablePanel";
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import {
   TextField,
@@ -131,14 +133,10 @@ const ReservasAdminPage = () => {
       title="Reservas de mantenimiento"
       subtitle="Consulta, filtra y actualiza el estatus de las citas técnicas"
       actions={
-        <button
-          type="button"
+        <AdminRefreshButton
           onClick={() => fetchReservations()}
-          className="admin-btn-secondary"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          Sincronizar
-        </button>
+          loading={loading}
+        />
       }
       filters={
         <>
@@ -278,38 +276,48 @@ const ReservasAdminPage = () => {
           </div>
         </>
       }
-      paginationTop={!loading && reservations.length > 0 ? paginationBlock : undefined}
-      paginationBottom={!loading && reservations.length > 0 ? paginationBlock : undefined}
+      paginationTop={reservations.length > 0 ? paginationBlock : undefined}
+      paginationBottom={reservations.length > 0 ? paginationBlock : undefined}
     >
-          {loading ? (
-              <div
-                className="flex flex-col justify-center items-center"
-                style={{ padding: "80px 0", gap: "12px" }}
-              >
-                <CircularProgress style={{ color: "#bb3d4b" }} />
-                <span className="text-sm text-gray-500 font-medium">Obteniendo reservaciones...</span>
-              </div>
-            ) : listError ? (
+          {listError ? (
               <div style={{ padding: "32px", display: "grid", gap: 12 }}>
                 <Alert severity="error">{listError}</Alert>
                 <button
                   type="button"
                   className="admin-btn-secondary"
                   onClick={() => fetchReservations()}
+                  disabled={loading}
                 >
-                  <RefreshCw size={16} />
+                  <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                   Reintentar
                 </button>
               </div>
-            ) : reservations.length === 0 ? (
-              <div style={{ padding: "32px" }}>
-                <EmptyState
-                  title="Sin reservaciones"
-                  description="No se encontraron reservaciones que coincidan con los criterios de búsqueda."
-                  icon="search"
-                />
-              </div>
             ) : (
+              <AdminRefreshablePanel
+                loading={loading}
+                hasContent={reservations.length > 0}
+                emptyState={
+                  loading ? (
+                    <div
+                      className="flex flex-col justify-center items-center"
+                      style={{ padding: "80px 0", gap: "12px" }}
+                    >
+                      <CircularProgress style={{ color: "#bb3d4b" }} />
+                      <span className="text-sm text-gray-500 font-medium">
+                        Obteniendo reservaciones...
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ padding: "32px" }}>
+                      <EmptyState
+                        title="Sin reservaciones"
+                        description="No se encontraron reservaciones que coincidan con los criterios de búsqueda."
+                        icon="search"
+                      />
+                    </div>
+                  )
+                }
+              >
               <div className="admin-table-scroll">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -396,39 +404,63 @@ const ReservasAdminPage = () => {
                         {/* Estatus */}
                         <td style={{ padding: "16px 24px" }}>
                           <div className="flex items-center" style={{ gap: "8px" }}>
-                            {res.status === "cancelled" ? (
-                              <Tooltip title="No se puede cambiar el estatus de una reserva cancelada" arrow>
+                            {res.status === "cancelled" || res.status === "completed" ? (
+                              <Tooltip
+                                title={
+                                  res.status === "cancelled"
+                                    ? "Al tener estatus Cancelada ya no se puede cambiar el estatus"
+                                    : "Al tener estatus Completada ya no se puede cambiar el estatus"
+                                }
+                                arrow
+                              >
                                 <span className="inline-block">
                                   <select
                                     value={res.status}
-                                    onChange={(e) => updateReservationStatus(res.reference, e.target.value)}
-                                    disabled={true}
+                                    disabled
                                     className={`text-xs font-semibold rounded-full border outline-none transition-all duration-200 ${getStatusBadgeClass(
-                                      res.status
+                                      res.status,
                                     )} opacity-75 cursor-not-allowed`}
                                     style={{
                                       padding: "6px 12px",
                                     }}
                                   >
-                                    <option value="cancelled" className="text-red-800 bg-white">Cancelada</option>
+                                    {res.status === "cancelled" ? (
+                                      <option value="cancelled" className="text-red-800 bg-white">
+                                        Cancelada
+                                      </option>
+                                    ) : (
+                                      <option value="completed" className="text-green-800 bg-white">
+                                        Completada
+                                      </option>
+                                    )}
                                   </select>
                                 </span>
                               </Tooltip>
                             ) : (
                               <select
                                 value={res.status}
-                                onChange={(e) => updateReservationStatus(res.reference, e.target.value)}
+                                onChange={(e) =>
+                                  updateReservationStatus(res.reference, e.target.value)
+                                }
                                 className={`text-xs font-semibold rounded-full border cursor-pointer outline-none transition-all duration-200 ${getStatusBadgeClass(
-                                  res.status
+                                  res.status,
                                 )}`}
                                 style={{
                                   padding: "6px 12px",
                                 }}
                               >
-                                <option value="pending" className="text-amber-800 bg-white">Pendiente</option>
-                                <option value="in_process" className="text-blue-800 bg-white">En Proceso</option>
-                                <option value="completed" className="text-green-800 bg-white">Completada</option>
-                                <option value="cancelled" className="text-red-800 bg-white">Cancelada</option>
+                                <option value="pending" className="text-amber-800 bg-white">
+                                  Pendiente
+                                </option>
+                                <option value="in_process" className="text-blue-800 bg-white">
+                                  En Proceso
+                                </option>
+                                <option value="completed" className="text-green-800 bg-white">
+                                  Completada
+                                </option>
+                                <option value="cancelled" className="text-red-800 bg-white">
+                                  Cancelada
+                                </option>
                               </select>
                             )}
                           </div>
@@ -451,6 +483,7 @@ const ReservasAdminPage = () => {
                   </tbody>
                 </table>
               </div>
+              </AdminRefreshablePanel>
             )}
 
     </AdminPageShell>

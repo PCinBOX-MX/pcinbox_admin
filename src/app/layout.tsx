@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { GlobalProvider } from "./hooks/global.hook";
 import AppWrapper from "./wrapper";
 import AppEmotionCacheProvider from "./providers/AppEmotionCacheProvider";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "PCInbox Admin",
@@ -20,8 +27,8 @@ export default function RootLayout({
 }>) {
   return (
     <GlobalProvider>
-      <html lang="es">
-        <body>
+      <html lang="es" className={inter.variable}>
+        <body className={inter.className}>
           <AppEmotionCacheProvider>
             <AppWrapper>{children}</AppWrapper>
           </AppEmotionCacheProvider>

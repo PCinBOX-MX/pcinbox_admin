@@ -17,6 +17,8 @@ import { useTheContext } from "../hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import AdminRefreshButton from "../shared/components/common/buttons/AdminRefreshButton";
+import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefreshablePanel";
 import { PROVIDERS_WITH_PROFIT_MARGIN } from "../constants/providers.constants";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
 
@@ -90,7 +92,7 @@ const Proveedores = () => {
   const totalItems = dataProductProveedor.totalRows ?? catalogProducts.length;
   const pageCount = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
   const showPagination =
-    !dataProductProveedor.loading && totalItems > 0 && Boolean(slcProveedor);
+    totalItems > 0 && Boolean(slcProveedor);
 
   if (!mounted) {
     return (
@@ -123,6 +125,17 @@ const Proveedores = () => {
       subtitle="Catálogo de productos por proveedor"
       actions={
         <div className="admin-proveedores-actions">
+          <AdminRefreshButton
+            onClick={() =>
+              void handleGetProductsByProveedor(slcProveedor, {
+                page: pageParam,
+                pageSize: ITEMS_PER_PAGE,
+                search: debouncedSearch,
+              })
+            }
+            loading={dataProductProveedor.loading}
+            disabled={!slcProveedor}
+          />
           <button type="button" className="admin-btn-primary" onClick={showModalRegisterProveedor}>
             <MdAdd size={20} />
             Agregar proveedor
@@ -255,26 +268,57 @@ const Proveedores = () => {
       paginationTop={showPagination ? paginationBlock : undefined}
       paginationBottom={showPagination ? paginationBlock : undefined}
     >
-      {!dataProductProveedor.loading ? (
-        catalogError ? (
-          <div className="admin-empty-state w-full" style={{ display: "grid", gap: 12 }}>
-            <Alert severity="error">{catalogError}</Alert>
-            <button
-              type="button"
-              className="admin-btn-secondary"
-              onClick={() =>
-                void handleGetProductsByProveedor(slcProveedor, {
-                  page: pageParam,
-                  pageSize: ITEMS_PER_PAGE,
-                  search: debouncedSearch,
-                })
-              }
-            >
-              <RefreshCw size={16} />
-              Reintentar
-            </button>
-          </div>
-        ) : catalogProducts.length > 0 ? (
+      {!slcProveedor ? (
+        <div className="admin-empty-state w-full">
+          <EmptyState
+            title="Selecciona un proveedor"
+            description="Elige un proveedor en los filtros para ver su catálogo."
+            icon="products"
+          />
+        </div>
+      ) : catalogError ? (
+        <div className="admin-empty-state w-full" style={{ display: "grid", gap: 12 }}>
+          <Alert severity="error">{catalogError}</Alert>
+          <button
+            type="button"
+            className="admin-btn-secondary"
+            onClick={() =>
+              void handleGetProductsByProveedor(slcProveedor, {
+                page: pageParam,
+                pageSize: ITEMS_PER_PAGE,
+                search: debouncedSearch,
+              })
+            }
+            disabled={dataProductProveedor.loading}
+          >
+            <RefreshCw
+              size={16}
+              className={dataProductProveedor.loading ? "animate-spin" : ""}
+            />
+            Reintentar
+          </button>
+        </div>
+      ) : (
+        <AdminRefreshablePanel
+          loading={dataProductProveedor.loading}
+          hasContent={catalogProducts.length > 0}
+          emptyState={
+            dataProductProveedor.loading ? (
+              <div className="admin-empty-state w-full flex items-center justify-center gap-2">
+                <MdAutorenew size={20} className="the-spinner" />
+                <span>Cargando productos...</span>
+              </div>
+            ) : (
+              <div className="admin-empty-state w-full">
+                <EmptyState
+                  title="Sin productos para mostrar"
+                  description="No hay productos que coincidan con los filtros actuales."
+                  icon="products"
+                />
+              </div>
+            )
+          }
+        >
           <div className="admin-products-grid">
             {catalogProducts.map((product, index) => (
               <CardComponent
@@ -283,20 +327,7 @@ const Proveedores = () => {
               />
             ))}
           </div>
-        ) : (
-          <div className="admin-empty-state w-full">
-          <EmptyState
-            title="Sin productos para mostrar"
-            description="No hay productos que coincidan con los filtros actuales."
-            icon="products"
-          />
-          </div>
-        )
-      ) : (
-        <div className="admin-empty-state w-full flex items-center justify-center gap-2">
-          <MdAutorenew size={20} className="the-spinner" />
-          <span>Cargando productos...</span>
-        </div>
+        </AdminRefreshablePanel>
       )}
     </AdminPageShell>
   );

@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryParams } from "../hooks/useQueryParams";
 import TableComponent from "../shared/components/especific/table/TableComponent";
 import GridCustomer from "./gridCustomer";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import AdminRefreshButton from "../shared/components/common/buttons/AdminRefreshButton";
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import { TextField, Alert } from "@mui/material";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
@@ -72,40 +73,36 @@ const Customer = () => {
     return () => clearTimeout(handler);
   }, [search, debouncedSearch]);
 
-  useEffect(() => {
-    async function getListUsers() {
-      const sequence = nextSequence();
-      setLoading(true);
-      setListError("");
-      try {
-        const page = paginationModel.page + 1;
-        const params = new URLSearchParams({
-          page: String(page),
-          pageSize: String(paginationModel.pageSize),
-        });
-        if (debouncedSearch) params.set("search", debouncedSearch);
+  const loadCustomers = useCallback(async () => {
+    const sequence = nextSequence();
+    setLoading(true);
+    setListError("");
+    try {
+      const page = paginationModel.page + 1;
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(paginationModel.pageSize),
+      });
+      if (debouncedSearch) params.set("search", debouncedSearch);
 
-        const resp = await requestGetProveedores(`/listUsers?${params.toString()}`);
-        if (!isCurrent(sequence)) return;
-        if (resp.status === 200) {
-          setDataRows(resp.data.users);
-          setTotalRows(resp.data.totalUsers);
-        } else {
-          setDataRows([]);
-          setTotalRows(0);
-          setListError("No pudimos cargar los clientes. Intenta de nuevo.");
-        }
-      } catch {
-        if (!isCurrent(sequence)) return;
+      const resp = await requestGetProveedores(`/listUsers?${params.toString()}`);
+      if (!isCurrent(sequence)) return;
+      if (resp.status === 200) {
+        setDataRows(resp.data.users);
+        setTotalRows(resp.data.totalUsers);
+      } else {
         setDataRows([]);
         setTotalRows(0);
         setListError("No pudimos cargar los clientes. Intenta de nuevo.");
-      } finally {
-        if (isCurrent(sequence)) setLoading(false);
       }
+    } catch {
+      if (!isCurrent(sequence)) return;
+      setDataRows([]);
+      setTotalRows(0);
+      setListError("No pudimos cargar los clientes. Intenta de nuevo.");
+    } finally {
+      if (isCurrent(sequence)) setLoading(false);
     }
-
-    getListUsers();
   }, [
     paginationModel.page,
     paginationModel.pageSize,
@@ -114,6 +111,10 @@ const Customer = () => {
     nextSequence,
     isCurrent,
   ]);
+
+  useEffect(() => {
+    void loadCustomers();
+  }, [loadCustomers]);
 
   const { columns } = GridCustomer({
     rows: { data: dataRows, totalRows },
@@ -142,12 +143,19 @@ const Customer = () => {
     [dataRows],
   );
 
+  const reloadCustomers = () => {
+    void loadCustomers();
+  };
+
   if (!mounted) return null;
 
   return (
     <AdminPageShell
       title="Clientes"
       subtitle="Usuarios registrados en la plataforma"
+      actions={
+        <AdminRefreshButton onClick={reloadCustomers} loading={loading} />
+      }
       filters={
         <>
           <div className="admin-filters-header">
@@ -193,12 +201,10 @@ const Customer = () => {
           <button
             type="button"
             className="admin-btn-secondary"
-            onClick={() => {
-              setListError("");
-              setPaginationModel((prev) => ({ ...prev }));
-            }}
+            onClick={reloadCustomers}
+            disabled={loading}
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             Reintentar
           </button>
         </div>

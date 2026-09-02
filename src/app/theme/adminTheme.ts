@@ -15,14 +15,14 @@ export const adminTheme = createTheme({
       main: "#374151",
     },
     background: {
-      default: "#f4f5f7",
+      default: "#eceef4",
       paper: "#ffffff",
     },
     text: {
       primary: "#111827",
       secondary: "#6b7280",
     },
-    divider: "#e8e8ec",
+    divider: "#e8ecf4",
     error: {
       main: "#dc2626",
     },
@@ -30,9 +30,9 @@ export const adminTheme = createTheme({
   typography: {
     fontFamily:
       'var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    h1: { fontWeight: 700, letterSpacing: "-0.02em" },
-    h2: { fontWeight: 700, letterSpacing: "-0.02em" },
-    h3: { fontWeight: 700, letterSpacing: "-0.01em" },
+    h1: { fontWeight: 800, letterSpacing: "-0.03em" },
+    h2: { fontWeight: 800, letterSpacing: "-0.02em" },
+    h3: { fontWeight: 700, letterSpacing: "-0.02em" },
     h4: { fontWeight: 700 },
     h5: { fontWeight: 600 },
     h6: { fontWeight: 600 },
@@ -42,7 +42,7 @@ export const adminTheme = createTheme({
     body2: { fontSize: "0.875rem", lineHeight: 1.5 },
     button: {
       textTransform: "none",
-      fontWeight: 600,
+      fontWeight: 700,
       letterSpacing: "0.01em",
     },
   },
@@ -53,7 +53,7 @@ export const adminTheme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundColor: "#f4f5f7",
+          backgroundColor: "transparent",
         },
       },
     },
@@ -71,7 +71,7 @@ export const adminTheme = createTheme({
           background: `linear-gradient(135deg, ${primary} 0%, ${primaryDark} 100%)`,
           "&:hover": {
             background: `linear-gradient(135deg, ${primaryDark} 0%, #7f2830 100%)`,
-            boxShadow: `0 6px 16px ${alpha(primary, 0.35)}`,
+            boxShadow: `0 8px 20px ${alpha(primary, 0.38)}`,
           },
         },
       },
@@ -86,12 +86,17 @@ export const adminTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          backgroundColor: "#fafafa",
+          backgroundColor: "#fafbfc",
+          transition: "background-color 0.2s ease, box-shadow 0.2s ease",
+          "&:hover": {
+            backgroundColor: "#fff",
+          },
           "&:hover .MuiOutlinedInput-notchedOutline": {
             borderColor: alpha(primary, 0.45),
           },
           "&.Mui-focused": {
             backgroundColor: "#fff",
+            boxShadow: `0 0 0 3px ${alpha(primary, 0.12)}`,
           },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
             borderColor: primary,
@@ -106,8 +111,19 @@ export const adminTheme = createTheme({
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          fontWeight: 500,
+          fontWeight: 600,
           color: "#4b5563",
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          fontWeight: 700,
+          borderRadius: 8,
+        },
+        outlined: {
+          borderColor: "#e5e7eb",
         },
       },
     },
@@ -125,7 +141,7 @@ export const adminTheme = createTheme({
     MuiPaginationItem: {
       styleOverrides: {
         root: {
-          fontWeight: 600,
+          fontWeight: 700,
           fontSize: "0.875rem",
           "&.Mui-selected": {
             background: `linear-gradient(135deg, ${primary} 0%, ${primaryDark} 100%)`,
@@ -140,7 +156,10 @@ export const adminTheme = createTheme({
     MuiPaper: {
       styleOverrides: {
         rounded: {
-          borderRadius: 14,
+          borderRadius: 16,
+        },
+        elevation1: {
+          boxShadow: "0 8px 30px rgba(15, 23, 42, 0.06)",
         },
       },
     },
@@ -148,6 +167,20 @@ export const adminTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
+          fontWeight: 500,
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          margin: "2px 6px",
+          fontWeight: 500,
+          "&.Mui-selected": {
+            backgroundColor: alpha(primary, 0.08),
+            fontWeight: 700,
+          },
         },
       },
     },
@@ -176,6 +209,13 @@ export const adminTheme = createTheme({
       defaultProps: {
         disableScrollLock: true,
       },
+      styleOverrides: {
+        paper: {
+          borderRadius: 14,
+          border: "1px solid #e8ecf4",
+          boxShadow: "0 16px 40px rgba(15, 23, 42, 0.12)",
+        },
+      },
     },
   },
 });
@@ -185,13 +225,18 @@ export const dataGridSx = {
   minHeight: 440,
   width: "100%",
   fontFamily: adminTheme.typography.fontFamily,
+  borderRadius: "14px",
+  overflow: "hidden",
   "& .MuiDataGrid-columnHeaders": {
-    backgroundColor: "#f9fafb",
-    borderBottom: "1px solid #e8e8ec",
-    minHeight: "56px !important",
+    background: "linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%)",
+    borderBottom: `2px solid ${alpha(primary, 0.12)}`,
+    minHeight: "58px !important",
   },
   "& .MuiDataGrid-columnHeader": {
     px: 1.5,
+    "&:focus, &:focus-within": {
+      outline: "none",
+    },
   },
   "& .MuiDataGrid-columnHeaderTitleContainer": {
     justifyContent: "center",
@@ -200,22 +245,22 @@ export const dataGridSx = {
     justifyContent: "center",
   },
   "& .MuiDataGrid-columnHeaderTitle": {
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    color: "#6b7280",
+    fontSize: "0.7rem",
+    fontWeight: 800,
+    color: "#64748b",
     textTransform: "uppercase",
-    letterSpacing: "0.05em",
+    letterSpacing: "0.07em",
     whiteSpace: "normal",
     lineHeight: 1.35,
     textAlign: "center",
   },
   "& .MuiDataGrid-cell": {
-    borderBottom: "1px solid #f3f4f6",
+    borderBottom: "1px solid #f1f5f9",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     px: 1.75,
-    py: 1.5,
+    py: 1.75,
     fontSize: "0.875rem",
     color: "#374151",
     lineHeight: 1.45,
@@ -228,24 +273,33 @@ export const dataGridSx = {
     width: "100%",
   },
   "& .MuiDataGrid-row": {
-    transition: "background-color 0.15s ease",
+    transition: "background-color 0.18s ease, box-shadow 0.18s ease",
+  },
+  "& .MuiDataGrid-row:nth-of-type(even)": {
+    backgroundColor: "#fafbfc",
   },
   "& .MuiDataGrid-row:hover": {
-    backgroundColor: "#fdf2f3",
+    backgroundColor: alpha(primary, 0.05),
+    boxShadow: `inset 3px 0 0 ${primary}`,
   },
   "& .MuiDataGrid-row.Mui-selected": {
-    backgroundColor: alpha(primary, 0.06),
+    backgroundColor: alpha(primary, 0.08),
   },
   "& .MuiDataGrid-overlay": {
-    backgroundColor: "rgba(255,255,255,0.85)",
+    backgroundColor: "rgba(255,255,255,0.9)",
+    backdropFilter: "blur(4px)",
   },
   "& .MuiCircularProgress-root": {
     color: primary,
   },
   "& .MuiDataGrid-scrollbarFiller": {
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#f8fafc",
   },
   "& .MuiDataGrid-virtualScroller": {
     minHeight: 360,
+  },
+  "& .MuiDataGrid-footerContainer": {
+    borderTop: "1px solid #e8ecf4",
+    backgroundColor: "#fafbfc",
   },
 };

@@ -92,6 +92,11 @@ const useDashboard = () => {
 
                 if (existingProduct) {
                   existingProduct.quantity += product.quantity;
+                  const prevTotal = Number(existingProduct.lineTotal) || 0;
+                  const nextTotal = Number(product.lineTotal) || 0;
+                  if (prevTotal > 0 || nextTotal > 0) {
+                    existingProduct.lineTotal = prevTotal + nextTotal;
+                  }
                 } else {
                   existing.products.push({ ...product });
                 }
@@ -185,8 +190,82 @@ const useDashboard = () => {
             }),
           })),
         }));
+        return true;
       }
     } catch (error) { }
+    return false;
+  };
+
+  const handleChangeStatusShipByShipment = async (
+    event: any,
+    idShipment: number,
+    idUser: any,
+  ) => {
+    if (!can("orders.update_status_ship")) {
+      setDataModal({
+        isOpen: true,
+        type: "warning",
+        title: "Sin permiso",
+        showActions: false,
+        content: "Tu rol no puede cambiar el estatus de envío.",
+        onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+      });
+      return false;
+    }
+
+    const nextStatus = event.target.value;
+
+    if (nextStatus === "cancelado" && !can("orders.cancel")) {
+      setDataModal({
+        isOpen: true,
+        type: "warning",
+        title: "Sin permiso",
+        showActions: false,
+        content: "Tu rol no puede cancelar envíos.",
+        onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+        onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+      });
+      return false;
+    }
+
+    try {
+      const resp = await requestPostPagos(
+        { idShipment: Number(idShipment), status: nextStatus, idUser },
+        "/openpay/updateStatusShipByOrden",
+        { silent: true },
+      );
+
+      if (resp.status == 200) {
+        const updatedStatus = resp.data?.data?.data?.status ?? nextStatus;
+        const updatedShipmentId = Number(
+          resp.data?.data?.data?.idShipment ?? idShipment,
+        );
+        const updatedSaleIds = Array.isArray(resp.data?.data?.data?.idSales)
+          ? resp.data.data.data.idSales.map((id: unknown) => Number(id))
+          : [];
+        const saleIdSet = new Set(updatedSaleIds.filter((id: number) => id > 0));
+
+        setRowsVentas((prev) => ({
+          ...prev,
+          data: prev.data.map((order) => ({
+            ...order,
+            products: order.products.map((product) => {
+              const matchesShipment =
+                Number(product.idShipment) === updatedShipmentId;
+              const matchesSale =
+                saleIdSet.size > 0 && saleIdSet.has(Number(product.idSale));
+              if (matchesShipment || matchesSale) {
+                return { ...product, statusShip: updatedStatus };
+              }
+              return product;
+            }),
+          })),
+        }));
+        return true;
+      }
+    } catch (error) { }
+    return false;
   };
 
   const applyCancelledOrderState = useCallback(
@@ -436,6 +515,7 @@ const useDashboard = () => {
   return {
     handleGetAllSales,
     handleChangeStatusShip,
+    handleChangeStatusShipByShipment,
     handleChangeStatusPay,
     openCancelOrderModal,
     handleRetryDicotechPostPayment,

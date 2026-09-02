@@ -10,6 +10,7 @@ import { FormControl, InputLabel, MenuItem, Select, TextField, Alert } from "@mu
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import AdminRefreshButton from "../shared/components/common/buttons/AdminRefreshButton";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
 
 const fieldSx = {
@@ -98,6 +99,7 @@ const DashBoard = () => {
 
   const {
     handleChangeStatusShip,
+    handleChangeStatusShipByShipment,
     handleGetAllSales,
     can,
     openCancelOrderModal,
@@ -108,6 +110,7 @@ const DashBoard = () => {
 
   const { columns } = GridDashboard({
     handleChangeStatusShip,
+    handleChangeStatusShipByShipment,
     rows: rowsVentas,
     openCancelOrderModal,
     handleRetryDicotechPostPayment,
@@ -188,15 +191,7 @@ const DashBoard = () => {
       title="Ventas"
       subtitle="Gestión de órdenes, pagos y envíos en tiempo real"
       actions={
-        <button
-          type="button"
-          onClick={loadSales}
-          className="admin-btn-secondary"
-          disabled={loading}
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          Actualizar
-        </button>
+        <AdminRefreshButton onClick={loadSales} loading={loading} />
       }
       filters={
         <>

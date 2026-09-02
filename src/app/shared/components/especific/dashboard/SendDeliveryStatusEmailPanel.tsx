@@ -14,12 +14,17 @@ import {
   Switch,
   Typography,
 } from "@mui/material";
-import { Mail, Send } from "lucide-react";
+import { Mail, Package, Send } from "lucide-react";
 import PagosUtils from "@/app/services/utils/pagos.utils";
 import {
   getPaymentStatusLabel,
   isOrderPaid,
 } from "@/app/utils/paymentStatus.util";
+import {
+  filterPhysicalProducts,
+  isDigitalDeliveryProduct,
+} from "@/app/utils/orderShipmentGroups";
+import { orderModalSpacing as sp } from "./orderModalSpacing";
 
 type ShipStatusOption =
   | "procesando"
@@ -44,19 +49,17 @@ const STATUS_RANK: Record<string, number> = {
   cancelado: 0,
 };
 
-function inferDefaultStatus(products: Array<{ statusShip?: string | null }>): ShipStatusOption {
+function inferDefaultStatus(
+  products: Array<{ statusShip?: string | null }>,
+): ShipStatusOption {
   if (!products.length) return "procesando";
 
   const statuses = products
     .map((item) => String(item.statusShip || "procesando").toLowerCase())
     .filter(Boolean);
 
-  if (statuses.every((status) => status === "cancelado")) {
-    return "cancelado";
-  }
-  if (statuses.every((status) => status === "entregado")) {
-    return "entregado";
-  }
+  if (statuses.every((status) => status === "cancelado")) return "cancelado";
+  if (statuses.every((status) => status === "entregado")) return "entregado";
 
   const ranked = statuses
     .filter((status) => status !== "cancelado")
@@ -73,6 +76,7 @@ type SendDeliveryStatusEmailPanelProps = {
   statusPay?: string | null;
   customerEmail?: string | null;
   products?: Array<{ statusShip?: string | null }>;
+  allProducts?: Array<{ statusShip?: string | null; licenseType?: string | null; shipping_method?: string | null; address?: { shipping_method?: string | null } | null }>;
 };
 
 export default function SendDeliveryStatusEmailPanel({
@@ -80,12 +84,23 @@ export default function SendDeliveryStatusEmailPanel({
   statusPay,
   customerEmail,
   products = [],
+  allProducts,
 }: SendDeliveryStatusEmailPanelProps) {
   const { requestPostPagos } = PagosUtils();
   const orderPaid = isOrderPaid(statusPay);
+  const sourceProducts = allProducts ?? products;
+  const physicalProducts = useMemo(
+    () => filterPhysicalProducts(sourceProducts),
+    [sourceProducts],
+  );
+  const digitalCount = useMemo(
+    () =>
+      sourceProducts.filter((item) => isDigitalDeliveryProduct(item)).length,
+    [sourceProducts],
+  );
   const defaultStatus = useMemo(
-    () => inferDefaultStatus(products),
-    [products],
+    () => inferDefaultStatus(physicalProducts),
+    [physicalProducts],
   );
 
   const [open, setOpen] = useState(false);
@@ -98,7 +113,7 @@ export default function SendDeliveryStatusEmailPanel({
   } | null>(null);
 
   const handleSend = async () => {
-    if (!orderPaid || idOrder <= 0) return;
+    if (!orderPaid || idOrder <= 0 || !physicalProducts.length) return;
 
     setSending(true);
     setFeedback(null);
@@ -117,7 +132,7 @@ export default function SendDeliveryStatusEmailPanel({
       if (resp.status === 200) {
         setFeedback({
           type: "success",
-          message: `Correo de estatus "${STATUS_OPTIONS.find((item) => item.value === status)?.label ?? status}" enviado a ${customerEmail || "el cliente"}.`,
+          message: `Correo de envío "${STATUS_OPTIONS.find((item) => item.value === status)?.label ?? status}" enviado a ${customerEmail || "el cliente"}.`,
         });
       } else {
         setFeedback({
@@ -140,50 +155,47 @@ export default function SendDeliveryStatusEmailPanel({
   };
 
   return (
-    <Box
-      sx={{
-        mb: 2,
-        border: "1px solid #eef0f4",
-        borderRadius: "12px",
-        overflow: "hidden",
-        bgcolor: "#fafbfc",
-      }}
-    >
+    <Box className="admin-delivery-email-panel" style={{ margin: 0, padding: 0 }}>
       <Button
         fullWidth
         onClick={() => setOpen((prev) => !prev)}
-        startIcon={<Mail size={18} />}
-        sx={{
-          justifyContent: "flex-start",
-          px: 2,
-          py: 1.5,
-          color: "#1f2937",
-          fontWeight: 700,
-          textTransform: "none",
-          borderRadius: 0,
-        }}
+        startIcon={<Package size={18} />}
+        className="admin-delivery-email-panel__toggle"
+        style={sp.emailPanelToggle}
       >
-        Enviar correo de estatus de la orden
+        <span className="admin-delivery-email-panel__toggle-text" style={sp.emailToggleText}>
+          Correo de estatus de envío
+          <span className="admin-delivery-email-panel__toggle-meta">
+            {physicalProducts.length} físico
+            {physicalProducts.length === 1 ? "" : "s"}
+            {digitalCount > 0
+              ? ` · ${digitalCount} licencia${digitalCount === 1 ? "" : "s"} excluida${digitalCount === 1 ? "" : "s"}`
+              : ""}
+          </span>
+        </span>
       </Button>
 
       <Collapse in={open}>
-        <Box sx={{ px: 2, pb: 2 }}>
+        <Box className="admin-delivery-email-panel__body" style={sp.emailPanelBody}>
           {!orderPaid ? (
             <Alert severity="info" sx={{ mb: 1.5, borderRadius: "10px" }}>
-              El correo de estatus de envío solo se envía cuando la orden está{" "}
-              <strong>Pagada</strong> (estado actual:{" "}
+              Disponible cuando la orden esté <strong>Pagada</strong> (actual:{" "}
               <strong>{getPaymentStatusLabel(statusPay)}</strong>).
             </Alert>
           ) : (
-            <Typography
-              variant="body2"
-              sx={{ mb: 1.5, color: "#6b7280", lineHeight: 1.6 }}
-            >
-              Se enviará <strong>un correo por orden</strong> con todos los
-              productos, sus importes pagados y el estatus de envío de cada uno.
-              Destinatario:{" "}
-              <strong>{customerEmail || "correo del cliente"}</strong>.
-            </Typography>
+            <>
+              <Typography
+                variant="body2"
+                sx={{ mb: 1, color: "#6b7280", lineHeight: 1.6 }}
+              >
+                Un correo por orden con los productos físicos, importes y
+                estatus de envío. Las <strong>licencias digitales no se incluyen</strong>{" "}
+                (tienen su propio correo de claves).
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1.5, color: "#374151" }}>
+                Destinatario: <strong>{customerEmail || "correo del cliente"}</strong>
+              </Typography>
+            </>
           )}
 
           <Stack spacing={1.5}>
@@ -217,7 +229,9 @@ export default function SendDeliveryStatusEmailPanel({
             <Button
               variant="contained"
               startIcon={<Send size={16} />}
-              disabled={!orderPaid || sending || idOrder <= 0}
+              disabled={
+                !orderPaid || sending || idOrder <= 0 || !physicalProducts.length
+              }
               onClick={handleSend}
               sx={{
                 alignSelf: "flex-start",
