@@ -101,8 +101,6 @@ type ShipmentGroupSectionProps = {
   updatingShipmentId?: number | null;
   updatingSaleId?: number | null;
   stackGap?: boolean;
-  /** Segundos del debounce de correo (solo informativo en UI). */
-  emailDebounceSeconds?: number;
 };
 
 export default function ShipmentGroupSection({
@@ -117,7 +115,6 @@ export default function ShipmentGroupSection({
   updatingShipmentId,
   updatingSaleId,
   stackGap = false,
-  emailDebounceSeconds = 45,
 }: ShipmentGroupSectionProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const shipStatusLocked = isTerminalShipStatus(group.statusShip);
@@ -200,8 +197,8 @@ export default function ShipmentGroupSection({
             </Tooltip>
           </FormControl>
           <p className="admin-shipment-block__controls-hint" style={sp.shipmentControlsHint}>
-            Correo al cliente ~{emailDebounceSeconds}s después del último cambio
-            (sin spam; el temporizador vive en el servidor).
+            Cambia el estatus aquí o en el panel de correo. El correo al cliente
+            solo se envía con el botón <strong>Enviar correo al cliente</strong>.
           </p>
         </div>
       ) : null}

@@ -17,13 +17,6 @@ import {
 } from "@/app/utils/orderShipmentGroups";
 import { orderModalSpacing as sp } from "./orderModalSpacing";
 
-const EMAIL_DEBOUNCE_HINT_SEC = Math.max(
-  1,
-  Math.round(
-    Number(process.env.NEXT_PUBLIC_DELIVERY_EMAIL_DEBOUNCE_MS || 45000) / 1000,
-  ),
-);
-
 const DataProducts = ({
   params,
   handleChangeStatusShip,
@@ -270,11 +263,10 @@ const DataProducts = ({
           icon={<Clock3 size={18} />}
           sx={{ borderRadius: "12px", margin: 0 }}
         >
-          Al cambiar el <strong>estatus del envío</strong>, el correo al cliente
-          se programa unos <strong>{EMAIL_DEBOUNCE_HINT_SEC} s</strong> después
-          del último cambio (un correo, sin spam). Si cierras el navegador o
-          recargas, el temporizador sigue en el servidor. También puedes
-          enviarlo ya desde el panel de abajo.
+          Al cambiar el <strong>estatus del envío</strong> se actualizan los
+          productos en vivo. El correo al cliente{" "}
+          <strong>solo se envía</strong> desde el panel de abajo (botón{" "}
+          <strong>Enviar correo al cliente</strong>).
         </Alert>
       ) : null}
 
@@ -286,7 +278,6 @@ const DataProducts = ({
           products={physicalProducts}
           allProducts={products}
           onBulkStatusChange={handleBulkPhysicalStatusChange}
-          emailDebounceSeconds={EMAIL_DEBOUNCE_HINT_SEC}
         />
       ) : (
         <Alert
@@ -348,7 +339,6 @@ const DataProducts = ({
               onProductStatusChange={handleProductStatusChange}
               updatingShipmentId={updatingShipmentId}
               updatingSaleId={updatingSaleId}
-              emailDebounceSeconds={EMAIL_DEBOUNCE_HINT_SEC}
             />
           ))}
         </section>

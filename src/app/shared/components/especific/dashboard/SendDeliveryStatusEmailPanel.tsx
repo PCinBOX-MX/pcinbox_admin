@@ -84,7 +84,6 @@ type SendDeliveryStatusEmailPanelProps = {
   }>;
   /** Al cambiar el select, sincroniza estatus de productos/envíos físicos. */
   onBulkStatusChange?: (status: ShipStatusOption) => Promise<void> | void;
-  emailDebounceSeconds?: number;
 };
 
 export default function SendDeliveryStatusEmailPanel({
@@ -94,7 +93,6 @@ export default function SendDeliveryStatusEmailPanel({
   products = [],
   allProducts,
   onBulkStatusChange,
-  emailDebounceSeconds = 45,
 }: SendDeliveryStatusEmailPanelProps) {
   const { requestPostPagos } = PagosUtils();
   const orderPaid = isOrderPaid(statusPay);
@@ -215,9 +213,9 @@ export default function SendDeliveryStatusEmailPanel({
                 sx={{ mb: 1, color: "#6b7280", lineHeight: 1.6 }}
               >
                 Al cambiar el select se actualiza en vivo el estatus de los
-                productos físicos de la orden #{idOrder}. El correo se programa ~
-                {emailDebounceSeconds}s después del último cambio (un correo, sin
-                spam). Usa el botón de abajo para enviarlo ya. Las licencias
+                productos físicos de la orden #{idOrder}. El correo{" "}
+                <strong>solo se envía</strong> cuando pulses{" "}
+                <strong>Enviar correo al cliente</strong>. Las licencias
                 digitales van aparte.
               </Typography>
               <Typography variant="body2" sx={{ mb: 1.5, color: "#374151" }}>

@@ -170,26 +170,75 @@ const useDashboard = () => {
 
     try {
       const resp = await requestPostPagos(
-        { idSale: Number(idSale), status: nextStatus, idUser },
+        {
+          idSale: Number(idSale),
+          status: nextStatus,
+          idUser,
+          skipDeliveryEmail: true,
+        },
         "/openpay/updateStatusShipByOrden",
         { silent: true },
       );
 
       if (resp.status == 200) {
-        const updatedIdSale = Number(resp.data?.data?.data?.idSale ?? idSale);
-        const updatedStatus = resp.data?.data?.data?.status ?? nextStatus;
+        const payload = resp.data?.data?.data ?? {};
+        const updatedIdSale = Number(payload.idSale ?? idSale);
+        const updatedStatus = payload.status ?? nextStatus;
+        const idOrder = Number(payload.idOrder);
+        const orderCancelled = payload.orderCancelled === true;
+        const orderCancelError = payload.orderCancelError
+          ? String(payload.orderCancelError)
+          : null;
+
         setRowsVentas((prev) => ({
           ...prev,
-          data: prev.data.map((order) => ({
-            ...order,
-            products: order.products.map((product) => {
-              if (Number(product.idSale) === updatedIdSale) {
-                return { ...product, statusShip: updatedStatus };
-              }
-              return product;
-            }),
-          })),
+          data: prev.data.map((order) => {
+            const matchesOrder =
+              orderCancelled &&
+              Number.isFinite(idOrder) &&
+              Number(order.idOrder) === idOrder;
+            return {
+              ...order,
+              ...(matchesOrder ? { statusPay: "cancelled" } : {}),
+              products: order.products.map((product) => {
+                if (Number(product.idSale) === updatedIdSale) {
+                  return { ...product, statusShip: updatedStatus };
+                }
+                if (matchesOrder) {
+                  return { ...product, statusShip: "cancelado" };
+                }
+                return product;
+              }),
+            };
+          }),
         }));
+
+        if (orderCancelled) {
+          const gateway = String(payload.orderCancelGateway || "");
+          setDataModal({
+            isOpen: true,
+            type: "success",
+            title: "Orden cancelada",
+            showActions: false,
+            content:
+              gateway === "manual"
+                ? "Todos los productos quedaron cancelados. La orden se marcó como cancelada; el reembolso se coordina según el método de pago (sucursal / transferencia)."
+                : "Todos los productos quedaron cancelados. Se canceló la orden y se solicitó el reembolso al método de pago del cliente.",
+            onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+            onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          });
+        } else if (orderCancelError) {
+          setDataModal({
+            isOpen: true,
+            type: "warning",
+            title: "Reembolso pendiente",
+            showActions: false,
+            content: `Los productos quedaron cancelados, pero no se completó el reembolso automático: ${orderCancelError}`,
+            onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+            onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          });
+        }
+
         return true;
       }
     } catch (error) { }
@@ -231,37 +280,83 @@ const useDashboard = () => {
 
     try {
       const resp = await requestPostPagos(
-        { idShipment: Number(idShipment), status: nextStatus, idUser },
+        {
+          idShipment: Number(idShipment),
+          status: nextStatus,
+          idUser,
+          skipDeliveryEmail: true,
+        },
         "/openpay/updateStatusShipByOrden",
         { silent: true },
       );
 
       if (resp.status == 200) {
-        const updatedStatus = resp.data?.data?.data?.status ?? nextStatus;
-        const updatedShipmentId = Number(
-          resp.data?.data?.data?.idShipment ?? idShipment,
-        );
-        const updatedSaleIds = Array.isArray(resp.data?.data?.data?.idSales)
-          ? resp.data.data.data.idSales.map((id: unknown) => Number(id))
+        const payload = resp.data?.data?.data ?? {};
+        const updatedStatus = payload.status ?? nextStatus;
+        const updatedShipmentId = Number(payload.idShipment ?? idShipment);
+        const updatedSaleIds = Array.isArray(payload.idSales)
+          ? payload.idSales.map((id: unknown) => Number(id))
           : [];
         const saleIdSet = new Set(updatedSaleIds.filter((id: number) => id > 0));
+        const idOrder = Number(payload.idOrder);
+        const orderCancelled = payload.orderCancelled === true;
+        const orderCancelError = payload.orderCancelError
+          ? String(payload.orderCancelError)
+          : null;
 
         setRowsVentas((prev) => ({
           ...prev,
-          data: prev.data.map((order) => ({
-            ...order,
-            products: order.products.map((product) => {
-              const matchesShipment =
-                Number(product.idShipment) === updatedShipmentId;
-              const matchesSale =
-                saleIdSet.size > 0 && saleIdSet.has(Number(product.idSale));
-              if (matchesShipment || matchesSale) {
-                return { ...product, statusShip: updatedStatus };
-              }
-              return product;
-            }),
-          })),
+          data: prev.data.map((order) => {
+            const matchesOrder =
+              orderCancelled &&
+              Number.isFinite(idOrder) &&
+              Number(order.idOrder) === idOrder;
+            return {
+              ...order,
+              ...(matchesOrder ? { statusPay: "cancelled" } : {}),
+              products: order.products.map((product) => {
+                const matchesShipment =
+                  Number(product.idShipment) === updatedShipmentId;
+                const matchesSale =
+                  saleIdSet.size > 0 && saleIdSet.has(Number(product.idSale));
+                if (matchesShipment || matchesSale || matchesOrder) {
+                  return {
+                    ...product,
+                    statusShip: matchesOrder ? "cancelado" : updatedStatus,
+                  };
+                }
+                return product;
+              }),
+            };
+          }),
         }));
+
+        if (orderCancelled) {
+          const gateway = String(payload.orderCancelGateway || "");
+          setDataModal({
+            isOpen: true,
+            type: "success",
+            title: "Orden cancelada",
+            showActions: false,
+            content:
+              gateway === "manual"
+                ? "Todos los productos quedaron cancelados. La orden se marcó como cancelada; el reembolso se coordina según el método de pago (sucursal / transferencia)."
+                : "Todos los productos quedaron cancelados. Se canceló la orden y se solicitó el reembolso al método de pago del cliente.",
+            onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+            onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          });
+        } else if (orderCancelError) {
+          setDataModal({
+            isOpen: true,
+            type: "warning",
+            title: "Reembolso pendiente",
+            showActions: false,
+            content: `Los productos quedaron cancelados, pero no se completó el reembolso automático: ${orderCancelError}`,
+            onClose: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+            onConfirm: () => setDataModal((prev) => ({ ...prev, isOpen: false })),
+          });
+        }
+
         return true;
       }
     } catch (error) { }
