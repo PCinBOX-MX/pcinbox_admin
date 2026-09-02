@@ -499,7 +499,7 @@ const SendLicenseKeyPanel = ({
 
           <Typography variant="caption" color="text.secondary">
 
-            Pedido #{idOrder} · {productName}
+            Orden #{idOrder} · {productName}
 
             {expectedKeys > 1 ? ` · ${expectedKeys} unidades` : ""}
 

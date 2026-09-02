@@ -82,6 +82,9 @@ type SendDeliveryStatusEmailPanelProps = {
     shipping_method?: string | null;
     address?: { shipping_method?: string | null } | null;
   }>;
+  /** Al cambiar el select, sincroniza estatus de productos/envíos físicos. */
+  onBulkStatusChange?: (status: ShipStatusOption) => Promise<void> | void;
+  emailDebounceSeconds?: number;
 };
 
 export default function SendDeliveryStatusEmailPanel({
@@ -90,6 +93,8 @@ export default function SendDeliveryStatusEmailPanel({
   customerEmail,
   products = [],
   allProducts,
+  onBulkStatusChange,
+  emailDebounceSeconds = 45,
 }: SendDeliveryStatusEmailPanelProps) {
   const { requestPostPagos } = PagosUtils();
   const orderPaid = isOrderPaid(statusPay);
@@ -112,6 +117,7 @@ export default function SendDeliveryStatusEmailPanel({
   const [status, setStatus] = useState<ShipStatusOption>(defaultStatus);
   const [forceResend, setForceResend] = useState(false);
   const [sending, setSending] = useState(false);
+  const [syncingStatus, setSyncingStatus] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -120,6 +126,17 @@ export default function SendDeliveryStatusEmailPanel({
   useEffect(() => {
     setStatus(defaultStatus);
   }, [defaultStatus]);
+
+  const handleStatusSelect = async (next: ShipStatusOption) => {
+    setStatus(next);
+    if (!onBulkStatusChange || !orderPaid) return;
+    setSyncingStatus(true);
+    try {
+      await onBulkStatusChange(next);
+    } finally {
+      setSyncingStatus(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!orderPaid || idOrder <= 0 || !physicalProducts.length) return;
@@ -197,10 +214,11 @@ export default function SendDeliveryStatusEmailPanel({
                 variant="body2"
                 sx={{ mb: 1, color: "#6b7280", lineHeight: 1.6 }}
               >
-                Envía <strong>ya</strong> el correo de la orden #{idOrder} (productos
-                físicos, importes y datos por envío). Si solo cambias el select de
-                estatus, el sistema espera unos segundos y manda <strong>un</strong>{" "}
-                correo con el último valor. Las licencias digitales van aparte.
+                Al cambiar el select se actualiza en vivo el estatus de los
+                productos físicos de la orden #{idOrder}. El correo se programa ~
+                {emailDebounceSeconds}s después del último cambio (un correo, sin
+                spam). Usa el botón de abajo para enviarlo ya. Las licencias
+                digitales van aparte.
               </Typography>
               <Typography variant="body2" sx={{ mb: 1.5, color: "#374151" }}>
                 Destinatario: <strong>{customerEmail || "correo del cliente"}</strong>
@@ -209,11 +227,15 @@ export default function SendDeliveryStatusEmailPanel({
           )}
 
           <Stack spacing={1.5}>
-            <FormControl fullWidth size="small" disabled={!orderPaid || sending}>
+            <FormControl
+              fullWidth
+              size="small"
+              disabled={!orderPaid || sending || syncingStatus}
+            >
               <Select
                 value={status}
                 onChange={(event) =>
-                  setStatus(event.target.value as ShipStatusOption)
+                  void handleStatusSelect(event.target.value as ShipStatusOption)
                 }
                 sx={{ borderRadius: "12px", bgcolor: "#fff", fontWeight: 600 }}
               >
@@ -230,7 +252,7 @@ export default function SendDeliveryStatusEmailPanel({
                 <Switch
                   checked={forceResend}
                   onChange={(event) => setForceResend(event.target.checked)}
-                  disabled={!orderPaid || sending}
+                  disabled={!orderPaid || sending || syncingStatus}
                 />
               }
               label="Reenviar aunque ya se haya mandado este estatus"
@@ -240,7 +262,11 @@ export default function SendDeliveryStatusEmailPanel({
               variant="contained"
               startIcon={<Send size={16} />}
               disabled={
-                !orderPaid || sending || idOrder <= 0 || !physicalProducts.length
+                !orderPaid ||
+                sending ||
+                syncingStatus ||
+                idOrder <= 0 ||
+                !physicalProducts.length
               }
               onClick={handleSend}
               sx={{

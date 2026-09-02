@@ -38,8 +38,8 @@ export type ShipmentGroup = {
 };
 
 const SHIPPING_LABELS: Record<string, string> = {
-  sucursal: "Recoger en sucursal",
-  sucursalext: "Recoger en sucursal",
+  sucursal: "Recoger en sucursal PCinBox-León",
+  sucursalext: "Recoger en sucursal PCinBox-León",
   estafeta: "Estafeta",
   paqueteexpress: "Paquete Express",
   envioleon: "Envío personalizado PCinBOX",

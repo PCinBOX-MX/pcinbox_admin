@@ -157,6 +157,47 @@ const DataProducts = ({
     onSaleLicenseDelivered?.(idSale, params.row?.idOrder, nextStatus);
   };
 
+  const isTerminalShipStatus = (status?: string | null) =>
+    ["entregado", "cancelado"].includes(String(status ?? "").toLowerCase());
+
+  const handleBulkPhysicalStatusChange = async (nextStatus: string) => {
+    const shipmentIds = [
+      ...new Set(
+        physical
+          .filter(
+            (group) =>
+              group.idShipment != null &&
+              Number(group.idShipment) > 0 &&
+              !isTerminalShipStatus(group.statusShip) &&
+              String(group.statusShip || "").toLowerCase() !== nextStatus,
+          )
+          .map((group) => Number(group.idShipment)),
+      ),
+    ];
+
+    for (const idShipment of shipmentIds) {
+      await handleShipmentStatusChange(
+        { target: { value: nextStatus } },
+        idShipment,
+      );
+    }
+
+    const orphanSales = physicalProducts.filter(
+      (item: any) =>
+        (!item.idShipment || Number(item.idShipment) <= 0) &&
+        item.idSale &&
+        !isTerminalShipStatus(item.statusShip) &&
+        String(item.statusShip || "").toLowerCase() !== nextStatus,
+    );
+
+    for (const item of orphanSales) {
+      await handleProductStatusChange(
+        { target: { value: nextStatus } },
+        Number(item.idSale),
+      );
+    }
+  };
+
   if (!products?.length) {
     return (
       <EmptyState
@@ -244,6 +285,8 @@ const DataProducts = ({
           customerEmail={customerEmail}
           products={physicalProducts}
           allProducts={products}
+          onBulkStatusChange={handleBulkPhysicalStatusChange}
+          emailDebounceSeconds={EMAIL_DEBOUNCE_HINT_SEC}
         />
       ) : (
         <Alert
