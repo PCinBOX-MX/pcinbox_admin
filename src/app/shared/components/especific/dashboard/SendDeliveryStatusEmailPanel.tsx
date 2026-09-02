@@ -167,11 +167,21 @@ export default function SendDeliveryStatusEmailPanel({
         });
       }
     } catch (error: any) {
+      const statusCode = error?.response?.status;
+      const apiMessage = error?.response?.data?.message;
+      let message = apiMessage || "No se pudo enviar el correo de estatus.";
+      if (!apiMessage && (statusCode === 502 || statusCode === 503 || statusCode === 504)) {
+        message =
+          "La pasarela no responde (error " +
+          statusCode +
+          "). Reinicia server-pasarela-de-pagos (npm run dev en el puerto 8009) e inténtalo de nuevo.";
+      } else if (!apiMessage && !error?.response) {
+        message =
+          "No hay conexión con la pasarela. Verifica que esté corriendo en http://localhost:8009.";
+      }
       setFeedback({
         type: "error",
-        message:
-          error?.response?.data?.message ||
-          "No se pudo enviar el correo de estatus.",
+        message,
       });
     } finally {
       setSending(false);
