@@ -185,8 +185,12 @@ const useDashboard = () => {
             }),
           })),
         }));
+        return true;
       }
-    } catch (error) { }
+      return false;
+    } catch (error) {
+      return false;
+    }
   };
 
   const applyCancelledOrderState = useCallback(
