@@ -171,34 +171,15 @@ const useDashboard = () => {
       );
 
       if (resp.status == 200) {
-        const payload = resp.data?.data?.data ?? {};
-        const updatedStatus = payload.status ?? nextStatus;
-        const statusChangedAt =
-          payload.statusChangedAt ?? new Date().toISOString();
-        const syncedSaleIds = Array.isArray(payload.syncedSaleIds)
-          ? payload.syncedSaleIds.map((id: unknown) => Number(id))
-          : [Number(idSale)];
-        const syncedSet = new Set(syncedSaleIds);
-        const updatedIdShipment =
-          payload.idShipment != null ? Number(payload.idShipment) : null;
-
+        const updatedIdSale = Number(resp.data?.data?.data?.idSale ?? idSale);
+        const updatedStatus = resp.data?.data?.data?.status ?? nextStatus;
         setRowsVentas((prev) => ({
           ...prev,
           data: prev.data.map((order) => ({
             ...order,
             products: order.products.map((product) => {
-              const matchesSale = syncedSet.has(Number(product.idSale));
-              const matchesShipment =
-                updatedIdShipment != null &&
-                product.idShipment != null &&
-                Number(product.idShipment) === updatedIdShipment;
-
-              if (matchesSale || matchesShipment) {
-                return {
-                  ...product,
-                  statusShip: updatedStatus,
-                  statusChangedAt,
-                };
+              if (Number(product.idSale) === updatedIdSale) {
+                return { ...product, statusShip: updatedStatus };
               }
               return product;
             }),

@@ -39,7 +39,6 @@ export interface SalesI {
     purchaseId?: string | null;
     licenseType?: string | null;
     statusShip: any;
-    statusChangedAt?: string | null;
     licenseDeliveredAt?: string | null;
     idShipment: number;
     address: null | {
