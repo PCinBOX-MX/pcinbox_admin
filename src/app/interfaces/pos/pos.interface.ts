@@ -1,6 +1,8 @@
 export type PosPaymentMethod =
   | "efectivo_sucursal"
   | "tarjeta_sucursal"
+  | "tarjeta_credito_sucursal"
+  | "tarjeta_debito_sucursal"
   | "transferencia_bancaria"
   | "openpay_link";
 
@@ -45,12 +47,28 @@ export type PosCashSession = {
   movements?: PosCashMovement[];
 };
 
+export type PosCashPaymentSummary = {
+  salesCount: number;
+  salesTotal: number;
+  byMethod: Partial<Record<PosPaymentMethod, number>>;
+};
+
 export type PosBranch = {
   idBranche: number;
   name: string | null;
   city: string | null;
   providerId: number;
   providerName?: string | null;
+  label: string;
+};
+
+export type PosBranchStock = {
+  branchId: number;
+  name: string | null;
+  city: string | null;
+  providerId: number;
+  providerName: string | null;
+  stock: number;
   label: string;
 };
 
@@ -64,9 +82,14 @@ export type PosProductHit = {
   sku: string | null;
   upc: string | null;
   marca: string | null;
+  category?: string | null;
   image_url: unknown;
   requiresSerial?: boolean;
   warrantyMonths?: number | null;
+  providerId?: number;
+  providerName?: string | null;
+  stocksByBranch?: PosBranchStock[];
+  suggestedBranchId?: number | null;
   score: number;
 };
 
@@ -88,7 +111,11 @@ export type PosCartLine = {
   unitPrice: number;
   quantity: number;
   discountPct: number;
+  /** Bodega de origen del stock (por proveedor). */
+  branchId: number | null;
+  branchLabel: string | null;
   stockBranch: number;
+  stocksByBranch: PosBranchStock[];
   imageUrl?: string | null;
   requiresSerial: boolean;
   warrantyMonths: number;
@@ -121,6 +148,42 @@ export type PosPaymentLine = {
   reference: string;
 };
 
+/** Asienta pagos: el efectivo puede exceder (cambio); tarjeta/transferencia no. */
+export function settlePosPayments(
+  total: number,
+  payments: Array<{ method: PosPaymentMethod; amount: number }>,
+) {
+  const round = (n: number) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  let nonCashSum = 0;
+  let cashReceived = 0;
+  for (const p of payments) {
+    const amt = Number(p.amount) || 0;
+    if (!Number.isFinite(amt) || amt < 0) continue;
+    if (p.method === "efectivo_sucursal") {
+      cashReceived = round(cashReceived + amt);
+    } else {
+      nonCashSum = round(nonCashSum + amt);
+    }
+  }
+  const safeTotal = round(Math.max(0, Number(total) || 0));
+  const nonCashOverpay = round(Math.max(0, nonCashSum - safeTotal));
+  const cashDue = round(Math.max(0, safeTotal - Math.min(nonCashSum, safeTotal)));
+  const appliedCash = round(Math.min(cashReceived, cashDue));
+  const changeDue = round(Math.max(0, cashReceived - cashDue));
+  const paidApplied = round(Math.min(nonCashSum, safeTotal) + appliedCash);
+  const remaining = round(Math.max(0, safeTotal - paidApplied));
+  return {
+    nonCashSum,
+    cashReceived,
+    cashDue,
+    changeDue,
+    paidApplied,
+    remaining,
+    nonCashOverpay,
+    balanced: remaining <= 0.009 && nonCashOverpay <= 0.009,
+  };
+}
+
 export type PosSale = {
   idPosSale: number;
   folio: string;
@@ -150,6 +213,10 @@ export type PosSale = {
   items: Array<{
     idPosSaleItem: number;
     productId: number;
+    branchId?: number | null;
+    branchName?: string | null;
+    branchCity?: string | null;
+    branchLabel?: string | null;
     productName: string;
     productSku: string | null;
     productUpc: string | null;
@@ -185,9 +252,30 @@ export type PosSale = {
 export const POS_PAYMENT_LABELS: Record<PosPaymentMethod, string> = {
   efectivo_sucursal: "Efectivo",
   tarjeta_sucursal: "Tarjeta",
+  tarjeta_credito_sucursal: "Tarjeta de Crédito",
+  tarjeta_debito_sucursal: "Tarjeta de Débito",
   transferencia_bancaria: "Transferencia",
   openpay_link: "OpenPay (link)",
 };
+
+/** Métodos disponibles al cobrar (sin OpenPay link ni legado). */
+export const POS_PAYMENT_OPTIONS: PosPaymentMethod[] = [
+  "efectivo_sucursal",
+  "tarjeta_credito_sucursal",
+  "tarjeta_debito_sucursal",
+  "transferencia_bancaria",
+];
+
+export const POS_PHONE_LADAS = [
+  "+52",
+  "+1",
+  "+34",
+  "+54",
+  "+57",
+  "+56",
+  "+51",
+  "+58",
+] as const;
 
 export const POS_CASH_MOVEMENT_LABELS: Record<PosCashMovementType, string> = {
   cash_in: "Entrada",
@@ -197,3 +285,50 @@ export const POS_CASH_MOVEMENT_LABELS: Record<PosCashMovementType, string> = {
 };
 
 export const SELLER_MAX_DISCOUNT_PCT = 3;
+
+/** Fecha calendario YYYY-MM-DD en America/Mexico_City. */
+export function calendarDateInMexicoCity(isoOrDate: string | Date): string {
+  const d = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/**
+ * Reglas de cancelación alineadas con el API:
+ * - admin (override): cualquier venta no cancelada
+ * - support: pending_payment siempre; completed solo mismo día CDMX
+ */
+export function canCancelPosSale(params: {
+  status: PosSaleStatus;
+  createdAt: string;
+  canCancel: boolean;
+  canOverride: boolean;
+}): { allowed: boolean; reason: string | null } {
+  if (params.status === "cancelled") {
+    return { allowed: false, reason: "La venta ya está cancelada" };
+  }
+  if (!params.canCancel) {
+    return { allowed: false, reason: "Sin permiso para cancelar ventas POS" };
+  }
+  if (params.canOverride) {
+    return { allowed: true, reason: null };
+  }
+  if (params.status === "pending_payment") {
+    return { allowed: true, reason: null };
+  }
+  if (params.status === "completed") {
+    const saleDay = calendarDateInMexicoCity(params.createdAt);
+    const today = calendarDateInMexicoCity(new Date());
+    if (saleDay === today) return { allowed: true, reason: null };
+    return {
+      allowed: false,
+      reason:
+        "Como soporte solo puedes cancelar ventas completadas del mismo día. Solicita override a un administrador.",
+    };
+  }
+  return { allowed: false, reason: "No se puede cancelar esta venta" };
+}

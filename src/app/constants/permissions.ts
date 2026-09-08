@@ -12,7 +12,9 @@ export type AdminPermission =
   | "catalog.manage"
   | "users.view"
   | "settings.manage"
-  | "pos.manage";
+  | "pos.manage"
+  | "pos.cancel"
+  | "pos.cancel.override";
 
 export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
   admin: [
@@ -28,6 +30,8 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "users.view",
     "settings.manage",
     "pos.manage",
+    "pos.cancel",
+    "pos.cancel.override",
   ],
   support: [
     "orders.view",
@@ -37,6 +41,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "reservas.manage",
     "users.view",
     "pos.manage",
+    "pos.cancel",
   ],
 };
 

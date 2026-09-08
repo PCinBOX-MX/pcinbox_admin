@@ -1,19 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
-  Autocomplete,
   CircularProgress,
   MenuItem,
   TextField,
+  type SxProps,
+  type Theme,
 } from "@mui/material";
 import {
   Banknote,
-  ChevronDown,
   History,
   Plus,
+  Printer,
   Search,
   ShoppingCart,
-  Store,
   Trash2,
   Wallet,
   X,
@@ -25,6 +26,8 @@ import usePermissions from "../hooks/usePermissions";
 import {
   POS_CASH_MOVEMENT_LABELS,
   POS_PAYMENT_LABELS,
+  POS_PAYMENT_OPTIONS,
+  POS_PHONE_LADAS,
   PosCashMovementType,
   PosPaymentMethod,
   PosProductHit,
@@ -45,6 +48,35 @@ const fieldSx = {
 const money = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
+const FALLBACK_IMG =
+  "https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587";
+
+function resolveProductImage(imageUrl: unknown): string {
+  if (!imageUrl) return FALLBACK_IMG;
+  if (typeof imageUrl === "string") {
+    const t = imageUrl.trim();
+    if (!t) return FALLBACK_IMG;
+    if (t.startsWith("[") || t.startsWith("{")) {
+      try {
+        return resolveProductImage(JSON.parse(t));
+      } catch {
+        return t;
+      }
+    }
+    return t;
+  }
+  if (Array.isArray(imageUrl)) {
+    const first = imageUrl.find((x) => typeof x === "string" && x.trim());
+    return first ? String(first) : FALLBACK_IMG;
+  }
+  if (typeof imageUrl === "object") {
+    const values = Object.values(imageUrl as Record<string, unknown>);
+    const first = values.find((x) => typeof x === "string" && String(x).trim());
+    return first ? String(first) : FALLBACK_IMG;
+  }
+  return FALLBACK_IMG;
+}
+
 const statusBadge = (status: PosSaleStatus) => {
   if (status === "cancelled") return styles.badgeCancelled;
   if (status === "pending_payment") return styles.badgePending;
@@ -57,16 +89,87 @@ const statusLabel = (status: PosSaleStatus) => {
   return "Completada";
 };
 
-function productThumb(url?: string | null) {
-  return (
+function productThumb(url?: string | null, className?: string) {
+  const cls = className || styles.hitImg;
+  const frame =
+    cls === styles.hitImgLg
+      ? styles.hitImgLgFrame
+      : cls === styles.hitImg
+        ? styles.hitImgFrame
+        : null;
+  const img = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      className={styles.hitImg}
-      src={
-        url ||
-        "https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587"
-      }
+      className={cls}
+      src={url || FALLBACK_IMG}
       alt=""
+      loading="lazy"
+    />
+  );
+  return frame ? <span className={frame}>{img}</span> : img;
+}
+
+/** Campo numérico que permite vaciar al editar (sin atascarse en 0). */
+function PosNumberField({
+  label,
+  value,
+  onCommit,
+  integer = false,
+  sx,
+  fullWidth,
+  className,
+  emptyAs = "",
+}: {
+  label: string;
+  value: string | number;
+  onCommit: (raw: string) => void;
+  integer?: boolean;
+  sx?: SxProps<Theme>;
+  fullWidth?: boolean;
+  className?: string;
+  /** Valor a confirmar si el campo queda vacío al salir. */
+  emptyAs?: string;
+}) {
+  const committed =
+    value === null || value === undefined ? "" : String(value);
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState(committed);
+
+  useEffect(() => {
+    if (!focused) setDraft(committed);
+  }, [committed, focused]);
+
+  return (
+    <TextField
+      size="small"
+      label={label}
+      fullWidth={fullWidth}
+      className={className}
+      value={focused ? draft : committed}
+      onFocus={() => {
+        setFocused(true);
+        setDraft(committed);
+      }}
+      onChange={(e) => {
+        let v = e.target.value;
+        if (integer) {
+          if (v !== "" && !/^\d*$/.test(v)) return;
+        } else {
+          v = v.replace(",", ".");
+          if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
+        }
+        setDraft(v);
+        // Actualiza el estado padre en vivo para que Restante/Cobrar usen el valor actual.
+        if (v.trim() !== "") onCommit(v);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        const trimmed = draft.trim();
+        const raw = trimmed === "" ? emptyAs : trimmed;
+        onCommit(raw);
+      }}
+      sx={sx ?? fieldSx}
+      inputProps={{ inputMode: integer ? "numeric" : "decimal" }}
     />
   );
 }
@@ -92,60 +195,6 @@ export default function PuntoDeVentaPage() {
       subtitle="Cobro en sucursal con el mismo catálogo e inventario de la tienda"
     >
       <div className={styles.posPage}>
-        {pos.showGuide ? (
-          <section className={styles.posGuide}>
-            <div className={styles.posGuideHead}>
-              <div>
-                <h3>¿Cómo funciona Punto de Venta?</h3>
-                <p>
-                  Es el mostrador físico: cobras aquí con el inventario de la
-                  tienda/almacén que elijas abajo.
-                </p>
-              </div>
-              <button
-                type="button"
-                className={styles.guideDismiss}
-                onClick={() => pos.dismissGuide()}
-              >
-                Entendido
-              </button>
-            </div>
-            <ol className={styles.posGuideSteps}>
-              <li>
-                <strong>Sucursal</strong> — Tienda o almacén donde estás
-                cobrando. Define qué stock ves, la caja y el historial. No es
-                Amazon.com: es un registro de tu base de datos (nombre + ciudad
-                del almacén).
-              </li>
-              <li>
-                <strong>Caja</strong> — Abre turno con fondo inicial. Solo es
-                obligatorio si cobras en <em>efectivo</em>.
-              </li>
-              <li>
-                <strong>Cobrar</strong> — Busca o escanea (F2), arma el carrito,
-                cliente opcional, formas de pago y F4 o botón Cobrar.
-              </li>
-              <li>
-                <strong>Historial</strong> — Tickets, cancelaciones y ventas
-                OpenPay pendientes.
-              </li>
-              <li>
-                <strong>Series / Inventario</strong> — Garantías por número de
-                serie y movimientos de stock.
-              </li>
-            </ol>
-          </section>
-        ) : (
-          <button
-            type="button"
-            className={styles.guideToggle}
-            onClick={() => pos.openGuide()}
-          >
-            <ChevronDown size={16} />
-            Ver guía rápida
-          </button>
-        )}
-
         <div className={styles.posTop}>
           <div className={styles.posTabs}>
             <button
@@ -169,44 +218,47 @@ export default function PuntoDeVentaPage() {
             >
               Caja
             </button>
-            <button
-              type="button"
-              className={`${styles.posTab} ${pos.tab === "series" ? styles.posTabActive : ""}`}
-              onClick={() => pos.setTab("series")}
-            >
-              Series
-            </button>
-            <button
-              type="button"
-              className={`${styles.posTab} ${pos.tab === "inventario" ? styles.posTabActive : ""}`}
-              onClick={() => pos.setTab("inventario")}
-            >
-              Inventario
-            </button>
           </div>
 
           <div className={styles.branchPicker}>
-            <Store size={18} color="#bb3d4b" />
-            <TextField
-              select
-              size="small"
-              label="Sucursal (tienda / almacén)"
-              value={pos.branchId ?? ""}
-              onChange={(e) => pos.setBranchId(Number(e.target.value))}
-              helperText={
-                pos.selectedBranch
-                  ? `Stock, caja e historial de: ${pos.selectedBranch.label}`
-                  : "Elige dónde estás cobrando hoy"
-              }
-              FormHelperTextProps={{ className: styles.branchHelper }}
-              sx={{ ...fieldSx, minWidth: 280, flex: "1 1 280px" }}
-            >
-              {pos.branches.map((b) => (
-                <MenuItem key={b.idBranche} value={b.idBranche}>
-                  {b.label}
-                </MenuItem>
-              ))}
-            </TextField>
+            <div className={styles.headerActions}>
+              {!pos.cashOpen ? (
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={() => pos.setTab("caja")}
+                >
+                  <Wallet size={14} style={{ display: "inline", marginRight: 4 }} />
+                  Abrir caja
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={() => pos.setTab("caja")}
+                >
+                  <Wallet size={14} style={{ display: "inline", marginRight: 4 }} />
+                  Ver caja
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                disabled={pos.qzBusy || !pos.qzSettings.printerName}
+                title={
+                  pos.qzSettings.printerName
+                    ? "Abre el cajón físico (sin cobrar)"
+                    : "Primero elige impresora en la pestaña Caja"
+                }
+                onClick={() => void pos.testQzDrawer()}
+              >
+                <Banknote
+                  size={14}
+                  style={{ display: "inline", marginRight: 4 }}
+                />
+                Abrir cajón
+              </button>
+            </div>
             <span className={styles.shortcutHint}>F2 buscar · F4 cobrar</span>
           </div>
         </div>
@@ -217,16 +269,34 @@ export default function PuntoDeVentaPage() {
               <div className={styles.cashBanner} style={{ gridColumn: "1 / -1" }}>
                 <Wallet size={16} />
                 <span>
-                  Caja cerrada: no podrás cobrar en efectivo hasta abrirla en la
-                  pestaña Caja. Tarjeta, transferencia y OpenPay sí están.
+                  Caja cerrada. Ábrela aquí si vas a cobrar en efectivo (tarjeta
+                  y transferencia no la requieren).
                 </span>
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={() => pos.setTab("caja")}
-                >
-                  Ir a Caja
-                </button>
+                <div className={styles.cashBannerActions}>
+                  <PosNumberField
+                    label="Fondo inicial"
+                    value={pos.openingFloat}
+                    emptyAs="0"
+                    onCommit={(raw) => pos.setOpeningFloat(raw || "0")}
+                    sx={{ ...fieldSx, minWidth: 140, maxWidth: 160 }}
+                  />
+                  <button
+                    type="button"
+                    className={styles.chargeBtn}
+                    style={{ marginTop: 0, width: "auto", padding: "10px 16px" }}
+                    disabled={pos.cashBusy}
+                    onClick={() => void pos.openCash()}
+                  >
+                    {pos.cashBusy ? "Abriendo…" : "Abrir caja"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    onClick={() => pos.setTab("caja")}
+                  >
+                    Ir a Caja
+                  </button>
+                </div>
               </div>
             ) : null}
             {pos.cashOpen && pos.cashExpected != null ? (
@@ -259,12 +329,28 @@ export default function PuntoDeVentaPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && pos.hits[0]) {
                         e.preventDefault();
-                        pos.addProduct(pos.hits[0]);
+                        const hit = pos.hits[0];
+                        const stocks = hit.stocksByBranch || [];
+                        if (stocks.length === 1) {
+                          pos.addProduct(hit, stocks[0].branchId);
+                        } else if (stocks.length > 1) {
+                          const one = stocks.filter((st) => st.stock > 0);
+                          if (one.length === 1) {
+                            pos.addProduct(hit, one[0].branchId);
+                          } else {
+                            pos.addProduct(hit, hit.suggestedBranchId);
+                          }
+                        } else {
+                          pos.addProduct(hit, null);
+                        }
                       }
                     }}
                     InputProps={{
                       startAdornment: (
-                        <Search size={18} style={{ marginRight: 8, color: "#9ca3af" }} />
+                        <Search
+                          size={18}
+                          style={{ marginRight: 8, color: "#9ca3af" }}
+                        />
                       ),
                       endAdornment: pos.searching ? (
                         <CircularProgress size={18} />
@@ -273,52 +359,127 @@ export default function PuntoDeVentaPage() {
                   />
                 </div>
 
-                {!pos.branchId ? (
-                  <EmptyState
-                    title="Elige sucursal"
-                    description="Selecciona la sucursal para ver existencias reales."
-                  />
+                {pos.searching && pos.hits.length === 0 ? (
+                  <div className={styles.hits} aria-busy="true">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={`sk-${i}`} className={styles.hitSkeleton}>
+                        <div className={styles.hitSkeletonImg} />
+                        <div className={styles.hitSkeletonBody}>
+                          <div className={styles.hitSkeletonLine} />
+                          <div className={styles.hitSkeletonLineShort} />
+                          <div className={styles.hitSkeletonLineTiny} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : pos.hits.length === 0 ? (
                   <EmptyState
+                    icon="search"
                     title={pos.search ? "Sin resultados" : "Listo para cobrar"}
                     description={
                       pos.search
-                        ? "Prueba con SKU, UPC o parte del nombre."
+                        ? "Prueba con SKU, UPC, marca o parte del nombre."
                         : "Escribe o escanea un código para agregar al carrito."
                     }
                   />
                 ) : (
                   <div className={styles.hits}>
                     {pos.hits.map((hit: PosProductHit) => {
-                      const img =
-                        typeof hit.image_url === "string"
-                          ? hit.image_url
-                          : Array.isArray(hit.image_url)
-                            ? String(hit.image_url[0] || "")
-                            : null;
+                      const img = resolveProductImage(hit.image_url);
+                      const stocks = hit.stocksByBranch || [];
                       return (
-                        <button
-                          key={hit.idProduct}
-                          type="button"
-                          className={styles.hit}
-                          onClick={() => pos.addProduct(hit)}
-                        >
-                          {productThumb(img)}
-                          <div>
-                            <div className={styles.hitTitle}>{hit.name}</div>
-                            <div className={styles.hitMeta}>
-                              {[hit.marca, hit.sku && `SKU ${hit.sku}`, hit.upc && `UPC ${hit.upc}`]
-                                .filter(Boolean)
-                                .join(" · ")}
+                        <article key={hit.idProduct} className={styles.hitCard}>
+                          <button
+                            type="button"
+                            className={styles.hitMain}
+                            onClick={() => {
+                              if (stocks.length === 1) {
+                                pos.addProduct(hit, stocks[0].branchId);
+                              } else if (stocks.length > 1) {
+                                const one = stocks.filter((st) => st.stock > 0);
+                                if (one.length === 1) {
+                                  pos.addProduct(hit, one[0].branchId);
+                                } else {
+                                  pos.addProduct(hit, hit.suggestedBranchId);
+                                }
+                              } else {
+                                pos.addProduct(hit, null);
+                              }
+                            }}
+                          >
+                            {productThumb(img, styles.hitImgLg)}
+                            <div className={styles.hitBody}>
+                              <div className={styles.hitTitle}>
+                                {hit.name || `Producto #${hit.idProduct}`}
+                              </div>
+                              <div className={styles.hitMetaRow}>
+                                {hit.providerName ? (
+                                  <span className={styles.chip}>
+                                    {hit.providerName}
+                                  </span>
+                                ) : null}
+                                {hit.marca ? (
+                                  <span className={styles.chipMuted}>
+                                    {hit.marca}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className={styles.hitMeta}>
+                                {[
+                                  hit.sku && `SKU ${hit.sku}`,
+                                  hit.upc && `UPC ${hit.upc}`,
+                                  hit.category,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </div>
+                              {stocks.length > 0 ? (
+                                <div className={styles.stockChips}>
+                                  {stocks.map((st) => (
+                                    <span
+                                      key={st.branchId}
+                                      className={
+                                        st.stock > 0
+                                          ? styles.stockChipOk
+                                          : styles.stockChipEmpty
+                                      }
+                                    >
+                                      {st.name || st.label || st.branchId}:{" "}
+                                      {st.stock}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className={styles.hitMeta}>
+                                  Stock global: {hit.stockGlobal}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                          <div>
-                            <div className={styles.hitPrice}>{money(hit.price)}</div>
-                            <div className={styles.hitStock}>
-                              Stock suc.: {hit.stockBranch}
+                            <div className={styles.hitSide}>
+                              <div className={styles.hitPrice}>
+                                {money(hit.price)}
+                              </div>
+                              <span className={styles.addHint}>Agregar</span>
                             </div>
-                          </div>
-                        </button>
+                          </button>
+                          {stocks.length > 1 ? (
+                            <div className={styles.hitBranches}>
+                              {stocks.map((st) => (
+                                <button
+                                  key={st.branchId}
+                                  type="button"
+                                  className={styles.branchPickBtn}
+                                  disabled={st.stock <= 0}
+                                  onClick={() =>
+                                    pos.addProduct(hit, st.branchId)
+                                  }
+                                >
+                                  {st.name || st.label} · {st.stock}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </article>
                       );
                     })}
                   </div>
@@ -329,48 +490,73 @@ export default function PuntoDeVentaPage() {
             <aside className={styles.posPanel}>
               <div className={styles.posPanelHead}>
                 <h2>
-                  <ShoppingCart size={16} style={{ display: "inline", marginRight: 6 }} />
+                  <ShoppingCart
+                    size={16}
+                    style={{ display: "inline", marginRight: 6 }}
+                  />
                   Carrito
                 </h2>
-                <p>
-                  Descuento máx. {pos.maxDiscount}%
-                  {pos.isAdmin ? " (admin)" : " (vendedor)"}
-                </p>
               </div>
               <div className={styles.posPanelBody}>
-                <Autocomplete
-                  options={pos.customerHits}
-                  getOptionLabel={(o) => o.label}
-                  value={pos.customer}
-                  onChange={(_, v) => pos.setCustomer(v)}
-                  onInputChange={(_, v) => pos.setCustomerQuery(v)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      label="Cliente (opcional)"
-                      placeholder="Público general si vacío"
-                      sx={{ ...fieldSx, mb: 1.5 }}
-                    />
-                  )}
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Cliente"
+                  value={pos.customerName}
+                  onChange={(e) => pos.setCustomerName(e.target.value)}
+                  sx={{ ...fieldSx, mb: 1.5 }}
                 />
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="email"
+                  placeholder="Email"
+                  value={pos.guestEmail}
+                  onChange={(e) => pos.setGuestEmail(e.target.value)}
+                  sx={{ ...fieldSx, mb: 1.5 }}
+                  error={Boolean(pos.guestEmail.trim()) && !pos.emailValid}
+                  helperText={
+                    pos.guestEmail.trim() && !pos.emailValid
+                      ? "Formato de email inválido"
+                      : undefined
+                  }
+                />
+
+                <div className={styles.phoneRow}>
                   <TextField
+                    select
                     size="small"
-                    label="Email (OpenPay)"
-                    value={pos.guestEmail}
-                    onChange={(e) => pos.setGuestEmail(e.target.value)}
+                    value={pos.phoneLada}
+                    onChange={(e) => pos.setPhoneLada(e.target.value)}
+                    className={styles.ladaSelect}
                     sx={fieldSx}
-                    placeholder={pos.customer?.email || ""}
-                  />
+                  >
+                    {POS_PHONE_LADAS.map((lada) => (
+                      <MenuItem key={lada} value={lada}>
+                        {lada}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                   <TextField
+                    fullWidth
                     size="small"
-                    label="Teléfono (OpenPay)"
+                    placeholder="Teléfono"
                     value={pos.guestPhone}
-                    onChange={(e) => pos.setGuestPhone(e.target.value)}
+                    onChange={(e) => {
+                      const digits = e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 10);
+                      pos.setGuestPhone(digits);
+                    }}
                     sx={fieldSx}
-                    placeholder={pos.customer?.phone || ""}
+                    error={Boolean(pos.guestPhone.trim()) && !pos.phoneValid}
+                    helperText={
+                      pos.guestPhone.trim() && !pos.phoneValid
+                        ? "Debe tener 10 dígitos"
+                        : undefined
+                    }
+                    inputProps={{ inputMode: "numeric", maxLength: 10 }}
                   />
                 </div>
 
@@ -382,9 +568,37 @@ export default function PuntoDeVentaPage() {
                 ) : (
                   <div className={styles.cartList}>
                     {pos.cart.map((line) => (
-                      <div key={line.key} className={styles.cartLine}>
-                        <div className={styles.cartLineTop}>
-                          <div className={styles.cartLineName}>{line.name}</div>
+                      <div key={line.key} className={styles.cartCard}>
+                        <div className={styles.cartCardHead}>
+                          {productThumb(
+                            resolveProductImage(line.imageUrl),
+                            styles.cartImg,
+                          )}
+                          <div className={styles.cartCardInfo}>
+                            <div className={styles.cartLineName}>
+                              {line.name}
+                            </div>
+                            <div className={styles.hitMeta}>
+                              {[
+                                line.sku && `SKU ${line.sku}`,
+                                line.upc && `UPC ${line.upc}`,
+                                line.branchLabel,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                            <div className={styles.cartUnitPrice}>
+                              <span className={styles.cartUnitPriceLabel}>
+                                Precio
+                              </span>
+                              <span className={styles.cartUnitPriceValue}>
+                                {money(line.unitPrice)}
+                              </span>
+                              <span className={styles.cartUnitPriceHint}>
+                                c/u
+                              </span>
+                            </div>
+                          </div>
                           <button
                             type="button"
                             className={styles.dangerBtn}
@@ -394,55 +608,67 @@ export default function PuntoDeVentaPage() {
                             <Trash2 size={14} />
                           </button>
                         </div>
+                        {line.stocksByBranch?.length ? (
+                          <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            label="Bodega / almacén"
+                            value={line.branchId ?? ""}
+                            onChange={(e) => {
+                              const branchId = Number(e.target.value);
+                              const st = line.stocksByBranch.find(
+                                (s) => s.branchId === branchId,
+                              );
+                              pos.updateLine(line.productId, {
+                                branchId,
+                                branchLabel: st?.label || null,
+                                stockBranch: st?.stock ?? 0,
+                              });
+                            }}
+                            sx={{ ...fieldSx, mb: 1 }}
+                          >
+                            {line.stocksByBranch.map((st) => (
+                              <MenuItem
+                                key={st.branchId}
+                                value={st.branchId}
+                                disabled={st.stock <= 0}
+                              >
+                                {st.label} ({st.stock})
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        ) : (
+                          <p
+                            className={styles.hitMeta}
+                            style={{ marginBottom: 8 }}
+                          >
+                            Stock global (sin bodega de proveedor)
+                          </p>
+                        )}
                         <div className={styles.cartControls}>
-                          <TextField
-                            size="small"
-                            type="number"
+                          <PosNumberField
                             label="Cant."
+                            integer
                             value={line.quantity}
-                            onChange={(e) =>
+                            emptyAs="1"
+                            onCommit={(raw) => {
+                              let n = parseInt(raw, 10);
+                              if (!Number.isFinite(n) || n < 1) n = 1;
                               pos.updateLine(line.productId, {
-                                quantity: Number(e.target.value),
-                              })
-                            }
-                            sx={fieldSx}
-                            inputProps={{ min: 1, max: line.stockBranch }}
-                          />
-                          <TextField
-                            size="small"
-                            type="number"
-                            label="Precio"
-                            value={line.unitPrice}
-                            onChange={(e) =>
-                              pos.updateLine(line.productId, {
-                                unitPrice: Number(e.target.value),
-                              })
-                            }
-                            sx={fieldSx}
-                            disabled={!pos.isAdmin}
-                          />
-                          <TextField
-                            size="small"
-                            type="number"
-                            label={`Desc. % (≤${pos.maxDiscount})`}
-                            value={line.discountPct}
-                            onChange={(e) =>
-                              pos.updateLine(line.productId, {
-                                discountPct: Number(e.target.value),
-                              })
-                            }
-                            sx={fieldSx}
-                            inputProps={{ min: 0, max: pos.maxDiscount, step: 0.5 }}
+                                quantity: n,
+                              });
+                            }}
                           />
                         </div>
-                        <div className={styles.totalsRow} style={{ marginTop: 8 }}>
+                        <div className={styles.cartLineTotal}>
                           <span>Línea</span>
                           <strong>
                             {money(
                               pos.lineTotal(
                                 line.unitPrice,
                                 line.quantity,
-                                line.discountPct,
+                                0,
                               ),
                             )}
                           </strong>
@@ -500,30 +726,47 @@ export default function PuntoDeVentaPage() {
                     <span>Subtotal</span>
                     <span>{money(pos.totals.subtotal)}</span>
                   </div>
-                  <div className={styles.totalsRow}>
-                    <span>Descuentos</span>
-                    <span>-{money(pos.totals.discountTotal)}</span>
-                  </div>
                   <div className={styles.totalsGrand}>
                     <span>Total</span>
                     <span>{money(pos.totals.total)}</span>
                   </div>
                   <div className={styles.totalsRow}>
-                    <span>Pagado</span>
-                    <span>{money(pos.paidSum)}</span>
+                    <span>Cubierto</span>
+                    <span>{money(pos.settlement.paidApplied)}</span>
                   </div>
                   <div className={styles.totalsRow}>
                     <span>Restante</span>
-                    <strong style={{ color: pos.remaining > 0.009 ? "#bb3d4b" : "#166534" }}>
+                    <strong
+                      style={{
+                        color: pos.remaining > 0.009 ? "#bb3d4b" : "#166534",
+                      }}
+                    >
                       {money(pos.remaining)}
                     </strong>
                   </div>
+                  {pos.changeDue > 0.009 ? (
+                    <div className={styles.totalsRow}>
+                      <span>Cambio</span>
+                      <strong style={{ color: "#166534" }}>
+                        {money(pos.changeDue)}
+                      </strong>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
                     <strong style={{ fontSize: 13 }}>
-                      <Banknote size={14} style={{ display: "inline", marginRight: 4 }} />
+                      <Banknote
+                        size={14}
+                        style={{ display: "inline", marginRight: 4 }}
+                      />
                       Formas de pago
                     </strong>
                     <button
@@ -531,7 +774,10 @@ export default function PuntoDeVentaPage() {
                       className={styles.secondaryBtn}
                       onClick={() => pos.addPayment("efectivo_sucursal")}
                     >
-                      <Plus size={14} style={{ display: "inline", marginRight: 4 }} />
+                      <Plus
+                        size={14}
+                        style={{ display: "inline", marginRight: 4 }}
+                      />
                       Agregar
                     </button>
                   </div>
@@ -550,32 +796,35 @@ export default function PuntoDeVentaPage() {
                           }
                           sx={fieldSx}
                         >
-                          {(Object.keys(POS_PAYMENT_LABELS) as PosPaymentMethod[]).map(
-                            (m) => (
-                              <MenuItem key={m} value={m}>
-                                {POS_PAYMENT_LABELS[m]}
-                              </MenuItem>
-                            ),
-                          )}
+                          {POS_PAYMENT_OPTIONS.map((m) => (
+                            <MenuItem key={m} value={m}>
+                              {POS_PAYMENT_LABELS[m]}
+                            </MenuItem>
+                          ))}
                         </TextField>
-                        <TextField
-                          size="small"
-                          type="number"
-                          label="Monto"
-                          value={p.amount}
-                          onChange={(e) =>
-                            pos.updatePayment(p.id, {
-                              amount: Number(e.target.value),
-                            })
+                        <PosNumberField
+                          label={
+                            p.method === "efectivo_sucursal"
+                              ? "Recibido"
+                              : "Monto"
                           }
-                          sx={fieldSx}
+                          value={p.amount}
+                          emptyAs="0"
+                          onCommit={(raw) => {
+                            const n = Number(raw);
+                            pos.updatePayment(p.id, {
+                              amount: Number.isFinite(n) && n >= 0 ? n : 0,
+                            });
+                          }}
                         />
                         <TextField
                           size="small"
                           label="Ref."
                           value={p.reference}
                           onChange={(e) =>
-                            pos.updatePayment(p.id, { reference: e.target.value })
+                            pos.updatePayment(p.id, {
+                              reference: e.target.value,
+                            })
                           }
                           sx={fieldSx}
                         />
@@ -616,11 +865,63 @@ export default function PuntoDeVentaPage() {
                 <button
                   type="button"
                   className={styles.chargeBtn}
-                  disabled={pos.charging || pos.cart.length === 0}
-                  onClick={() => void pos.charge()}
+                  disabled={
+                    pos.charging ||
+                    pos.cart.length === 0 ||
+                    !pos.customerName.trim() ||
+                    (Boolean(pos.guestEmail.trim()) && !pos.emailValid) ||
+                    !pos.guestPhone.trim() ||
+                    !pos.phoneValid ||
+                    pos.payments.length === 0 ||
+                    !pos.settlement.balanced
+                  }
+                  onClick={() => {
+                    (document.activeElement as HTMLElement | null)?.blur?.();
+                    void pos.charge();
+                  }}
                 >
-                  {pos.charging ? "Procesando…" : `Cobrar ${money(pos.totals.total)}`}
+                  {pos.charging
+                    ? "Procesando…"
+                    : pos.remaining > 0.009
+                      ? `Falta ${money(pos.remaining)}`
+                      : pos.changeDue > 0.009
+                        ? `Cobrar · cambio ${money(pos.changeDue)}`
+                        : `Cobrar ${money(pos.totals.total)}`}
                 </button>
+
+                {pos.lastSale ? (
+                  <div className={styles.postSaleBar}>
+                    <div className={styles.postSaleInfo}>
+                      <strong>Última venta {pos.lastSale.folio}</strong>
+                      <span>
+                        {money(pos.lastSale.total)} ·{" "}
+                        {statusLabel(pos.lastSale.status)}
+                      </span>
+                    </div>
+                    <div className={styles.postSaleActions}>
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        onClick={() =>
+                          pos.openTicket(pos.lastSale!.idPosSale)
+                        }
+                      >
+                        <Printer
+                          size={14}
+                          style={{ display: "inline", marginRight: 4 }}
+                        />
+                        Imprimir ticket
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        onClick={() => pos.setTicketOpen(true)}
+                      >
+                        Ver resumen
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </aside>
           </div>
@@ -629,22 +930,27 @@ export default function PuntoDeVentaPage() {
             <section className={styles.posPanel}>
               <div className={styles.posPanelHead}>
                 <h2>
-                  <Wallet size={16} style={{ display: "inline", marginRight: 6 }} />
+                  <Wallet
+                    size={16}
+                    style={{ display: "inline", marginRight: 6 }}
+                  />
                   Control de caja
                 </h2>
                 <p>
                   Abre con fondo, registra entradas/salidas y cierra con corte.
-                  Obligatorio para cobros en efectivo.
+                  Obligatorio para cobros en efectivo. Sucursal fija: PCinBOX.
                 </p>
               </div>
               <div className={styles.posPanelBody}>
                 {!pos.branchId ? (
                   <EmptyState
-                    title="Elige sucursal"
-                    description="Selecciona la sucursal para operar la caja."
+                    title="Caja no disponible"
+                    description="No se pudo resolver la sucursal de cobro. Recarga la página o revisa que exista la sucursal leon2."
                   />
                 ) : pos.cashLoading ? (
-                  <div style={{ display: "grid", placeItems: "center", padding: 40 }}>
+                  <div
+                    style={{ display: "grid", placeItems: "center", padding: 40 }}
+                  >
                     <CircularProgress sx={{ color: "#bb3d4b" }} />
                   </div>
                 ) : !pos.cashOpen ? (
@@ -653,14 +959,12 @@ export default function PuntoDeVentaPage() {
                       title="Caja cerrada"
                       description="Abre una sesión con el fondo inicial en efectivo."
                     />
-                    <TextField
-                      size="small"
-                      type="number"
+                    <PosNumberField
                       label="Fondo inicial"
                       value={pos.openingFloat}
-                      onChange={(e) => pos.setOpeningFloat(e.target.value)}
+                      emptyAs=""
+                      onCommit={(raw) => pos.setOpeningFloat(raw)}
                       sx={{ ...fieldSx, maxWidth: 220 }}
-                      inputProps={{ min: 0, step: 0.01 }}
                     />
                     <TextField
                       fullWidth
@@ -694,13 +998,17 @@ export default function PuntoDeVentaPage() {
                         <span>Desde</span>
                         <span>
                           {pos.cashSession?.openedAt
-                            ? new Date(pos.cashSession.openedAt).toLocaleString("es-MX")
+                            ? new Date(
+                                pos.cashSession.openedAt,
+                              ).toLocaleString("es-MX")
                             : "—"}
                         </span>
                       </div>
                       <div className={styles.totalsRow}>
                         <span>Fondo inicial</span>
-                        <span>{money(pos.cashSession?.openingFloat || 0)}</span>
+                        <span>
+                          {money(pos.cashSession?.openingFloat || 0)}
+                        </span>
                       </div>
                       <div className={styles.totalsGrand}>
                         <span>Efectivo esperado</span>
@@ -708,16 +1016,65 @@ export default function PuntoDeVentaPage() {
                       </div>
                     </div>
 
+                    {pos.cashPaymentSummary ? (
+                      <>
+                        <h3 className={styles.cashSubhead}>
+                          Ventas del turno
+                        </h3>
+                        <div className={styles.totalsBox}>
+                          <div className={styles.totalsRow}>
+                            <span>Ventas</span>
+                            <strong>{pos.cashPaymentSummary.salesCount}</strong>
+                          </div>
+                          <div className={styles.totalsRow}>
+                            <span>Total cobrado</span>
+                            <strong>
+                              {money(pos.cashPaymentSummary.salesTotal)}
+                            </strong>
+                          </div>
+                          {(
+                            Object.entries(
+                              pos.cashPaymentSummary.byMethod || {},
+                            ) as [string, number][]
+                          )
+                            .filter(([, amount]) => Number(amount) > 0)
+                            .map(([method, amount]) => (
+                              <div className={styles.totalsRow} key={method}>
+                                <span>
+                                  {POS_PAYMENT_LABELS[
+                                    method as keyof typeof POS_PAYMENT_LABELS
+                                  ] || method}
+                                </span>
+                                <span>{money(amount)}</span>
+                              </div>
+                            ))}
+                        </div>
+                        <p
+                          style={{
+                            margin: "0 0 8px",
+                            fontSize: 12,
+                            opacity: 0.75,
+                          }}
+                        >
+                          Solo el efectivo mueve el cajón. Tarjeta y
+                          transferencia aparecen aquí y en Historial.
+                        </p>
+                      </>
+                    ) : null}
+
                     <h3 className={styles.cashSubhead}>Entrada / salida</h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <TextField
-                        size="small"
-                        type="number"
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 8,
+                      }}
+                    >
+                      <PosNumberField
                         label="Monto"
                         value={pos.cashMoveAmount}
-                        onChange={(e) => pos.setCashMoveAmount(e.target.value)}
-                        sx={fieldSx}
-                        inputProps={{ min: 0, step: 0.01 }}
+                        emptyAs=""
+                        onCommit={(raw) => pos.setCashMoveAmount(raw)}
                       />
                       <TextField
                         size="small"
@@ -747,14 +1104,12 @@ export default function PuntoDeVentaPage() {
                     </div>
 
                     <h3 className={styles.cashSubhead}>Corte / cierre</h3>
-                    <TextField
-                      size="small"
-                      type="number"
+                    <PosNumberField
                       label="Efectivo contado"
                       value={pos.closingCounted}
-                      onChange={(e) => pos.setClosingCounted(e.target.value)}
+                      emptyAs=""
+                      onCommit={(raw) => pos.setClosingCounted(raw)}
                       sx={{ ...fieldSx, maxWidth: 220 }}
-                      inputProps={{ min: 0, step: 0.01 }}
                     />
                     <TextField
                       fullWidth
@@ -775,7 +1130,9 @@ export default function PuntoDeVentaPage() {
 
                     {(pos.cashSession?.movements?.length || 0) > 0 ? (
                       <>
-                        <h3 className={styles.cashSubhead}>Movimientos de la sesión</h3>
+                        <h3 className={styles.cashSubhead}>
+                          Movimientos de la sesión
+                        </h3>
                         <table className={styles.historyTable}>
                           <thead>
                             <tr>
@@ -789,11 +1146,14 @@ export default function PuntoDeVentaPage() {
                             {pos.cashSession!.movements!.map((m) => (
                               <tr key={m.idCashMovement}>
                                 <td>
-                                  {new Date(m.createdAt).toLocaleTimeString("es-MX")}
+                                  {new Date(m.createdAt).toLocaleTimeString(
+                                    "es-MX",
+                                  )}
                                 </td>
                                 <td>
-                                  {POS_CASH_MOVEMENT_LABELS[m.type as PosCashMovementType] ||
-                                    m.type}
+                                  {POS_CASH_MOVEMENT_LABELS[
+                                    m.type as PosCashMovementType
+                                  ] || m.type}
                                 </td>
                                 <td>{money(m.amount)}</td>
                                 <td>{m.reason || "—"}</td>
@@ -811,13 +1171,18 @@ export default function PuntoDeVentaPage() {
             <section className={styles.posPanel}>
               <div className={styles.posPanelHead}>
                 <h2>Sesiones recientes</h2>
-                <p>Historial de aperturas y cortes de esta sucursal.</p>
+                <p>Historial de aperturas y cortes de Sucursal PCinBOX.</p>
               </div>
               <div className={styles.posPanelBody}>
-                {pos.cashSessions.length === 0 ? (
+                {!pos.branchId ? (
+                  <EmptyState
+                    title="Caja no disponible"
+                    description="No se pudo resolver la sucursal de cobro."
+                  />
+                ) : pos.cashSessions.length === 0 ? (
                   <EmptyState
                     title="Sin sesiones"
-                    description="Aún no hay cortes registrados en esta sucursal."
+                    description="Aún no hay aperturas ni cortes. Abre caja a la izquierda para empezar el turno."
                   />
                 ) : (
                   <table className={styles.historyTable}>
@@ -834,7 +1199,9 @@ export default function PuntoDeVentaPage() {
                       {pos.cashSessions.map((s) => (
                         <tr key={s.idCashSession}>
                           <td>#{s.idCashSession}</td>
-                          <td>{new Date(s.openedAt).toLocaleString("es-MX")}</td>
+                          <td>
+                            {new Date(s.openedAt).toLocaleString("es-MX")}
+                          </td>
                           <td>
                             <span
                               className={`${styles.badge} ${
@@ -847,7 +1214,9 @@ export default function PuntoDeVentaPage() {
                             </span>
                           </td>
                           <td>
-                            {s.expectedCash != null ? money(s.expectedCash) : "—"}
+                            {s.expectedCash != null
+                              ? money(s.expectedCash)
+                              : "—"}
                           </td>
                           <td>
                             {s.difference != null ? money(s.difference) : "—"}
@@ -859,285 +1228,177 @@ export default function PuntoDeVentaPage() {
                 )}
               </div>
             </section>
-          </div>
-        ) : pos.tab === "series" ? (
-          <section className={styles.posPanel}>
-            <div className={styles.posPanelHead}>
-              <h2>Consulta de series y garantías</h2>
-              <p>
-                Busca por número de serie o nombre de cliente. Marca RMA cuando
-                aplique.
-              </p>
-            </div>
-            <div className={styles.posPanelBody}>
-              <div className={styles.totalsBox} style={{ marginBottom: 16 }}>
-                <h3 className={styles.cashSubhead} style={{ marginTop: 0 }}>
-                  Alta de serie disponible
-                </h3>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1.4fr auto",
-                    gap: 8,
-                  }}
-                >
-                  <TextField
-                    size="small"
-                    label="Id producto"
-                    value={pos.newSerialProductId}
-                    onChange={(e) => pos.setNewSerialProductId(e.target.value)}
-                    sx={fieldSx}
+
+            <section className={styles.posPanel} style={{ gridColumn: "1 / -1" }}>
+              <div className={styles.posPanelHead}>
+                <h2>
+                  <Printer
+                    size={16}
+                    style={{ display: "inline", marginRight: 6 }}
                   />
-                  <TextField
-                    size="small"
-                    label="Número de serie"
-                    value={pos.newSerialNumber}
-                    onChange={(e) => pos.setNewSerialNumber(e.target.value)}
-                    sx={fieldSx}
-                  />
-                  <button
-                    type="button"
-                    className={styles.secondaryBtn}
-                    disabled={pos.newSerialBusy}
-                    onClick={() => void pos.registerSerial()}
+                  Impresora térmica / QZ Tray
+                </h2>
+                <p>
+                  Instala QZ Tray en esta PC, permite este sitio y elige la
+                  impresora. El cajón se abre por el kick de la impresora en
+                  cobros con efectivo.
+                </p>
+              </div>
+              <div className={styles.posPanelBody}>
+                <div className={styles.cashForm}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                    }}
                   >
-                    {pos.newSerialBusy ? "…" : "Registrar"}
-                  </button>
+                    <button
+                      type="button"
+                      className={styles.secondaryBtn}
+                      disabled={pos.qzBusy}
+                      onClick={() => void pos.refreshQzPrinters()}
+                    >
+                      {pos.qzBusy ? "Buscando…" : "Detectar impresoras"}
+                    </button>
+                    <TextField
+                      select
+                      size="small"
+                      label="Impresora"
+                      value={pos.qzSettings.printerName}
+                      onChange={(e) =>
+                        pos.updateQzSettings({ printerName: e.target.value })
+                      }
+                      sx={{ ...fieldSx, minWidth: 260 }}
+                    >
+                      <MenuItem value="">
+                        <em>Sin seleccionar</em>
+                      </MenuItem>
+                      {(pos.qzPrinters.length
+                        ? pos.qzPrinters
+                        : pos.qzSettings.printerName
+                          ? [pos.qzSettings.printerName]
+                          : []
+                      ).map((name) => (
+                        <MenuItem key={name} value={name}>
+                          {name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      select
+                      size="small"
+                      label="Cajón (comando)"
+                      value={pos.qzSettings.drawerDialect}
+                      onChange={(e) =>
+                        pos.updateQzSettings({
+                          drawerDialect: e.target.value as "epson" | "star",
+                        })
+                      }
+                      sx={{ ...fieldSx, minWidth: 180 }}
+                    >
+                      <MenuItem value="epson">Epson / ESC-POS</MenuItem>
+                      <MenuItem value="star">Star</MenuItem>
+                    </TextField>
+                  </div>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      fontSize: 13,
+                      marginTop: 8,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={pos.qzSettings.autoPrintOnCharge}
+                      onChange={(e) =>
+                        pos.updateQzSettings({
+                          autoPrintOnCharge: e.target.checked,
+                        })
+                      }
+                    />
+                    Imprimir ticket al cobrar
+                  </label>
+                  <label
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      fontSize: 13,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={pos.qzSettings.openDrawerOnCash}
+                      onChange={(e) =>
+                        pos.updateQzSettings({
+                          openDrawerOnCash: e.target.checked,
+                        })
+                      }
+                    />
+                    Abrir cajón en cobros con efectivo
+                  </label>
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className={styles.secondaryBtn}
+                      disabled={pos.qzBusy || !pos.qzSettings.printerName}
+                      onClick={() => void pos.testQzPrint()}
+                    >
+                      Probar ticket
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.secondaryBtn}
+                      disabled={pos.qzBusy || !pos.qzSettings.printerName}
+                      onClick={() => void pos.testQzDrawer()}
+                    >
+                      Abrir cajón
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-                <TextField
-                  size="small"
-                  label="Serie o cliente"
-                  value={pos.serialQuery}
-                  onChange={(e) => pos.setSerialQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void pos.searchSerials();
-                    }
-                  }}
-                  sx={{ ...fieldSx, minWidth: 260, flex: 1 }}
-                />
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={() => void pos.searchSerials()}
-                  disabled={pos.serialSearching}
-                >
-                  {pos.serialSearching ? "Buscando…" : "Buscar"}
-                </button>
-              </div>
-
-              {pos.serialHits.length === 0 ? (
-                <EmptyState
-                  title="Sin resultados"
-                  description="Escribe al menos 2 caracteres y busca una serie."
-                />
-              ) : (
-                <table className={styles.historyTable}>
-                  <thead>
-                    <tr>
-                      <th>Serie</th>
-                      <th>Producto</th>
-                      <th>Estado</th>
-                      <th>Cliente</th>
-                      <th>Garantía</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pos.serialHits.map((s) => (
-                      <tr key={s.idProductSerial}>
-                        <td>
-                          <strong>{s.serialNumber}</strong>
-                        </td>
-                        <td>{s.productName || "—"}</td>
-                        <td>{s.status}</td>
-                        <td>{s.customerName || "—"}</td>
-                        <td>
-                          {s.warrantyExpiresAt
-                            ? new Date(s.warrantyExpiresAt).toLocaleDateString(
-                                "es-MX",
-                              )
-                            : "—"}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className={styles.secondaryBtn}
-                            onClick={() => void pos.openSerialDetail(s.serialNumber)}
-                          >
-                            Ver
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
-              {pos.serialDetail ? (
-                <div className={styles.totalsBox} style={{ marginTop: 16 }}>
-                  <div className={styles.totalsRow}>
-                    <span>Serie</span>
-                    <strong>{pos.serialDetail.serialNumber}</strong>
-                  </div>
-                  <div className={styles.totalsRow}>
-                    <span>Producto</span>
-                    <span>{pos.serialDetail.productName}</span>
-                  </div>
-                  <div className={styles.totalsRow}>
-                    <span>Folio</span>
-                    <span>{pos.serialDetail.folio || "—"}</span>
-                  </div>
-                  <div className={styles.totalsRow}>
-                    <span>Cliente</span>
-                    <span>{pos.serialDetail.customerName || "—"}</span>
-                  </div>
-                  <div className={styles.totalsRow}>
-                    <span>Estado</span>
-                    <span>{pos.serialDetail.status}</span>
-                  </div>
-                  <div className={styles.totalsRow}>
-                    <span>Garantía hasta</span>
-                    <span>
-                      {pos.serialDetail.warrantyExpiresAt
-                        ? new Date(
-                            pos.serialDetail.warrantyExpiresAt,
-                          ).toLocaleDateString("es-MX")
-                        : "—"}
-                    </span>
-                  </div>
-                  {pos.serialDetail.status === "sold" ? (
-                    <>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Notas RMA"
-                        value={pos.rmaNotes}
-                        onChange={(e) => pos.setRmaNotes(e.target.value)}
-                        sx={{ ...fieldSx, mt: 1 }}
-                      />
-                      <button
-                        type="button"
-                        className={styles.dangerBtn}
-                        disabled={pos.rmaBusy}
-                        onClick={() => void pos.markRma()}
-                        style={{ marginTop: 8 }}
-                      >
-                        {pos.rmaBusy ? "Guardando…" : "Marcar RMA"}
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </section>
-        ) : pos.tab === "inventario" ? (
-          <section className={styles.posPanel}>
-            <div className={styles.posPanelHead}>
-              <h2>Movimientos de inventario</h2>
-              <p>
-                Ledger unificado: ventas POS, cancelaciones y ventas web
-                (cuando el webhook aplica el stock).
-              </p>
-            </div>
-            <div className={styles.posPanelBody}>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-                <TextField
-                  select
-                  size="small"
-                  label="Motivo"
-                  value={pos.inventoryReason}
-                  onChange={(e) => pos.setInventoryReason(e.target.value)}
-                  sx={{ ...fieldSx, minWidth: 180 }}
-                >
-                  <MenuItem value="">Todos</MenuItem>
-                  <MenuItem value="pos_sale">Venta POS</MenuItem>
-                  <MenuItem value="pos_cancel">Cancel. POS</MenuItem>
-                  <MenuItem value="web_sale">Venta web</MenuItem>
-                  <MenuItem value="web_sale_branch">Venta web sucursal</MenuItem>
-                </TextField>
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={() => void pos.loadInventory()}
-                >
-                  Actualizar
-                </button>
-              </div>
-              {pos.inventoryLoading ? (
-                <div style={{ display: "grid", placeItems: "center", padding: 40 }}>
-                  <CircularProgress sx={{ color: "#bb3d4b" }} />
-                </div>
-              ) : pos.inventoryRows.length === 0 ? (
-                <EmptyState
-                  title="Sin movimientos"
-                  description="Aún no hay registros en el ledger, o falta aplicar migraciones."
-                />
-              ) : (
-                <table className={styles.historyTable}>
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Producto</th>
-                      <th>Δ</th>
-                      <th>Motivo</th>
-                      <th>Ref</th>
-                      <th>Nota</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pos.inventoryRows.map((m) => (
-                      <tr key={m.idInventoryMovement}>
-                        <td>{new Date(m.createdAt).toLocaleString("es-MX")}</td>
-                        <td>
-                          {m.productName || "—"}
-                          {m.productSku ? (
-                            <div style={{ fontSize: 11, color: "#6b7280" }}>
-                              {m.productSku}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td
-                          style={{
-                            fontWeight: 800,
-                            color: m.delta < 0 ? "#991b1b" : "#166534",
-                          }}
-                        >
-                          {m.delta > 0 ? `+${m.delta}` : m.delta}
-                        </td>
-                        <td>{m.reason}</td>
-                        <td>
-                          {[m.refType, m.refId].filter(Boolean).join(" ")}
-                        </td>
-                        <td>{m.note || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </section>
+            </section>
+          </div>
         ) : (
           <section className={styles.posPanel}>
             <div className={styles.posPanelHead}>
-              <h2>
-                <History size={16} style={{ display: "inline", marginRight: 6 }} />
-                Historial de ventas POS
-              </h2>
-              <p>Consulta, ticket y cancelación con restauración de inventario.</p>
+              <div className={styles.historyHeadRow}>
+                <div>
+                  <h2>
+                    <History
+                      size={18}
+                      style={{ display: "inline", marginRight: 8 }}
+                    />
+                    Historial de ventas POS
+                  </h2>
+                  <p>
+                    Consulta, reimpresión de ticket y cancelaciones con
+                    restauración de inventario.
+                  </p>
+                </div>
+                {!pos.historyLoading && pos.historyTotal > 0 ? (
+                  <div className={styles.historyStat}>
+                    <span className={styles.historyStatLabel}>Resultados</span>
+                    <strong>{pos.historyTotal}</strong>
+                  </div>
+                ) : null}
+              </div>
             </div>
             <div className={styles.posPanelBody}>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+              <div className={styles.historyFilters}>
                 <TextField
                   size="small"
                   label="Folio"
+                  placeholder="PV-0000001"
                   value={pos.historyFolio}
                   onChange={(e) => pos.setHistoryFolio(e.target.value)}
-                  sx={{ ...fieldSx, minWidth: 160 }}
+                  sx={{ ...fieldSx, minWidth: 180, flex: "1 1 160px" }}
                 />
                 <TextField
                   select
@@ -1145,7 +1406,7 @@ export default function PuntoDeVentaPage() {
                   label="Estado"
                   value={pos.historyStatus}
                   onChange={(e) => pos.setHistoryStatus(e.target.value)}
-                  sx={{ ...fieldSx, minWidth: 160 }}
+                  sx={{ ...fieldSx, minWidth: 180, flex: "1 1 160px" }}
                 >
                   <MenuItem value="">Todos</MenuItem>
                   <MenuItem value="completed">Completada</MenuItem>
@@ -1154,7 +1415,8 @@ export default function PuntoDeVentaPage() {
                 </TextField>
                 <button
                   type="button"
-                  className={styles.secondaryBtn}
+                  className={styles.chargeBtn}
+                  style={{ marginTop: 0, width: "auto", padding: "10px 18px" }}
                   onClick={() => void pos.loadHistory(1)}
                 >
                   Filtrar
@@ -1162,7 +1424,9 @@ export default function PuntoDeVentaPage() {
               </div>
 
               {pos.historyLoading ? (
-                <div style={{ display: "grid", placeItems: "center", padding: 40 }}>
+                <div
+                  style={{ display: "grid", placeItems: "center", padding: 48 }}
+                >
                   <CircularProgress sx={{ color: "#bb3d4b" }} />
                 </div>
               ) : pos.history.length === 0 ? (
@@ -1172,46 +1436,117 @@ export default function PuntoDeVentaPage() {
                 />
               ) : (
                 <>
-                  <table className={styles.historyTable}>
-                    <thead>
-                      <tr>
-                        <th>Folio</th>
-                        <th>Fecha</th>
-                        <th>Cliente</th>
-                        <th>Total</th>
-                        <th>Estado</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pos.history.map((sale) => (
-                        <tr key={sale.idPosSale}>
-                          <td>
-                            <strong>{sale.folio}</strong>
-                          </td>
-                          <td>
-                            {new Date(sale.createdAt).toLocaleString("es-MX")}
-                          </td>
-                          <td>{sale.customerName || "Público general"}</td>
-                          <td>{money(sale.total)}</td>
-                          <td>
-                            <span className={`${styles.badge} ${statusBadge(sale.status)}`}>
-                              {statusLabel(sale.status)}
-                            </span>
-                          </td>
-                          <td>
+                  <div className={styles.historyList}>
+                    {pos.history.map((sale) => {
+                      const paySummary =
+                        sale.payments?.length > 0
+                          ? sale.payments
+                              .map(
+                                (p) =>
+                                  POS_PAYMENT_LABELS[p.method] || p.method,
+                              )
+                              .join(" · ")
+                          : "Sin pagos";
+                      const itemCount = sale.items?.length || 0;
+                      return (
+                        <article
+                          key={sale.idPosSale}
+                          className={styles.historyCard}
+                        >
+                          <div className={styles.historyCardMain}>
+                            <div className={styles.historyCardTop}>
+                              <div className={styles.historyFolioBlock}>
+                                <span className={styles.historyFolio}>
+                                  {sale.folio}
+                                </span>
+                                <span
+                                  className={`${styles.badge} ${statusBadge(sale.status)}`}
+                                >
+                                  {statusLabel(sale.status)}
+                                </span>
+                              </div>
+                              <div className={styles.historyTotal}>
+                                {money(sale.total)}
+                              </div>
+                            </div>
+                            <div className={styles.historyMetaGrid}>
+                              <div>
+                                <span className={styles.historyMetaLabel}>
+                                  Fecha
+                                </span>
+                                <span className={styles.historyMetaValue}>
+                                  {new Date(sale.createdAt).toLocaleString(
+                                    "es-MX",
+                                  )}
+                                </span>
+                              </div>
+                              <div>
+                                <span className={styles.historyMetaLabel}>
+                                  Cliente
+                                </span>
+                                <span className={styles.historyMetaValue}>
+                                  {sale.customerName || "Público general"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className={styles.historyMetaLabel}>
+                                  Vendedor
+                                </span>
+                                <span className={styles.historyMetaValue}>
+                                  {sale.cashierName || "—"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className={styles.historyMetaLabel}>
+                                  Pago
+                                </span>
+                                <span className={styles.historyMetaValue}>
+                                  {paySummary}
+                                </span>
+                              </div>
+                            </div>
+                            <div className={styles.historyChips}>
+                              <span className={styles.historyChip}>
+                                {itemCount}{" "}
+                                {itemCount === 1 ? "producto" : "productos"}
+                              </span>
+                              {[sale.branchName, sale.branchCity]
+                                .filter(Boolean)
+                                .length > 0 ? (
+                                <span className={styles.historyChip}>
+                                  {[sale.branchName, sale.branchCity]
+                                    .filter(Boolean)
+                                    .join(" — ")}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className={styles.historyCardActions}>
                             <button
                               type="button"
                               className={styles.secondaryBtn}
-                              onClick={() => void pos.openDetail(sale.idPosSale)}
+                              onClick={() =>
+                                void pos.openDetail(sale.idPosSale)
+                              }
                             >
                               Ver
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            <button
+                              type="button"
+                              className={styles.primaryOutlineBtn}
+                              onClick={() => pos.openTicket(sale.idPosSale)}
+                            >
+                              <Printer
+                                size={14}
+                                style={{ display: "inline", marginRight: 4 }}
+                              />
+                              Imprimir ticket
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
                   {pos.historyTotalPages > 1 ? (
                     <div style={{ marginTop: 16 }}>
                       <ModernPagination
@@ -1230,66 +1565,162 @@ export default function PuntoDeVentaPage() {
         )}
 
         {pos.detailSale ? (
-          <div className={styles.drawer} role="dialog" aria-modal="true">
-            <div className={styles.drawerPanel}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h3 style={{ margin: 0 }}>{pos.detailSale.folio}</h3>
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={() => pos.setDetailSale(null)}
-                >
-                  <X size={16} />
-                </button>
+          <div
+            className={styles.drawer}
+            role="dialog"
+            aria-modal="true"
+            onClick={() => pos.setDetailSale(null)}
+          >
+            <div
+              className={`${styles.drawerPanel} ${styles.detailDrawer}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={styles.detailHero}>
+                <div className={styles.detailHeroTop}>
+                  <div>
+                    <p className={styles.detailEyebrow}>Detalle de venta</p>
+                    <h3 className={styles.detailFolio}>
+                      {pos.detailSale.folio}
+                    </h3>
+                    <p className={styles.detailWhen}>
+                      {new Date(pos.detailSale.createdAt).toLocaleString(
+                        "es-MX",
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    onClick={() => pos.setDetailSale(null)}
+                    aria-label="Cerrar"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <div className={styles.detailHeroBottom}>
+                  <span
+                    className={`${styles.badge} ${statusBadge(pos.detailSale.status)}`}
+                  >
+                    {statusLabel(pos.detailSale.status)}
+                  </span>
+                  <div className={styles.detailHeroTotal}>
+                    <span>Total</span>
+                    <strong>{money(pos.detailSale.total)}</strong>
+                  </div>
+                </div>
               </div>
-              <p style={{ color: "#6b7280", fontSize: 13 }}>
-                {new Date(pos.detailSale.createdAt).toLocaleString("es-MX")} ·{" "}
-                {statusLabel(pos.detailSale.status)}
-              </p>
-              <p style={{ fontSize: 14 }}>
-                <strong>Cliente:</strong> {pos.detailSale.customerName}
-                <br />
-                <strong>Vendedor:</strong> {pos.detailSale.cashierName || "—"}
-                <br />
-                <strong>Sucursal:</strong>{" "}
-                {[pos.detailSale.branchName, pos.detailSale.branchCity]
-                  .filter(Boolean)
-                  .join(" — ")}
-                <br />
-                <strong>Total:</strong> {money(pos.detailSale.total)}
-              </p>
 
-              <h4 style={{ marginTop: 16 }}>Productos</h4>
-              <ul style={{ paddingLeft: 18, fontSize: 13 }}>
-                {pos.detailSale.items.map((it) => (
-                  <li key={it.idPosSaleItem}>
-                    {it.quantity} × {it.productName} — {money(it.lineTotal)}
-                    {it.serials && it.serials.length > 0 ? (
-                      <div style={{ color: "#6b7280", fontSize: 12 }}>
-                        S/N: {it.serials.map((s) => s.serialNumber).join(", ")}
+              <div className={styles.detailGrid}>
+                <div className={styles.detailTile}>
+                  <span className={styles.historyMetaLabel}>Cliente</span>
+                  <strong>{pos.detailSale.customerName || "—"}</strong>
+                  {pos.detailSale.customerPhone ? (
+                    <span className={styles.detailTileSub}>
+                      {pos.detailSale.customerPhone}
+                    </span>
+                  ) : null}
+                  {pos.detailSale.customerEmail ? (
+                    <span className={styles.detailTileSub}>
+                      {pos.detailSale.customerEmail}
+                    </span>
+                  ) : null}
+                </div>
+                <div className={styles.detailTile}>
+                  <span className={styles.historyMetaLabel}>Vendedor</span>
+                  <strong>{pos.detailSale.cashierName || "—"}</strong>
+                </div>
+                <div className={styles.detailTile}>
+                  <span className={styles.historyMetaLabel}>Caja PCinBOX</span>
+                  <strong>
+                    {[pos.detailSale.branchName, pos.detailSale.branchCity]
+                      .filter(Boolean)
+                      .join(" — ") || "Sucursal PCinBOX"}
+                  </strong>
+                </div>
+                <div className={styles.detailTile}>
+                  <span className={styles.historyMetaLabel}>Resumen</span>
+                  <strong>
+                    {pos.detailSale.items.length} producto
+                    {pos.detailSale.items.length === 1 ? "" : "s"}
+                  </strong>
+                  <span className={styles.detailTileSub}>
+                    Subtotal {money(pos.detailSale.subtotal)}
+                  </span>
+                </div>
+              </div>
+
+              <section className={styles.detailSection}>
+                <h4>Productos</h4>
+                <div className={styles.detailItems}>
+                  {pos.detailSale.items.map((it) => (
+                    <div key={it.idPosSaleItem} className={styles.detailItem}>
+                      <div className={styles.detailItemMain}>
+                        <strong>
+                          {it.quantity} × {it.productName}
+                        </strong>
+                        {it.branchLabel || it.branchName ? (
+                          <span>
+                            Bodega:{" "}
+                            {it.branchLabel ||
+                              [it.branchName, it.branchCity]
+                                .filter(Boolean)
+                                .join(" — ")}
+                          </span>
+                        ) : null}
+                        {it.serials && it.serials.length > 0 ? (
+                          <span>
+                            S/N:{" "}
+                            {it.serials.map((s) => s.serialNumber).join(", ")}
+                          </span>
+                        ) : null}
                       </div>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+                      <div className={styles.detailItemPrice}>
+                        {money(it.lineTotal)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
 
-              <h4 style={{ marginTop: 16 }}>Pagos</h4>
-              <ul style={{ paddingLeft: 18, fontSize: 13 }}>
-                {pos.detailSale.payments.map((p) => (
-                  <li key={p.idPosPayment}>
-                    {POS_PAYMENT_LABELS[p.method] || p.method}: {money(p.amount)}
-                    {p.reference ? ` (${p.reference})` : ""}
-                  </li>
-                ))}
-              </ul>
+              <section className={styles.detailSection}>
+                <h4>Pagos</h4>
+                <div className={styles.detailPayments}>
+                  {pos.detailSale.payments.map((p) => (
+                    <div key={p.idPosPayment} className={styles.detailPayment}>
+                      <span>
+                        {POS_PAYMENT_LABELS[p.method] || p.method}
+                        {p.reference ? (
+                          <em className={styles.detailTileSub}>
+                            {" "}
+                            · {p.reference}
+                          </em>
+                        ) : null}
+                      </span>
+                      <strong>{money(p.amount)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {pos.detailSale.notes ? (
+                <section className={styles.detailSection}>
+                  <h4>Notas</h4>
+                  <p className={styles.detailNotes}>{pos.detailSale.notes}</p>
+                </section>
+              ) : null}
 
               <div className={styles.drawerActions}>
                 <button
                   type="button"
-                  className={styles.secondaryBtn}
+                  className={styles.chargeBtn}
+                  style={{ marginTop: 0, width: "auto" }}
                   onClick={() => pos.openTicket(pos.detailSale!.idPosSale)}
                 >
-                  Ver ticket
+                  <Printer
+                    size={14}
+                    style={{ display: "inline", marginRight: 6 }}
+                  />
+                  Imprimir ticket
                 </button>
                 {pos.detailSale.status === "pending_payment" ? (
                   <>
@@ -1319,55 +1750,93 @@ export default function PuntoDeVentaPage() {
                     <button
                       type="button"
                       className={styles.chargeBtn}
-                      style={{ marginTop: 0 }}
+                      style={{ marginTop: 0, width: "auto" }}
                       onClick={() => void pos.confirmPayment()}
                     >
                       Confirmar pago (descontar stock)
                     </button>
                   </>
                 ) : null}
-                {pos.detailSale.status !== "cancelled" ? (
-                  <>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Motivo de cancelación"
-                      value={pos.cancelReason}
-                      onChange={(e) => pos.setCancelReason(e.target.value)}
-                      sx={fieldSx}
-                      multiline
-                      minRows={2}
-                    />
-                    <button
-                      type="button"
-                      className={styles.dangerBtn}
-                      disabled={pos.cancelling}
-                      onClick={() => void pos.cancelSale()}
-                    >
-                      {pos.cancelling ? "Cancelando…" : "Cancelar venta"}
-                    </button>
-                  </>
-                ) : (
-                  <p style={{ color: "#991b1b", fontSize: 13 }}>
+              </div>
+
+              {pos.detailSale.status !== "cancelled" ? (
+                <div className={styles.detailCancelBox}>
+                  {pos.cancelGate.allowed ? (
+                    <>
+                      <h4>Cancelación</h4>
+                      <p className={styles.detailTileSub}>
+                        Restaura inventario y registra el evento de auditoría.
+                      </p>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Motivo de cancelación"
+                        value={pos.cancelReason}
+                        onChange={(e) => pos.setCancelReason(e.target.value)}
+                        sx={{ ...fieldSx, mt: 1 }}
+                        multiline
+                        minRows={2}
+                      />
+                      <button
+                        type="button"
+                        className={styles.dangerBtn}
+                        disabled={pos.cancelling}
+                        onClick={() => void pos.cancelSale()}
+                        style={{ marginTop: 10 }}
+                      >
+                        {pos.cancelling ? "Cancelando…" : "Cancelar venta"}
+                      </button>
+                    </>
+                  ) : (
+                    <p className={styles.detailWarn}>
+                      {pos.cancelGate.reason ||
+                        "No tienes permiso para cancelar esta venta."}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className={styles.detailCancelBox}>
+                  <h4>Venta cancelada</h4>
+                  <p className={styles.detailWarn}>
                     Motivo: {pos.detailSale.cancelReason || "—"}
                   </p>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         ) : null}
 
         {pos.ticketOpen && pos.lastSale ? (
-          <div className={styles.drawer} role="dialog" aria-modal="true">
-            <div className={styles.drawerPanel} style={{ height: "auto", maxHeight: "90vh", placeSelf: "center", borderRadius: 16, width: "min(420px, 94vw)" }}>
+          <div
+            className={styles.drawer}
+            role="dialog"
+            aria-modal="true"
+            onClick={() => pos.setTicketOpen(false)}
+          >
+            <div
+              className={styles.drawerPanel}
+              style={{
+                height: "auto",
+                maxHeight: "90vh",
+                placeSelf: "center",
+                borderRadius: 16,
+                width: "min(420px, 94vw)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <h3 style={{ marginTop: 0 }}>Venta {pos.lastSale.folio}</h3>
               <p style={{ fontSize: 14 }}>
-                Total {money(pos.lastSale.total)} · {statusLabel(pos.lastSale.status)}
+                Total {money(pos.lastSale.total)} ·{" "}
+                {statusLabel(pos.lastSale.status)}
               </p>
               {pos.lastPaymentLink ? (
                 <p style={{ fontSize: 13, wordBreak: "break-all" }}>
                   Link de pago:{" "}
-                  <a href={pos.lastPaymentLink} target="_blank" rel="noreferrer">
+                  <a
+                    href={pos.lastPaymentLink}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {pos.lastPaymentLink}
                   </a>
                 </p>
@@ -1379,7 +1848,11 @@ export default function PuntoDeVentaPage() {
                   style={{ marginTop: 0 }}
                   onClick={() => pos.openTicket(pos.lastSale!.idPosSale)}
                 >
-                  Abrir / imprimir ticket
+                  <Printer
+                    size={14}
+                    style={{ display: "inline", marginRight: 6 }}
+                  />
+                  Imprimir ticket
                 </button>
                 {pos.lastPaymentLink ? (
                   <button
