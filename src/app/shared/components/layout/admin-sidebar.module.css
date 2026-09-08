@@ -7,9 +7,11 @@
   flex-direction: column;
   width: 260px;
   height: 100vh;
-  background: linear-gradient(180deg, #1a1d29 0%, #12141c 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+  background:
+    radial-gradient(ellipse 120% 80% at 0% 0%, rgba(187, 61, 75, 0.14), transparent 55%),
+    linear-gradient(180deg, #1a1d29 0%, #12141c 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.18);
   transform: translateX(0);
   transition: width 0.28s ease, transform 0.28s ease, box-shadow 0.28s ease;
   overflow-x: hidden;
@@ -163,7 +165,9 @@
 .navItemActive {
   background: linear-gradient(135deg, #bb3d4b 0%, #9a2f3b 100%);
   color: #fff;
-  box-shadow: 0 8px 20px rgba(187, 61, 75, 0.35);
+  box-shadow:
+    0 8px 24px rgba(187, 61, 75, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .footer {

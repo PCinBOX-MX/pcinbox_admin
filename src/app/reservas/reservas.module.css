@@ -27,9 +27,10 @@
 .filters {
   padding: 1.25rem;
   margin-bottom: 1.5rem;
-  border: 1px solid #f3f4f6;
-  border-radius: 0.75rem;
-  background: rgba(249, 250, 251, 0.8);
+  border: 1px solid var(--admin-border, #e8ecf4);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
 }
 
 .filtersTitle {
