@@ -3,44 +3,59 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryParams } from "../hooks/useQueryParams";
 import TableComponent from "../shared/components/especific/table/TableComponent";
-import GridCustomer from "./gridCustomer";
+import GridCustomer, { CustomerRow } from "./gridCustomer";
+import DeleteAccountConfirmContent from "./DeleteAccountConfirmContent";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import AdminRefreshButton from "../shared/components/common/buttons/AdminRefreshButton";
+import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefreshablePanel";
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import { TextField, Alert } from "@mui/material";
-import { Filter, RefreshCw, Search, X } from "lucide-react";
+import {
+  Filter,
+  RefreshCw,
+  Search,
+  UserCheck,
+  UserMinus,
+  Users,
+  X,
+} from "lucide-react";
 import { useRequestSequence } from "../hooks/useRequestSequence";
+import { useTheContext } from "../hooks/global.hook";
+import usePermissions from "../hooks/usePermissions";
+import { resolveApiErrorMessage } from "../utils/apiErrorMessage";
+import styles from "./customer.module.css";
+import { adminFieldSx } from "../theme/adminFieldSx";
+import { parsePageParam } from "../utils/adminPagination";
 
-const fieldSx = {
-  "& .MuiOutlinedInput-root": {
-    borderRadius: "10px",
-    "&:hover fieldset": { borderColor: "#bb3d4b" },
-    "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
-  },
-  "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
-};
+function displayName(row: CustomerRow) {
+  return [row.name, row.lastname].filter(Boolean).join(" ").trim() || "este usuario";
+}
 
 const Customer = () => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const { requestGetProveedores } = ProveedoresUtils();
+  const { requestGetProveedores, requestPostProveedores } = ProveedoresUtils();
+  const { setDataModal } = useTheContext();
+  const { can } = usePermissions();
+  const canDeactivate = can("users.deactivate");
   const { nextSequence, isCurrent } = useRequestSequence();
-  const [dataRows, setDataRows] = useState<any[]>([]);
+  const [dataRows, setDataRows] = useState<CustomerRow[]>([]);
   const [totalRows, setTotalRows] = useState(0);
+  const [deactivatingId, setDeactivatingId] = useState<number | string | null>(
+    null,
+  );
   const { searchParams, setQueryParams } = useQueryParams();
   const searchParam = searchParams.get("search") || "";
-  const pageParam = parseInt(searchParams.get("page") || "0", 10);
+  const pageParam = parsePageParam(searchParams.get("page"), 1);
   const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
 
   const [search, setSearch] = useState(searchParam);
   const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
-  const [paginationModel, setPaginationModel] = useState({
-    page: pageParam,
-    pageSize: pageSizeParam,
-  });
+  const [page, setPage] = useState(pageParam);
+  const [pageSize, setPageSize] = useState(pageSizeParam);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState("");
 
@@ -49,26 +64,25 @@ const Customer = () => {
       setSearch(searchParam);
       setDebouncedSearch(searchParam);
     }
-    if (pageParam !== paginationModel.page || pageSizeParam !== paginationModel.pageSize) {
-      setPaginationModel({ page: pageParam, pageSize: pageSizeParam });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (pageParam !== page) setPage(pageParam);
+    if (pageSizeParam !== pageSize) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
     setQueryParams({
       search: debouncedSearch,
-      page: paginationModel.page,
-      pageSize: paginationModel.pageSize,
+      page,
+      pageSize,
     });
-  }, [debouncedSearch, paginationModel, setQueryParams]);
+  }, [debouncedSearch, page, pageSize, setQueryParams]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-      if (search.trim() !== debouncedSearch) {
-        setPaginationModel((prev) => ({ ...prev, page: 0 }));
-      }
+      const trimmed = search.trim();
+      if (trimmed === debouncedSearch) return;
+      setDebouncedSearch(trimmed);
+      setPage(1);
     }, 450);
     return () => clearTimeout(handler);
   }, [search, debouncedSearch]);
@@ -78,18 +92,27 @@ const Customer = () => {
     setLoading(true);
     setListError("");
     try {
-      const page = paginationModel.page + 1;
       const params = new URLSearchParams({
         page: String(page),
-        pageSize: String(paginationModel.pageSize),
+        pageSize: String(pageSize),
       });
       if (debouncedSearch) params.set("search", debouncedSearch);
 
-      const resp = await requestGetProveedores(`/listUsers?${params.toString()}`);
+      const resp = await requestGetProveedores(
+        `/listUsers?${params.toString()}`,
+        { silent: true },
+      );
       if (!isCurrent(sequence)) return;
       if (resp.status === 200) {
-        setDataRows(resp.data.users);
-        setTotalRows(resp.data.totalUsers);
+        const payload = resp.data;
+        const users = payload?.users ?? payload?.data?.users ?? [];
+        const total =
+          payload?.totalUsers ??
+          payload?.data?.totalUsers ??
+          payload?.data?.totalRows ??
+          0;
+        setDataRows(Array.isArray(users) ? users : []);
+        setTotalRows(Number(total) || 0);
       } else {
         setDataRows([]);
         setTotalRows(0);
@@ -104,8 +127,8 @@ const Customer = () => {
       if (isCurrent(sequence)) setLoading(false);
     }
   }, [
-    paginationModel.page,
-    paginationModel.pageSize,
+    page,
+    pageSize,
     debouncedSearch,
     requestGetProveedores,
     nextSequence,
@@ -116,24 +139,120 @@ const Customer = () => {
     void loadCustomers();
   }, [loadCustomers]);
 
+  const closeModal = useCallback(() => {
+    setDataModal((prev) => {
+      if (prev.loading) return prev;
+      return { ...prev, isOpen: false, loading: false };
+    });
+  }, [setDataModal]);
+
+  const promptDeleteAccount = useCallback(
+    (row: CustomerRow) => {
+      if (!canDeactivate) return;
+      const idUser = row.idUser;
+      if (idUser == null) return;
+
+      const name = displayName(row);
+
+      const runDeactivate = async () => {
+        setDataModal((prev) => ({ ...prev, loading: true }));
+        setDeactivatingId(idUser);
+        try {
+          await requestPostProveedores(
+            {},
+            `/deactivateUser/${encodeURIComponent(String(idUser))}`,
+            { silent: true },
+          );
+
+          setDataRows((prev) =>
+            prev.map((item) =>
+              String(item.idUser) === String(idUser)
+                ? { ...item, active: 0 }
+                : item,
+            ),
+          );
+
+          setDataModal({
+            isOpen: true,
+            type: "success",
+            title: "Cuenta desactivada",
+            content: `El acceso de ${name} se eliminó de forma permanente (cuenta inactiva).`,
+            showActions: true,
+            loading: false,
+            onClose: closeModal,
+            onConfirm: closeModal,
+          });
+        } catch (error) {
+          setDataModal({
+            isOpen: true,
+            type: "error",
+            title: "No se pudo eliminar",
+            content: resolveApiErrorMessage(
+              error,
+              "No pudimos desactivar la cuenta. Intenta de nuevo.",
+            ),
+            showActions: true,
+            loading: false,
+            onClose: closeModal,
+            onConfirm: closeModal,
+          });
+        } finally {
+          setDeactivatingId(null);
+        }
+      };
+
+      setDataModal({
+        isOpen: true,
+        type: "error",
+        title: "Eliminar cuenta",
+        content: (
+          <DeleteAccountConfirmContent
+            idUser={idUser}
+            name={name}
+            email={row.email}
+            phone={row.phone}
+          />
+        ),
+        showActions: true,
+        loading: false,
+        confirmLabel: "Eliminar cuenta",
+        cancelLabel: "Conservar acceso",
+        maxWidth: "min(92vw, 520px)",
+        onClose: closeModal,
+        onConfirm: () => {
+          void runDeactivate();
+        },
+      });
+    },
+    [
+      canDeactivate,
+      closeModal,
+      requestPostProveedores,
+      setDataModal,
+    ],
+  );
+
   const { columns } = GridCustomer({
     rows: { data: dataRows, totalRows },
+    canDeactivate,
+    deactivatingId,
+    onDeleteAccount: promptDeleteAccount,
   });
 
-  const pageCount = Math.ceil(totalRows / paginationModel.pageSize);
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
+  const paginationModel = { page: page - 1, pageSize };
 
   const paginationBlock = (
     <ModernPagination
-      page={paginationModel.page + 1}
+      page={page}
       pageCount={pageCount}
       totalItems={totalRows}
-      pageSize={paginationModel.pageSize}
-      onPageChange={(p) =>
-        setPaginationModel((prev) => ({ ...prev, page: p - 1 }))
-      }
-      onPageSizeChange={(size) =>
-        setPaginationModel({ page: 0, pageSize: size })
-      }
+      pageSize={pageSize}
+      onPageChange={setPage}
+      onPageSizeChange={(size) => {
+        setPage(1);
+        setPageSize(size);
+      }}
       label="clientes"
     />
   );
@@ -142,6 +261,16 @@ const Customer = () => {
     () => dataRows.map((row, i) => ({ ...row, id: row.idUser ?? i })),
     [dataRows],
   );
+
+  const pageStats = useMemo(() => {
+    let active = 0;
+    let inactive = 0;
+    for (const row of rowsWithId) {
+      if (row.active == 1 || row.active === true) active += 1;
+      else inactive += 1;
+    }
+    return { active, inactive };
+  }, [rowsWithId]);
 
   const reloadCustomers = () => {
     void loadCustomers();
@@ -154,7 +283,11 @@ const Customer = () => {
       title="Clientes"
       subtitle="Usuarios registrados en la plataforma"
       actions={
-        <AdminRefreshButton onClick={reloadCustomers} loading={loading} />
+        <AdminRefreshButton
+          onClick={reloadCustomers}
+          loading={loading}
+          label="Sincronizar"
+        />
       }
       filters={
         <>
@@ -170,9 +303,11 @@ const Customer = () => {
               onChange={(e) => {
                 setSearch(e.target.value);
               }}
-              sx={fieldSx}
+              sx={adminFieldSx}
               InputProps={{
-                startAdornment: <Search size={18} className="admin-filter-icon" />,
+                startAdornment: (
+                  <Search size={18} className="admin-filter-icon" />
+                ),
               }}
             />
             <button
@@ -181,8 +316,8 @@ const Customer = () => {
               onClick={() => {
                 setSearch("");
                 setDebouncedSearch("");
-                setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                setQueryParams({ search: "", page: 0 });
+                setPage(1);
+                setQueryParams({ search: "", page: 1 });
               }}
               disabled={!search && !debouncedSearch}
             >
@@ -192,8 +327,8 @@ const Customer = () => {
           </div>
         </>
       }
-      paginationTop={rowsWithId.length ? paginationBlock : undefined}
-      paginationBottom={rowsWithId.length ? paginationBlock : undefined}
+      paginationTop={totalRows > 0 ? paginationBlock : undefined}
+      paginationBottom={totalRows > 0 ? paginationBlock : undefined}
     >
       {listError ? (
         <div className="admin-empty-state" style={{ display: "grid", gap: 12 }}>
@@ -208,28 +343,95 @@ const Customer = () => {
             Reintentar
           </button>
         </div>
-      ) : rowsWithId.length > 0 ? (
-        <TableComponent
-          loading={loading}
-          hideFooter
-          paginationModel={paginationModel}
-          handlePaginationChange={() => {}}
-          totalRows={totalRows}
-          columnsDataGrid={columns}
-          rowsDataGrid={rowsWithId}
-        />
       ) : (
-        <div className="admin-empty-state">
-          <EmptyState
-            title={loading ? "Cargando clientes..." : "Sin clientes"}
-            description={
-              loading
-                ? "Estamos obteniendo la lista de clientes."
-                : "No se encontraron clientes con los filtros actuales."
+        <>
+          <div className={styles.pageIntro}>
+            <p className={styles.pageIntroText}>
+              Gestiona el padrón de clientes: revisa contacto, estado de cuenta y
+              desactiva accesos cuando sea necesario.{" "}
+              <strong>Eliminar cuenta</strong> pone{" "}
+              <strong>active = 0</strong> (soft-delete), sin borrar historial.
+            </p>
+          </div>
+
+          {totalRows > 0 ? (
+            <div className={styles.summaryStrip}>
+              <div
+                className={`${styles.summaryCard} ${styles.summaryCardAccent}`}
+              >
+                <span className={styles.summaryIcon} aria-hidden>
+                  <Users size={18} />
+                </span>
+                <div>
+                  <span className={styles.summaryLabel}>Total clientes</span>
+                  <span className={styles.summaryValue}>
+                    {totalRows.toLocaleString("es-MX")}
+                  </span>
+                </div>
+              </div>
+              <div
+                className={`${styles.summaryCard} ${styles.summaryCardSuccess}`}
+              >
+                <span
+                  className={`${styles.summaryIcon} ${styles.summaryIconSuccess}`}
+                  aria-hidden
+                >
+                  <UserCheck size={18} />
+                </span>
+                <div>
+                  <span className={styles.summaryLabel}>Activos (vista)</span>
+                  <span className={styles.summaryValue}>
+                    {pageStats.active.toLocaleString("es-MX")}
+                  </span>
+                </div>
+              </div>
+              <div
+                className={`${styles.summaryCard} ${styles.summaryCardMuted}`}
+              >
+                <span
+                  className={`${styles.summaryIcon} ${styles.summaryIconMuted}`}
+                  aria-hidden
+                >
+                  <UserMinus size={18} />
+                </span>
+                <div>
+                  <span className={styles.summaryLabel}>Inactivos (vista)</span>
+                  <span className={styles.summaryValue}>
+                    {pageStats.inactive.toLocaleString("es-MX")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <AdminRefreshablePanel
+            loading={loading}
+            hasContent={rowsWithId.length > 0}
+            emptyState={
+              <div className="admin-empty-state">
+                <EmptyState
+                  title={loading ? "Cargando clientes..." : "Sin clientes"}
+                  description={
+                    loading
+                      ? "Estamos sincronizando la lista de clientes."
+                      : "No se encontraron clientes con los filtros actuales."
+                  }
+                  icon="customers"
+                />
+              </div>
             }
-            icon="customers"
-          />
-        </div>
+          >
+            <TableComponent
+              loading={loading}
+              hideFooter
+              paginationModel={paginationModel}
+              handlePaginationChange={() => {}}
+              totalRows={totalRows}
+              columnsDataGrid={columns}
+              rowsDataGrid={rowsWithId}
+            />
+          </AdminRefreshablePanel>
+        </>
       )}
     </AdminPageShell>
   );

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import EmptyState from "../../common/emptyState/EmptyState";
 import { Alert, Chip } from "@mui/material";
 import { Clock3, Mail, Package, UserRound } from "lucide-react";
 import SendDeliveryStatusEmailPanel from "./SendDeliveryStatusEmailPanel";
 import ShipmentGroupSection from "./ShipmentGroupSection";
+import OrderCancelSection from "@/app/components/admin/OrderCancelSection";
 import {
   getPaymentStatusLabel,
   isOrderPaid,
@@ -17,22 +18,67 @@ import {
 } from "@/app/utils/orderShipmentGroups";
 import { orderModalSpacing as sp } from "./orderModalSpacing";
 
+const STATUS_CHANGE_COOLDOWN_MS = 3000;
+
 const DataProducts = ({
   params,
   handleChangeStatusShip,
   handleChangeStatusShipByShipment,
   promptShipCancelReason,
   onSaleLicenseDelivered,
+  openCancelOrderModal,
+  canCancelOrder,
 }: any) => {
   const [products, setProducts] = useState(params.value || []);
   const [updatingSaleId, setUpdatingSaleId] = useState<number | null>(null);
   const [updatingShipmentId, setUpdatingShipmentId] = useState<number | null>(
     null,
   );
+  const [cooldownSaleIds, setCooldownSaleIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [cooldownShipmentIds, setCooldownShipmentIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [bulkCooldownUntil, setBulkCooldownUntil] = useState(0);
+  const [, setCooldownTick] = useState(0);
 
   useEffect(() => {
     setProducts(params.value || []);
   }, [params.value]);
+
+  const armSaleCooldown = useCallback((idSale: number) => {
+    setCooldownSaleIds((prev) => new Set(prev).add(idSale));
+    setTimeout(() => {
+      setCooldownSaleIds((prev) => {
+        const next = new Set(prev);
+        next.delete(idSale);
+        return next;
+      });
+      setCooldownTick((tick) => tick + 1);
+    }, STATUS_CHANGE_COOLDOWN_MS);
+  }, []);
+
+  const armShipmentCooldown = useCallback((idShipment: number) => {
+    setCooldownShipmentIds((prev) => new Set(prev).add(idShipment));
+    setTimeout(() => {
+      setCooldownShipmentIds((prev) => {
+        const next = new Set(prev);
+        next.delete(idShipment);
+        return next;
+      });
+      setCooldownTick((tick) => tick + 1);
+    }, STATUS_CHANGE_COOLDOWN_MS);
+  }, []);
+
+  const armBulkCooldown = useCallback(() => {
+    const until = Date.now() + STATUS_CHANGE_COOLDOWN_MS;
+    setBulkCooldownUntil(until);
+    setTimeout(() => {
+      setBulkCooldownUntil(0);
+      setCooldownTick((tick) => tick + 1);
+    }, STATUS_CHANGE_COOLDOWN_MS);
+  }, []);
 
   const { physical, digital } = useMemo(
     () => groupOrderProductsByShipment(products),
@@ -45,12 +91,16 @@ const DataProducts = ({
   );
 
   const idOrder = Number(params?.row?.idOrder || 0);
+  const statusPay = params?.row?.statusPay;
+  const bulkOnCooldown = bulkCooldownUntil > Date.now();
 
   const handleProductStatusChange = async (
     event: { target: { value: string } },
     idSale: number,
     options?: { cancelReason?: string },
   ) => {
+    if (cooldownSaleIds.has(Number(idSale))) return false;
+
     const prevStatus = products.find(
       (p: any) => Number(p.idSale) === Number(idSale),
     )?.statusShip;
@@ -62,7 +112,11 @@ const DataProducts = ({
       setProducts((prev: any[]) =>
         prev.map((p: any) =>
           Number(p.idSale) === Number(idSale)
-            ? { ...p, statusShip: nextStatus }
+            ? {
+                ...p,
+                statusShip: nextStatus,
+                statusChangedAt: new Date().toISOString(),
+              }
             : p,
         ),
       );
@@ -90,10 +144,17 @@ const DataProducts = ({
         setProducts((prev: any[]) =>
           prev.map((p: any) =>
             Number(p.idSale) === Number(idSale)
-              ? { ...p, statusShip: nextStatus }
+              ? {
+                  ...p,
+                  statusShip: nextStatus,
+                  statusChangedAt: new Date().toISOString(),
+                }
               : p,
           ),
         );
+        armSaleCooldown(Number(idSale));
+      } else {
+        armSaleCooldown(Number(idSale));
       }
       return ok;
     } catch {
@@ -117,6 +178,8 @@ const DataProducts = ({
     idShipment: number,
     options?: { cancelReason?: string },
   ) => {
+    if (cooldownShipmentIds.has(Number(idShipment))) return false;
+
     const nextStatus = event.target.value;
     const isCancel = nextStatus === "cancelado";
     const previous = products.map((p: any) => ({ ...p }));
@@ -130,7 +193,11 @@ const DataProducts = ({
         prev.map((p: any) =>
           Number(p.idShipment) === Number(idShipment) ||
           affectedSaleIds.includes(Number(p.idSale))
-            ? { ...p, statusShip: nextStatus }
+            ? {
+                ...p,
+                statusShip: nextStatus,
+                statusChangedAt: new Date().toISOString(),
+              }
             : p,
         ),
       );
@@ -152,10 +219,19 @@ const DataProducts = ({
           prev.map((p: any) =>
             Number(p.idShipment) === Number(idShipment) ||
             affectedSaleIds.includes(Number(p.idSale))
-              ? { ...p, statusShip: nextStatus }
+              ? {
+                  ...p,
+                  statusShip: nextStatus,
+                  statusChangedAt: new Date().toISOString(),
+                }
               : p,
           ),
         );
+        armShipmentCooldown(Number(idShipment));
+        affectedSaleIds.forEach((id) => armSaleCooldown(id));
+      } else {
+        armShipmentCooldown(Number(idShipment));
+        affectedSaleIds.forEach((id) => armSaleCooldown(id));
       }
       return ok;
     } catch {
@@ -177,6 +253,7 @@ const DataProducts = ({
           ? {
               ...p,
               statusShip: nextStatus,
+              statusChangedAt: new Date().toISOString(),
               licenseDeliveredAt: new Date().toISOString(),
             }
           : p,
@@ -189,6 +266,8 @@ const DataProducts = ({
     ["entregado", "cancelado"].includes(String(status ?? "").toLowerCase());
 
   const handleBulkPhysicalStatusChange = async (nextStatus: string) => {
+    if (bulkOnCooldown) return false;
+
     let cancelReason: string | undefined;
 
     if (nextStatus === "cancelado") {
@@ -245,6 +324,7 @@ const DataProducts = ({
       return nextStatus !== "cancelado";
     }
 
+    if (anyOk) armBulkCooldown();
     return anyOk;
   };
 
@@ -267,7 +347,6 @@ const DataProducts = ({
   ]
     .filter(Boolean)
     .join(" ");
-  const statusPay = params?.row?.statusPay;
   const orderPaid = isOrderPaid(statusPay);
   const digitalProductCount = products.filter((item: any) =>
     isDigitalDeliveryProduct(item),
@@ -322,6 +401,15 @@ const DataProducts = ({
         </Alert>
       ) : null}
 
+      {typeof openCancelOrderModal === "function" ? (
+        <OrderCancelSection
+          idOrder={idOrder}
+          statusPay={statusPay}
+          canCancelPermission={canCancelOrder === true}
+          onCancelClick={openCancelOrderModal}
+        />
+      ) : null}
+
       {physicalProducts.length > 0 ? (
         <Alert
           severity="info"
@@ -331,7 +419,8 @@ const DataProducts = ({
           Al cambiar el <strong>estatus del envío</strong> se actualizan los
           productos en vivo. El correo al cliente{" "}
           <strong>solo se envía</strong> desde el panel de abajo (botón{" "}
-          <strong>Enviar correo al cliente</strong>).
+          <strong>Enviar correo al cliente</strong>), excepto al{" "}
+          <strong>cancelar la orden completa</strong> (correo automático).
         </Alert>
       ) : null}
 
@@ -343,6 +432,7 @@ const DataProducts = ({
           products={physicalProducts}
           allProducts={products}
           onBulkStatusChange={handleBulkPhysicalStatusChange}
+          bulkDisabled={bulkOnCooldown}
         />
       ) : (
         <Alert
@@ -404,6 +494,8 @@ const DataProducts = ({
               onProductStatusChange={handleProductStatusChange}
               updatingShipmentId={updatingShipmentId}
               updatingSaleId={updatingSaleId}
+              cooldownShipmentIds={cooldownShipmentIds}
+              cooldownSaleIds={cooldownSaleIds}
             />
           ))}
         </section>
@@ -428,6 +520,8 @@ const DataProducts = ({
               onSaleLicenseDelivered={markSaleDelivered}
               updatingShipmentId={updatingShipmentId}
               updatingSaleId={updatingSaleId}
+              cooldownShipmentIds={cooldownShipmentIds}
+              cooldownSaleIds={cooldownSaleIds}
             />
           ))}
         </section>

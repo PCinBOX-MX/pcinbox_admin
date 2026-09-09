@@ -44,6 +44,7 @@ const GridDashboard = ({
   handleChangeStatusShip,
   handleChangeStatusShipByShipment,
   promptShipCancelReason,
+  openCancelOrderModal,
   handleRetryDicotechPostPayment,
   can,
   rows,
@@ -51,6 +52,7 @@ const GridDashboard = ({
   handleChangeStatusShip: any;
   handleChangeStatusShipByShipment: any;
   promptShipCancelReason?: (description: string) => Promise<string | null>;
+  openCancelOrderModal?: (idOrder: number) => void | Promise<void>;
   handleRetryDicotechPostPayment?: (idOrder: number) => Promise<boolean>;
   can: (permission: import("../constants/permissions").AdminPermission) => boolean;
   rows: {
@@ -400,6 +402,8 @@ const GridDashboard = ({
                             handleChangeStatusShipByShipment
                           }
                           promptShipCancelReason={promptShipCancelReason}
+                          openCancelOrderModal={openCancelOrderModal}
+                          canCancelOrder={can("orders.cancel")}
                           onSaleLicenseDelivered={(idSale: number, idOrder: number) => {
                             setRowsVentas((prev) => ({
                               ...prev,
@@ -412,6 +416,8 @@ const GridDashboard = ({
                                           ? {
                                               ...product,
                                               statusShip: "entregado",
+                                              statusChangedAt:
+                                                new Date().toISOString(),
                                               licenseDeliveredAt:
                                                 new Date().toISOString(),
                                             }
@@ -810,7 +816,7 @@ const GridDashboard = ({
         },
       },
     ],
-    [rows, can, rowsVentas, setRowsVentas, setDataModal, formatCurrency, handleChangeStatusShip, handleChangeStatusShipByShipment, promptShipCancelReason],
+    [rows, can, rowsVentas, setRowsVentas, setDataModal, formatCurrency, handleChangeStatusShip, handleChangeStatusShipByShipment, promptShipCancelReason, openCancelOrderModal],
   );
 
   return {

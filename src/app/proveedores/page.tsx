@@ -21,15 +21,8 @@ import AdminRefreshButton from "../shared/components/common/buttons/AdminRefresh
 import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefreshablePanel";
 import { PROVIDERS_WITH_PROFIT_MARGIN } from "../constants/providers.constants";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
-
-const fieldSx = {
-  "& .MuiOutlinedInput-root": {
-    borderRadius: "10px",
-    "&:hover fieldset": { borderColor: "#bb3d4b" },
-    "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
-  },
-  "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
-};
+import { adminFieldSx } from "../theme/adminFieldSx";
+import { parsePageParam } from "../utils/adminPagination";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -52,7 +45,7 @@ const Proveedores = () => {
 
   const { searchParams, setQueryParams } = useQueryParams();
   const searchParam = searchParams.get("search") || "";
-  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const pageParam = parsePageParam(searchParams.get("page"), 1);
 
   const [search, setSearch] = useState(searchParam);
   const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
@@ -76,6 +69,10 @@ const Proveedores = () => {
     }, 450);
     return () => clearTimeout(handler);
   }, [search, searchParam, setQueryParams]);
+
+  useEffect(() => {
+    void handleGetProveedores();
+  }, [handleGetProveedores]);
 
   useEffect(() => {
     if (!slcProveedor) return;
@@ -186,7 +183,7 @@ const Proveedores = () => {
               </div>
             ) : null}
             {!dataProveedores.loading ? (
-              <FormControl fullWidth size="small" sx={fieldSx}>
+              <FormControl fullWidth size="small" sx={adminFieldSx}>
                 <InputLabel>Proveedor</InputLabel>
                 <Select
                   value={slcProveedor}
@@ -215,7 +212,7 @@ const Proveedores = () => {
               label="Buscar producto"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              sx={fieldSx}
+              sx={adminFieldSx}
               InputProps={{
                 startAdornment: <Search size={18} className="admin-filter-icon" />,
               }}

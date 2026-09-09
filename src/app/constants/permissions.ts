@@ -11,6 +11,7 @@ export type AdminPermission =
   | "quotes.manage"
   | "catalog.manage"
   | "users.view"
+  | "users.deactivate"
   | "settings.manage";
 
 export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
@@ -25,6 +26,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "quotes.manage",
     "catalog.manage",
     "users.view",
+    "users.deactivate",
     "settings.manage",
   ],
   support: [

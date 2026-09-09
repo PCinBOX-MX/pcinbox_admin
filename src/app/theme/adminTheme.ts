@@ -113,6 +113,9 @@ export const adminTheme = createTheme({
         root: {
           fontWeight: 600,
           color: "#4b5563",
+          "&.Mui-focused": {
+            color: primary,
+          },
         },
       },
     },

@@ -13,15 +13,7 @@ import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefre
 import { Filter, RefreshCw, Search, X } from "lucide-react";
 import { TextField, FormControl, InputLabel, Select, MenuItem, Alert } from "@mui/material";
 import useVentasInvitados from "./useVentasInvitados";
-
-const fieldSx = {
-  "& .MuiOutlinedInput-root": {
-    borderRadius: "10px",
-    "&:hover fieldset": { borderColor: "#bb3d4b" },
-    "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
-  },
-  "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
-};
+import { adminFieldSx } from "../theme/adminFieldSx";
 
 const PAGE_SIZE = 10;
 
@@ -136,12 +128,12 @@ const VentasInvitados = () => {
               onChange={(e) => {
                 setSearch(e.target.value);
               }}
-              sx={fieldSx}
+              sx={adminFieldSx}
               InputProps={{
                 startAdornment: <Search size={18} className="admin-filter-icon" />,
               }}
             />
-            <FormControl size="small" sx={fieldSx}>
+            <FormControl size="small" sx={adminFieldSx}>
               <InputLabel>Estatus pago</InputLabel>
               <Select
                 label="Estatus pago"

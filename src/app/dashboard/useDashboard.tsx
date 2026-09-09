@@ -262,10 +262,18 @@ const useDashboard = () => {
                   : {}),
                 products: order.products.map((product) => {
                   if (Number(product.idSale) === updatedIdSale) {
-                    return { ...product, statusShip: updatedStatus };
+                    return {
+                      ...product,
+                      statusShip: updatedStatus,
+                      statusChangedAt: new Date().toISOString(),
+                    };
                   }
                   if (matchesOrder) {
-                    return { ...product, statusShip: "cancelado" };
+                    return {
+                      ...product,
+                      statusShip: "cancelado",
+                      statusChangedAt: new Date().toISOString(),
+                    };
                   }
                   return product;
                 }),
@@ -444,6 +452,7 @@ const useDashboard = () => {
                     return {
                       ...product,
                       statusShip: matchesOrder ? "cancelado" : updatedStatus,
+                      statusChangedAt: new Date().toISOString(),
                     };
                   }
                   return product;
@@ -544,6 +553,7 @@ const useDashboard = () => {
               products: order.products.map((product) => ({
                 ...product,
                 statusShip: "cancelado",
+                statusChangedAt: new Date().toISOString(),
               })),
             }
             : order,

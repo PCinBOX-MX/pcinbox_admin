@@ -20,7 +20,6 @@ import {
 } from "@mui/material";
 import {
   Search,
-  Calendar,
   Filter,
   X,
   Eye,
@@ -33,6 +32,8 @@ import {
   FileText,
   AlertCircle,
 } from "lucide-react";
+import styles from "./reservas.module.css";
+import { adminFieldSx } from "../theme/adminFieldSx";
 
 const ReservasAdminPage = () => {
   const {
@@ -87,15 +88,15 @@ const ReservasAdminPage = () => {
   const getStatusBadgeClass = (statusStr: string) => {
     switch (statusStr) {
       case "pending":
-        return "bg-amber-100 text-amber-800 border-amber-200";
+        return styles.statusPending;
       case "in_process":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return styles.statusInProcess;
       case "completed":
-        return "bg-green-100 text-green-800 border-green-200";
+        return styles.statusCompleted;
       case "cancelled":
-        return "bg-red-100 text-red-800 border-red-200";
+        return styles.statusCancelled;
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return styles.statusPending;
     }
   };
 
@@ -147,7 +148,7 @@ const ReservasAdminPage = () => {
           <div className="admin-filters-grid admin-filters-grid-reservas">
               {/* Buscador */}
               <div className={filterType === "single" ? "md:col-span-3" : "md:col-span-2"}>
-                <TextField
+                  <TextField
                   fullWidth
                   label="Buscar folio, cliente, equipo..."
                   variant="outlined"
@@ -155,17 +156,17 @@ const ReservasAdminPage = () => {
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
-                    setPage(1);
                   }}
+                  sx={adminFieldSx}
                   InputProps={{
-                    startAdornment: <Search size={18} className="text-gray-400 mr-2" />,
+                    startAdornment: <Search size={18} className="admin-filter-icon" />,
                   }}
                 />
               </div>
 
               {/* Selector de Estado */}
               <div className="md:col-span-2">
-                <FormControl fullWidth size="small">
+                <FormControl fullWidth size="small" sx={adminFieldSx}>
                   <InputLabel id="status-filter-label">Estatus</InputLabel>
                   <Select
                     labelId="status-filter-label"
@@ -188,7 +189,7 @@ const ReservasAdminPage = () => {
 
               {/* Tipo de Fecha */}
               <div className="md:col-span-2">
-                <FormControl fullWidth size="small">
+                <FormControl fullWidth size="small" sx={adminFieldSx}>
                   <InputLabel id="date-type-filter-label">Tipo de Fecha</InputLabel>
                   <Select
                     labelId="date-type-filter-label"
@@ -223,6 +224,7 @@ const ReservasAdminPage = () => {
                     InputLabelProps={{
                       shrink: true,
                     }}
+                    sx={adminFieldSx}
                   />
                 </div>
               ) : (
@@ -242,6 +244,7 @@ const ReservasAdminPage = () => {
                       InputLabelProps={{
                         shrink: true,
                       }}
+                      sx={adminFieldSx}
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -259,6 +262,7 @@ const ReservasAdminPage = () => {
                       InputLabelProps={{
                         shrink: true,
                       }}
+                      sx={adminFieldSx}
                     />
                   </div>
                 </>
@@ -280,7 +284,7 @@ const ReservasAdminPage = () => {
       paginationBottom={reservations.length > 0 ? paginationBlock : undefined}
     >
           {listError ? (
-              <div style={{ padding: "32px", display: "grid", gap: 12 }}>
+              <div className="admin-empty-state" style={{ display: "grid", gap: 12 }}>
                 <Alert severity="error">{listError}</Alert>
                 <button
                   type="button"
@@ -298,17 +302,14 @@ const ReservasAdminPage = () => {
                 hasContent={reservations.length > 0}
                 emptyState={
                   loading ? (
-                    <div
-                      className="flex flex-col justify-center items-center"
-                      style={{ padding: "80px 0", gap: "12px" }}
-                    >
+                    <div className={styles.loading}>
                       <CircularProgress style={{ color: "#bb3d4b" }} />
-                      <span className="text-sm text-gray-500 font-medium">
+                      <span className={styles.loadingText}>
                         Obteniendo reservaciones...
                       </span>
                     </div>
                   ) : (
-                    <div style={{ padding: "32px" }}>
+                    <div className={styles.emptyWrap}>
                       <EmptyState
                         title="Sin reservaciones"
                         description="No se encontraron reservaciones que coincidan con los criterios de búsqueda."
@@ -318,161 +319,110 @@ const ReservasAdminPage = () => {
                   )
                 }
               >
-              <div className="admin-table-scroll">
-                <table className="w-full text-left border-collapse">
+              <div className={`admin-table-scroll ${styles.tableWrap}`}>
+                <table className={styles.table}>
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs font-semibold uppercase tracking-wider">
-                      <th style={{ padding: "16px 24px" }}>Folio / Ref</th>
-                      <th style={{ padding: "16px 24px" }}>Cliente</th>
-                      <th style={{ padding: "16px 24px" }}>Equipo / Servicio</th>
-                      <th style={{ padding: "16px 24px" }}>Fecha y Hora</th>
-                      <th style={{ padding: "16px 24px" }}>Estatus</th>
-                      <th style={{ padding: "16px 24px", textAlign: "center" }}>Acciones</th>
+                    <tr>
+                      <th>Folio / Ref</th>
+                      <th>Cliente</th>
+                      <th>Equipo / Servicio</th>
+                      <th>Fecha y Hora</th>
+                      <th>Estatus</th>
+                      <th className={styles.thCenter}>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
+                  <tbody>
                     {reservations.map((res) => (
-                      <tr
-                        key={res.reference}
-                        className="hover:bg-gray-50/50 transition-colors duration-150"
-                      >
-                        {/* Folio */}
-                        <td
-                          className="font-mono font-bold text-gray-900"
-                          style={{ padding: "16px 24px" }}
-                        >
-                          {res.reference}
+                      <tr key={res.reference}>
+                        <td>
+                          <span className={styles.folio}>{res.reference}</span>
                         </td>
-
-                        {/* Cliente */}
-                        <td style={{ padding: "16px 24px" }}>
-                          <div className="flex flex-col" style={{ gap: "4px" }}>
-                            <span className="font-semibold text-gray-900">{res.contactName}</span>
-                            <span
-                              className="text-xs text-gray-500 flex items-center mt-0.5"
-                              style={{ gap: "4px" }}
-                            >
-                              <Mail size={12} className="text-gray-400" />
+                        <td>
+                          <div className={styles.cellStack}>
+                            <span className={styles.cellTitle}>{res.contactName}</span>
+                            <span className={styles.cellSub}>
+                              <Mail size={12} className={styles.cellIcon} />
                               {res.contactEmail}
                             </span>
-                            <span
-                              className="text-xs text-gray-500 flex items-center mt-0.5"
-                              style={{ gap: "4px" }}
-                            >
-                              <Phone size={12} className="text-gray-400" />
+                            <span className={styles.cellSub}>
+                              <Phone size={12} className={styles.cellIcon} />
                               {res.contactPhone}
                             </span>
                           </div>
                         </td>
-
-                        {/* Equipo */}
-                        <td style={{ padding: "16px 24px" }}>
-                          <div className="flex flex-col" style={{ gap: "4px" }}>
-                            <span className="font-medium text-gray-800 capitalize">
+                        <td>
+                          <div className={styles.cellStack}>
+                            <span className={styles.cellMedium}>
                               {res.deviceType === "pc" ? "PC de Escritorio" : res.deviceType}
                             </span>
-                            <span className="text-xs text-gray-500 mt-0.5">
+                            <span className={styles.cellSub}>
                               {res.brand} - {res.model}
                             </span>
-                            <span
-                              className="text-xs text-[#bb3d4b] font-semibold"
-                              style={{ marginTop: "4px" }}
-                            >
-                              {res.service}
-                            </span>
+                            <span className={styles.serviceTag}>{res.service}</span>
                           </div>
                         </td>
-
-                        {/* Fecha y Hora */}
-                        <td style={{ padding: "16px 24px" }}>
-                          <div className="flex flex-col" style={{ gap: "4px" }}>
-                            <span className="font-semibold text-gray-900">
+                        <td>
+                          <div className={styles.cellStack}>
+                            <span className={styles.cellTitle}>
                               {res.date
                                 ? new Date(res.date).toLocaleDateString("es-MX", { timeZone: "UTC" })
                                 : "N/A"}
                             </span>
-                            <span
-                              className="text-xs text-gray-500 flex items-center mt-0.5"
-                              style={{ gap: "4px" }}
-                            >
-                              <Clock size={12} className="text-gray-400" />
+                            <span className={styles.cellSub}>
+                              <Clock size={12} className={styles.cellIcon} />
                               {res.time}
                             </span>
                           </div>
                         </td>
-
-                        {/* Estatus */}
-                        <td style={{ padding: "16px 24px" }}>
-                          <div className="flex items-center" style={{ gap: "8px" }}>
-                            {res.status === "cancelled" || res.status === "completed" ? (
-                              <Tooltip
-                                title={
-                                  res.status === "cancelled"
-                                    ? "Al tener estatus Cancelada ya no se puede cambiar el estatus"
-                                    : "Al tener estatus Completada ya no se puede cambiar el estatus"
-                                }
-                                arrow
-                              >
-                                <span className="inline-block">
-                                  <select
-                                    value={res.status}
-                                    disabled
-                                    className={`text-xs font-semibold rounded-full border outline-none transition-all duration-200 ${getStatusBadgeClass(
-                                      res.status,
-                                    )} opacity-75 cursor-not-allowed`}
-                                    style={{
-                                      padding: "6px 12px",
-                                    }}
-                                  >
-                                    {res.status === "cancelled" ? (
-                                      <option value="cancelled" className="text-red-800 bg-white">
-                                        Cancelada
-                                      </option>
-                                    ) : (
-                                      <option value="completed" className="text-green-800 bg-white">
-                                        Completada
-                                      </option>
-                                    )}
-                                  </select>
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              <select
-                                value={res.status}
-                                onChange={(e) =>
-                                  updateReservationStatus(res.reference, e.target.value)
-                                }
-                                className={`text-xs font-semibold rounded-full border cursor-pointer outline-none transition-all duration-200 ${getStatusBadgeClass(
-                                  res.status,
-                                )}`}
-                                style={{
-                                  padding: "6px 12px",
-                                }}
-                              >
-                                <option value="pending" className="text-amber-800 bg-white">
-                                  Pendiente
-                                </option>
-                                <option value="in_process" className="text-blue-800 bg-white">
-                                  En Proceso
-                                </option>
-                                <option value="completed" className="text-green-800 bg-white">
-                                  Completada
-                                </option>
-                                <option value="cancelled" className="text-red-800 bg-white">
-                                  Cancelada
-                                </option>
-                              </select>
-                            )}
-                          </div>
+                        <td>
+                          {res.status === "cancelled" || res.status === "completed" ? (
+                            <Tooltip
+                              title={
+                                res.status === "cancelled"
+                                  ? "Al tener estatus Cancelada ya no se puede cambiar el estatus"
+                                  : "Al tener estatus Completada ya no se puede cambiar el estatus"
+                              }
+                              arrow
+                            >
+                              <span>
+                                <select
+                                  value={res.status}
+                                  disabled
+                                  className={`${styles.statusSelect} ${getStatusBadgeClass(
+                                    res.status,
+                                  )} ${styles.statusDisabled}`}
+                                >
+                                  {res.status === "cancelled" ? (
+                                    <option value="cancelled">Cancelada</option>
+                                  ) : (
+                                    <option value="completed">Completada</option>
+                                  )}
+                                </select>
+                              </span>
+                            </Tooltip>
+                          ) : (
+                            <select
+                              value={res.status}
+                              onChange={(e) =>
+                                updateReservationStatus(res.reference, e.target.value)
+                              }
+                              className={`${styles.statusSelect} ${getStatusBadgeClass(
+                                res.status,
+                              )}`}
+                            >
+                              <option value="pending">Pendiente</option>
+                              <option value="in_process">En Proceso</option>
+                              <option value="completed">Completada</option>
+                              <option value="cancelled">Cancelada</option>
+                            </select>
+                          )}
                         </td>
-
-                        {/* Acciones */}
-                        <td style={{ padding: "16px 24px", textAlign: "center" }}>
+                        <td style={{ textAlign: "center" }}>
                           <Tooltip title="Ver detalles completos" arrow>
                             <IconButton
                               size="small"
                               onClick={() => handleOpenDetails(res)}
-                              className="text-gray-500 hover:text-[#bb3d4b] hover:bg-[#bb3d4b]/5 transition-colors"
+                              className={styles.detailBtn}
                             >
                               <Eye size={18} />
                             </IconButton>
@@ -488,221 +438,153 @@ const ReservasAdminPage = () => {
 
     </AdminPageShell>
 
-      {/* Modal de Detalles Premium */}
       {isModalOpen && selectedRes && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm transition-all duration-300"
-          style={{ padding: "16px" }}
-        >
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95">
-            {/* Modal Header */}
-            <div
-              className="bg-gradient-to-r from-gray-900 to-slate-800 text-white flex justify-between items-center"
-              style={{ padding: "16px 24px" }}
-            >
+        <div className={styles.overlay}>
+          <div className={styles.modal} role="dialog" aria-modal="true">
+            <div className={styles.modalHeader}>
               <div>
-                <h3
-                  className="text-lg font-bold flex items-center"
-                  style={{ gap: "8px" }}
-                >
-                  <FileText size={20} className="text-[#bb3d4b]" />
+                <h3 className={styles.modalTitle}>
+                  <FileText size={20} />
                   Detalles de la Reserva
                 </h3>
-                <span className="text-xs text-gray-400 font-mono">
-                  Referencia Folio: {selectedRes.reference}
+                <span className={styles.modalRef}>
+                  Folio: {selectedRes.reference}
                 </span>
               </div>
               <button
+                type="button"
                 onClick={handleCloseModal}
-                className="text-gray-400 hover:text-white transition-colors cursor-pointer rounded-full hover:bg-white/10"
-                style={{ padding: "4px" }}
+                className={styles.closeBtn}
+                aria-label="Cerrar"
               >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div
-              className="max-h-[70vh] overflow-y-auto"
-              style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "24px" }}
-            >
-              {/* Estatus Actual */}
-              <div
-                className="flex items-center justify-between bg-gray-50 rounded-xl border border-gray-100"
-                style={{ padding: "16px" }}
-              >
-                <span className="text-sm font-semibold text-gray-600">Estado de la Cita:</span>
+            <div className={styles.modalBody}>
+              <div className={styles.statusBanner}>
+                <span className={styles.statusBannerLabel}>Estado de la cita</span>
                 <span
-                  className={`text-xs font-bold rounded-full border ${getStatusBadgeClass(
-                    selectedRes.status
+                  className={`${styles.statusSelect} ${getStatusBadgeClass(
+                    selectedRes.status,
                   )}`}
-                  style={{ padding: "4px 12px" }}
                 >
                   {getStatusText(selectedRes.status)}
                 </span>
               </div>
 
-              {/* Grid 2 Columnas */}
-              <div
-                className="grid grid-cols-1 md:grid-cols-2"
-                style={{ gap: "24px" }}
-              >
-                {/* Columna Cliente */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <h4
-                    className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center"
-                    style={{ gap: "4px" }}
-                  >
-                    <User size={14} className="text-[#bb3d4b]" />
-                    Datos del Cliente
+              <div className={styles.detailGrid}>
+                <div className={styles.detailSection}>
+                  <h4 className={styles.sectionHeading}>
+                    <User size={14} className={styles.sectionHeadingIcon} />
+                    Datos del cliente
                   </h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div className={styles.fieldStack}>
                     <div>
-                      <span className="block text-xs text-gray-500 font-medium">Nombre completo</span>
-                      <span className="text-sm font-semibold text-gray-900">{selectedRes.contactName}</span>
+                      <span className={styles.fieldLabel}>Nombre completo</span>
+                      <span className={styles.fieldValueBold}>{selectedRes.contactName}</span>
                     </div>
                     <div>
-                      <span className="block text-xs text-gray-500 font-medium">Correo electrónico</span>
-                      <span className="text-sm text-gray-900 break-all">{selectedRes.contactEmail}</span>
+                      <span className={styles.fieldLabel}>Correo electrónico</span>
+                      <span className={styles.fieldValueBreak}>{selectedRes.contactEmail}</span>
                     </div>
                     <div>
-                      <span className="block text-xs text-gray-500 font-medium">Teléfono de contacto</span>
-                      <span className="text-sm text-gray-900 font-semibold">{selectedRes.contactPhone}</span>
+                      <span className={styles.fieldLabel}>Teléfono</span>
+                      <span className={styles.fieldValueBold}>{selectedRes.contactPhone}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Columna Equipo */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <h4
-                    className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center"
-                    style={{ gap: "4px" }}
-                  >
-                    <Cpu size={14} className="text-[#bb3d4b]" />
-                    Especificación del Equipo
+                <div className={styles.detailSection}>
+                  <h4 className={styles.sectionHeading}>
+                    <Cpu size={14} className={styles.sectionHeadingIcon} />
+                    Equipo
                   </h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div className={styles.fieldStack}>
                     <div>
-                      <span className="block text-xs text-gray-500 font-medium">Tipo de Dispositivo</span>
-                      <span className="text-sm font-semibold text-gray-900 capitalize">
-                        {selectedRes.deviceType === "pc" ? "PC de Escritorio" : selectedRes.deviceType}
+                      <span className={styles.fieldLabel}>Dispositivo</span>
+                      <span className={styles.fieldValueBold}>
+                        {selectedRes.deviceType === "pc"
+                          ? "PC de Escritorio"
+                          : selectedRes.deviceType}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-xs text-gray-500 font-medium">Marca</span>
-                      <span className="text-sm text-gray-900 font-semibold">{selectedRes.brand}</span>
+                      <span className={styles.fieldLabel}>Marca</span>
+                      <span className={styles.fieldValueBold}>{selectedRes.brand}</span>
                     </div>
                     <div>
-                      <span className="block text-xs text-gray-500 font-medium">Modelo</span>
-                      <span className="text-sm text-gray-900">{selectedRes.model}</span>
+                      <span className={styles.fieldLabel}>Modelo</span>
+                      <span className={styles.fieldValue}>{selectedRes.model}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Separador */}
-              <div className="border-t border-gray-100"></div>
+              <div className={styles.divider} />
 
-              {/* Servicio y Cita */}
-              <div
-                className="grid grid-cols-1 md:grid-cols-2"
-                style={{ gap: "24px" }}
-              >
+              <div className={styles.detailGrid}>
                 <div>
-                  <h4
-                    className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center"
-                    style={{ gap: "4px", marginBottom: "12px" }}
-                  >
-                    <FileText size={14} className="text-[#bb3d4b]" />
-                    Servicio Solicitado
+                  <h4 className={styles.sectionHeading}>
+                    <FileText size={14} className={styles.sectionHeadingIcon} />
+                    Servicio
                   </h4>
-                  <span
-                    className="inline-block bg-red-50 text-[#bb3d4b] text-sm font-bold rounded-lg border border-red-100"
-                    style={{ padding: "4px 12px" }}
-                  >
-                    {selectedRes.service}
-                  </span>
+                  <span className={styles.servicePill}>{selectedRes.service}</span>
                 </div>
-
                 <div>
-                  <h4
-                    className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center"
-                    style={{ gap: "4px", marginBottom: "12px" }}
-                  >
-                    <Clock size={14} className="text-[#bb3d4b]" />
-                    Fecha y Hora Programadas
+                  <h4 className={styles.sectionHeading}>
+                    <Clock size={14} className={styles.sectionHeadingIcon} />
+                    Fecha y hora
                   </h4>
-                  <div
-                    className="flex items-center"
-                    style={{ gap: "16px" }}
-                  >
+                  <div className={styles.dateRow}>
                     <div>
-                      <span className="block text-xs text-gray-500 font-medium">Fecha</span>
-                      <span className="text-sm font-bold text-gray-900">
+                      <span className={styles.fieldLabel}>Fecha</span>
+                      <span className={styles.fieldValueBold}>
                         {selectedRes.date
-                          ? new Date(selectedRes.date).toLocaleDateString("es-MX", { timeZone: "UTC" })
+                          ? new Date(selectedRes.date).toLocaleDateString("es-MX", {
+                              timeZone: "UTC",
+                            })
                           : "N/A"}
                       </span>
                     </div>
                     <div>
-                      <span className="block text-xs text-gray-500 font-medium">Hora</span>
-                      <span className="text-sm font-bold text-gray-900">{selectedRes.time}</span>
+                      <span className={styles.fieldLabel}>Hora</span>
+                      <span className={styles.fieldValueBold}>{selectedRes.time}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Separador */}
-              <div className="border-t border-gray-100"></div>
+              <div className={styles.divider} />
 
-              {/* Descripción del Fallo */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <h4
-                  className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center"
-                  style={{ gap: "4px" }}
-                >
-                  <AlertCircle size={14} className="text-[#bb3d4b]" />
-                  Descripción del Fallo / Motivo
+              <div className={styles.detailSection}>
+                <h4 className={styles.sectionHeading}>
+                  <AlertCircle size={14} className={styles.sectionHeadingIcon} />
+                  Descripción / motivo
                 </h4>
-                <div
-                  className="bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-700 whitespace-pre-line leading-relaxed"
-                  style={{ padding: "16px" }}
-                >
+                <div className={styles.descriptionBox}>
                   {selectedRes.description || "Sin descripción proporcionada."}
                 </div>
               </div>
 
-              {/* Motivo de Cancelación */}
               {selectedRes.status === "cancelled" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <h4
-                    className="text-xs font-bold text-red-500 uppercase tracking-wider flex items-center"
-                    style={{ gap: "4px" }}
-                  >
-                    <AlertCircle size={14} className="text-red-500" />
-                    Motivo de Cancelación
+                <div className={styles.cancelBox}>
+                  <h4 className={styles.cancelHeading}>
+                    <AlertCircle size={14} className={styles.cancelHeadingIcon} />
+                    Motivo de cancelación
                   </h4>
-                  <div
-                    className="bg-red-50 rounded-xl border border-red-100 text-sm text-red-800 whitespace-pre-line leading-relaxed"
-                    style={{ padding: "16px" }}
-                  >
-                    {selectedRes.cancelReason || "Sin motivo de cancelación registrado."}
-                  </div>
+                  {selectedRes.cancelReason || "Sin motivo de cancelación registrado."}
                 </div>
               )}
             </div>
 
-            {/* Modal Footer */}
-            <div
-              className="bg-gray-50 flex justify-end border-t border-gray-100"
-              style={{ padding: "16px 24px", gap: "12px" }}
-            >
+            <div className={styles.modalFooter}>
               <button
+                type="button"
                 onClick={handleCloseModal}
-                className="bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold rounded-xl transition-colors cursor-pointer text-sm shadow-sm"
-                style={{ padding: "10px 20px" }}
+                className="admin-btn-secondary"
               >
-                Cerrar Detalle
+                Cerrar
               </button>
             </div>
           </div>

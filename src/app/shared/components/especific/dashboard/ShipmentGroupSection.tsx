@@ -58,15 +58,23 @@ function isTerminalShipStatus(status?: string | null): boolean {
 function resolveProductLineTotal(item: any): number | null {
   const candidates = [item?.lineTotal, item?.total, item?.saleTotal];
   for (const value of candidates) {
+    if (value == null || value === "") continue;
     const parsed = Number(value);
-    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    if (Number.isFinite(parsed)) return parsed;
   }
   return null;
 }
 
 function formatProductLineTotal(item: any): string {
   const amount = resolveProductLineTotal(item);
-  return amount != null ? formatOrderMoney(amount) : "Sin registro";
+  return amount != null ? formatOrderMoney(amount) : "Sin precio";
+}
+
+function formatProductUnitPrice(item: any): string | null {
+  const lineTotal = resolveProductLineTotal(item);
+  const qty = Number(item?.quantity);
+  if (lineTotal == null || !Number.isFinite(qty) || qty <= 1) return null;
+  return formatOrderMoney(lineTotal / qty);
 }
 
 function hasAddressLines(address: any): boolean {
@@ -100,6 +108,8 @@ type ShipmentGroupSectionProps = {
   ) => void;
   updatingShipmentId?: number | null;
   updatingSaleId?: number | null;
+  cooldownShipmentIds?: Set<number>;
+  cooldownSaleIds?: Set<number>;
   stackGap?: boolean;
 };
 
@@ -114,10 +124,19 @@ export default function ShipmentGroupSection({
   onSaleLicenseDelivered,
   updatingShipmentId,
   updatingSaleId,
+  cooldownShipmentIds,
+  cooldownSaleIds,
   stackGap = false,
 }: ShipmentGroupSectionProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const shipStatusLocked = isTerminalShipStatus(group.statusShip);
+  const shipmentOnCooldown =
+    group.idShipment != null &&
+    Boolean(cooldownShipmentIds?.has(Number(group.idShipment)));
+  const shipmentSelectDisabled =
+    shipStatusLocked ||
+    shipmentOnCooldown ||
+    updatingShipmentId === Number(group.idShipment);
   const shippingMethod = group.shippingMethod;
   const isPickup = isPickupShippingMethod(shippingMethod);
   const isHomeDelivery = isHomeDeliveryShippingMethod(shippingMethod);
@@ -163,7 +182,13 @@ export default function ShipmentGroupSection({
           </label>
           <FormControl fullWidth size="small">
             <Tooltip
-              title={shipStatusLocked ? LOCKED_SHIP_STATUS_TOOLTIP : ""}
+              title={
+                shipStatusLocked
+                  ? LOCKED_SHIP_STATUS_TOOLTIP
+                  : shipmentOnCooldown
+                    ? "Espera unos segundos antes de volver a cambiar el estatus"
+                    : ""
+              }
               placement="top"
               arrow
             >
@@ -177,10 +202,7 @@ export default function ShipmentGroupSection({
                       Number(group.idShipment),
                     )
                   }
-                  disabled={
-                    shipStatusLocked ||
-                    updatingShipmentId === Number(group.idShipment)
-                  }
+                  disabled={shipmentSelectDisabled}
                   sx={{
                     borderRadius: "12px",
                     bgcolor: "#fff",
@@ -281,9 +303,14 @@ export default function ShipmentGroupSection({
       <div className="admin-shipment-block__products" style={sp.shipmentProducts}>
         {group.products.map((item: any, index: number) => {
           const providerLabel = getProviderLabel(item.providerId);
+          const isDicotech = Number(item.providerId) === PROVIDER_DICOTECH;
           const imageUrl =
             (Array.isArray(item.image_url) ? item.image_url[0] : item.image_url) ||
             "/imagen-no-encontrada.png";
+          const unitPriceLabel = formatProductUnitPrice(item);
+          const purchaseId = String(item.purchaseId ?? "").trim();
+          const invoiceNumber = String(item.invoiceNumber ?? "").trim();
+          const clave = String(item.idProductExt ?? "").trim();
 
           return (
             <article
@@ -309,29 +336,49 @@ export default function ShipmentGroupSection({
                   >
                     {item.productName}
                   </h4>
-                  <span
-                    className="admin-product-card__price"
-                    style={{ padding: "4px 11px", margin: 0 }}
-                  >
-                    {formatProductLineTotal(item)}
-                  </span>
+                  <div className="admin-shipment-product__price-wrap">
+                    <span
+                      className="admin-product-card__price"
+                      style={{ padding: "4px 11px", margin: 0 }}
+                      title="Precio pagado por el cliente (sales.total)"
+                    >
+                      {formatProductLineTotal(item)}
+                    </span>
+                    {unitPriceLabel ? (
+                      <span className="admin-shipment-product__unit-price">
+                        {unitPriceLabel} c/u
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="admin-shipment-product__meta" style={sp.shipmentProductMeta}>
                   <Chip
                     size="small"
                     label={providerLabel}
-                    color={
-                      Number(item.providerId) === PROVIDER_DICOTECH
-                        ? "warning"
-                        : "default"
-                    }
+                    color={isDicotech ? "warning" : "default"}
                     variant="outlined"
                   />
                   <span className="admin-shipment-product__qty">× {item.quantity}</span>
                   <span className="admin-shipment-product__sku">
                     SKU {item.sku || "N/A"}
                   </span>
+                  <span className="admin-shipment-product__sku" title="idProductExt">
+                    clave {clave || "N/A"}
+                  </span>
                 </div>
+
+                {isDicotech ? (
+                  <div className="admin-shipment-product__ids">
+                    <span className="admin-shipment-product__id-pill">
+                      <strong>purchaseId</strong>
+                      {purchaseId || "Pendiente"}
+                    </span>
+                    <span className="admin-shipment-product__id-pill">
+                      <strong>invoiceNumber</strong>
+                      {invoiceNumber || "Pendiente"}
+                    </span>
+                  </div>
+                ) : null}
 
                 {group.isDigital &&
                 idOrder > 0 &&
@@ -382,7 +429,12 @@ export default function ShipmentGroupSection({
           </button>
           <Collapse in={advancedOpen}>
             <div className="admin-shipment-block__advanced" style={sp.advancedPanel}>
-              {group.products.map((item: any) => (
+              {group.products.map((item: any) => {
+                const saleLocked = isTerminalShipStatus(item.statusShip);
+                const saleOnCooldown =
+                  item.idSale != null &&
+                  Boolean(cooldownSaleIds?.has(Number(item.idSale)));
+                return (
                 <div
                   key={`adv-${item.idSale}`}
                   className="admin-shipment-block__advanced-row"
@@ -390,30 +442,46 @@ export default function ShipmentGroupSection({
                 >
                   <span>{item.productName}</span>
                   <FormControl size="small" sx={{ minWidth: 160 }}>
-                    <Select
-                      value={item.statusShip ?? "procesando"}
-                      onChange={(event) =>
-                        void onProductStatusChange(
-                          event,
-                          Number(item.idSale),
-                        )
+                    <Tooltip
+                      title={
+                        saleLocked
+                          ? LOCKED_SHIP_STATUS_TOOLTIP
+                          : saleOnCooldown
+                            ? "Espera unos segundos antes de volver a cambiar el estatus"
+                            : ""
                       }
-                      disabled={
-                        isTerminalShipStatus(item.statusShip) ||
-                        !item.idSale ||
-                        updatingSaleId === Number(item.idSale)
-                      }
-                      sx={{ borderRadius: "10px", bgcolor: "#fff", fontWeight: 600 }}
+                      placement="top"
+                      arrow
                     >
-                      <MenuItem value="procesando">Procesando</MenuItem>
-                      <MenuItem value="disponible">Disponible</MenuItem>
-                      <MenuItem value="enviado">Enviado</MenuItem>
-                      <MenuItem value="entregado">Entregado</MenuItem>
-                      <MenuItem value="cancelado">Cancelado</MenuItem>
-                    </Select>
+                      <span>
+                        <Select
+                          value={item.statusShip ?? "procesando"}
+                          onChange={(event) =>
+                            void onProductStatusChange(
+                              event,
+                              Number(item.idSale),
+                            )
+                          }
+                          disabled={
+                            saleLocked ||
+                            saleOnCooldown ||
+                            !item.idSale ||
+                            updatingSaleId === Number(item.idSale)
+                          }
+                          sx={{ borderRadius: "10px", bgcolor: "#fff", fontWeight: 600 }}
+                        >
+                          <MenuItem value="procesando">Procesando</MenuItem>
+                          <MenuItem value="disponible">Disponible</MenuItem>
+                          <MenuItem value="enviado">Enviado</MenuItem>
+                          <MenuItem value="entregado">Entregado</MenuItem>
+                          <MenuItem value="cancelado">Cancelado</MenuItem>
+                        </Select>
+                      </span>
+                    </Tooltip>
                   </FormControl>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </Collapse>
         </>

@@ -21,15 +21,7 @@ import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefre
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import styles from "./cotizaciones.module.css";
 import useCotizaciones from "./useCotizaciones";
-
-const fieldSx = {
-  "& .MuiOutlinedInput-root": {
-    borderRadius: "10px",
-    "&:hover fieldset": { borderColor: "#bb3d4b" },
-    "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
-  },
-  "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
-};
+import { adminFieldSx } from "../theme/adminFieldSx";
 
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -184,7 +176,7 @@ export default function CotizacionesPage() {
               label="Folio, archivo, cliente o email"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              sx={fieldSx}
+              sx={adminFieldSx}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -200,7 +192,7 @@ export default function CotizacionesPage() {
               type="date"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
-              sx={fieldSx}
+              sx={adminFieldSx}
               slotProps={{ inputLabel: { shrink: true } }}
               inputProps={{
                 max: to || undefined,
@@ -213,7 +205,7 @@ export default function CotizacionesPage() {
               type="date"
               value={to}
               onChange={(event) => setTo(event.target.value)}
-              sx={fieldSx}
+              sx={adminFieldSx}
               slotProps={{ inputLabel: { shrink: true } }}
               inputProps={{
                 min: from || undefined,

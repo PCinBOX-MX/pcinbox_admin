@@ -17,61 +17,67 @@
   overflow-x: hidden;
 }
 
-.sidebarCollapsed {
-  width: 80px;
+.sidebarRail {
+  width: 80px !important;
+  max-width: 80px !important;
+  min-width: 80px !important;
 }
 
-.sidebarCollapsed:hover {
-  width: 260px;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+/* Nunca reexpandir por hover/focus: el ancho solo cambia con click (clase). */
+.sidebarRail:hover,
+.sidebarRail:focus,
+.sidebarRail:focus-within,
+.sidebarRail:active {
+  width: 80px !important;
+  max-width: 80px !important;
+  min-width: 80px !important;
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.18);
 }
 
-/* Ocultamos los textos suavemente cuando no está hovered */
-.sidebarCollapsed:not(:hover) .brandTitle,
-.sidebarCollapsed:not(:hover) .collapseBtn,
-.sidebarCollapsed:not(:hover) .navItemLabel,
-.sidebarCollapsed:not(:hover) .chevron,
-.sidebarCollapsed:not(:hover) .logoutBtnLabel {
+.sidebarRail .brandTitle,
+.sidebarRail .collapseBtn,
+.sidebarRail .navItemLabel,
+.sidebarRail .chevron,
+.sidebarRail .logoutBtnLabel {
   opacity: 0;
   visibility: hidden;
   white-space: nowrap;
   width: 0;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-/* Ajustes de íconos y contenedores */
-.sidebarCollapsed:not(:hover) .brand {
-  padding: 24px 0;
+.sidebarRail .brand {
+  padding: 20px 0;
   justify-content: center;
 }
 
-/* Logo animado */
-.sidebarCollapsed:not(:hover) .brand img {
-  width: 40px !important;
-  height: 40px !important;
-  transition: all 0.3s ease;
+.sidebarRail .brand img {
+  display: none;
 }
 
-.sidebarCollapsed:not(:hover) .navItem {
+.sidebarRail .navItem {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
+  gap: 0;
 }
 
-.sidebarCollapsed:not(:hover) .navItemIcon {
+.sidebarRail .navItemIcon {
   margin: 0;
 }
 
-.sidebarCollapsed:not(:hover) .logoutBtn {
+.sidebarRail .logoutBtn {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
+  gap: 0;
 }
 
-/* Evitamos que el submenú se vea si no está expandido */
-.sidebarCollapsed:not(:hover) .submenu {
-  display: none;
+.sidebarRail .submenu {
+  display: none !important;
 }
 
 .brand {
@@ -80,6 +86,7 @@
   gap: 12px;
   padding: 24px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
 .brandTitle {
@@ -89,6 +96,7 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);
   flex: 1;
+  transition: opacity 0.2s ease;
 }
 
 .collapseBtn {
@@ -104,6 +112,7 @@
   color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
 }
 
 .collapseBtn:hover {
@@ -122,7 +131,6 @@
   gap: 4px;
 }
 
-/* Custom scrollbar for sidebar */
 .nav::-webkit-scrollbar {
   width: 5px;
 }
@@ -153,7 +161,7 @@
   font-size: 0.925rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
   text-align: left;
 }
 
@@ -170,9 +178,14 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
+.navItemLabel {
+  transition: opacity 0.2s ease;
+}
+
 .footer {
   padding: 16px 12px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
 .logoutBtn {
@@ -188,13 +201,17 @@
   color: rgba(255, 255, 255, 0.85);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .logoutBtn:hover {
   background: rgba(187, 61, 75, 0.15);
   border-color: rgba(187, 61, 75, 0.4);
   color: #fff;
+}
+
+.logoutBtnLabel {
+  transition: opacity 0.2s ease;
 }
 
 .mobileToggle {
@@ -224,6 +241,7 @@
   color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
 }
 
 .desktopReopenInside:hover {
@@ -245,12 +263,15 @@
 .navItemIcon {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .chevron {
   margin-left: auto;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease;
   color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
 }
 
 .chevronOpen {
@@ -327,23 +348,78 @@
 
 @media (max-width: 1024px) {
   .sidebar {
-    transform: translateX(-100%);
+    width: min(86vw, 300px);
+    max-width: 300px;
+    transform: translateX(-105%);
+    box-shadow: none;
   }
 
   .sidebarOpen {
     transform: translateX(0) !important;
+    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.35);
   }
 
-  .sidebarCollapsed {
-    transform: translateX(-100%);
-    width: 260px; /* On mobile it always takes full width when opened */
+  /* En móvil no usamos rail de 80px: drawer completo off-canvas */
+  .sidebarRail,
+  .sidebarRail:hover,
+  .sidebarRail:focus-within,
+  .sidebarRail:active {
+    width: min(86vw, 300px) !important;
+    max-width: 300px !important;
+    min-width: 0 !important;
+    transform: translateX(-105%);
+  }
+
+  .sidebarRail.sidebarOpen {
+    transform: translateX(0) !important;
+  }
+
+  .sidebarRail .brandTitle,
+  .sidebarRail .navItemLabel,
+  .sidebarRail .chevron,
+  .sidebarRail .logoutBtnLabel {
+    opacity: 1;
+    visibility: visible;
+    width: auto;
+    margin: unset;
+    padding: unset;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  .sidebarRail .brand {
+    padding: 24px 20px;
+    justify-content: flex-start;
+  }
+
+  .sidebarRail .brand img {
+    display: block;
+  }
+
+  .sidebarRail .navItem {
+    justify-content: flex-start;
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .sidebarRail .logoutBtn {
+    justify-content: center;
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .sidebarRail .submenu {
+    display: flex !important;
   }
 
   .mobileToggle {
     display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .collapseBtn {
+  .collapseBtn,
+  .desktopReopenInside {
     display: none;
   }
 
@@ -352,7 +428,17 @@
     position: fixed;
     inset: 0;
     z-index: 35;
-    background: rgba(0, 0, 0, 0.45);
-    animation: fadeInOverlay 0.3s ease-out forwards;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    animation: fadeInOverlay 0.25s ease-out forwards;
+  }
+}
+
+@keyframes fadeInOverlay {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

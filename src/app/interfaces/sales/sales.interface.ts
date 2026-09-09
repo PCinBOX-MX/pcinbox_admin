@@ -36,10 +36,13 @@ export interface SalesI {
     lineTotal?: number;
     upc: string;
     sku: string;
+    idProductExt?: string | number | null;
     providerId?: number;
     purchaseId?: string | null;
+    invoiceNumber?: string | null;
     licenseType?: string | null;
     statusShip: any;
+    statusChangedAt?: string | null;
     licenseDeliveredAt?: string | null;
     idShipment: number;
     address: null | {

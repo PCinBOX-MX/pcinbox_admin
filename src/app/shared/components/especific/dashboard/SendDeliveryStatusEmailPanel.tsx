@@ -86,6 +86,8 @@ type SendDeliveryStatusEmailPanelProps = {
   onBulkStatusChange?: (
     status: ShipStatusOption,
   ) => Promise<boolean | void> | boolean | void;
+  /** Deshabilita el select (cooldown anti-spam o todo terminal). */
+  bulkDisabled?: boolean;
 };
 
 export default function SendDeliveryStatusEmailPanel({
@@ -95,6 +97,7 @@ export default function SendDeliveryStatusEmailPanel({
   products = [],
   allProducts,
   onBulkStatusChange,
+  bulkDisabled = false,
 }: SendDeliveryStatusEmailPanelProps) {
   const { requestPostPagos } = PagosUtils();
   const orderPaid = isOrderPaid(statusPay);
@@ -112,6 +115,13 @@ export default function SendDeliveryStatusEmailPanel({
     () => inferDefaultStatus(physicalProducts),
     [physicalProducts],
   );
+  const allPhysicalTerminal =
+    physicalProducts.length > 0 &&
+    physicalProducts.every((item) =>
+      ["entregado", "cancelado"].includes(
+        String(item.statusShip || "").toLowerCase(),
+      ),
+    );
 
   const [open, setOpen] = useState(true);
   const [status, setStatus] = useState<ShipStatusOption>(defaultStatus);
@@ -128,6 +138,7 @@ export default function SendDeliveryStatusEmailPanel({
   }, [defaultStatus]);
 
   const handleStatusSelect = async (next: ShipStatusOption) => {
+    if (bulkDisabled || allPhysicalTerminal) return;
     if (!onBulkStatusChange || !orderPaid) {
       setStatus(next);
       return;
@@ -249,7 +260,13 @@ export default function SendDeliveryStatusEmailPanel({
             <FormControl
               fullWidth
               size="small"
-              disabled={!orderPaid || sending || syncingStatus}
+              disabled={
+                !orderPaid ||
+                sending ||
+                syncingStatus ||
+                bulkDisabled ||
+                allPhysicalTerminal
+              }
             >
               <Select
                 value={status}

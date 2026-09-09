@@ -19,6 +19,8 @@ const ModalComponent = ({
   showActions,
   maxWidth,
   loading = false,
+  confirmLabel = "Aceptar",
+  cancelLabel = "Cancelar",
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -30,6 +32,8 @@ const ModalComponent = ({
   showActions: boolean;
   maxWidth?: string;
   loading?: boolean;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -98,6 +102,18 @@ const ModalComponent = ({
     }
   }, [isOpen, type]);
 
+  useEffect(() => {
+    if (!loading) return;
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [loading]);
+
   const handleClose = () => {
     if (loading) return;
     if (initialSnapshot.current !== null) {
@@ -120,6 +136,7 @@ const ModalComponent = ({
   };
 
   const handleConfirm = () => {
+    if (loading) return;
     if (onConfirm) {
       onConfirm();
     }
@@ -267,7 +284,7 @@ const ModalComponent = ({
                 className="admin-modal-btn-cancel"
                 onClick={handleClose}
               >
-                Cancelar
+                {cancelLabel}
               </button>
               <button
                 disabled={loading}
@@ -286,7 +303,7 @@ const ModalComponent = ({
                 onClick={handleConfirm}
               >
                 {loading && <MdAutorenew size={18} className="the-spinner" />}
-                Aceptar
+                {loading ? "Procesando…" : confirmLabel}
               </button>
             </div>
           )}
