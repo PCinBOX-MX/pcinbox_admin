@@ -130,17 +130,6 @@ export const adminTheme = createTheme({
         },
       },
     },
-    MuiChip: {
-      styleOverrides: {
-        root: {
-          fontWeight: 700,
-          borderRadius: 8,
-        },
-        outlined: {
-          borderColor: "#e5e7eb",
-        },
-      },
-    },
     MuiPagination: {
       defaultProps: {
         shape: "rounded",
