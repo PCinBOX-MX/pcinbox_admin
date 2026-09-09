@@ -183,7 +183,7 @@ const DataProducts = ({
     const nextStatus = event.target.value;
     const isCancel = nextStatus === "cancelado";
     const previous = products.map((p: any) => ({ ...p }));
-    const affectedSaleIds = products
+    const affectedSaleIds: number[] = products
       .filter((p: any) => Number(p.idShipment) === Number(idShipment))
       .map((p: any) => Number(p.idSale))
       .filter((id: number) => Number.isFinite(id) && id > 0);
