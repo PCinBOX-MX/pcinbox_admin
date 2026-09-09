@@ -22,7 +22,7 @@ import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefre
 import { PROVIDERS_WITH_PROFIT_MARGIN } from "../constants/providers.constants";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
 import { adminFieldSx } from "../theme/adminFieldSx";
-import { parsePageParam } from "../utils/adminPagination";
+import { resolvePageParam } from "../utils/adminPagination";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -45,7 +45,7 @@ const Proveedores = () => {
 
   const { searchParams, setQueryParams } = useQueryParams();
   const searchParam = searchParams.get("search") || "";
-  const pageParam = parsePageParam(searchParams.get("page"), 1);
+  const pageParam = resolvePageParam(searchParams.get("page"), 1);
 
   const [search, setSearch] = useState(searchParam);
   const [debouncedSearch, setDebouncedSearch] = useState(searchParam);

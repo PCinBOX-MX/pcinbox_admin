@@ -14,6 +14,7 @@ import { Filter, RefreshCw, Search, X } from "lucide-react";
 import { TextField, FormControl, InputLabel, Select, MenuItem, Alert } from "@mui/material";
 import useVentasInvitados from "./useVentasInvitados";
 import { adminFieldSx } from "../theme/adminFieldSx";
+import { resolvePageParam } from "../utils/adminPagination";
 
 const PAGE_SIZE = 10;
 
@@ -27,7 +28,7 @@ const VentasInvitados = () => {
 
   const searchParam = searchParams.get("search") || "";
   const statusFilter = searchParams.get("status") || "all";
-  const page = parseInt(searchParams.get("page") || "1", 10);
+  const page = resolvePageParam(searchParams.get("page"), 1);
 
   const [search, setSearch] = useState(searchParam);
   const [debouncedSearch, setDebouncedSearch] = useState(searchParam);

@@ -14,7 +14,11 @@ import AdminRefreshButton from "../shared/components/common/buttons/AdminRefresh
 import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefreshablePanel";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
 import { adminFieldSx } from "../theme/adminFieldSx";
-import { parsePageParam } from "../utils/adminPagination";
+import {
+  resolvePageParam,
+  resolvePageSizeParam,
+  useSkipInitialUrlWrite,
+} from "../utils/adminPagination";
 
 const DashBoard = () => {
   const [mounted, setMounted] = useState(false);
@@ -22,6 +26,7 @@ const DashBoard = () => {
 
   const { rowsVentas } = useTheContext();
   const { searchParams, setQueryParams } = useQueryParams();
+  const shouldSkipInitialUrlWrite = useSkipInitialUrlWrite();
 
   const searchParam = searchParams.get("search") || "";
   const statusPayParam = searchParams.get("statusPay") || "all";
@@ -29,8 +34,8 @@ const DashBoard = () => {
   const dateFromParam = searchParams.get("dateFrom") || "";
   const dateToParam = searchParams.get("dateTo") || "";
   const providerPendingParam = searchParams.get("providerPending") || "all";
-  const pageParam = parsePageParam(searchParams.get("page"), 1);
-  const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
+  const pageParam = resolvePageParam(searchParams.get("page"), 1);
+  const pageSizeParam = resolvePageSizeParam(searchParams.get("pageSize"), 25);
 
   const [page, setPage] = useState(pageParam);
   const [pageSize, setPageSize] = useState(pageSizeParam);
@@ -60,6 +65,7 @@ const DashBoard = () => {
   }, [searchParams]);
 
   useEffect(() => {
+    if (shouldSkipInitialUrlWrite()) return;
     setQueryParams({
       search: debouncedSearch,
       statusPay,
@@ -80,6 +86,7 @@ const DashBoard = () => {
     page,
     pageSize,
     setQueryParams,
+    shouldSkipInitialUrlWrite,
   ]);
 
   useEffect(() => {

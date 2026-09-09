@@ -27,7 +27,11 @@ import usePermissions from "../hooks/usePermissions";
 import { resolveApiErrorMessage } from "../utils/apiErrorMessage";
 import styles from "./customer.module.css";
 import { adminFieldSx } from "../theme/adminFieldSx";
-import { parsePageParam } from "../utils/adminPagination";
+import {
+  resolvePageParam,
+  resolvePageSizeParam,
+  useSkipInitialUrlWrite,
+} from "../utils/adminPagination";
 
 function displayName(row: CustomerRow) {
   return [row.name, row.lastname].filter(Boolean).join(" ").trim() || "este usuario";
@@ -48,9 +52,10 @@ const Customer = () => {
     null,
   );
   const { searchParams, setQueryParams } = useQueryParams();
+  const shouldSkipInitialUrlWrite = useSkipInitialUrlWrite();
   const searchParam = searchParams.get("search") || "";
-  const pageParam = parsePageParam(searchParams.get("page"), 1);
-  const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
+  const pageParam = resolvePageParam(searchParams.get("page"), 1);
+  const pageSizeParam = resolvePageSizeParam(searchParams.get("pageSize"), 25);
 
   const [search, setSearch] = useState(searchParam);
   const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
@@ -70,12 +75,13 @@ const Customer = () => {
   }, [searchParams]);
 
   useEffect(() => {
+    if (shouldSkipInitialUrlWrite()) return;
     setQueryParams({
       search: debouncedSearch,
       page,
       pageSize,
     });
-  }, [debouncedSearch, page, pageSize, setQueryParams]);
+  }, [debouncedSearch, page, pageSize, setQueryParams, shouldSkipInitialUrlWrite]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -224,12 +230,7 @@ const Customer = () => {
         },
       });
     },
-    [
-      canDeactivate,
-      closeModal,
-      requestPostProveedores,
-      setDataModal,
-    ],
+    [canDeactivate, closeModal, requestPostProveedores, setDataModal],
   );
 
   const { columns } = GridCustomer({
