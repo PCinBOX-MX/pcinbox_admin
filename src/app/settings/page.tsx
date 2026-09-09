@@ -13,8 +13,9 @@ const TOTAL_SLOTS = 5;
 
 const ENV = process.env.NEXT_PUBLIC_NODE_ENV === "local" ? "local" : "prod";
 
-function bannerUrl(filename: string) {
-  return `https://ik.imagekit.io/pcinboxkit/${ENV}/${filename}?v=${Date.now()}`;
+function bannerUrl(filename: string, version?: number) {
+  const base = `https://ik.imagekit.io/pcinboxkit/${ENV}/${filename}`;
+  return version != null ? `${base}?v=${version}` : base;
 }
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────────

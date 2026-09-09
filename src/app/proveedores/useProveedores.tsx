@@ -53,7 +53,9 @@ const useProveedores = () => {
       setProvidersError("");
       setDataProveedores((prev) => ({ ...prev, loading: true }));
 
-      const resp = await requestGetProveedores("/getAllProveedores");
+      const resp = await requestGetProveedores("/getAllProveedores", {
+        silent: true,
+      });
       setDataProveedores((prev) => ({ ...prev, loading: false }));
 
       if (resp?.status == 200) {
@@ -96,6 +98,7 @@ const useProveedores = () => {
         const resp = await requestPostProveedores(
           { idProveedor, page, pageSize, search },
           "/getProductsByProveedor",
+          { silent: true },
         );
         if (!isCurrent(sequence)) return;
         setProductsProveedor((prev) => ({ ...prev, loading: false }));

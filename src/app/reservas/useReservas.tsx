@@ -11,6 +11,11 @@ import {
 import UtilsService from "@/app/services/utils";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
+import {
+  resolvePageParam,
+  resolvePageSizeParam,
+  useSkipInitialUrlWrite,
+} from "../utils/adminPagination";
 
 export interface Reservation {
   id: string;
@@ -108,6 +113,7 @@ const useReservas = () => {
   const [listError, setListError] = useState("");
 
   const { searchParams, setQueryParams } = useQueryParams();
+  const shouldSkipInitialUrlWrite = useSkipInitialUrlWrite();
 
   const searchParam = searchParams.get("search") || "";
   const statusParam = searchParams.get("status") || "all";
@@ -115,8 +121,8 @@ const useReservas = () => {
   const filterTypeParam = (searchParams.get("filterType") as "single" | "range") || "single";
   const startDateParam = searchParams.get("startDate") || "";
   const endDateParam = searchParams.get("endDate") || "";
-  const pageParam = parseInt(searchParams.get("page") || "1", 10);
-  const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
+  const pageParam = resolvePageParam(searchParams.get("page"), 1);
+  const pageSizeParam = resolvePageSizeParam(searchParams.get("pageSize"), 25);
 
   // Filtros
   const [search, setSearch] = useState(searchParam);
@@ -149,6 +155,7 @@ const useReservas = () => {
 
   // Sincronizar estados locales a URL cuando cambien
   useEffect(() => {
+    if (shouldSkipInitialUrlWrite()) return;
     setQueryParams({
       search: debouncedSearch,
       status,
@@ -159,7 +166,7 @@ const useReservas = () => {
       page,
       pageSize
     });
-  }, [debouncedSearch, status, date, filterType, startDate, endDate, page, pageSize, setQueryParams]);
+  }, [debouncedSearch, status, date, filterType, startDate, endDate, page, pageSize, setQueryParams, shouldSkipInitialUrlWrite]);
 
   // Debounce para el término de búsqueda
   useEffect(() => {

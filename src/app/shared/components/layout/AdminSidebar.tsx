@@ -128,8 +128,9 @@ const AdminSidebar = () => {
 
       <aside
         className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ""} ${
-          !desktopOpen ? styles.sidebarCollapsed : ""
+          !desktopOpen ? styles.sidebarRail : ""
         }`}
+        data-collapsed={desktopOpen ? "false" : "true"}
       >
         <div className={styles.brand}>
           {!desktopOpen ? (
@@ -184,8 +185,18 @@ const AdminSidebar = () => {
                 <button
                   type="button"
                   className={`${styles.navItem} ${isGroupActive && !hasSubItems ? styles.navItemActive : ""}`}
+                  title={!desktopOpen ? item.label : undefined}
+                  aria-expanded={hasSubItems ? isExpanded : undefined}
                   onClick={() => {
                     if (hasSubItems) {
+                      if (!desktopOpen) {
+                        setDesktopOpen(true);
+                        setOpenGroups((prev) => ({
+                          ...prev,
+                          [item.id]: true,
+                        }));
+                        return;
+                      }
                       toggleGroup(item.id);
                     } else {
                       handleActiveTab(item.id);
@@ -234,6 +245,7 @@ const AdminSidebar = () => {
             type="button"
             className={styles.logoutBtn}
             onClick={handleLogout}
+            title={!desktopOpen ? "Cerrar sesión" : undefined}
           >
             <LogOut size={18} />
             <span className={styles.logoutBtnLabel}>Cerrar sesión</span>

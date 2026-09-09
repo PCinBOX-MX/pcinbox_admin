@@ -19,6 +19,8 @@ const ModalComponent = ({
   showActions,
   maxWidth,
   loading = false,
+  confirmLabel = "Aceptar",
+  cancelLabel = "Cancelar",
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -30,6 +32,8 @@ const ModalComponent = ({
   showActions: boolean;
   maxWidth?: string;
   loading?: boolean;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -98,6 +102,18 @@ const ModalComponent = ({
     }
   }, [isOpen, type]);
 
+  useEffect(() => {
+    if (!loading) return;
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [loading]);
+
   const handleClose = () => {
     if (loading) return;
     if (initialSnapshot.current !== null) {
@@ -120,6 +136,7 @@ const ModalComponent = ({
   };
 
   const handleConfirm = () => {
+    if (loading) return;
     if (onConfirm) {
       onConfirm();
     }
@@ -202,64 +219,28 @@ const ModalComponent = ({
           ref={boxRef}
           onClick={(e) => e.stopPropagation()}
           sx={{
-            background: "white",
             width: "fit-content",
             minWidth: "min(90vw, 320px)",
             maxWidth: maxWidth || "min(90vw, 600px)",
-            maxHeight: "90vh",
-            overflow: "hidden",
-            borderRadius: "16px",
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-            outline: "none",
-            display: "flex",
-            flexDirection: "column",
-            paddingBottom: "24px",
           }}
-          className="animate-in fade-in zoom-in-95 duration-200"
+          className="admin-modal-box animate-in fade-in zoom-in-95 duration-200"
         >
-          {/* Cabecera con boton cerrar */}
-        <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "16px 16px 0 0" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "16px 16px 0 0" }}>
           <button
             onClick={handleClose}
             disabled={loading}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: loading ? "not-allowed" : "pointer",
-              padding: "8px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "50%",
-              color: "#9ca3af",
-              transition: "background-color 0.2s, color 0.2s",
-              opacity: loading ? 0.5 : 1
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.backgroundColor = "#f3f4f6";
-                e.currentTarget.style.color = "#4b5563";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.color = "#9ca3af";
-              }
-            }}
+            className="admin-modal-close"
             aria-label="Cerrar modal"
           >
             <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 
-          {/* Ícono y Título */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, padding: "0 24px 8px 24px", textAlign: "center" }}>
             <div 
-              className={`${config.bgColor} ${config.iconColor}`}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "64px", height: "64px", borderRadius: "50%", marginBottom: "16px" }}
+              className={`admin-modal-icon ${config.bgColor} ${config.iconColor}`}
             >
-              <IconComponent size={32} strokeWidth={2} />
+              <IconComponent size={34} strokeWidth={2} />
             </div>
             
             <Typography
@@ -280,70 +261,49 @@ const ModalComponent = ({
 
           {/* Contenido: unico contenedor con scroll */}
           <div
+            className="admin-modal-content-scroll"
             style={{
               display: "flex",
-              justifyContent: "center",
               flex: "1 1 auto",
               minHeight: 0,
               overflowX: "hidden",
               overflowY: "auto",
-              padding: "0 24px 24px 24px",
-              color: "#4b5563",
-              textAlign: "center",
-              fontSize: "16px",
-              lineHeight: "1.5",
+              padding: "0 28px 28px",
+              margin: 0,
             }}
           >
-            <div style={{ width: "100%", textAlign: "center" }}>
+            <div className="admin-modal-content-inner" style={{ margin: 0, padding: 0, width: "100%" }}>
               {content}
             </div>
           </div>
           {/* Botones de Accion */}
           {showActions && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", flexShrink: 0, padding: "12px 24px 0 24px", background: "#ffffff" }}>
+            <div className="admin-modal-actions">
               <button
                 disabled={loading}
-                style={{
-                  padding: "10px 24px",
-                  backgroundColor: "#ffffff",
-                  color: "#374151",
-                  fontWeight: "500",
-                  borderRadius: "8px",
-                  border: "1px solid #d1d5db",
-                  cursor: loading ? "not-allowed" : "pointer",
-                  transition: "background-color 0.2s",
-                  opacity: loading ? 0.6 : 1
-                }}
-                onMouseEnter={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#f9fafb" }}
-                onMouseLeave={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#ffffff" }}
+                className="admin-modal-btn-cancel"
                 onClick={handleClose}
               >
-                Cancelar
+                {cancelLabel}
               </button>
               <button
                 disabled={loading}
+                className="admin-modal-btn-confirm"
                 style={{
-                  padding: "10px 24px",
-                  backgroundColor: type === 'error' ? '#dc2626' : '#bb3d4b',
-                  color: "white",
-                  fontWeight: "500",
-                  borderRadius: "8px",
-                  border: "none",
+                  background:
+                    type === "error"
+                      ? "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)"
+                      : undefined,
+                  opacity: loading ? 0.7 : 1,
                   cursor: loading ? "not-allowed" : "pointer",
-                  boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                  transition: "background-color 0.2s",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  opacity: loading ? 0.7 : 1
+                  gap: 8,
                 }}
-                onMouseEnter={(e) => { if(!loading) e.currentTarget.style.backgroundColor = type === 'error' ? '#b91c1c' : '#a03440' }}
-                onMouseLeave={(e) => { if(!loading) e.currentTarget.style.backgroundColor = type === 'error' ? '#dc2626' : '#bb3d4b' }}
                 onClick={handleConfirm}
               >
                 {loading && <MdAutorenew size={18} className="the-spinner" />}
-                Aceptar
+                {loading ? "Procesando…" : confirmLabel}
               </button>
             </div>
           )}
@@ -364,16 +324,7 @@ const ModalComponent = ({
             }
           }}
         >
-          <Box
-            sx={{
-              background: "white",
-              padding: "24px",
-              borderRadius: "16px",
-              maxWidth: "400px",
-              textAlign: "center",
-              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
-            }}
-          >
+          <Box className="admin-modal-box" sx={{ maxWidth: "400px", padding: "24px", textAlign: "center" }}>
             <AlertTriangle size={48} color="#eab308" style={{ margin: "0 auto 16px auto" }} />
             <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
               ¿Descartar cambios?
@@ -381,31 +332,18 @@ const ModalComponent = ({
             <Typography sx={{ color: "#4b5563", mb: 3 }}>
               Tienes datos sin guardar. ¿Estás seguro de que deseas cerrar y perder la información?
             </Typography>
-            <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <div className="admin-modal-actions">
               <button
                 onClick={() => setShowConfirmClose(false)}
-                style={{
-                  padding: "10px 24px",
-                  borderRadius: "8px",
-                  border: "1px solid #d1d5db",
-                  backgroundColor: "#ffffff",
-                  color: "#374151",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                }}
+                className="admin-modal-btn-cancel"
               >
                 No, volver
               </button>
               <button
                 onClick={forceClose}
+                className="admin-modal-btn-confirm"
                 style={{
-                  padding: "10px 24px",
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: "#dc2626",
-                  color: "white",
-                  fontWeight: "500",
-                  cursor: "pointer",
+                  background: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
                 }}
               >
                 Sí, cerrar

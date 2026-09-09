@@ -113,6 +113,20 @@ export const adminTheme = createTheme({
         root: {
           fontWeight: 600,
           color: "#4b5563",
+          "&.Mui-focused": {
+            color: primary,
+          },
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          fontWeight: 700,
+          borderRadius: 8,
+        },
+        outlined: {
+          borderColor: "#e5e7eb",
         },
       },
     },
