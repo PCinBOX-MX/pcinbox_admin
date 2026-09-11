@@ -109,12 +109,38 @@ function requirePrinterName(name?: string): string {
   return printer;
 }
 
+/**
+ * Impresoras virtuales / PDF: no entienden ESC/POS.
+ * Si se les manda raw, Windows/QZ genera un .pdf vacío o corrupto
+ * (p. ej. "QZ Tray Raw Print.pdf").
+ */
+export function isQzPdfOrVirtualPrinter(printerName?: string | null): boolean {
+  const n = String(printerName || "").toLowerCase();
+  if (!n) return false;
+  return /pdf|xps|onenote|fax|document writer|microsoft print to|send to|raw print|adobe pdf|foxit|nitro/i.test(
+    n,
+  );
+}
+
+export class QzPdfPrinterError extends Error {
+  constructor(printerName: string) {
+    super(
+      `«${printerName}» es una impresora PDF/virtual. El ticket térmico (ESC/POS) no genera un PDF válido. ` +
+        `Elige la impresora térmica real, o usa «Vista previa HTML» e imprime/guarda PDF desde el navegador.`,
+    );
+    this.name = "QzPdfPrinterError";
+  }
+}
+
 export async function printRawToQz(
   data: string,
   printerName?: string,
 ): Promise<void> {
   const qz = await connectQz();
   const printer = requirePrinterName(printerName);
+  if (isQzPdfOrVirtualPrinter(printer)) {
+    throw new QzPdfPrinterError(printer);
+  }
   const config = qz.configs.create(printer);
   await qz.print(config, [
     {
@@ -130,11 +156,18 @@ export async function printPosTicketQz(
   opts?: { openDrawer?: boolean; printerName?: string },
 ): Promise<void> {
   const settings = loadQzSettings();
+  const printer = requirePrinterName(opts?.printerName);
+  if (isQzPdfOrVirtualPrinter(printer)) {
+    throw new QzPdfPrinterError(printer);
+  }
+
+  // Solo ESC/POS raw hacia térmica. Mezclar pixel+raw a PDF virtual rompe el archivo.
   const payload = buildEscPosTicket(sale, {
     openDrawer: Boolean(opts?.openDrawer),
     drawerDialect: settings.drawerDialect,
+    logoPrinted: false,
   });
-  await printRawToQz(payload, opts?.printerName);
+  await printRawToQz(payload, printer);
 }
 
 export async function openCashDrawerQz(opts?: {
@@ -154,7 +187,9 @@ export function isQzConnectionError(err: unknown): boolean {
 }
 
 export function qzErrorMessage(err: unknown): string {
+  if (err instanceof QzPdfPrinterError) return err.message;
   const msg = String((err as { message?: string })?.message || err || "");
+  if (/QzPdfPrinterError|PDF\/virtual|ESC\/POS/i.test(msg)) return msg;
   if (isQzConnectionError(err)) {
     return (
       "No se pudo conectar con QZ Tray. Instálalo en esta PC, ábrelo y " +

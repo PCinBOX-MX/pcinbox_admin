@@ -11,12 +11,15 @@ import {
 import {
   Banknote,
   History,
+  PenLine,
   Plus,
   Printer,
   Search,
   ShoppingCart,
   Trash2,
   Wallet,
+  Eye,
+  Shield,
   X,
 } from "lucide-react";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
@@ -33,13 +36,19 @@ import {
   PosProductHit,
   PosSaleStatus,
 } from "../interfaces/pos/pos.interface";
+import { formatPosBranchUiLabel } from "../interfaces/pos/posBranchDisplay";
 import usePos from "./usePos";
 import styles from "./punto-de-venta.module.css";
 
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
-    borderRadius: "10px",
+    borderRadius: "12px",
+    backgroundColor: "#fff",
+    transition: "box-shadow 160ms ease",
     "&:hover fieldset": { borderColor: "#bb3d4b" },
+    "&.Mui-focused": {
+      boxShadow: "0 0 0 3px rgba(187, 61, 75, 0.16)",
+    },
     "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
   },
   "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
@@ -177,6 +186,51 @@ function PosNumberField({
 export default function PuntoDeVentaPage() {
   const { can, hydrated } = usePermissions();
   const pos = usePos();
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualPrice, setManualPrice] = useState("");
+  const [manualQty, setManualQty] = useState("1");
+  const [manualUpc, setManualUpc] = useState("");
+  // Evita hydration mismatch de MUI TextField (useId distinto SSR vs cliente).
+  const [clientReady, setClientReady] = useState(false);
+
+  useEffect(() => {
+    setClientReady(true);
+  }, []);
+
+  const submitManual = () => {
+    const price = Number(manualPrice);
+    const qty = parseInt(manualQty, 10);
+    const ok = pos.addManualLine({
+      name: manualName,
+      unitPrice: price,
+      quantity: Number.isFinite(qty) ? qty : 1,
+      upc: manualUpc,
+    });
+    if (ok) {
+      setManualName("");
+      setManualPrice("");
+      setManualQty("1");
+      setManualUpc("");
+      setManualOpen(false);
+    }
+  };
+
+  if (!clientReady) {
+    return (
+      <AdminPageShell
+        title="Punto de Venta"
+        subtitle="Cobro en bodega con el mismo catálogo e inventario de la tienda"
+      >
+        <div className={styles.posPage}>
+          <div className={styles.posLoadingShell}>
+            <CircularProgress size={20} sx={{ color: "#bb3d4b" }} />
+            Cargando punto de venta…
+          </div>
+        </div>
+      </AdminPageShell>
+    );
+  }
 
   if (hydrated && !can("pos.manage")) {
     return (
@@ -192,7 +246,7 @@ export default function PuntoDeVentaPage() {
   return (
     <AdminPageShell
       title="Punto de Venta"
-      subtitle="Cobro en sucursal con el mismo catálogo e inventario de la tienda"
+      subtitle="Cobro en bodega con el mismo catálogo e inventario de la tienda"
     >
       <div className={styles.posPage}>
         <div className={styles.posTop}>
@@ -202,6 +256,9 @@ export default function PuntoDeVentaPage() {
               className={`${styles.posTab} ${pos.tab === "cobrar" ? styles.posTabActive : ""}`}
               onClick={() => pos.setTab("cobrar")}
             >
+              <span className={styles.posTabIcon}>
+                <ShoppingCart size={15} strokeWidth={2.25} />
+              </span>
               Cobrar
             </button>
             <button
@@ -209,26 +266,57 @@ export default function PuntoDeVentaPage() {
               className={`${styles.posTab} ${pos.tab === "historial" ? styles.posTabActive : ""}`}
               onClick={() => pos.setTab("historial")}
             >
+              <span className={styles.posTabIcon}>
+                <History size={15} strokeWidth={2.25} />
+              </span>
               Historial
+            </button>
+            <button
+              type="button"
+              className={`${styles.posTab} ${pos.tab === "garantias" ? styles.posTabActive : ""}`}
+              onClick={() => pos.setTab("garantias")}
+            >
+              <span className={styles.posTabIcon}>
+                <Shield size={15} strokeWidth={2.25} />
+              </span>
+              Garantías
             </button>
             <button
               type="button"
               className={`${styles.posTab} ${pos.tab === "caja" ? styles.posTabActive : ""}`}
               onClick={() => pos.setTab("caja")}
             >
+              <span className={styles.posTabIcon}>
+                <Wallet size={15} strokeWidth={2.25} />
+              </span>
               Caja
             </button>
           </div>
 
           <div className={styles.branchPicker}>
             <div className={styles.headerActions}>
+              <span
+                className={`${styles.cashStatusPill} ${
+                  pos.cashOpen
+                    ? styles.cashStatusPillOpen
+                    : styles.cashStatusPillClosed
+                }`}
+                title={
+                  pos.cashOpen && pos.cashSession
+                    ? `Sesión #${pos.cashSession.idCashSession}`
+                    : "Sin caja abierta"
+                }
+              >
+                <span className={styles.cashStatusDot} />
+                {pos.cashOpen ? "Caja abierta" : "Caja cerrada"}
+              </span>
               {!pos.cashOpen ? (
                 <button
                   type="button"
                   className={styles.secondaryBtn}
                   onClick={() => pos.setTab("caja")}
                 >
-                  <Wallet size={14} style={{ display: "inline", marginRight: 4 }} />
+                  <Wallet size={14} />
                   Abrir caja
                 </button>
               ) : (
@@ -237,7 +325,7 @@ export default function PuntoDeVentaPage() {
                   className={styles.secondaryBtn}
                   onClick={() => pos.setTab("caja")}
                 >
-                  <Wallet size={14} style={{ display: "inline", marginRight: 4 }} />
+                  <Wallet size={14} />
                   Ver caja
                 </button>
               )}
@@ -252,10 +340,7 @@ export default function PuntoDeVentaPage() {
                 }
                 onClick={() => void pos.testQzDrawer()}
               >
-                <Banknote
-                  size={14}
-                  style={{ display: "inline", marginRight: 4 }}
-                />
+                <Banknote size={14} />
                 Abrir cajón
               </button>
             </div>
@@ -266,7 +351,7 @@ export default function PuntoDeVentaPage() {
         {pos.tab === "cobrar" ? (
           <div className={styles.posGrid}>
             {!pos.cashOpen && pos.branchId ? (
-              <div className={styles.cashBanner} style={{ gridColumn: "1 / -1" }}>
+              <div className={`${styles.cashBanner} ${styles.spanFull}`}>
                 <Wallet size={16} />
                 <span>
                   Caja cerrada. Ábrela aquí si vas a cobrar en efectivo (tarjeta
@@ -301,8 +386,7 @@ export default function PuntoDeVentaPage() {
             ) : null}
             {pos.cashOpen && pos.cashExpected != null ? (
               <div
-                className={`${styles.cashBanner} ${styles.cashBannerOk}`}
-                style={{ gridColumn: "1 / -1" }}
+                className={`${styles.cashBanner} ${styles.cashBannerOk} ${styles.spanFull}`}
               >
                 <Wallet size={16} />
                 <span>
@@ -313,15 +397,177 @@ export default function PuntoDeVentaPage() {
             ) : null}
             <section className={styles.posPanel}>
               <div className={styles.posPanelHead}>
-                <h2>Buscar producto</h2>
-                <p>Nombre, SKU, UPC o número de parte. Ideal para escáner.</p>
+                <div className={styles.posPanelHeadRow}>
+                  <div>
+                    <p className={styles.panelEyebrow}>Productos</p>
+                    <h2>Buscar y agregar</h2>
+                    <p>Escanea UPC/SKU o escribe el nombre. Cotización y captura manual opcionales.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    onClick={() => setManualOpen((v) => !v)}
+                  >
+                    <PenLine
+                      size={14}
+                      style={{ display: "inline", marginRight: 4 }}
+                    />
+                    {manualOpen ? "Cerrar manual" : "Producto manual"}
+                  </button>
+                </div>
               </div>
               <div className={styles.posPanelBody}>
+                <div className={styles.quoteBox}>
+                  <div className={styles.manualHead}>
+                    <strong>Cotización</strong>
+                    <span>
+                      Ingresa el No. de cotización de la tienda para cargar sus
+                      productos al carrito. Vigencia: 5 días desde su creación
+                      (después el PDF se elimina y ya no se puede cargar).
+                    </span>
+                  </div>
+                  {pos.quotePageAlert ? (
+                    <div
+                      className={`${styles.quotePageAlert} ${
+                        pos.quotePageAlert.type === "error"
+                          ? styles.quotePageAlertError
+                          : pos.quotePageAlert.type === "warning"
+                            ? styles.quotePageAlertWarning
+                            : styles.quotePageAlertSuccess
+                      }`}
+                      role="alert"
+                    >
+                      <div>
+                        <strong>{pos.quotePageAlert.title}</strong>
+                        <p>{pos.quotePageAlert.message}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.quoteAlertClose}
+                        aria-label="Cerrar aviso"
+                        onClick={pos.dismissQuotePageAlert}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className={styles.quoteRow}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="No. Cotización"
+                      value={pos.quoteInput}
+                      onChange={(e) => pos.setQuoteInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void pos.loadQuote();
+                        }
+                      }}
+                      sx={fieldSx}
+                      placeholder="Ej. 1726060800000"
+                    />
+                    <button
+                      type="button"
+                      className={styles.primaryBtn}
+                      style={{ width: "auto", whiteSpace: "nowrap" }}
+                      disabled={pos.quoteLoading}
+                      onClick={() => void pos.loadQuote()}
+                    >
+                      {pos.quoteLoading ? "Cargando…" : "Cargar"}
+                    </button>
+                  </div>
+                  {pos.linkedQuoteNumber ? (
+                    <div className={styles.quoteLinked}>
+                      <span>
+                        Vinculada: <strong>{pos.linkedQuoteNumber}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        className={styles.linkBtn}
+                        onClick={pos.clearLinkedQuote}
+                      >
+                        Quitar vínculo
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                {manualOpen ? (
+                  <div className={styles.manualBox}>
+                    <div className={styles.manualHead}>
+                      <strong>Captura manual</strong>
+                      <span>
+                        Para artículos que no están en el catálogo (sin descontar
+                        stock).
+                      </span>
+                    </div>
+                    <div className={styles.manualGrid}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Nombre"
+                        value={manualName}
+                        onChange={(e) => setManualName(e.target.value)}
+                        sx={fieldSx}
+                      />
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Precio"
+                        value={manualPrice}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^\d.]/g, "");
+                          const parts = raw.split(".");
+                          const next =
+                            parts.length <= 1
+                              ? raw
+                              : `${parts[0]}.${parts.slice(1).join("").slice(0, 2)}`;
+                          setManualPrice(next);
+                        }}
+                        sx={fieldSx}
+                        inputProps={{ inputMode: "decimal", pattern: "[0-9.]*" }}
+                      />
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Cantidad"
+                        value={manualQty}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+                          setManualQty(digits);
+                        }}
+                        sx={fieldSx}
+                        inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                      />
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="UPC / código (opcional)"
+                        value={manualUpc}
+                        onChange={(e) => setManualUpc(e.target.value)}
+                        sx={fieldSx}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.primaryBtn}
+                      onClick={submitManual}
+                      disabled={manualName.trim().length < 2}
+                    >
+                      <Plus
+                        size={14}
+                        style={{ display: "inline", marginRight: 4 }}
+                      />
+                      Agregar al carrito
+                    </button>
+                  </div>
+                ) : null}
                 <div className={styles.searchRow}>
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="Buscar o escanear…"
+                    label="Buscar o escanear"
+                    placeholder="Nombre, SKU, UPC…"
                     value={pos.search}
                     onChange={(e) => pos.setSearch(e.target.value)}
                     inputRef={pos.searchRef}
@@ -378,8 +624,8 @@ export default function PuntoDeVentaPage() {
                     title={pos.search ? "Sin resultados" : "Listo para cobrar"}
                     description={
                       pos.search
-                        ? "Prueba con SKU, UPC, marca o parte del nombre."
-                        : "Escribe o escanea un código para agregar al carrito."
+                        ? "Prueba con SKU, UPC, marca o parte del nombre. Si no está en catálogo, usa Producto manual."
+                        : "Escanea un código o captura un producto manual si no está registrado."
                     }
                   />
                 ) : (
@@ -444,8 +690,13 @@ export default function PuntoDeVentaPage() {
                                           : styles.stockChipEmpty
                                       }
                                     >
-                                      {st.name || st.label || st.branchId}:{" "}
-                                      {st.stock}
+                                      {formatPosBranchUiLabel({
+                                        name: st.name,
+                                        label: st.label,
+                                        city: st.city,
+                                        fallback: String(st.branchId),
+                                      })}
+                                      : {st.stock}
                                     </span>
                                   ))}
                                 </div>
@@ -474,7 +725,12 @@ export default function PuntoDeVentaPage() {
                                     pos.addProduct(hit, st.branchId)
                                   }
                                 >
-                                  {st.name || st.label} · {st.stock}
+                                  {formatPosBranchUiLabel({
+                                    name: st.name,
+                                    label: st.label,
+                                    city: st.city,
+                                  })}{" "}
+                                  · {st.stock}
                                 </button>
                               ))}
                             </div>
@@ -487,83 +743,92 @@ export default function PuntoDeVentaPage() {
               </div>
             </section>
 
-            <aside className={styles.posPanel}>
+            <aside className={`${styles.posPanel} ${styles.cartPanel}`}>
               <div className={styles.posPanelHead}>
-                <h2>
-                  <ShoppingCart
-                    size={16}
-                    style={{ display: "inline", marginRight: 6 }}
-                  />
-                  Carrito
-                </h2>
+                <div className={styles.posPanelHeadRow}>
+                  <div>
+                    <p className={styles.panelEyebrow}>Venta</p>
+                    <h2>
+                      <ShoppingCart size={18} strokeWidth={2.25} />
+                      Carrito
+                    </h2>
+                  </div>
+                </div>
               </div>
-              <div className={styles.posPanelBody}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Cliente"
-                  value={pos.customerName}
-                  onChange={(e) => pos.setCustomerName(e.target.value)}
-                  sx={{ ...fieldSx, mb: 1.5 }}
-                />
-
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="email"
-                  placeholder="Email"
-                  value={pos.guestEmail}
-                  onChange={(e) => pos.setGuestEmail(e.target.value)}
-                  sx={{ ...fieldSx, mb: 1.5 }}
-                  error={Boolean(pos.guestEmail.trim()) && !pos.emailValid}
-                  helperText={
-                    pos.guestEmail.trim() && !pos.emailValid
-                      ? "Formato de email inválido"
-                      : undefined
-                  }
-                />
-
-                <div className={styles.phoneRow}>
-                  <TextField
-                    select
-                    size="small"
-                    value={pos.phoneLada}
-                    onChange={(e) => pos.setPhoneLada(e.target.value)}
-                    className={styles.ladaSelect}
-                    sx={fieldSx}
-                  >
-                    {POS_PHONE_LADAS.map((lada) => (
-                      <MenuItem key={lada} value={lada}>
-                        {lada}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+              <div className={styles.cartPanelBody}>
+                <div className={styles.cartPanelScroll}>
+                <div className={styles.customerBlock}>
+                  <p className={styles.customerBlockTitle}>Cliente</p>
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="Teléfono"
-                    value={pos.guestPhone}
-                    onChange={(e) => {
-                      const digits = e.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 10);
-                      pos.setGuestPhone(digits);
-                    }}
-                    sx={fieldSx}
-                    error={Boolean(pos.guestPhone.trim()) && !pos.phoneValid}
+                    label="Nombre"
+                    value={pos.customerName}
+                    onChange={(e) => pos.setCustomerName(e.target.value)}
+                    sx={{ ...fieldSx, mb: 1.5 }}
+                    required
+                  />
+
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="email"
+                    label="Email (opcional)"
+                    value={pos.guestEmail}
+                    onChange={(e) => pos.setGuestEmail(e.target.value)}
+                    sx={{ ...fieldSx, mb: 1.5 }}
+                    error={Boolean(pos.guestEmail.trim()) && !pos.emailValid}
                     helperText={
-                      pos.guestPhone.trim() && !pos.phoneValid
-                        ? "Debe tener 10 dígitos"
+                      pos.guestEmail.trim() && !pos.emailValid
+                        ? "Formato de email inválido"
                         : undefined
                     }
-                    inputProps={{ inputMode: "numeric", maxLength: 10 }}
                   />
+
+                  <div className={styles.phoneRow}>
+                    <TextField
+                      select
+                      size="small"
+                      label="Lada"
+                      value={pos.phoneLada}
+                      onChange={(e) => pos.setPhoneLada(e.target.value)}
+                      className={styles.ladaSelect}
+                      sx={fieldSx}
+                    >
+                      {POS_PHONE_LADAS.map((lada) => (
+                        <MenuItem key={lada} value={lada}>
+                          {lada}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Teléfono"
+                      value={pos.guestPhone}
+                      onChange={(e) => {
+                        const digits = e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 10);
+                        pos.setGuestPhone(digits);
+                      }}
+                      sx={fieldSx}
+                      error={Boolean(pos.guestPhone.trim()) && !pos.phoneValid}
+                      helperText={
+                        pos.guestPhone.trim() && !pos.phoneValid
+                          ? "Debe tener 10 dígitos"
+                          : undefined
+                      }
+                      inputProps={{ inputMode: "numeric", maxLength: 10 }}
+                      required
+                    />
+                  </div>
                 </div>
 
                 {pos.cart.length === 0 ? (
                   <EmptyState
                     title="Carrito vacío"
-                    description="Agrega productos desde el buscador."
+                    description="Agrega desde el buscador o con captura manual."
                   />
                 ) : (
                   <div className={styles.cartList}>
@@ -577,52 +842,91 @@ export default function PuntoDeVentaPage() {
                           <div className={styles.cartCardInfo}>
                             <div className={styles.cartLineName}>
                               {line.name}
+                              {line.isManual ? (
+                                <span className={styles.manualBadge}>
+                                  Manual
+                                </span>
+                              ) : null}
                             </div>
                             <div className={styles.hitMeta}>
                               {[
                                 line.sku && `SKU ${line.sku}`,
                                 line.upc && `UPC ${line.upc}`,
-                                line.branchLabel,
+                                line.branchLabel &&
+                                  formatPosBranchUiLabel({
+                                    label: line.branchLabel,
+                                    name: line.stocksByBranch?.find(
+                                      (s) => s.branchId === line.branchId,
+                                    )?.name,
+                                  }),
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
                             </div>
-                            <div className={styles.cartUnitPrice}>
-                              <span className={styles.cartUnitPriceLabel}>
-                                Precio
-                              </span>
-                              <span className={styles.cartUnitPriceValue}>
-                                {money(line.unitPrice)}
-                              </span>
-                              <span className={styles.cartUnitPriceHint}>
-                                c/u
-                              </span>
-                            </div>
+                            {line.isManual ? (
+                              <div className={styles.cartUnitPriceEdit}>
+                                <PosNumberField
+                                  label="Precio c/u"
+                                  value={line.unitPrice}
+                                  emptyAs="0"
+                                  onCommit={(raw) => {
+                                    const n = Number(raw);
+                                    pos.updateLine(line.key, {
+                                      unitPrice:
+                                        Number.isFinite(n) && n >= 0 ? n : 0,
+                                    });
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div className={styles.cartUnitPrice}>
+                                <span className={styles.cartUnitPriceLabel}>
+                                  Precio
+                                </span>
+                                <span className={styles.cartUnitPriceValue}>
+                                  {money(line.unitPrice)}
+                                </span>
+                                <span className={styles.cartUnitPriceHint}>
+                                  c/u
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <button
                             type="button"
                             className={styles.dangerBtn}
-                            onClick={() => pos.removeLine(line.productId)}
+                            onClick={() => pos.removeLine(line.key)}
                             aria-label="Quitar"
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
-                        {line.stocksByBranch?.length ? (
+                        {line.isManual ? (
+                          <p
+                            className={styles.hitMeta}
+                            style={{ marginBottom: 8 }}
+                          >
+                            Captura manual · no descuenta inventario
+                          </p>
+                        ) : line.stocksByBranch?.length ? (
                           <TextField
                             select
                             fullWidth
                             size="small"
-                            label="Bodega / almacén"
+                            label="Bodega"
                             value={line.branchId ?? ""}
                             onChange={(e) => {
                               const branchId = Number(e.target.value);
                               const st = line.stocksByBranch.find(
                                 (s) => s.branchId === branchId,
                               );
-                              pos.updateLine(line.productId, {
+                              pos.updateLine(line.key, {
                                 branchId,
-                                branchLabel: st?.label || null,
+                                branchLabel: formatPosBranchUiLabel({
+                                  name: st?.name,
+                                  label: st?.label,
+                                  city: st?.city,
+                                }),
                                 stockBranch: st?.stock ?? 0,
                               });
                             }}
@@ -634,7 +938,12 @@ export default function PuntoDeVentaPage() {
                                 value={st.branchId}
                                 disabled={st.stock <= 0}
                               >
-                                {st.label} ({st.stock})
+                                {formatPosBranchUiLabel({
+                                  name: st.name,
+                                  label: st.label,
+                                  city: st.city,
+                                })}{" "}
+                                ({st.stock})
                               </MenuItem>
                             ))}
                           </TextField>
@@ -655,7 +964,7 @@ export default function PuntoDeVentaPage() {
                             onCommit={(raw) => {
                               let n = parseInt(raw, 10);
                               if (!Number.isFinite(n) || n < 1) n = 1;
-                              pos.updateLine(line.productId, {
+                              pos.updateLine(line.key, {
                                 quantity: n,
                               });
                             }}
@@ -680,12 +989,13 @@ export default function PuntoDeVentaPage() {
                                 ? "Números de serie (obligatorio)"
                                 : "Números de serie (opcional)"}
                             </span>
-                            {pos.isAdmin ? (
+                            {pos.isAdmin || line.isManual ? (
                               <button
                                 type="button"
                                 className={styles.secondaryBtn}
                                 onClick={() =>
                                   void pos.toggleRequiresSerial(
+                                    line.key,
                                     line.productId,
                                     !line.requiresSerial,
                                   )
@@ -706,7 +1016,7 @@ export default function PuntoDeVentaPage() {
                               value={line.serials[i] || ""}
                               onChange={(e) =>
                                 pos.setLineSerial(
-                                  line.productId,
+                                  line.key,
                                   i,
                                   e.target.value,
                                 )
@@ -720,15 +1030,13 @@ export default function PuntoDeVentaPage() {
                     ))}
                   </div>
                 )}
+                </div>
 
+                <div className={styles.cartPanelFooter}>
                 <div className={styles.totalsBox}>
                   <div className={styles.totalsRow}>
                     <span>Subtotal</span>
                     <span>{money(pos.totals.subtotal)}</span>
-                  </div>
-                  <div className={styles.totalsGrand}>
-                    <span>Total</span>
-                    <span>{money(pos.totals.total)}</span>
                   </div>
                   <div className={styles.totalsRow}>
                     <span>Cubierto</span>
@@ -737,9 +1045,9 @@ export default function PuntoDeVentaPage() {
                   <div className={styles.totalsRow}>
                     <span>Restante</span>
                     <strong
-                      style={{
-                        color: pos.remaining > 0.009 ? "#bb3d4b" : "#166534",
-                      }}
+                      className={
+                        pos.remaining > 0.009 ? styles.totalsWarn : styles.totalsOk
+                      }
                     >
                       {money(pos.remaining)}
                     </strong>
@@ -747,37 +1055,28 @@ export default function PuntoDeVentaPage() {
                   {pos.changeDue > 0.009 ? (
                     <div className={styles.totalsRow}>
                       <span>Cambio</span>
-                      <strong style={{ color: "#166534" }}>
+                      <strong className={styles.totalsOk}>
                         {money(pos.changeDue)}
                       </strong>
                     </div>
                   ) : null}
+                  <div className={styles.totalsGrand}>
+                    <span>Total</span>
+                    <span>{money(pos.totals.total)}</span>
+                  </div>
                 </div>
 
-                <div style={{ marginTop: 14 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <strong style={{ fontSize: 13 }}>
-                      <Banknote
-                        size={14}
-                        style={{ display: "inline", marginRight: 4 }}
-                      />
-                      Formas de pago
+                <div className={styles.checkoutZone}>
+                  <div className={styles.toolbarRow} style={{ marginBottom: 10 }}>
+                    <strong style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <Banknote size={14} /> Pagos
                     </strong>
                     <button
                       type="button"
                       className={styles.secondaryBtn}
                       onClick={() => pos.addPayment("efectivo_sucursal")}
                     >
-                      <Plus
-                        size={14}
-                        style={{ display: "inline", marginRight: 4 }}
-                      />
+                      <Plus size={14} />
                       Agregar
                     </button>
                   </div>
@@ -838,56 +1137,56 @@ export default function PuntoDeVentaPage() {
                       </div>
                     ))}
                   </div>
-                </div>
 
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Notas"
-                  value={pos.notes}
-                  onChange={(e) => pos.setNotes(e.target.value)}
-                  sx={{ ...fieldSx, mt: 1 }}
-                  multiline
-                  minRows={2}
-                />
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Notas"
+                    value={pos.notes}
+                    onChange={(e) => pos.setNotes(e.target.value)}
+                    sx={{ ...fieldSx, mt: 1 }}
+                    multiline
+                    minRows={2}
+                  />
 
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <div className={styles.toolbarRow} style={{ marginTop: 10 }}>
+                    <button
+                      type="button"
+                      className={styles.secondaryBtn}
+                      onClick={pos.clearCart}
+                      disabled={pos.cart.length === 0}
+                    >
+                      Vaciar
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    className={styles.secondaryBtn}
-                    onClick={pos.clearCart}
-                    disabled={pos.cart.length === 0}
+                    className={styles.chargeBtn}
+                    disabled={
+                      pos.charging ||
+                      pos.cart.length === 0 ||
+                      !pos.customerName.trim() ||
+                      (Boolean(pos.guestEmail.trim()) && !pos.emailValid) ||
+                      !pos.guestPhone.trim() ||
+                      !pos.phoneValid ||
+                      pos.payments.length === 0 ||
+                      !pos.settlement.balanced
+                    }
+                    onClick={() => {
+                      (document.activeElement as HTMLElement | null)?.blur?.();
+                      void pos.charge();
+                    }}
                   >
-                    Vaciar
+                    {pos.charging
+                      ? "Procesando…"
+                      : pos.remaining > 0.009
+                        ? `Falta ${money(pos.remaining)}`
+                        : pos.changeDue > 0.009
+                          ? `Cobrar · cambio ${money(pos.changeDue)}`
+                          : `Cobrar ${money(pos.totals.total)}`}
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  className={styles.chargeBtn}
-                  disabled={
-                    pos.charging ||
-                    pos.cart.length === 0 ||
-                    !pos.customerName.trim() ||
-                    (Boolean(pos.guestEmail.trim()) && !pos.emailValid) ||
-                    !pos.guestPhone.trim() ||
-                    !pos.phoneValid ||
-                    pos.payments.length === 0 ||
-                    !pos.settlement.balanced
-                  }
-                  onClick={() => {
-                    (document.activeElement as HTMLElement | null)?.blur?.();
-                    void pos.charge();
-                  }}
-                >
-                  {pos.charging
-                    ? "Procesando…"
-                    : pos.remaining > 0.009
-                      ? `Falta ${money(pos.remaining)}`
-                      : pos.changeDue > 0.009
-                        ? `Cobrar · cambio ${money(pos.changeDue)}`
-                        : `Cobrar ${money(pos.totals.total)}`}
-                </button>
 
                 {pos.lastSale ? (
                   <div className={styles.postSaleBar}>
@@ -896,6 +1195,9 @@ export default function PuntoDeVentaPage() {
                       <span>
                         {money(pos.lastSale.total)} ·{" "}
                         {statusLabel(pos.lastSale.status)}
+                        {pos.lastSale.quoteNumber
+                          ? ` · Cot. ${pos.lastSale.quoteNumber}`
+                          : ""}
                       </span>
                     </div>
                     <div className={styles.postSaleActions}>
@@ -906,10 +1208,7 @@ export default function PuntoDeVentaPage() {
                           pos.openTicket(pos.lastSale!.idPosSale)
                         }
                       >
-                        <Printer
-                          size={14}
-                          style={{ display: "inline", marginRight: 4 }}
-                        />
+                        <Printer size={14} />
                         Imprimir ticket
                       </button>
                       <button
@@ -922,6 +1221,7 @@ export default function PuntoDeVentaPage() {
                     </div>
                   </div>
                 ) : null}
+                </div>
               </div>
             </aside>
           </div>
@@ -929,23 +1229,21 @@ export default function PuntoDeVentaPage() {
           <div className={styles.cashLayout}>
             <section className={styles.posPanel}>
               <div className={styles.posPanelHead}>
+                <p className={styles.panelEyebrow}>Efectivo</p>
                 <h2>
-                  <Wallet
-                    size={16}
-                    style={{ display: "inline", marginRight: 6 }}
-                  />
+                  <Wallet size={18} strokeWidth={2.25} />
                   Control de caja
                 </h2>
                 <p>
                   Abre con fondo, registra entradas/salidas y cierra con corte.
-                  Obligatorio para cobros en efectivo. Sucursal fija: PCinBOX.
+                  Obligatorio para cobros en efectivo. Bodega de caja fija: PCinBOX.
                 </p>
               </div>
               <div className={styles.posPanelBody}>
                 {!pos.branchId ? (
                   <EmptyState
                     title="Caja no disponible"
-                    description="No se pudo resolver la sucursal de cobro. Recarga la página o revisa que exista la sucursal leon2."
+                    description="No se pudo resolver la bodega de cobro. Recarga la página o revisa que exista la bodega leon2."
                   />
                 ) : pos.cashLoading ? (
                   <div
@@ -1032,6 +1330,14 @@ export default function PuntoDeVentaPage() {
                               {money(pos.cashPaymentSummary.salesTotal)}
                             </strong>
                           </div>
+                          {(pos.cashPaymentSummary.cancelledCount || 0) > 0 ? (
+                            <div className={styles.totalsRow}>
+                              <span>Canceladas (ajuste caja)</span>
+                              <span>
+                                {pos.cashPaymentSummary.cancelledCount}
+                              </span>
+                            </div>
+                          ) : null}
                           {(
                             Object.entries(
                               pos.cashPaymentSummary.byMethod || {},
@@ -1056,8 +1362,9 @@ export default function PuntoDeVentaPage() {
                             opacity: 0.75,
                           }}
                         >
-                          Solo el efectivo mueve el cajón. Tarjeta y
-                          transferencia aparecen aquí y en Historial.
+                          Solo ventas ligadas a esta sesión. El efectivo esperado
+                          del cajón usa fondo + entradas + ventas cash − salidas
+                          − voids.
                         </p>
                       </>
                     ) : null}
@@ -1081,6 +1388,7 @@ export default function PuntoDeVentaPage() {
                         label="Motivo"
                         value={pos.cashMoveReason}
                         onChange={(e) => pos.setCashMoveReason(e.target.value)}
+                        helperText="Mín. 5 caracteres"
                         sx={fieldSx}
                       />
                     </div>
@@ -1111,10 +1419,73 @@ export default function PuntoDeVentaPage() {
                       onCommit={(raw) => pos.setClosingCounted(raw)}
                       sx={{ ...fieldSx, maxWidth: 220 }}
                     />
+                    {(() => {
+                      const counted = Number(pos.closingCounted);
+                      const expected = Number(pos.cashExpected ?? 0);
+                      if (!Number.isFinite(counted) || pos.closingCounted === "")
+                        return null;
+                      const diff =
+                        Math.round((counted - expected + Number.EPSILON) * 100) /
+                        100;
+                      const hasDiff = Math.abs(diff) > 0.009;
+                      return (
+                        <div
+                          className={styles.totalsBox}
+                          style={{ marginTop: 4 }}
+                        >
+                          <div className={styles.totalsRow}>
+                            <span>Esperado</span>
+                            <span>{money(expected)}</span>
+                          </div>
+                          <div className={styles.totalsRow}>
+                            <span>Contado</span>
+                            <span>{money(counted)}</span>
+                          </div>
+                          <div className={styles.totalsGrand}>
+                            <span>Diferencia</span>
+                            <span
+                              style={{
+                                color: hasDiff ? "#b45309" : undefined,
+                              }}
+                            >
+                              {money(diff)}
+                              {hasDiff
+                                ? diff > 0
+                                  ? " (sobra)"
+                                  : " (falta)"
+                                : " (cuadrado)"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {(() => {
+                      const counted = Number(pos.closingCounted);
+                      const expected = Number(pos.cashExpected ?? 0);
+                      const hasDiff =
+                        pos.closingCounted !== "" &&
+                        Number.isFinite(counted) &&
+                        Math.abs(counted - expected) > 0.009;
+                      if (!hasDiff) return null;
+                      return (
+                        <TextField
+                          fullWidth
+                          size="small"
+                          required
+                          label="Motivo del descuadre"
+                          value={pos.differenceReason}
+                          onChange={(e) =>
+                            pos.setDifferenceReason(e.target.value)
+                          }
+                          helperText="Obligatorio si contado ≠ esperado (mín. 5 caracteres)."
+                          sx={fieldSx}
+                        />
+                      );
+                    })()}
                     <TextField
                       fullWidth
                       size="small"
-                      label="Notas de cierre"
+                      label="Notas de cierre (opcional)"
                       value={pos.cashNotes}
                       onChange={(e) => pos.setCashNotes(e.target.value)}
                       sx={fieldSx}
@@ -1133,34 +1504,36 @@ export default function PuntoDeVentaPage() {
                         <h3 className={styles.cashSubhead}>
                           Movimientos de la sesión
                         </h3>
-                        <table className={styles.historyTable}>
-                          <thead>
-                            <tr>
-                              <th>Hora</th>
-                              <th>Tipo</th>
-                              <th>Monto</th>
-                              <th>Motivo</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {pos.cashSession!.movements!.map((m) => (
-                              <tr key={m.idCashMovement}>
-                                <td>
-                                  {new Date(m.createdAt).toLocaleTimeString(
-                                    "es-MX",
-                                  )}
-                                </td>
-                                <td>
-                                  {POS_CASH_MOVEMENT_LABELS[
-                                    m.type as PosCashMovementType
-                                  ] || m.type}
-                                </td>
-                                <td>{money(m.amount)}</td>
-                                <td>{m.reason || "—"}</td>
+                        <div className={styles.scrollPanelSm}>
+                          <table className={styles.historyTable}>
+                            <thead>
+                              <tr>
+                                <th>Hora</th>
+                                <th>Tipo</th>
+                                <th>Monto</th>
+                                <th>Motivo</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {pos.cashSession!.movements!.map((m) => (
+                                <tr key={m.idCashMovement}>
+                                  <td>
+                                    {new Date(m.createdAt).toLocaleTimeString(
+                                      "es-MX",
+                                    )}
+                                  </td>
+                                  <td>
+                                    {POS_CASH_MOVEMENT_LABELS[
+                                      m.type as PosCashMovementType
+                                    ] || m.type}
+                                  </td>
+                                  <td>{money(m.amount)}</td>
+                                  <td>{m.reason || "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </>
                     ) : null}
                   </div>
@@ -1170,14 +1543,20 @@ export default function PuntoDeVentaPage() {
 
             <section className={styles.posPanel}>
               <div className={styles.posPanelHead}>
+                <p className={styles.panelEyebrow}>Turnos</p>
                 <h2>Sesiones recientes</h2>
-                <p>Historial de aperturas y cortes de Sucursal PCinBOX.</p>
+                <p>Historial de aperturas y cortes de Bodega PCinBOX. Clic en una fila para ver movimientos.</p>
               </div>
               <div className={styles.posPanelBody}>
                 {!pos.branchId ? (
                   <EmptyState
                     title="Caja no disponible"
-                    description="No se pudo resolver la sucursal de cobro."
+                    description="No se pudo resolver la bodega de cobro."
+                  />
+                ) : pos.cashSessionsLoading && pos.cashSessions.length === 0 ? (
+                  <EmptyState
+                    title="Cargando…"
+                    description="Consultando sesiones de caja."
                   />
                 ) : pos.cashSessions.length === 0 ? (
                   <EmptyState
@@ -1185,57 +1564,79 @@ export default function PuntoDeVentaPage() {
                     description="Aún no hay aperturas ni cortes. Abre caja a la izquierda para empezar el turno."
                   />
                 ) : (
-                  <table className={styles.historyTable}>
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Apertura</th>
-                        <th>Estado</th>
-                        <th>Esperado</th>
-                        <th>Dif.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pos.cashSessions.map((s) => (
-                        <tr key={s.idCashSession}>
-                          <td>#{s.idCashSession}</td>
-                          <td>
-                            {new Date(s.openedAt).toLocaleString("es-MX")}
-                          </td>
-                          <td>
-                            <span
-                              className={`${styles.badge} ${
-                                s.status === "open"
-                                  ? styles.badgeCompleted
-                                  : styles.badgePending
-                              }`}
+                  <>
+                    <div className={styles.scrollPanel}>
+                      <table className={styles.historyTable}>
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Apertura</th>
+                            <th>Estado</th>
+                            <th>Esperado</th>
+                            <th>Dif.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pos.cashSessions.map((s) => (
+                            <tr
+                              key={s.idCashSession}
+                              style={{ cursor: "pointer" }}
+                              onClick={() =>
+                                void pos.openCashSessionDetail(s.idCashSession)
+                              }
+                              title="Ver detalle de movimientos"
                             >
-                              {s.status === "open" ? "Abierta" : "Cerrada"}
-                            </span>
-                          </td>
-                          <td>
-                            {s.expectedCash != null
-                              ? money(s.expectedCash)
-                              : "—"}
-                          </td>
-                          <td>
-                            {s.difference != null ? money(s.difference) : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                              <td>#{s.idCashSession}</td>
+                              <td>
+                                {new Date(s.openedAt).toLocaleString("es-MX")}
+                              </td>
+                              <td>
+                                <span
+                                  className={`${styles.badge} ${
+                                    s.status === "open"
+                                      ? styles.badgeCompleted
+                                      : styles.badgePending
+                                  }`}
+                                >
+                                  {s.status === "open" ? "Abierta" : "Cerrada"}
+                                </span>
+                              </td>
+                              <td>
+                                {s.expectedCash != null
+                                  ? money(s.expectedCash)
+                                  : "—"}
+                              </td>
+                              <td>
+                                {s.difference != null
+                                  ? money(s.difference)
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {pos.cashSessionsTotalPages > 1 ? (
+                      <div style={{ marginTop: 12 }}>
+                        <ModernPagination
+                          page={pos.cashSessionsPage}
+                          pageCount={pos.cashSessionsTotalPages}
+                          totalItems={pos.cashSessionsTotal}
+                          pageSize={10}
+                          onPageChange={(p) => void pos.loadCashSessions(p)}
+                        />
+                      </div>
+                    ) : null}
+                  </>
                 )}
               </div>
             </section>
 
-            <section className={styles.posPanel} style={{ gridColumn: "1 / -1" }}>
+            <section className={`${styles.posPanel} ${styles.spanFull}`}>
               <div className={styles.posPanelHead}>
+                <p className={styles.panelEyebrow}>Hardware</p>
                 <h2>
-                  <Printer
-                    size={16}
-                    style={{ display: "inline", marginRight: 6 }}
-                  />
+                  <Printer size={18} strokeWidth={2.25} />
                   Impresora térmica / QZ Tray
                 </h2>
                 <p>
@@ -1302,6 +1703,12 @@ export default function PuntoDeVentaPage() {
                       <MenuItem value="star">Star</MenuItem>
                     </TextField>
                   </div>
+                  <p className={styles.hitMeta} style={{ marginTop: 8 }}>
+                    Elige la impresora térmica (Epson/Star). No uses «Microsoft
+                    Print to PDF» ni similares: el ticket raw no es un PDF y
+                    genera archivos rotos. Para PDF usa la vista previa HTML del
+                    ticket y «Imprimir → Guardar como PDF».
+                  </p>
 
                   <label
                     style={{
@@ -1365,16 +1772,220 @@ export default function PuntoDeVentaPage() {
               </div>
             </section>
           </div>
+        ) : pos.tab === "garantias" ? (
+          <section className={styles.posPanel}>
+            <div className={styles.posPanelHead}>
+              <div className={styles.historyHeadRow}>
+                <div>
+                  <p className={styles.panelEyebrow}>Series</p>
+                  <h2>
+                    <Shield size={18} strokeWidth={2.25} />
+                    Garantías
+                  </h2>
+                  <p>
+                    Ventas con número de serie: consulta e imprime la hoja de
+                    garantía.
+                  </p>
+                </div>
+                {!pos.warrantiesLoading && pos.warrantiesTotal > 0 ? (
+                  <div className={styles.historyStat}>
+                    <span className={styles.historyStatLabel}>Resultados</span>
+                    <strong>{pos.warrantiesTotal}</strong>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className={styles.posPanelBody}>
+              <div className={styles.historyFilters}>
+                <TextField
+                  size="small"
+                  label="Folio"
+                  placeholder="PV-0000001"
+                  value={pos.warrantyFolio}
+                  onChange={(e) => pos.setWarrantyFolio(e.target.value)}
+                  sx={{ ...fieldSx, maxWidth: 220 }}
+                />
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={() => void pos.loadWarranties(1)}
+                >
+                  Buscar
+                </button>
+              </div>
+
+              {pos.warrantiesLoading ? (
+                <div
+                  style={{ display: "grid", placeItems: "center", padding: 40 }}
+                >
+                  <CircularProgress sx={{ color: "#bb3d4b" }} />
+                </div>
+              ) : pos.warranties.length === 0 ? (
+                <EmptyState
+                  title="Sin garantías"
+                  description="Aún no hay ventas completadas con números de serie. Al cobrar productos con serie aparecerán aquí."
+                />
+              ) : (
+                <div className={styles.scrollPanel}>
+                  <table className={styles.historyTable}>
+                  <thead>
+                    <tr>
+                      <th>Clave</th>
+                      <th>Venta</th>
+                      <th>Bodega</th>
+                      <th>Fecha</th>
+                      <th>Cliente</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pos.warranties.map((sale) => (
+                      <tr key={sale.idPosSale}>
+                        <td>#{sale.idPosSale}</td>
+                        <td>{sale.folio}</td>
+                        <td>
+                          {formatPosBranchUiLabel({
+                            name: sale.branchName,
+                            city: sale.branchCity,
+                            fallback: "—",
+                          })}
+                        </td>
+                        <td>
+                          {new Date(sale.createdAt).toLocaleDateString("es-MX")}
+                        </td>
+                        <td>{sale.customerName || "—"}</td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              type="button"
+                              className={styles.secondaryBtn}
+                              title="Imprimir hoja"
+                              onClick={() =>
+                                pos.openWarrantySheet(sale.idPosSale)
+                              }
+                            >
+                              <Printer size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.secondaryBtn}
+                              title="Ver detalle"
+                              onClick={() =>
+                                void pos.openWarrantyDetail(sale.idPosSale)
+                              }
+                            >
+                              <Eye size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  </table>
+                </div>
+              )}
+
+              {pos.warrantiesTotalPages > 1 ? (
+                <div style={{ marginTop: 16 }}>
+                  <ModernPagination
+                    page={pos.warrantiesPage}
+                    pageCount={pos.warrantiesTotalPages}
+                    totalItems={pos.warrantiesTotal}
+                    pageSize={15}
+                    onPageChange={(p) => void pos.loadWarranties(p)}
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            {pos.warrantyDetail ? (
+              <div
+                className={styles.drawer}
+                role="dialog"
+                aria-modal="true"
+                onClick={() => pos.setWarrantyDetail(null)}
+              >
+                <div
+                  className={`${styles.drawerPanel} ${styles.detailDrawer}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className={styles.detailHero}>
+                    <div className={styles.detailHeroTop}>
+                      <div>
+                        <p className={styles.detailEyebrow}>Garantía</p>
+                        <h3 className={styles.detailFolio}>
+                          Compra #{pos.warrantyDetail.idPosSale}
+                        </h3>
+                        <p className={styles.detailWhen}>
+                          Folio {pos.warrantyDetail.folio} ·{" "}
+                          {new Date(
+                            pos.warrantyDetail.createdAt,
+                          ).toLocaleString("es-MX")}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        onClick={() => pos.setWarrantyDetail(null)}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ padding: "16px 22px 22px" }}>
+                    <div className={styles.detailItems}>
+                      {pos.warrantyDetail.items.map((it) => (
+                        <div
+                          key={it.idPosSaleItem}
+                          className={styles.detailItem}
+                        >
+                          <div className={styles.detailItemMain}>
+                            <strong>{it.productName}</strong>
+                            {it.productUpc ? (
+                              <span>UPC: {it.productUpc}</span>
+                            ) : null}
+                            {it.serials && it.serials.length > 0 ? (
+                              <span>
+                                Número de Serie:{" "}
+                                {it.serials
+                                  .map((s) => s.serialNumber)
+                                  .join(", ")}
+                              </span>
+                            ) : (
+                              <span>Sin serie registrada</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 16 }}>
+                      <button
+                        type="button"
+                        className={styles.chargeBtn}
+                        onClick={() =>
+                          pos.openWarrantySheet(pos.warrantyDetail!.idPosSale)
+                        }
+                      >
+                        <Printer
+                          size={14}
+                          style={{ display: "inline", marginRight: 6 }}
+                        />
+                        Imprimir hoja de garantía
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </section>
         ) : (
           <section className={styles.posPanel}>
             <div className={styles.posPanelHead}>
               <div className={styles.historyHeadRow}>
                 <div>
+                  <p className={styles.panelEyebrow}>Consultas</p>
                   <h2>
-                    <History
-                      size={18}
-                      style={{ display: "inline", marginRight: 8 }}
-                    />
+                    <History size={18} strokeWidth={2.25} />
                     Historial de ventas POS
                   </h2>
                   <p>
@@ -1510,13 +2121,12 @@ export default function PuntoDeVentaPage() {
                                 {itemCount}{" "}
                                 {itemCount === 1 ? "producto" : "productos"}
                               </span>
-                              {[sale.branchName, sale.branchCity]
-                                .filter(Boolean)
-                                .length > 0 ? (
+                              {sale.branchName || sale.branchCity ? (
                                 <span className={styles.historyChip}>
-                                  {[sale.branchName, sale.branchCity]
-                                    .filter(Boolean)
-                                    .join(" — ")}
+                                  {formatPosBranchUiLabel({
+                                    name: sale.branchName,
+                                    city: sale.branchCity,
+                                  })}
                                 </span>
                               ) : null}
                             </div>
@@ -1632,9 +2242,11 @@ export default function PuntoDeVentaPage() {
                 <div className={styles.detailTile}>
                   <span className={styles.historyMetaLabel}>Caja PCinBOX</span>
                   <strong>
-                    {[pos.detailSale.branchName, pos.detailSale.branchCity]
-                      .filter(Boolean)
-                      .join(" — ") || "Sucursal PCinBOX"}
+                    {formatPosBranchUiLabel({
+                      name: pos.detailSale.branchName,
+                      city: pos.detailSale.branchCity,
+                      fallback: "Bodega PCinBOX",
+                    })}
                   </strong>
                 </div>
                 <div className={styles.detailTile}>
@@ -1661,10 +2273,11 @@ export default function PuntoDeVentaPage() {
                         {it.branchLabel || it.branchName ? (
                           <span>
                             Bodega:{" "}
-                            {it.branchLabel ||
-                              [it.branchName, it.branchCity]
-                                .filter(Boolean)
-                                .join(" — ")}
+                            {formatPosBranchUiLabel({
+                              name: it.branchName,
+                              label: it.branchLabel,
+                              city: it.branchCity,
+                            })}
                           </span>
                         ) : null}
                         {it.serials && it.serials.length > 0 ? (
@@ -1747,14 +2360,16 @@ export default function PuntoDeVentaPage() {
                     >
                       Regenerar link OpenPay
                     </button>
-                    <button
-                      type="button"
-                      className={styles.chargeBtn}
-                      style={{ marginTop: 0, width: "auto" }}
-                      onClick={() => void pos.confirmPayment()}
-                    >
-                      Confirmar pago (descontar stock)
-                    </button>
+                    {pos.isAdmin ? (
+                      <button
+                        type="button"
+                        className={styles.chargeBtn}
+                        style={{ marginTop: 0, width: "auto" }}
+                        onClick={() => void pos.confirmPayment()}
+                      >
+                        Confirmar pago (admin)
+                      </button>
+                    ) : null}
                   </>
                 ) : null}
               </div>
@@ -1828,6 +2443,9 @@ export default function PuntoDeVentaPage() {
               <p style={{ fontSize: 14 }}>
                 Total {money(pos.lastSale.total)} ·{" "}
                 {statusLabel(pos.lastSale.status)}
+                {pos.lastSale.quoteNumber
+                  ? ` · No. Cotización: ${pos.lastSale.quoteNumber}`
+                  : ""}
               </p>
               {pos.lastPaymentLink ? (
                 <p style={{ fontSize: 13, wordBreak: "break-all" }}>
@@ -1871,6 +2489,165 @@ export default function PuntoDeVentaPage() {
                   Cerrar
                 </button>
               </div>
+            </div>
+          </div>
+        ) : null}
+
+        {pos.cashSessionDetail || pos.cashSessionDetailLoading ? (
+          <div
+            className={styles.drawer}
+            role="dialog"
+            aria-modal="true"
+            onClick={() => pos.setCashSessionDetail(null)}
+          >
+            <div
+              className={styles.drawerPanel}
+              style={{
+                height: "auto",
+                maxHeight: "90vh",
+                placeSelf: "center",
+                borderRadius: 16,
+                width: "min(560px, 96vw)",
+                overflow: "auto",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {pos.cashSessionDetailLoading || !pos.cashSessionDetail ? (
+                <div style={{ display: "grid", placeItems: "center", padding: 32 }}>
+                  <CircularProgress sx={{ color: "#bb3d4b" }} />
+                </div>
+              ) : (
+                <>
+                  <h3 style={{ marginTop: 0 }}>
+                    Sesión #{pos.cashSessionDetail.idCashSession}
+                  </h3>
+                  <div className={styles.totalsBox}>
+                    <div className={styles.totalsRow}>
+                      <span>Estado</span>
+                      <strong>
+                        {pos.cashSessionDetail.status === "open"
+                          ? "Abierta"
+                          : "Cerrada"}
+                      </strong>
+                    </div>
+                    <div className={styles.totalsRow}>
+                      <span>Abierta por</span>
+                      <span>{pos.cashSessionDetail.openedByName || "—"}</span>
+                    </div>
+                    <div className={styles.totalsRow}>
+                      <span>Desde</span>
+                      <span>
+                        {new Date(
+                          pos.cashSessionDetail.openedAt,
+                        ).toLocaleString("es-MX")}
+                      </span>
+                    </div>
+                    {pos.cashSessionDetail.closedAt ? (
+                      <div className={styles.totalsRow}>
+                        <span>Cierre</span>
+                        <span>
+                          {new Date(
+                            pos.cashSessionDetail.closedAt,
+                          ).toLocaleString("es-MX")}
+                          {pos.cashSessionDetail.closedByName
+                            ? ` · ${pos.cashSessionDetail.closedByName}`
+                            : ""}
+                        </span>
+                      </div>
+                    ) : null}
+                    <div className={styles.totalsRow}>
+                      <span>Fondo</span>
+                      <span>{money(pos.cashSessionDetail.openingFloat)}</span>
+                    </div>
+                    <div className={styles.totalsRow}>
+                      <span>Esperado</span>
+                      <span>
+                        {pos.cashSessionDetail.expectedCash != null
+                          ? money(pos.cashSessionDetail.expectedCash)
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className={styles.totalsRow}>
+                      <span>Contado</span>
+                      <span>
+                        {pos.cashSessionDetail.closingCounted != null
+                          ? money(pos.cashSessionDetail.closingCounted)
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className={styles.totalsGrand}>
+                      <span>Diferencia</span>
+                      <span>
+                        {pos.cashSessionDetail.difference != null
+                          ? money(pos.cashSessionDetail.difference)
+                          : "—"}
+                      </span>
+                    </div>
+                    {pos.cashSessionDetail.differenceReason ? (
+                      <div className={styles.totalsRow}>
+                        <span>Motivo descuadre</span>
+                        <span>{pos.cashSessionDetail.differenceReason}</span>
+                      </div>
+                    ) : null}
+                    {pos.cashSessionDetail.notes ? (
+                      <div className={styles.totalsRow}>
+                        <span>Notas</span>
+                        <span style={{ whiteSpace: "pre-wrap" }}>
+                          {pos.cashSessionDetail.notes}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <h4 style={{ marginBottom: 8 }}>Movimientos</h4>
+                  {(pos.cashSessionDetail.movements?.length || 0) === 0 ? (
+                    <p style={{ fontSize: 13, opacity: 0.75 }}>
+                      Sin movimientos registrados.
+                    </p>
+                  ) : (
+                    <div className={styles.scrollPanelSm}>
+                      <table className={styles.historyTable}>
+                        <thead>
+                          <tr>
+                            <th>Hora</th>
+                            <th>Tipo</th>
+                            <th>Monto</th>
+                            <th>Motivo</th>
+                            <th>Usuario</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pos.cashSessionDetail.movements!.map((m) => (
+                            <tr key={m.idCashMovement}>
+                              <td>
+                                {new Date(m.createdAt).toLocaleString("es-MX")}
+                              </td>
+                              <td>
+                                {POS_CASH_MOVEMENT_LABELS[
+                                  m.type as PosCashMovementType
+                                ] || m.type}
+                              </td>
+                              <td>{money(m.amount)}</td>
+                              <td>{m.reason || "—"}</td>
+                              <td>{m.userName || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className={styles.drawerActions}>
+                    <button
+                      type="button"
+                      className={styles.secondaryBtn}
+                      onClick={() => pos.setCashSessionDetail(null)}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : null}

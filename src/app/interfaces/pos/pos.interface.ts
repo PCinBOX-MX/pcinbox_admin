@@ -41,6 +41,7 @@ export type PosCashSession = {
   closingCounted: number | null;
   expectedCash: number | null;
   difference: number | null;
+  differenceReason?: string | null;
   notes: string | null;
   openedAt: string;
   closedAt: string | null;
@@ -50,6 +51,7 @@ export type PosCashSession = {
 export type PosCashPaymentSummary = {
   salesCount: number;
   salesTotal: number;
+  cancelledCount?: number;
   byMethod: Partial<Record<PosPaymentMethod, number>>;
 };
 
@@ -118,8 +120,10 @@ export type PosCartLine = {
   stocksByBranch: PosBranchStock[];
   imageUrl?: string | null;
   requiresSerial: boolean;
-  warrantyMonths: number;
+  warrantyMonths: number | null;
   serials: string[];
+  /** Captura libre (no está en catálogo / no descuenta stock). */
+  isManual?: boolean;
 };
 
 export type PosProductSerial = {
@@ -208,6 +212,7 @@ export type PosSale = {
   linkReferencia?: string | null;
   idLinkPago?: number | null;
   cashSessionId?: number | null;
+  quoteNumber?: string | null;
   createdAt: string;
   updatedAt: string;
   items: Array<{
