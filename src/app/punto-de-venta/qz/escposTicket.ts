@@ -15,8 +15,12 @@ export const POS_TICKET_LOGO_URL =
 export const POS_TICKET_WEB = "www.pcinbox.com.mx";
 export const POS_TICKET_ADDRESS =
   "Blvd. Juan Alonso de Torres Pte. No. 1917 Local 1 Col. Union Comunitaria de Leon C.P. 37239 Leon, Gto.";
-export const POS_TICKET_POLICY =
-  "Para cambios y devoluciones consulta nuestras politicas en www.pcinbox.com.mx";
+/** Leyenda fija al pie del ticket (térmica y HTML). */
+export const POS_TICKET_DISCLAIMER_LINES = [
+  "PCinBOX no se hace responsable si usted eligio mal el producto o por incompatibilidad con su equipo.",
+  "Es responsabilidad del cliente revisar lo que se entrega y hacer reclamo u observacion en su momento.",
+  "No hay devolucion ni cambios de productos. Cualquier devolucion justificada genera el 20% de comision.",
+] as const;
 
 /** @deprecated Usar resolveTicketBranchLabel; se mantiene por compat. */
 export const POS_TICKET_BRANCH = "PCinBOX-León";
@@ -25,12 +29,13 @@ function isMeaningfulCode(value?: string | null): boolean {
   const v = String(value || "").trim();
   if (!v) return false;
   if (v === "__POS_MANUAL__") return false;
+  if (v === "__POS_SERVICE__") return false;
   if (/^manual$/i.test(v)) return false;
   return true;
 }
 
 function money(n: number): string {
-  return Number(n || 0).toLocaleString("es-MX", {
+  return Number(n || 0).toLocaleString("en-US", {
     style: "currency",
     currency: "MXN",
   });
@@ -190,6 +195,10 @@ export function buildEscPosTicket(
   );
   parts.push(`Vendedor: ${POS_TICKET_SELLER}` + LF);
   parts.push(`Cliente: ${sale.customerName || "Publico general"}` + LF);
+  const phone = String(sale.customerPhone || "").trim();
+  if (phone) {
+    parts.push(`Telefono: ${phone}` + LF);
+  }
   parts.push(centerDashed("PRODUCTOS", width) + LF);
 
   for (const it of sale.items || []) {
@@ -226,12 +235,8 @@ export function buildEscPosTicket(
   parts.push(LF);
   parts.push(ESC + "a" + "\x01");
   parts.push(ESC + "E" + "\x01");
-  parts.push(`Productos: ${productCount}` + LF);
+  parts.push(`Productos: ${Number(productCount || 0).toLocaleString("en-US")}` + LF);
   parts.push(ESC + "E" + "\x00");
-  parts.push(LF);
-  for (const w of wrap(POS_TICKET_POLICY, width)) {
-    parts.push(w + LF);
-  }
   if ((sale.payments || []).length > 0) {
     parts.push(LF);
     parts.push(ESC + "a" + "\x00");
@@ -241,6 +246,30 @@ export function buildEscPosTicket(
       parts.push(line(width, label, money(p.amount)) + LF);
     }
   }
+  const notes = String(sale.notes || "").trim();
+  if (notes) {
+    parts.push(LF);
+    parts.push(ESC + "a" + "\x00");
+    parts.push(centerDashed("NOTA", width) + LF);
+    for (const w of wrapLimited(notes, width, 8)) {
+      parts.push(w + LF);
+    }
+  }
+  parts.push(LF);
+  parts.push(ESC + "a" + "\x01");
+  parts.push(centerDashed("AVISO", width) + LF);
+  parts.push(ESC + "a" + "\x00");
+  for (let i = 0; i < POS_TICKET_DISCLAIMER_LINES.length; i++) {
+    for (const w of wrap(POS_TICKET_DISCLAIMER_LINES[i], width)) {
+      parts.push(w + LF);
+    }
+    if (i < POS_TICKET_DISCLAIMER_LINES.length - 1) {
+      parts.push(LF);
+    }
+  }
+  parts.push(LF);
+  parts.push(ESC + "a" + "\x01");
+  parts.push(POS_TICKET_WEB + LF);
   parts.push(LF + LF + LF);
   parts.push(ESC + "i");
   parts.push(GS + "V" + "\x01");

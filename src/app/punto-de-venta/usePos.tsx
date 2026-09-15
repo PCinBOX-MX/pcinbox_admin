@@ -16,8 +16,10 @@ import {
   PosSale,
   SELLER_MAX_DISCOUNT_PCT,
   canCancelPosSale,
+  isPosProductOutOfStock,
   settlePosPayments,
 } from "../interfaces/pos/pos.interface";
+import { formatMoney } from "./posFormat";
 import {
   loadQzSettings,
   saveQzSettings,
@@ -33,8 +35,138 @@ import {
   isQzPdfOrVirtualPrinter,
 } from "./qz/qzPos";
 import { formatPosBranchUiLabel } from "../interfaces/pos/posBranchDisplay";
+import { useQueryParams } from "../hooks/useQueryParams";
+import WarrantySheetPdf, {
+  buildWarrantyPdfRows,
+} from "./warranty/WarrantySheetPdf";
 
 const BRANCH_STORAGE_KEY = "pcinbox-pos-branchId";
+const CASH_HINT_KEY = "pcinbox-pos-cash-hint";
+const DRAFT_KEY = "pcinbox-pos-draft-v1";
+/** Persist filters to URL/session quickly (reload / menú). */
+const FILTER_URL_DEBOUNCE_MS = 150;
+/** Debounce API fetch for text filters. */
+const FILTER_FETCH_DEBOUNCE_MS = 400;
+/** Búsqueda en carrito (cliente): debounce para no filtrar en cada tecla. */
+const CART_SEARCH_DEBOUNCE_MS = 350;
+/** Líneas visibles por página en el carrito. */
+const CART_PAGE_SIZE = 3;
+
+type CashHint = {
+  branchId: number;
+  open: boolean;
+  idCashSession?: number | null;
+  at?: number;
+};
+
+type PosDraftV1 = {
+  v: 1;
+  cart: PosCartLine[];
+  customerName: string;
+  guestEmail: string;
+  phoneLada: string;
+  guestPhone: string;
+  payments: PosPaymentLine[];
+  notes: string;
+  requiredFactura: boolean;
+  quoteInput: string;
+  linkedQuoteNumber: string | null;
+};
+
+function newPosIdempotencyKey() {
+  const rand =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().replace(/-/g, "")
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+  return `pos_${rand}`.slice(0, 64);
+}
+
+function readPosDraft(): PosDraftV1 | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PosDraftV1;
+    if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.cart)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePosDraft(draft: PosDraftV1 | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!draft) {
+      sessionStorage.removeItem(DRAFT_KEY);
+      return;
+    }
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function clearPosDraft() {
+  writePosDraft(null);
+}
+
+function readCashHint(): CashHint | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(CASH_HINT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CashHint;
+    if (!parsed || !Number.isSafeInteger(Number(parsed.branchId))) return null;
+    return {
+      branchId: Number(parsed.branchId),
+      open: Boolean(parsed.open),
+      idCashSession:
+        parsed.idCashSession != null ? Number(parsed.idCashSession) : null,
+      at: parsed.at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeCashHint(hint: CashHint | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!hint) {
+      sessionStorage.removeItem(CASH_HINT_KEY);
+      return;
+    }
+    sessionStorage.setItem(
+      CASH_HINT_KEY,
+      JSON.stringify({ ...hint, at: Date.now() }),
+    );
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function readStoredBranchId(): number | null {
+  if (typeof window === "undefined") return null;
+  const n = Number(localStorage.getItem(BRANCH_STORAGE_KEY));
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+type PosTab = "cobrar" | "historial" | "caja" | "garantias";
+
+const POS_TABS = new Set<PosTab>(["cobrar", "historial", "caja", "garantias"]);
+
+function parsePosTab(raw: string | null | undefined): PosTab {
+  const v = String(raw || "").trim().toLowerCase();
+  if (POS_TABS.has(v as PosTab)) return v as PosTab;
+  return "cobrar";
+}
+
+function parseListPage(raw: string | null | undefined, fallback = 1): number {
+  const n = Number(raw);
+  if (!Number.isSafeInteger(n) || n < 1) return fallback;
+  return Math.min(n, 9_999);
+}
 
 function shouldSearchProducts(q: string): boolean {
   const term = q.trim();
@@ -89,20 +221,67 @@ export default function usePos() {
   const { requestGet, requestPost } = UtilsService();
   const { setDataModal } = useTheContext();
   const { isAdmin, hydrated, can } = usePermissions();
+  const { searchParams, setQueryParams } = useQueryParams();
 
-  const [tab, setTab] = useState<
-    "cobrar" | "historial" | "caja" | "garantias"
-  >("cobrar");
+  const tabFromUrl = parsePosTab(searchParams.get("tab"));
+  const [tab, setTabState] = useState<PosTab>(tabFromUrl);
+  const tabSyncLockRef = useRef(false);
+
+  useEffect(() => {
+    if (tabSyncLockRef.current) {
+      tabSyncLockRef.current = false;
+      return;
+    }
+    setTabState((prev) => (prev === tabFromUrl ? prev : tabFromUrl));
+  }, [tabFromUrl]);
+
+  const setTab = useCallback(
+    (next: PosTab) => {
+      if (next === tab) {
+        // Re-click: solo anclar al inicio del POS (sin pelear con la URL).
+        if (typeof window !== "undefined") {
+          const root = document.querySelector(".pos-page-root");
+          if (root) {
+            const y =
+              root.getBoundingClientRect().top + window.scrollY - 12;
+            window.scrollTo({ top: Math.max(0, y), behavior: "auto" });
+          }
+        }
+        return;
+      }
+      tabSyncLockRef.current = true;
+      setTabState(next);
+      setQueryParams({ tab: next === "cobrar" ? null : next });
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => {
+          const root = document.querySelector(".pos-page-root");
+          if (!root) return;
+          const y = root.getBoundingClientRect().top + window.scrollY - 12;
+          window.scrollTo({ top: Math.max(0, y), behavior: "auto" });
+        });
+      }
+    },
+    [setQueryParams, tab],
+  );
+
   const [branches, setBranches] = useState<PosBranch[]>([]);
+  // null hasta hidratar localStorage (evita mismatch SSR).
   const [branchId, setBranchId] = useState<number | null>(null);
   const [cashOpen, setCashOpen] = useState(false);
   const [cashSession, setCashSession] = useState<PosCashSession | null>(null);
   const [cashExpected, setCashExpected] = useState<number | null>(null);
   const [cashPaymentSummary, setCashPaymentSummary] =
     useState<PosCashPaymentSummary | null>(null);
-  const [cashLoading, setCashLoading] = useState(false);
+  /** loading | ready | error — evita mostrar “cerrada” sin verificar. */
+  const [cashSync, setCashSync] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+  const [cashSyncMessage, setCashSyncMessage] = useState<string | null>(null);
+  const [cashLoading, setCashLoading] = useState(true);
   const [cashSessions, setCashSessions] = useState<PosCashSession[]>([]);
-  const [cashSessionsPage, setCashSessionsPage] = useState(1);
+  const [cashSessionsPage, setCashSessionsPage] = useState(() =>
+    parseListPage(searchParams.get("cPage")),
+  );
   const [cashSessionsTotalPages, setCashSessionsTotalPages] = useState(0);
   const [cashSessionsTotal, setCashSessionsTotal] = useState(0);
   const [cashSessionsLoading, setCashSessionsLoading] = useState(false);
@@ -137,12 +316,16 @@ export default function usePos() {
   const [hits, setHits] = useState<PosProductHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [cart, setCart] = useState<PosCartLine[]>([]);
+  const [cartSearch, setCartSearch] = useState("");
+  const [cartSearchDebounced, setCartSearchDebounced] = useState("");
+  const [cartPage, setCartPage] = useState(1);
   const [customerName, setCustomerName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [phoneLada, setPhoneLada] = useState("+52");
   const [guestPhone, setGuestPhone] = useState("");
   const [payments, setPayments] = useState<PosPaymentLine[]>([]);
   const [notes, setNotes] = useState("");
+  const [requiredFactura, setRequiredFactura] = useState(false);
   const [quoteInput, setQuoteInput] = useState("");
   const [linkedQuoteNumber, setLinkedQuoteNumber] = useState<string | null>(
     null,
@@ -160,25 +343,61 @@ export default function usePos() {
 
   const [history, setHistory] = useState<PosSale[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(() =>
+    parseListPage(searchParams.get("hPage")),
+  );
   const [historyTotalPages, setHistoryTotalPages] = useState(0);
   const [historyTotal, setHistoryTotal] = useState(0);
-  const [historyFolio, setHistoryFolio] = useState("");
-  const [historyStatus, setHistoryStatus] = useState("");
+  const [historyFolio, setHistoryFolio] = useState(
+    () => searchParams.get("hFolio") || "",
+  );
+  const [historyCustomer, setHistoryCustomer] = useState(
+    () => searchParams.get("hCustomer") || "",
+  );
+  const [historyFrom, setHistoryFrom] = useState(
+    () => searchParams.get("hFrom") || "",
+  );
+  const [historyTo, setHistoryTo] = useState(
+    () => searchParams.get("hTo") || "",
+  );
+  const [historyStatus, setHistoryStatus] = useState(
+    () => searchParams.get("hStatus") || "",
+  );
   const [detailSale, setDetailSale] = useState<PosSale | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
   const [warranties, setWarranties] = useState<PosSale[]>([]);
   const [warrantiesLoading, setWarrantiesLoading] = useState(false);
-  const [warrantiesPage, setWarrantiesPage] = useState(1);
+  const [warrantiesPage, setWarrantiesPage] = useState(() =>
+    parseListPage(searchParams.get("wPage")),
+  );
   const [warrantiesTotalPages, setWarrantiesTotalPages] = useState(0);
   const [warrantiesTotal, setWarrantiesTotal] = useState(0);
-  const [warrantyFolio, setWarrantyFolio] = useState("");
+  const [warrantyFolio, setWarrantyFolio] = useState(
+    () => searchParams.get("wFolio") || "",
+  );
+  const [warrantyCustomer, setWarrantyCustomer] = useState(
+    () => searchParams.get("wCustomer") || "",
+  );
+  const [warrantySaleId, setWarrantySaleId] = useState(
+    () => searchParams.get("wSaleId") || "",
+  );
+  const [warrantyFrom, setWarrantyFrom] = useState(
+    () => searchParams.get("wFrom") || "",
+  );
+  const [warrantyTo, setWarrantyTo] = useState(
+    () => searchParams.get("wTo") || "",
+  );
   const [warrantyDetail, setWarrantyDetail] = useState<PosSale | null>(null);
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chargeLockRef = useRef(false);
+  const chargeIdempotencyKeyRef = useRef<string | null>(null);
+  const chargeConfirmOpenRef = useRef(false);
+  const draftHydratedRef = useRef(false);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const maxDiscount = isAdmin ? 100 : SELLER_MAX_DISCOUNT_PCT;
 
@@ -244,27 +463,90 @@ export default function usePos() {
     void loadBranches().catch(() => undefined);
   }, [loadBranches]);
 
-  // Evita hydration mismatch: localStorage solo después del mount.
+  // Evita hydration mismatch: localStorage / sessionStorage solo después del mount.
   useEffect(() => {
     setQzSettings(loadQzSettings());
+    const storedBranch = readStoredBranchId();
+    const hint = readCashHint();
+    if (storedBranch) {
+      setBranchId((prev) => prev ?? storedBranch);
+      if (hint?.open && hint.branchId === storedBranch) {
+        setCashOpen(true);
+        setCashSync("loading");
+        setCashSyncMessage("Verificando sesión de caja…");
+      }
+    }
+
+    const draft = readPosDraft();
+    if (draft && draft.cart.length > 0) {
+      setCart(draft.cart);
+      setCustomerName(draft.customerName || "");
+      setGuestEmail(draft.guestEmail || "");
+      setPhoneLada(draft.phoneLada || "+52");
+      setGuestPhone(draft.guestPhone || "");
+      setPayments(Array.isArray(draft.payments) ? draft.payments : []);
+      setNotes(draft.notes || "");
+      setRequiredFactura(Boolean(draft.requiredFactura));
+      setQuoteInput(draft.quoteInput || "");
+      setLinkedQuoteNumber(draft.linkedQuoteNumber || null);
+    }
+    draftHydratedRef.current = true;
   }, []);
 
-  const loadCashStatus = useCallback(async () => {
-    if (!branchId) {
-      setCashOpen(false);
-      setCashSession(null);
-      setCashExpected(null);
-      setCashPaymentSummary(null);
-      return;
-    }
-    setCashLoading(true);
-    try {
-      const res = await requestGet(`/pos/cash/status?branchId=${branchId}`, {
-        silent: true,
+  // Borrador de venta en sessionStorage (sobrevive refresh).
+  useEffect(() => {
+    if (!draftHydratedRef.current) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      const hasDraft =
+        cart.length > 0 ||
+        Boolean(customerName.trim()) ||
+        Boolean(guestPhone.trim()) ||
+        payments.length > 0 ||
+        Boolean(notes.trim()) ||
+        requiredFactura ||
+        Boolean(linkedQuoteNumber) ||
+        Boolean(quoteInput.trim());
+      if (!hasDraft) {
+        clearPosDraft();
+        return;
+      }
+      writePosDraft({
+        v: 1,
+        cart,
+        customerName,
+        guestEmail,
+        phoneLada,
+        guestPhone,
+        payments,
+        notes,
+        requiredFactura,
+        quoteInput,
+        linkedQuoteNumber,
       });
-      const data = res?.data?.data;
-      setCashOpen(Boolean(data?.open));
-      setCashSession(data?.session || null);
+    }, 350);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [
+    cart,
+    customerName,
+    guestEmail,
+    phoneLada,
+    guestPhone,
+    payments,
+    notes,
+    requiredFactura,
+    quoteInput,
+    linkedQuoteNumber,
+  ]);
+
+  const applyCashStatusPayload = useCallback(
+    (branch: number, data: any) => {
+      const isOpen = Boolean(data?.open);
+      const session = data?.session || null;
+      setCashOpen(isOpen);
+      setCashSession(session);
       setCashExpected(
         data?.expectedCash != null ? Number(data.expectedCash) : null,
       );
@@ -277,15 +559,79 @@ export default function usePos() {
             }
           : null,
       );
-    } catch {
-      setCashOpen(false);
-      setCashSession(null);
-      setCashExpected(null);
-      setCashPaymentSummary(null);
-    } finally {
+      writeCashHint({
+        branchId: branch,
+        open: isOpen,
+        idCashSession: session?.idCashSession
+          ? Number(session.idCashSession)
+          : null,
+      });
+      setCashSync("ready");
+      setCashSyncMessage(null);
+      return isOpen;
+    },
+    [],
+  );
+
+  const loadCashStatus = useCallback(
+    async (opts?: { retries?: number }) => {
+      if (!branchId) {
+        setCashOpen(false);
+        setCashSession(null);
+        setCashExpected(null);
+        setCashPaymentSummary(null);
+        setCashSync("ready");
+        setCashSyncMessage(null);
+        setCashLoading(false);
+        return false;
+      }
+      const retries = Math.max(0, opts?.retries ?? 2);
+      setCashLoading(true);
+      setCashSync((prev) => (prev === "ready" ? prev : "loading"));
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const res = await requestGet(
+            `/pos/cash/status?branchId=${branchId}`,
+            { silent: true },
+          );
+          // Acepta { data: { open } } o { open } según wrapper.
+          const payload = res?.data?.data ?? res?.data;
+          if (
+            payload == null ||
+            typeof payload !== "object" ||
+            !("open" in payload)
+          ) {
+            throw new Error("Respuesta de caja incompleta");
+          }
+          const isOpen = applyCashStatusPayload(branchId, payload);
+          setCashLoading(false);
+          return isOpen;
+        } catch (error) {
+          lastError = error;
+          if (attempt < retries) {
+            await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+          }
+        }
+      }
+      // Fallo: NO marcar cerrada. Conservar hint abierto si aplica.
+      const hint = readCashHint();
+      const keepOpen = Boolean(
+        hint?.open && hint.branchId === branchId,
+      );
+      setCashOpen(keepOpen);
+      setCashSync("error");
+      setCashSyncMessage(
+        keepOpen
+          ? "No se pudo verificar la caja. La última sesión conocida sigue abierta; reintenta."
+          : "No se pudo verificar si la caja está abierta. Reintenta antes de abrir otra.",
+      );
+      console.warn("[POS] loadCashStatus failed:", lastError);
       setCashLoading(false);
-    }
-  }, [branchId, requestGet]);
+      return null;
+    },
+    [branchId, requestGet, applyCashStatusPayload],
+  );
 
   const loadCashSessions = useCallback(
     async (page = 1) => {
@@ -321,22 +667,33 @@ export default function usePos() {
     [branchId, requestGet],
   );
 
+  // Siempre sincronizar caja cuando hay bodega (cualquier pestaña / al refrescar).
   useEffect(() => {
-    if (!branchId || (tab !== "cobrar" && tab !== "caja")) return;
-    void loadCashStatus().catch(() => undefined);
-  }, [branchId, tab, loadCashStatus]);
+    if (!branchId) return;
+    void loadCashStatus({ retries: 2 }).catch(() => undefined);
+  }, [branchId, loadCashStatus]);
+
+  const loadCashSessionsRef = useRef(loadCashSessions);
+  loadCashSessionsRef.current = loadCashSessions;
+  const cashSessionsPageParam = searchParams.get("cPage");
 
   useEffect(() => {
-    if (tab === "caja" && branchId) {
-      void loadCashSessions(1);
-    }
-  }, [tab, branchId, loadCashSessions]);
+    if (tab !== "caja" || !branchId) return;
+    void loadCashSessionsRef.current(parseListPage(cashSessionsPageParam));
+  }, [tab, branchId, cashSessionsPageParam]);
+
+  const goCashSessionsPage = useCallback(
+    (page: number) => {
+      setQueryParams({ cPage: page <= 1 ? null : page });
+    },
+    [setQueryParams],
+  );
 
   const openCash = useCallback(async () => {
     if (!branchId) return;
     setCashBusy(true);
     try {
-      await requestPost(
+      const res = await requestPost(
         {
           branchId,
           openingFloat: Number(openingFloat) || 0,
@@ -345,19 +702,45 @@ export default function usePos() {
         "/pos/cash/open",
       );
       setCashNotes("");
-      await loadCashStatus();
+      const opened = res?.data?.data ?? res?.data;
+      // openCashSession devuelve la sesión aplanada (+ alreadyOpen).
+      if (opened?.idCashSession != null || opened?.alreadyOpen) {
+        setCashOpen(true);
+        if (opened?.idCashSession != null) {
+          setCashSession(opened as PosCashSession);
+          if (opened.expectedCash != null) {
+            setCashExpected(Number(opened.expectedCash));
+          }
+        }
+        writeCashHint({
+          branchId,
+          open: true,
+          idCashSession:
+            opened?.idCashSession != null
+              ? Number(opened.idCashSession)
+              : null,
+        });
+        setCashSync("ready");
+        setCashSyncMessage(null);
+      }
+      await loadCashStatus({ retries: 2 });
+      setQueryParams({ cPage: null });
       await loadCashSessions(1);
+      const alreadyOpen = Boolean(opened?.alreadyOpen);
       setDataModal({
         isOpen: true,
-        title: "Caja abierta",
-        content: "Ya puedes cobrar en efectivo en esta bodega.",
+        title: alreadyOpen ? "Caja ya abierta" : "Caja abierta",
+        content: alreadyOpen
+          ? "Había una sesión abierta en esta bodega. Ya puedes cobrar en efectivo."
+          : "Ya puedes cobrar en efectivo en esta bodega.",
         type: "success",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
         onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
       });
     } catch {
-      // handled
+      // Si el backend viejo aún responde 400 “ya abierta”, resincronizar.
+      await loadCashStatus({ retries: 2 });
     } finally {
       setCashBusy(false);
     }
@@ -368,6 +751,7 @@ export default function usePos() {
     requestPost,
     loadCashStatus,
     loadCashSessions,
+    setQueryParams,
     setDataModal,
   ]);
 
@@ -379,7 +763,8 @@ export default function usePos() {
         setDataModal({
           isOpen: true,
           title: "Monto inválido",
-          content: "Indica un monto mayor a cero.",
+          content:
+            "Indica cuánto efectivo vas a meter o sacar del cajón (mayor a cero).",
           type: "warning",
           showActions: true,
           onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -391,7 +776,8 @@ export default function usePos() {
         setDataModal({
           isOpen: true,
           title: "Motivo requerido",
-          content: "Escribe un motivo claro (mín. 5 caracteres).",
+          content:
+            "Escribe por qué mueves el efectivo (ej. fondo extra, gasto, envío a oficina). Mínimo 5 caracteres.",
           type: "warning",
           showActions: true,
           onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -452,10 +838,7 @@ export default function usePos() {
       setDataModal({
         isOpen: true,
         title: "Motivo de descuadre",
-        content: `Hay diferencia de ${previewDiff.toLocaleString("es-MX", {
-          style: "currency",
-          currency: "MXN",
-        })}. Debes explicar el descuadre (mín. 5 caracteres) antes de cerrar.`,
+        content: `Hay diferencia de ${formatMoney(previewDiff)}. Debes explicar el descuadre (mín. 5 caracteres) antes de cerrar.`,
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -480,17 +863,21 @@ export default function usePos() {
         setClosingCounted("");
         setDifferenceReason("");
         setCashNotes("");
-        await loadCashStatus();
+        setCashOpen(false);
+        setCashSession(null);
+        setCashExpected(null);
+        setCashPaymentSummary(null);
+        writeCashHint({ branchId, open: false, idCashSession: null });
+        setCashSync("ready");
+        setCashSyncMessage(null);
+        await loadCashStatus({ retries: 2 });
         await loadCashSessions(1);
         setDataModal({
           isOpen: true,
           title: hasDiff ? "Corte con descuadre" : "Corte cerrado",
           content:
             diff != null
-              ? `Diferencia: ${Number(diff).toLocaleString("es-MX", {
-                  style: "currency",
-                  currency: "MXN",
-                })}${
+              ? `Diferencia: ${formatMoney(Number(diff))}${
                   hasDiff && differenceReason.trim()
                     ? ` · Motivo: ${differenceReason.trim()}`
                     : ""
@@ -512,10 +899,7 @@ export default function usePos() {
       setDataModal({
         isOpen: true,
         title: "Confirmar descuadre",
-        content: `Vas a cerrar con diferencia de ${previewDiff.toLocaleString(
-          "es-MX",
-          { style: "currency", currency: "MXN" },
-        )}. Motivo: «${differenceReason.trim()}». ¿Continuar?`,
+        content: `Vas a cerrar con diferencia de ${formatMoney(previewDiff)}. Motivo: «${differenceReason.trim()}». ¿Continuar?`,
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -552,7 +936,7 @@ export default function usePos() {
         setCashSessionDetail(null);
         setDataModal({
           isOpen: true,
-          title: "Sesión de caja",
+          title: "No se cargó la sesión",
           content: "No se pudo cargar el detalle de la sesión.",
           type: "error",
           showActions: true,
@@ -622,6 +1006,20 @@ export default function usePos() {
 
   const addProduct = useCallback(
     (product: PosProductHit, chosenBranchId?: number | null) => {
+      // Validación interna: no se puede forzar agregar sin stock (UI deshabilitada ≠ bypass).
+      if (isPosProductOutOfStock(product)) {
+        setDataModal({
+          isOpen: true,
+          title: "Sin stock",
+          content: `«${product.name}» no tiene existencia disponible. No se puede agregar al carrito.`,
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+
       const stocks = product.stocksByBranch || [];
       const needsBranch = stocks.length > 0;
       let branchIdLine: number | null =
@@ -754,7 +1152,10 @@ export default function usePos() {
       sku?: string;
       warrantyMonths?: number;
       serials?: string[];
+      manualKind?: "product" | "service";
     }) => {
+      const manualKind =
+        input.manualKind === "service" ? "service" : "product";
       const name = String(input.name || "").trim();
       const unitPrice = Number(input.unitPrice);
       const quantity = Math.max(1, Math.round(Number(input.quantity) || 1));
@@ -762,7 +1163,10 @@ export default function usePos() {
         setDataModal({
           isOpen: true,
           title: "Nombre requerido",
-          content: "Escribe el nombre del producto manual (mín. 2 caracteres).",
+          content:
+            manualKind === "service"
+              ? "Escribe el nombre del servicio (mín. 2 caracteres)."
+              : "Escribe el nombre del producto manual (mín. 2 caracteres).",
           type: "warning",
           showActions: true,
           onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -774,7 +1178,10 @@ export default function usePos() {
         setDataModal({
           isOpen: true,
           title: "Precio inválido",
-          content: "Captura un precio válido para el producto manual.",
+          content:
+            manualKind === "service"
+              ? "Captura un precio válido para el servicio."
+              : "Captura un precio válido para el producto manual.",
           type: "warning",
           showActions: true,
           onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -782,7 +1189,12 @@ export default function usePos() {
         });
         return false;
       }
-      const serialsRaw = Array.isArray(input.serials) ? input.serials : [];
+      const serialsRaw =
+        manualKind === "service"
+          ? []
+          : Array.isArray(input.serials)
+            ? input.serials
+            : [];
       const serials = [
         ...serialsRaw.map((s) => String(s || "")),
         ...Array(Math.max(0, quantity - serialsRaw.length)).fill(""),
@@ -794,23 +1206,33 @@ export default function usePos() {
           key: lineKey,
           productId: 0,
           name,
-          sku: String(input.sku || "").trim() || null,
-          upc: String(input.upc || "").trim() || null,
+          sku:
+            manualKind === "service"
+              ? "__POS_SERVICE__"
+              : String(input.sku || "").trim() || null,
+          upc:
+            manualKind === "service"
+              ? null
+              : String(input.upc || "").trim() || null,
           unitPrice: roundMoney(unitPrice),
           quantity,
           discountPct: 0,
           branchId: null,
-          branchLabel: "Captura manual",
+          branchLabel:
+            manualKind === "service" ? "Servicio adicional" : "Captura manual",
           stockBranch: 999999,
           stocksByBranch: [],
           imageUrl: null,
           requiresSerial: false,
           warrantyMonths:
-            input.warrantyMonths != null && Number(input.warrantyMonths) > 0
-              ? Math.round(Number(input.warrantyMonths))
-              : null,
+            manualKind === "service"
+              ? null
+              : input.warrantyMonths != null && Number(input.warrantyMonths) > 0
+                ? Math.round(Number(input.warrantyMonths))
+                : null,
           serials,
           isManual: true,
+          manualKind,
         },
       ]);
       return true;
@@ -879,42 +1301,109 @@ export default function usePos() {
 
   const clearCart = useCallback(() => {
     setCart([]);
+    setCartSearch("");
+    setCartSearchDebounced("");
+    setCartPage(1);
     setPayments([]);
     setCustomerName("");
     setGuestEmail("");
     setPhoneLada("+52");
     setGuestPhone("");
     setNotes("");
+    setRequiredFactura(false);
     setQuoteInput("");
     setLinkedQuoteNumber(null);
     setQuotePageAlert(null);
+    chargeIdempotencyKeyRef.current = null;
+    clearPosDraft();
   }, []);
+
+  // Debounce búsqueda del carrito (no filtrar en cada tecla).
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setCartSearchDebounced(cartSearch.trim());
+    }, CART_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [cartSearch]);
+
+  useEffect(() => {
+    setCartPage(1);
+  }, [cartSearchDebounced]);
+
+  const cartFiltered = useMemo(() => {
+    const q = cartSearchDebounced.toLowerCase();
+    if (!q) return cart;
+    return cart.filter((line) => {
+      const haystack = [
+        line.name,
+        line.sku,
+        line.upc,
+        line.branchLabel,
+        ...(line.serials || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [cart, cartSearchDebounced]);
+
+  const cartFilteredTotal = cartFiltered.length;
+  const cartTotalPages =
+    cartFilteredTotal > 0
+      ? Math.ceil(cartFilteredTotal / CART_PAGE_SIZE)
+      : 0;
+
+  useEffect(() => {
+    if (cartTotalPages <= 0) {
+      setCartPage(1);
+      return;
+    }
+    setCartPage((p) => (p > cartTotalPages ? cartTotalPages : p < 1 ? 1 : p));
+  }, [cartTotalPages]);
+
+  const cartPageItems = useMemo(() => {
+    if (cartFilteredTotal === 0) return [];
+    const page = Math.min(Math.max(cartPage, 1), Math.max(cartTotalPages, 1));
+    const start = (page - 1) * CART_PAGE_SIZE;
+    return cartFiltered.slice(start, start + CART_PAGE_SIZE);
+  }, [cartFiltered, cartFilteredTotal, cartPage, cartTotalPages]);
+
+  const goCartPage = useCallback((page: number) => {
+    setCartPage(Math.max(1, page));
+  }, []);
+
+  const requestClearCart = useCallback(() => {
+    if (cart.length === 0) return;
+    setDataModal({
+      isOpen: true,
+      title: "Vaciar carrito",
+      content:
+        "¿Seguro que quieres vaciar el carrito? Se quitarán productos, pagos y datos del cliente de esta venta.",
+      type: "warning",
+      showActions: true,
+      onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+      onConfirm: async () => {
+        setDataModal((p) => ({ ...p, isOpen: false }));
+        clearCart();
+      },
+    });
+  }, [cart.length, clearCart, setDataModal]);
 
   const showQuoteFeedback = useCallback(
     (opts: {
       type: "error" | "warning" | "success";
       title: string;
       message: string;
-      pageAlert?: boolean;
     }) => {
-      if (opts.pageAlert !== false) {
-        setQuotePageAlert({
-          type: opts.type,
-          title: opts.title,
-          message: opts.message,
-        });
-      }
-      setDataModal({
-        isOpen: true,
-        title: opts.title,
-        content: opts.message,
+      // Solo alert de página (sin modal) para errores/avisos de cotización.
+      setQuotePageAlert({
         type: opts.type,
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        title: opts.title,
+        message: opts.message,
       });
     },
-    [setDataModal],
+    [],
   );
 
   const applyQuoteToCart = useCallback(
@@ -1069,9 +1558,7 @@ export default function usePos() {
         type: warnings.length ? "warning" : "success",
         title: "Cotización cargada",
         message: `Se agregaron ${nextCart.length} línea(s) de la cotización ${payload.quoteNumber}.${suffix ? ` ${suffix}` : ""}`,
-        pageAlert: Boolean(warnings.length),
       });
-      if (!warnings.length) setQuotePageAlert(null);
     },
     [customerName, guestEmail, guestPhone, showQuoteFeedback],
   );
@@ -1083,7 +1570,6 @@ export default function usePos() {
         type: "warning",
         title: "Cotización",
         message: "Ingresa el número de cotización.",
-        pageAlert: false,
       });
       return;
     }
@@ -1170,7 +1656,13 @@ export default function usePos() {
 
   const addPayment = useCallback(
     (method: PosPaymentMethod = "efectivo_sucursal") => {
-      const amount = remaining > 0 ? remaining : 0;
+      // Efectivo inicia en 0 para capturar lo recibido; otras formas sugieren el restante.
+      const amount =
+        method === "efectivo_sucursal"
+          ? 0
+          : remaining > 0
+            ? remaining
+            : 0;
       setPayments((prev) => [
         ...prev,
         {
@@ -1187,7 +1679,19 @@ export default function usePos() {
   const updatePayment = useCallback(
     (id: string, patch: Partial<PosPaymentLine>) => {
       setPayments((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+        prev.map((p) => {
+          if (p.id !== id) return p;
+          const next = { ...p, ...patch };
+          // Al pasar a efectivo, el monto recibido empieza en 0.
+          if (
+            patch.method === "efectivo_sucursal" &&
+            p.method !== "efectivo_sucursal" &&
+            patch.amount === undefined
+          ) {
+            next.amount = 0;
+          }
+          return next;
+        }),
       );
     },
     [],
@@ -1197,7 +1701,133 @@ export default function usePos() {
     setPayments((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const executeCharge = useCallback(async () => {
+    if (chargeLockRef.current || charging) return;
+    chargeLockRef.current = true;
+    setCharging(true);
+    try {
+      if (!chargeIdempotencyKeyRef.current) {
+        chargeIdempotencyKeyRef.current = newPosIdempotencyKey();
+      }
+      const idempotencyKey = chargeIdempotencyKeyRef.current;
+      const phoneDigits = guestPhone.trim();
+      const fullPhone = `${phoneLada} ${phoneDigits}`.trim();
+      const usesCash = payments.some((p) => p.method === "efectivo_sucursal");
+      const res = await requestPost(
+        {
+          idempotencyKey,
+          branchId,
+          customerUserId: null,
+          customerName: customerName.trim(),
+          customerEmail: guestEmail.trim() || null,
+          customerPhone: fullPhone,
+          notes: notes || null,
+          requiredFactura: requiredFactura ? 1 : 0,
+          quoteNumber: linkedQuoteNumber || null,
+          items: cart.map((l) => ({
+            productId: l.isManual ? "manual" : l.productId,
+            manual: Boolean(l.isManual),
+            manualKind: l.isManual
+              ? l.manualKind === "service"
+                ? "service"
+                : "product"
+              : undefined,
+            name: l.isManual ? l.name : undefined,
+            sku: l.isManual ? l.sku : undefined,
+            upc: l.isManual ? l.upc : undefined,
+            warrantyMonths:
+              l.isManual && l.manualKind !== "service"
+                ? l.warrantyMonths
+                : undefined,
+            requiresSerial:
+              l.isManual && l.manualKind !== "service"
+                ? Boolean(l.requiresSerial)
+                : undefined,
+            branchId: l.branchId,
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            discountPct: 0,
+            serials: l.serials.map((s) => s.trim()).filter(Boolean),
+          })),
+          payments: payments.map((p) => ({
+            method: p.method,
+            amount: p.amount,
+            reference: p.reference || null,
+          })),
+        },
+        "/pos/sales",
+      );
+      const sale: PosSale = res?.data?.data;
+      const payUrl =
+        res?.data?.data?.checkoutLink ||
+        res?.data?.data?.paymentLink ||
+        null;
+      setLastSale(sale);
+      setLastPaymentLink(payUrl);
+      setTicketOpen(false);
+      if (payUrl) window.open(payUrl, "_blank");
+      clearCart();
+      if (usesCash) void loadCashStatus();
+
+      const qz = loadQzSettings();
+      if (sale && qz.autoPrintOnCharge) {
+        void printPosTicketQz(sale, {
+          openDrawer: usesCash && qz.openDrawerOnCash,
+        }).catch(() => {
+          if (usesCash && qz.openDrawerOnCash) {
+            void openCashDrawerQz().catch(() => undefined);
+          }
+        });
+      } else if (usesCash && qz.openDrawerOnCash) {
+        void openCashDrawerQz().catch(() => undefined);
+      }
+
+      setDataModal({
+        isOpen: true,
+        title: res?.data?.alreadyProcessed
+          ? "Venta ya registrada"
+          : "Venta registrada",
+        content:
+          (res?.data?.message || `Folio ${sale?.folio}`) +
+          (changeDue > 0.009
+            ? ` Cambio: ${formatMoney(changeDue)}.`
+            : "") +
+          (qz.autoPrintOnCharge
+            ? " Ticket enviado a la impresora (si QZ Tray está activo)."
+            : " Usa «Imprimir ticket» cuando quieras el comprobante."),
+        type: "success",
+        showActions: true,
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+      });
+    } catch {
+      // error modal handled by UtilsService — conservar idempotencyKey para reintento
+    } finally {
+      chargeLockRef.current = false;
+      setCharging(false);
+    }
+  }, [
+    branchId,
+    cart,
+    payments,
+    changeDue,
+    customerName,
+    guestEmail,
+    guestPhone,
+    phoneLada,
+    notes,
+    requiredFactura,
+    linkedQuoteNumber,
+    charging,
+    requestPost,
+    clearCart,
+    loadCashStatus,
+    setDataModal,
+  ]);
+
   const charge = useCallback(async () => {
+    if (chargeLockRef.current || chargeConfirmOpenRef.current || charging) return;
+
     if (cart.length === 0) {
       setDataModal({
         isOpen: true,
@@ -1211,24 +1841,11 @@ export default function usePos() {
       return;
     }
 
-    if (!customerName.trim()) {
+    if (customerName.trim().length < 2) {
       setDataModal({
         isOpen: true,
         title: "Cliente requerido",
-        content: "Escribe el nombre del cliente antes de cobrar.",
-        type: "warning",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
-      return;
-    }
-
-    if (guestEmail.trim() && !isValidEmailFormat(guestEmail)) {
-      setDataModal({
-        isOpen: true,
-        title: "Email inválido",
-        content: "Revisa el formato del email (ej. nombre@correo.com) o déjalo vacío.",
+        content: "Escribe el nombre del cliente (mín. 2 caracteres) antes de cobrar.",
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -1279,7 +1896,7 @@ export default function usePos() {
     if (settlement.nonCashOverpay > 0.009) {
       setDataModal({
         isOpen: true,
-        title: "Pago excedido",
+        title: "Monto de pago excedido",
         content:
           "Tarjeta o transferencia no pueden superar el total. Usa efectivo si el cliente paga de más (ahí se calcula el cambio).",
         type: "warning",
@@ -1293,11 +1910,8 @@ export default function usePos() {
     if (!settlement.balanced) {
       setDataModal({
         isOpen: true,
-        title: "Pago incompleto",
-        content: `Falta por cubrir ${remaining.toLocaleString("es-MX", {
-          style: "currency",
-          currency: "MXN",
-        })}.`,
+        title: "Falta por pagar",
+        content: `Falta por cubrir ${formatMoney(remaining)}.`,
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -1320,25 +1934,32 @@ export default function usePos() {
     }
 
     const usesCash = payments.some((p) => p.method === "efectivo_sucursal");
+    const usesOpenpay = payments.some((p) => p.method === "openpay_link");
     if (usesCash && !cashOpen) {
-      setDataModal({
-        isOpen: true,
-        title: "Caja cerrada",
-        content:
-          "Abre caja en la pestaña Caja antes de cobrar en efectivo. Tarjeta o transferencia no lo requieren.",
-        type: "warning",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
-      return;
+      const synced = await loadCashStatus({ retries: 2 });
+      if (synced !== true) {
+        setDataModal({
+          isOpen: true,
+          title:
+            synced === null ? "No se pudo verificar la caja" : "Caja cerrada",
+          content:
+            synced === null
+              ? "No confirmamos si hay caja abierta. Reintenta en unos segundos; no asumas que está cerrada."
+              : "Abre caja en la pestaña Caja antes de cobrar en efectivo. Tarjeta o transferencia no lo requieren.",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
     }
 
     for (const line of cart) {
       if ((line.stocksByBranch?.length || 0) > 0 && line.branchId == null) {
         setDataModal({
           isOpen: true,
-          title: "Bodega requerida",
+          title: "Elige bodega",
           content: `«${line.name}» necesita bodega de origen.`,
           type: "warning",
           showActions: true,
@@ -1355,7 +1976,7 @@ export default function usePos() {
       if (filled.length !== line.quantity) {
         setDataModal({
           isOpen: true,
-          title: "Series requeridas",
+          title: "Faltan números de serie",
           content: `«${line.name}» requiere ${line.quantity} número(s) de serie.`,
           type: "warning",
           showActions: true,
@@ -1366,93 +1987,32 @@ export default function usePos() {
       }
     }
 
-    setCharging(true);
-    try {
-      const phoneDigits = guestPhone.trim();
-      const fullPhone = `${phoneLada} ${phoneDigits}`.trim();
-      const res = await requestPost(
-        {
-          branchId,
-          customerUserId: null,
-          customerName: customerName.trim(),
-          customerEmail: guestEmail.trim() || null,
-          customerPhone: fullPhone,
-          notes: notes || null,
-          quoteNumber: linkedQuoteNumber || null,
-          items: cart.map((l) => ({
-            productId: l.isManual ? "manual" : l.productId,
-            manual: Boolean(l.isManual),
-            name: l.isManual ? l.name : undefined,
-            sku: l.isManual ? l.sku : undefined,
-            upc: l.isManual ? l.upc : undefined,
-            warrantyMonths: l.isManual ? l.warrantyMonths : undefined,
-            requiresSerial: l.isManual ? Boolean(l.requiresSerial) : undefined,
-            branchId: l.branchId,
-            quantity: l.quantity,
-            unitPrice: l.unitPrice,
-            discountPct: 0,
-            serials: l.serials.map((s) => s.trim()).filter(Boolean),
-          })),
-          payments: payments.map((p) => ({
-            method: p.method,
-            amount: p.amount,
-            reference: p.reference || null,
-          })),
-        },
-        "/pos/sales",
-      );
-      const sale: PosSale = res?.data?.data;
-      const payUrl =
-        res?.data?.data?.checkoutLink ||
-        res?.data?.data?.paymentLink ||
-        null;
-      setLastSale(sale);
-      setLastPaymentLink(payUrl);
-      setTicketOpen(false);
-      if (payUrl) window.open(payUrl, "_blank");
-      clearCart();
-      if (usesCash) void loadCashStatus();
+    const openpayWarn = usesOpenpay
+      ? " Con OpenPay el stock se reserva YA al crear el link; cancela la venta si el cliente no paga."
+      : "";
+    const changeWarn =
+      changeDue > 0.009
+        ? ` Cambio a entregar: ${formatMoney(changeDue)}.`
+        : "";
 
-      const qz = loadQzSettings();
-      if (sale && qz.autoPrintOnCharge) {
-        void printPosTicketQz(sale, {
-          openDrawer: usesCash && qz.openDrawerOnCash,
-        }).catch(() => {
-          // silencioso: el usuario aún puede imprimir manual / HTML
-          if (usesCash && qz.openDrawerOnCash) {
-            void openCashDrawerQz().catch(() => undefined);
-          }
-        });
-      } else if (usesCash && qz.openDrawerOnCash) {
-        void openCashDrawerQz().catch(() => undefined);
-      }
-
-      setDataModal({
-        isOpen: true,
-        title: "Venta registrada",
-        content:
-          (res?.data?.message || `Folio ${sale?.folio}`) +
-          (changeDue > 0.009
-            ? ` Cambio: ${changeDue.toLocaleString("es-MX", {
-                style: "currency",
-                currency: "MXN",
-              })}.`
-            : "") +
-          (qz.autoPrintOnCharge
-            ? " Ticket enviado a la impresora (si QZ Tray está activo)."
-            : " Usa «Imprimir ticket» cuando quieras el comprobante."),
-        type: "success",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
-    } catch {
-      // error modal handled by UtilsService
-    } finally {
-      setCharging(false);
-    }
+    chargeConfirmOpenRef.current = true;
+    setDataModal({
+      isOpen: true,
+      title: "Confirmar cobro",
+      content: `¿Cobrar ${formatMoney(totals.total)} a ${customerName.trim()}?${changeWarn}${openpayWarn}`,
+      type: "warning",
+      showActions: true,
+      onClose: () => {
+        chargeConfirmOpenRef.current = false;
+        setDataModal((p) => ({ ...p, isOpen: false }));
+      },
+      onConfirm: async () => {
+        chargeConfirmOpenRef.current = false;
+        setDataModal((p) => ({ ...p, isOpen: false }));
+        await executeCharge();
+      },
+    });
   }, [
-    branchId,
     cart,
     payments,
     remaining,
@@ -1460,29 +2020,53 @@ export default function usePos() {
     settlement,
     totals.total,
     customerName,
-    guestEmail,
     guestPhone,
-    phoneLada,
-    notes,
-    linkedQuoteNumber,
     cashOpen,
-    requestPost,
-    clearCart,
+    charging,
     loadCashStatus,
     setDataModal,
+    executeCharge,
   ]);
 
   const loadHistory = useCallback(
-    async (page = 1) => {
+    async (
+      page = 1,
+      overrides?: {
+        folio?: string;
+        customer?: string;
+        from?: string;
+        to?: string;
+        status?: string;
+      },
+    ) => {
       setHistoryLoading(true);
       try {
+        const folio = (overrides?.folio ?? historyFolio).trim();
+        const customer = (overrides?.customer ?? historyCustomer).trim();
+        const fromDay = overrides?.from ?? historyFrom;
+        const toDay = overrides?.to ?? historyTo;
+        const status = overrides?.status ?? historyStatus;
+
         const params = new URLSearchParams({
           page: String(page),
           limit: "15",
         });
         if (branchId) params.set("branchId", String(branchId));
-        if (historyFolio.trim()) params.set("folio", historyFolio.trim());
-        if (historyStatus) params.set("status", historyStatus);
+        if (folio) params.set("folio", folio);
+        if (customer) params.set("customerName", customer);
+        if (status) params.set("status", status);
+        if (fromDay) {
+          const start = new Date(`${fromDay}T00:00:00`);
+          if (!Number.isNaN(start.getTime())) {
+            params.set("from", start.toISOString());
+          }
+        }
+        if (toDay) {
+          const end = new Date(`${toDay}T23:59:59.999`);
+          if (!Number.isNaN(end.getTime())) {
+            params.set("to", end.toISOString());
+          }
+        }
         const res = await requestGet(`/pos/sales?${params.toString()}`, {
           silent: true,
         });
@@ -1496,17 +2080,258 @@ export default function usePos() {
         setHistoryLoading(false);
       }
     },
-    [branchId, historyFolio, historyStatus, requestGet],
+    [
+      branchId,
+      historyFolio,
+      historyCustomer,
+      historyFrom,
+      historyTo,
+      historyStatus,
+      requestGet,
+    ],
   );
 
+  const loadHistoryRef = useRef(loadHistory);
+  loadHistoryRef.current = loadHistory;
+  const historySelfSyncRef = useRef(false);
+  const historySuppressLiveRef = useRef(false);
+  const historyLastFetchKeyRef = useRef("");
+  const historyUrlTimerRef = useRef<number | null>(null);
+  const historyFetchTimerRef = useRef<number | null>(null);
+  const historyFiltersRef = useRef({
+    folio: historyFolio,
+    customer: historyCustomer,
+    from: historyFrom,
+    to: historyTo,
+    status: historyStatus,
+  });
+  historyFiltersRef.current = {
+    folio: historyFolio,
+    customer: historyCustomer,
+    from: historyFrom,
+    to: historyTo,
+    status: historyStatus,
+  };
+  const historySearchParamsRef = useRef(searchParams);
+  historySearchParamsRef.current = searchParams;
+
+  const historyFilterFetchKey = useCallback(
+    (page: number) => {
+      const f = historyFiltersRef.current;
+      return [
+        page,
+        f.folio.trim(),
+        f.customer.trim(),
+        f.from,
+        f.to,
+        f.status,
+        branchId ?? "",
+      ].join("|");
+    },
+    [branchId],
+  );
+
+  const persistHistoryFiltersUrl = useCallback(() => {
+    if (historySuppressLiveRef.current) return;
+    const folio = historyFiltersRef.current.folio.trim();
+    const customer = historyFiltersRef.current.customer.trim();
+    const from = historyFiltersRef.current.from;
+    const to = historyFiltersRef.current.to;
+    const status = historyFiltersRef.current.status;
+    const sp = historySearchParamsRef.current;
+    if (
+      folio === (sp.get("hFolio") || "") &&
+      customer === (sp.get("hCustomer") || "") &&
+      from === (sp.get("hFrom") || "") &&
+      to === (sp.get("hTo") || "") &&
+      status === (sp.get("hStatus") || "")
+    ) {
+      return;
+    }
+    historySelfSyncRef.current = true;
+    setQueryParams({
+      hPage: null,
+      hFolio: folio || null,
+      hCustomer: customer || null,
+      hFrom: from || null,
+      hTo: to || null,
+      hStatus: status || null,
+    });
+  }, [setQueryParams]);
+
+  const fetchHistoryWithLocalFilters = useCallback(
+    (page = 1) => {
+      if (historySuppressLiveRef.current) return;
+      const folio = historyFiltersRef.current.folio.trim();
+      const customer = historyFiltersRef.current.customer.trim();
+      const from = historyFiltersRef.current.from;
+      const to = historyFiltersRef.current.to;
+      const status = historyFiltersRef.current.status;
+      const key = historyFilterFetchKey(page);
+      if (historyLastFetchKeyRef.current === key) return;
+      historyLastFetchKeyRef.current = key;
+      void loadHistoryRef.current(page, { folio, customer, from, to, status });
+    },
+    [historyFilterFetchKey],
+  );
+
+  const flushHistoryLiveFilters = useCallback(() => {
+    if (historyUrlTimerRef.current != null) {
+      window.clearTimeout(historyUrlTimerRef.current);
+      historyUrlTimerRef.current = null;
+    }
+    if (historyFetchTimerRef.current != null) {
+      window.clearTimeout(historyFetchTimerRef.current);
+      historyFetchTimerRef.current = null;
+    }
+    persistHistoryFiltersUrl();
+    fetchHistoryWithLocalFilters(1);
+  }, [persistHistoryFiltersUrl, fetchHistoryWithLocalFilters]);
+
+  const clearHistoryFilters = useCallback(() => {
+    historySuppressLiveRef.current = true;
+    historyFiltersRef.current = {
+      folio: "",
+      customer: "",
+      from: "",
+      to: "",
+      status: "",
+    };
+    setHistoryFolio("");
+    setHistoryCustomer("");
+    setHistoryFrom("");
+    setHistoryTo("");
+    setHistoryStatus("");
+    historySelfSyncRef.current = true;
+    historyLastFetchKeyRef.current = historyFilterFetchKey(1);
+    setQueryParams({
+      hPage: null,
+      hFolio: null,
+      hCustomer: null,
+      hFrom: null,
+      hTo: null,
+      hStatus: null,
+    });
+    void loadHistoryRef.current(1, {
+      folio: "",
+      customer: "",
+      from: "",
+      to: "",
+      status: "",
+    });
+    window.setTimeout(() => {
+      historySuppressLiveRef.current = false;
+    }, 0);
+  }, [setQueryParams, historyFilterFetchKey]);
+
+  const goHistoryPage = useCallback(
+    (page: number) => {
+      setQueryParams({ hPage: page <= 1 ? null : page });
+    },
+    [setQueryParams],
+  );
+
+  const historyQueryKey = [
+    searchParams.get("hPage"),
+    searchParams.get("hFolio"),
+    searchParams.get("hCustomer"),
+    searchParams.get("hFrom"),
+    searchParams.get("hTo"),
+    searchParams.get("hStatus"),
+  ].join("|");
+
   useEffect(() => {
-    if (tab === "historial") void loadHistory(1);
-  }, [tab, loadHistory]);
+    if (tab !== "historial") return;
+    if (historySelfSyncRef.current) {
+      historySelfSyncRef.current = false;
+      return;
+    }
+    const page = parseListPage(searchParams.get("hPage"));
+    const folio = searchParams.get("hFolio") || "";
+    const customer = searchParams.get("hCustomer") || "";
+    const from = searchParams.get("hFrom") || "";
+    const to = searchParams.get("hTo") || "";
+    const status = searchParams.get("hStatus") || "";
+    setHistoryFolio(folio);
+    setHistoryCustomer(customer);
+    setHistoryFrom(from);
+    setHistoryTo(to);
+    setHistoryStatus(status);
+    historyLastFetchKeyRef.current = [
+      page,
+      folio,
+      customer,
+      from,
+      to,
+      status,
+      branchId ?? "",
+    ].join("|");
+    void loadHistoryRef.current(page, { folio, customer, from, to, status });
+  }, [tab, branchId, historyQueryKey, searchParams]);
+
+  // Text: URL pronto (persistencia), fetch con debounce más largo
+  useEffect(() => {
+    if (tab !== "historial") return;
+    historyUrlTimerRef.current = window.setTimeout(() => {
+      historyUrlTimerRef.current = null;
+      persistHistoryFiltersUrl();
+    }, FILTER_URL_DEBOUNCE_MS);
+    historyFetchTimerRef.current = window.setTimeout(() => {
+      historyFetchTimerRef.current = null;
+      persistHistoryFiltersUrl();
+      fetchHistoryWithLocalFilters(1);
+    }, FILTER_FETCH_DEBOUNCE_MS);
+    return () => {
+      if (historyUrlTimerRef.current != null) {
+        window.clearTimeout(historyUrlTimerRef.current);
+        historyUrlTimerRef.current = null;
+      }
+      if (historyFetchTimerRef.current != null) {
+        window.clearTimeout(historyFetchTimerRef.current);
+        historyFetchTimerRef.current = null;
+      }
+    };
+  }, [
+    tab,
+    historyFolio,
+    historyCustomer,
+    persistHistoryFiltersUrl,
+    fetchHistoryWithLocalFilters,
+  ]);
+
+  // Fechas / estado: inmediato
+  useEffect(() => {
+    if (tab !== "historial") return;
+    persistHistoryFiltersUrl();
+    fetchHistoryWithLocalFilters(1);
+  }, [
+    tab,
+    historyFrom,
+    historyTo,
+    historyStatus,
+    persistHistoryFiltersUrl,
+    fetchHistoryWithLocalFilters,
+  ]);
 
   const loadWarranties = useCallback(
-    async (page = 1) => {
+    async (
+      page = 1,
+      overrides?: {
+        folio?: string;
+        customer?: string;
+        saleId?: string;
+        from?: string;
+        to?: string;
+      },
+    ) => {
       setWarrantiesLoading(true);
       try {
+        const folio = (overrides?.folio ?? warrantyFolio).trim();
+        const customer = (overrides?.customer ?? warrantyCustomer).trim();
+        const saleId = (overrides?.saleId ?? warrantySaleId).trim();
+        const fromDay = overrides?.from ?? warrantyFrom;
+        const toDay = overrides?.to ?? warrantyTo;
+
         const params = new URLSearchParams({
           page: String(page),
           limit: "15",
@@ -1514,7 +2339,21 @@ export default function usePos() {
           hasSerials: "1",
         });
         if (branchId) params.set("branchId", String(branchId));
-        if (warrantyFolio.trim()) params.set("folio", warrantyFolio.trim());
+        if (folio) params.set("folio", folio);
+        if (customer) params.set("customerName", customer);
+        if (saleId) params.set("saleId", saleId.replace(/^#/, ""));
+        if (fromDay) {
+          const start = new Date(`${fromDay}T00:00:00`);
+          if (!Number.isNaN(start.getTime())) {
+            params.set("from", start.toISOString());
+          }
+        }
+        if (toDay) {
+          const end = new Date(`${toDay}T23:59:59.999`);
+          if (!Number.isNaN(end.getTime())) {
+            params.set("to", end.toISOString());
+          }
+        }
         const res = await requestGet(`/pos/sales?${params.toString()}`, {
           silent: true,
         });
@@ -1528,12 +2367,266 @@ export default function usePos() {
         setWarrantiesLoading(false);
       }
     },
-    [branchId, warrantyFolio, requestGet],
+    [
+      branchId,
+      warrantyFolio,
+      warrantyCustomer,
+      warrantySaleId,
+      warrantyFrom,
+      warrantyTo,
+      requestGet,
+    ],
   );
 
+  const loadWarrantiesRef = useRef(loadWarranties);
+  loadWarrantiesRef.current = loadWarranties;
+  const warrantySelfSyncRef = useRef(false);
+  const warrantySuppressLiveRef = useRef(false);
+  const warrantyLastFetchKeyRef = useRef("");
+  const warrantyUrlTimerRef = useRef<number | null>(null);
+  const warrantyFetchTimerRef = useRef<number | null>(null);
+  const warrantyFiltersRef = useRef({
+    folio: warrantyFolio,
+    customer: warrantyCustomer,
+    saleId: warrantySaleId,
+    from: warrantyFrom,
+    to: warrantyTo,
+  });
+  warrantyFiltersRef.current = {
+    folio: warrantyFolio,
+    customer: warrantyCustomer,
+    saleId: warrantySaleId,
+    from: warrantyFrom,
+    to: warrantyTo,
+  };
+  const warrantySearchParamsRef = useRef(searchParams);
+  warrantySearchParamsRef.current = searchParams;
+
+  const warrantyFilterFetchKey = useCallback(
+    (page: number) => {
+      const f = warrantyFiltersRef.current;
+      return [
+        page,
+        f.folio.trim(),
+        f.customer.trim(),
+        f.saleId.trim(),
+        f.from,
+        f.to,
+        branchId ?? "",
+      ].join("|");
+    },
+    [branchId],
+  );
+
+  const persistWarrantyFiltersUrl = useCallback(() => {
+    if (warrantySuppressLiveRef.current) return;
+    const folio = warrantyFiltersRef.current.folio.trim();
+    const customer = warrantyFiltersRef.current.customer.trim();
+    const saleId = warrantyFiltersRef.current.saleId.trim();
+    const from = warrantyFiltersRef.current.from;
+    const to = warrantyFiltersRef.current.to;
+    const sp = warrantySearchParamsRef.current;
+    if (
+      folio === (sp.get("wFolio") || "") &&
+      customer === (sp.get("wCustomer") || "") &&
+      saleId === (sp.get("wSaleId") || "") &&
+      from === (sp.get("wFrom") || "") &&
+      to === (sp.get("wTo") || "")
+    ) {
+      return;
+    }
+    warrantySelfSyncRef.current = true;
+    setQueryParams({
+      wPage: null,
+      wFolio: folio || null,
+      wCustomer: customer || null,
+      wSaleId: saleId || null,
+      wFrom: from || null,
+      wTo: to || null,
+    });
+  }, [setQueryParams]);
+
+  const fetchWarrantiesWithLocalFilters = useCallback(
+    (page = 1) => {
+      if (warrantySuppressLiveRef.current) return;
+      const folio = warrantyFiltersRef.current.folio.trim();
+      const customer = warrantyFiltersRef.current.customer.trim();
+      const saleId = warrantyFiltersRef.current.saleId.trim();
+      const from = warrantyFiltersRef.current.from;
+      const to = warrantyFiltersRef.current.to;
+      const key = warrantyFilterFetchKey(page);
+      if (warrantyLastFetchKeyRef.current === key) return;
+      warrantyLastFetchKeyRef.current = key;
+      void loadWarrantiesRef.current(page, {
+        folio,
+        customer,
+        saleId,
+        from,
+        to,
+      });
+    },
+    [warrantyFilterFetchKey],
+  );
+
+  const flushWarrantyLiveFilters = useCallback(() => {
+    if (warrantyUrlTimerRef.current != null) {
+      window.clearTimeout(warrantyUrlTimerRef.current);
+      warrantyUrlTimerRef.current = null;
+    }
+    if (warrantyFetchTimerRef.current != null) {
+      window.clearTimeout(warrantyFetchTimerRef.current);
+      warrantyFetchTimerRef.current = null;
+    }
+    persistWarrantyFiltersUrl();
+    fetchWarrantiesWithLocalFilters(1);
+  }, [persistWarrantyFiltersUrl, fetchWarrantiesWithLocalFilters]);
+
+  const clearWarrantyFilters = useCallback(() => {
+    warrantySuppressLiveRef.current = true;
+    warrantyFiltersRef.current = {
+      folio: "",
+      customer: "",
+      saleId: "",
+      from: "",
+      to: "",
+    };
+    setWarrantyFolio("");
+    setWarrantyCustomer("");
+    setWarrantySaleId("");
+    setWarrantyFrom("");
+    setWarrantyTo("");
+    warrantySelfSyncRef.current = true;
+    warrantyLastFetchKeyRef.current = warrantyFilterFetchKey(1);
+    setQueryParams({
+      wPage: null,
+      wFolio: null,
+      wCustomer: null,
+      wSaleId: null,
+      wFrom: null,
+      wTo: null,
+    });
+    void loadWarrantiesRef.current(1, {
+      folio: "",
+      customer: "",
+      saleId: "",
+      from: "",
+      to: "",
+    });
+    window.setTimeout(() => {
+      warrantySuppressLiveRef.current = false;
+    }, 0);
+  }, [setQueryParams, warrantyFilterFetchKey]);
+
+  const goWarrantiesPage = useCallback(
+    (page: number) => {
+      setQueryParams({ wPage: page <= 1 ? null : page });
+    },
+    [setQueryParams],
+  );
+
+  const warrantyQueryKey = [
+    searchParams.get("wPage"),
+    searchParams.get("wFolio"),
+    searchParams.get("wCustomer"),
+    searchParams.get("wSaleId"),
+    searchParams.get("wFrom"),
+    searchParams.get("wTo"),
+  ].join("|");
+
   useEffect(() => {
-    if (tab === "garantias") void loadWarranties(1);
-  }, [tab, loadWarranties]);
+    if (tab !== "garantias") return;
+    if (warrantySelfSyncRef.current) {
+      warrantySelfSyncRef.current = false;
+      return;
+    }
+    const page = parseListPage(searchParams.get("wPage"));
+    const folio = searchParams.get("wFolio") || "";
+    const customer = searchParams.get("wCustomer") || "";
+    const saleId = searchParams.get("wSaleId") || "";
+    const from = searchParams.get("wFrom") || "";
+    const to = searchParams.get("wTo") || "";
+    setWarrantyFolio(folio);
+    setWarrantyCustomer(customer);
+    setWarrantySaleId(saleId);
+    setWarrantyFrom(from);
+    setWarrantyTo(to);
+    warrantyLastFetchKeyRef.current = [
+      page,
+      folio,
+      customer,
+      saleId,
+      from,
+      to,
+      branchId ?? "",
+    ].join("|");
+    void loadWarrantiesRef.current(page, {
+      folio,
+      customer,
+      saleId,
+      from,
+      to,
+    });
+  }, [tab, branchId, warrantyQueryKey, searchParams]);
+
+  useEffect(() => {
+    if (tab !== "garantias") return;
+    warrantyUrlTimerRef.current = window.setTimeout(() => {
+      warrantyUrlTimerRef.current = null;
+      persistWarrantyFiltersUrl();
+    }, FILTER_URL_DEBOUNCE_MS);
+    warrantyFetchTimerRef.current = window.setTimeout(() => {
+      warrantyFetchTimerRef.current = null;
+      persistWarrantyFiltersUrl();
+      fetchWarrantiesWithLocalFilters(1);
+    }, FILTER_FETCH_DEBOUNCE_MS);
+    return () => {
+      if (warrantyUrlTimerRef.current != null) {
+        window.clearTimeout(warrantyUrlTimerRef.current);
+        warrantyUrlTimerRef.current = null;
+      }
+      if (warrantyFetchTimerRef.current != null) {
+        window.clearTimeout(warrantyFetchTimerRef.current);
+        warrantyFetchTimerRef.current = null;
+      }
+    };
+  }, [
+    tab,
+    warrantyFolio,
+    warrantyCustomer,
+    warrantySaleId,
+    persistWarrantyFiltersUrl,
+    fetchWarrantiesWithLocalFilters,
+  ]);
+
+  useEffect(() => {
+    if (tab !== "garantias") return;
+    persistWarrantyFiltersUrl();
+    fetchWarrantiesWithLocalFilters(1);
+  }, [
+    tab,
+    warrantyFrom,
+    warrantyTo,
+    persistWarrantyFiltersUrl,
+    fetchWarrantiesWithLocalFilters,
+  ]);
+
+  // Al salir / recargar: no perder lo tecleado pendiente de debounce
+  const flushHistoryLiveFiltersRef = useRef(flushHistoryLiveFilters);
+  flushHistoryLiveFiltersRef.current = flushHistoryLiveFilters;
+  const flushWarrantyLiveFiltersRef = useRef(flushWarrantyLiveFilters);
+  flushWarrantyLiveFiltersRef.current = flushWarrantyLiveFilters;
+
+  useEffect(() => {
+    const flushPendingFilters = () => {
+      flushHistoryLiveFiltersRef.current();
+      flushWarrantyLiveFiltersRef.current();
+    };
+    window.addEventListener("pagehide", flushPendingFilters);
+    return () => {
+      window.removeEventListener("pagehide", flushPendingFilters);
+      flushPendingFilters();
+    };
+  }, []);
 
   const openWarrantyDetail = useCallback(
     async (id: number) => {
@@ -1545,36 +2638,44 @@ export default function usePos() {
 
   const openWarrantySheet = useCallback(
     (id: number) => {
-      const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
-      const token = localStorage.getItem("token") || "";
       void (async () => {
+        const preview = window.open("about:blank", "_blank");
         try {
-          const res = await fetch(`${base}/pos/sales/${id}/warranty`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const html = await res.text();
-          if (!res.ok) {
-            let msg = "No se pudo abrir la hoja de garantía.";
-            try {
-              const parsed = JSON.parse(html);
-              if (parsed?.message) msg = String(parsed.message);
-            } catch {
-              // html error page
-            }
-            throw new Error(msg);
+          const res = await requestGet(`/pos/sales/${id}`, { silent: true });
+          const sale = (res?.data?.data || null) as PosSale | null;
+          if (!sale) {
+            throw new Error("Venta no encontrada.");
           }
-          const w = window.open("", "_blank");
-          if (w) {
-            w.document.write(html);
-            w.document.close();
+          if (sale.status !== "completed") {
+            throw new Error(
+              "La hoja de garantía solo aplica a ventas completadas con series entregadas.",
+            );
           }
+          const rows = buildWarrantyPdfRows(sale);
+          if (!rows.length) {
+            throw new Error(
+              "Esta venta no tiene números de serie para garantía.",
+            );
+          }
+
+          const { pdf } = await import("@react-pdf/renderer");
+          const blob = await pdf(<WarrantySheetPdf sale={sale} />).toBlob();
+          const url = URL.createObjectURL(blob);
+          if (preview && !preview.closed) {
+            preview.location.href = url;
+          } else {
+            window.open(url, "_blank", "noopener,noreferrer");
+          }
+          // Liberar después de que el visor cargue.
+          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
         } catch (e: any) {
+          if (preview && !preview.closed) preview.close();
           setDataModal({
             isOpen: true,
-            title: "Garantía",
+            title: "Hoja de garantía",
             content:
               e?.message ||
-              "No se pudo abrir la hoja de garantía.",
+              "No se pudo generar la hoja de garantía en PDF.",
             type: "error",
             showActions: true,
             onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -1584,7 +2685,7 @@ export default function usePos() {
         }
       })();
     },
-    [setDataModal],
+    [requestGet, setDataModal],
   );
 
   const openDetail = useCallback(
@@ -1663,7 +2764,7 @@ export default function usePos() {
         isOpen: true,
         title: "Solo administrador",
         content:
-          "La confirmación manual de pago OpenPay está restringida a administradores. El cobro normal llega por webhook.",
+          "La confirmación manual de pago OpenPay está restringida a administradores. El cobro normal llega automáticamente del sistema.",
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -1737,7 +2838,7 @@ export default function usePos() {
       }
       setDataModal({
         isOpen: true,
-        title: "Link regenerado",
+        title: "Nuevo link de pago",
         content: res?.data?.message || "Se generó un nuevo link OpenPay.",
         type: "success",
         showActions: true,
@@ -1801,7 +2902,9 @@ export default function usePos() {
           await openTicketHtml(sale.idPosSale);
           setDataModal({
             isOpen: true,
-            title: isPdfPrinter ? "Usa vista previa HTML" : "Ticket en navegador",
+            title: isPdfPrinter
+              ? "Usa la vista previa para imprimir"
+              : "Ticket en el navegador",
             content: isPdfPrinter
               ? qzErrorMessage(qzErr) +
                 " Se abrió la vista previa HTML: desde ahí puedes Imprimir o Guardar como PDF."
@@ -1850,7 +2953,7 @@ export default function usePos() {
     } catch (err) {
       setDataModal({
         isOpen: true,
-        title: "QZ Tray",
+        title: "Impresora",
         content: qzErrorMessage(err),
         type: "warning",
         showActions: true,
@@ -1877,9 +2980,10 @@ export default function usePos() {
         branchName: "Prueba",
         branchCity: null,
         cashierUserId: 0,
-        cashierName: "POS",
+        cashierName: "PCinBOX",
         customerUserId: null,
         customerName: "Cliente prueba",
+        customerPhone: "+52 4771234567",
         status: "completed",
         subtotal: 100,
         discountTotal: 0,
@@ -1916,7 +3020,7 @@ export default function usePos() {
       setDataModal({
         isOpen: true,
         title: "Impresión enviada",
-        content: "Se envió un ticket de prueba a la impresora vía QZ Tray.",
+        content: "Se envió un ticket de prueba a la impresora.",
         type: "success",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -1925,7 +3029,7 @@ export default function usePos() {
     } catch (err) {
       setDataModal({
         isOpen: true,
-        title: "QZ Tray",
+        title: "Impresora",
         content: qzErrorMessage(err),
         type: "error",
         showActions: true,
@@ -1943,8 +3047,8 @@ export default function usePos() {
       await openCashDrawerQz();
       setDataModal({
         isOpen: true,
-        title: "Cajón",
-        content: "Se envió el pulso de apertura del cajón.",
+        title: "Cajón de dinero",
+        content: "Se envió la señal para abrir el cajón.",
         type: "success",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -1953,7 +3057,7 @@ export default function usePos() {
     } catch (err) {
       setDataModal({
         isOpen: true,
-        title: "QZ Tray",
+        title: "Impresora",
         content: qzErrorMessage(err),
         type: "error",
         showActions: true,
@@ -1965,6 +3069,22 @@ export default function usePos() {
     }
   }, [setDataModal]);
 
+  // Nueva clave de cobro si cambia el contenido de la venta (conservar clave si falla el POST).
+  useEffect(() => {
+    if (chargeLockRef.current) return;
+    chargeIdempotencyKeyRef.current = null;
+  }, [
+    cart,
+    payments,
+    customerName,
+    guestEmail,
+    guestPhone,
+    phoneLada,
+    notes,
+    requiredFactura,
+    linkedQuoteNumber,
+  ]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "F2") {
@@ -1973,7 +3093,9 @@ export default function usePos() {
       }
       if (e.key === "F4") {
         e.preventDefault();
-        if (tab === "cobrar" && !charging) void charge();
+        if (tab === "cobrar" && !charging && !chargeLockRef.current && !chargeConfirmOpenRef.current) {
+          void charge();
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -2106,6 +3228,18 @@ export default function usePos() {
         );
         return;
       }
+      if (!isAdmin) {
+        setDataModal({
+          isOpen: true,
+          title: "Sin permiso",
+          content: "Solo un administrador puede marcar serie obligatoria en catálogo.",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
       try {
         await requestPost(
           { requiresSerial },
@@ -2120,7 +3254,7 @@ export default function usePos() {
         // handled
       }
     },
-    [cart, requestPost],
+    [cart, isAdmin, requestPost, setDataModal],
   );
 
   const [inventoryRows, setInventoryRows] = useState<
@@ -2173,12 +3307,21 @@ export default function usePos() {
     searching,
     searchRef,
     cart,
+    cartSearch,
+    setCartSearch,
+    cartPageItems,
+    cartFilteredTotal,
+    cartPage,
+    cartTotalPages,
+    cartPageSize: CART_PAGE_SIZE,
+    goCartPage,
     addProduct,
     addManualLine,
     updateLine,
     removeLine,
     setLineSerial,
     clearCart,
+    requestClearCart,
     customerName,
     setCustomerName,
     guestEmail,
@@ -2195,6 +3338,8 @@ export default function usePos() {
     removePayment,
     notes,
     setNotes,
+    requiredFactura,
+    setRequiredFactura,
     quoteInput,
     setQuoteInput,
     linkedQuoteNumber,
@@ -2230,9 +3375,17 @@ export default function usePos() {
     historyTotal,
     historyFolio,
     setHistoryFolio,
+    historyCustomer,
+    setHistoryCustomer,
+    historyFrom,
+    setHistoryFrom,
+    historyTo,
+    setHistoryTo,
     historyStatus,
     setHistoryStatus,
     loadHistory,
+    goHistoryPage,
+    clearHistoryFilters,
     warranties,
     warrantiesLoading,
     warrantiesPage,
@@ -2240,7 +3393,17 @@ export default function usePos() {
     warrantiesTotal,
     warrantyFolio,
     setWarrantyFolio,
+    warrantyCustomer,
+    setWarrantyCustomer,
+    warrantySaleId,
+    setWarrantySaleId,
+    warrantyFrom,
+    setWarrantyFrom,
+    warrantyTo,
+    setWarrantyTo,
     loadWarranties,
+    goWarrantiesPage,
+    clearWarrantyFilters,
     warrantyDetail,
     setWarrantyDetail,
     openWarrantyDetail,
@@ -2260,12 +3423,15 @@ export default function usePos() {
     cashExpected,
     cashPaymentSummary,
     cashLoading,
+    cashSync,
+    cashSyncMessage,
     cashSessions,
     cashSessionsPage,
     cashSessionsTotalPages,
     cashSessionsTotal,
     cashSessionsLoading,
     loadCashSessions,
+    goCashSessionsPage,
     openingFloat,
     setOpeningFloat,
     closingCounted,

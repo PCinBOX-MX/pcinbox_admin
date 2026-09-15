@@ -45,6 +45,7 @@ export type PosCashSession = {
   notes: string | null;
   openedAt: string;
   closedAt: string | null;
+  movementsTotal?: number;
   movements?: PosCashMovement[];
 };
 
@@ -92,8 +93,22 @@ export type PosProductHit = {
   providerName?: string | null;
   stocksByBranch?: PosBranchStock[];
   suggestedBranchId?: number | null;
+  /** false cuando no hay existencia vendible en ninguna bodega POS. */
+  inStock?: boolean;
   score: number;
 };
+
+/** Sin stock vendible (todas las bodegas POS en 0, o global ≤ 0). */
+export function isPosProductOutOfStock(
+  hit: Pick<PosProductHit, "stockGlobal" | "stocksByBranch" | "inStock">,
+): boolean {
+  if (typeof hit.inStock === "boolean") return !hit.inStock;
+  const stocks = hit.stocksByBranch || [];
+  if (stocks.length > 0) {
+    return stocks.every((s) => Number(s.stock) <= 0);
+  }
+  return Number(hit.stockGlobal) <= 0;
+}
 
 export type PosCustomerHit = {
   idUser: number;
@@ -124,6 +139,8 @@ export type PosCartLine = {
   serials: string[];
   /** Captura libre (no está en catálogo / no descuenta stock). */
   isManual?: boolean;
+  /** product = artículo; service = mantenimiento/revisión/etc. */
+  manualKind?: "product" | "service";
 };
 
 export type PosProductSerial = {
@@ -203,6 +220,8 @@ export type PosSale = {
   discountTotal: number;
   total: number;
   notes: string | null;
+  /** 1 = requiere factura; 0 = no */
+  requiredFactura?: number;
   cancelReason: string | null;
   cancelledAt: string | null;
   customerEmail?: string | null;
@@ -225,6 +244,7 @@ export type PosSale = {
     productName: string;
     productSku: string | null;
     productUpc: string | null;
+    productImage?: string | null;
     quantity: number;
     unitPrice: number;
     discountPct: number;
@@ -255,12 +275,12 @@ export type PosSale = {
 };
 
 export const POS_PAYMENT_LABELS: Record<PosPaymentMethod, string> = {
-  efectivo_sucursal: "Efectivo",
+  efectivo_sucursal: "Efectivo en caja",
   tarjeta_sucursal: "Tarjeta",
-  tarjeta_credito_sucursal: "Tarjeta de Crédito",
-  tarjeta_debito_sucursal: "Tarjeta de Débito",
-  transferencia_bancaria: "Transferencia",
-  openpay_link: "OpenPay (link)",
+  tarjeta_credito_sucursal: "Tarjeta de crédito",
+  tarjeta_debito_sucursal: "Tarjeta de débito",
+  transferencia_bancaria: "Transferencia bancaria",
+  openpay_link: "Link de pago OpenPay",
 };
 
 /** Métodos disponibles al cobrar (sin OpenPay link ni legado). */
@@ -283,10 +303,10 @@ export const POS_PHONE_LADAS = [
 ] as const;
 
 export const POS_CASH_MOVEMENT_LABELS: Record<PosCashMovementType, string> = {
-  cash_in: "Entrada",
-  cash_out: "Salida",
-  sale_cash: "Venta efectivo",
-  sale_cash_void: "Cancel. efectivo",
+  cash_in: "Meter efectivo",
+  cash_out: "Sacar efectivo",
+  sale_cash: "Venta en efectivo",
+  sale_cash_void: "Cancelación (efectivo)",
 };
 
 export const SELLER_MAX_DISCOUNT_PCT = 3;
@@ -317,7 +337,7 @@ export function canCancelPosSale(params: {
     return { allowed: false, reason: "La venta ya está cancelada" };
   }
   if (!params.canCancel) {
-    return { allowed: false, reason: "Sin permiso para cancelar ventas POS" };
+    return { allowed: false, reason: "No tienes permiso para cancelar ventas" };
   }
   if (params.canOverride) {
     return { allowed: true, reason: null };

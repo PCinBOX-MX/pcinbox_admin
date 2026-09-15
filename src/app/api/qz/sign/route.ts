@@ -1,20 +1,16 @@
 import { createSign } from "crypto";
 import { readFile } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveQzPrivateKeyPath } from "../qzPaths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function signMessage(toSign: string): Promise<string> {
-  const keyPath = process.env.QZ_PRIVATE_KEY_PATH;
-  if (!keyPath) {
-    throw new Error(
-      "Falta QZ_PRIVATE_KEY_PATH en .env.local (ruta a private-key.pem)",
-    );
-  }
   if (!toSign) {
     throw new Error("Falta el parámetro request a firmar");
   }
+  const keyPath = resolveQzPrivateKeyPath();
   const privateKey = await readFile(keyPath, "utf8");
   const signer = createSign("RSA-SHA512");
   signer.update(toSign);
@@ -35,7 +31,9 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     return new NextResponse(
-      `Error al firmar mensaje QZ: ${String((err as Error)?.message || err)}`,
+      `Error al firmar mensaje QZ (${resolveQzPrivateKeyPath()}): ${String(
+        (err as Error)?.message || err,
+      )}. Copia private-key.pem a la carpeta qz-certs/ del admin (ver qz-certs/README.md).`,
       { status: 500 },
     );
   }
@@ -45,7 +43,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const toSign = String(
-      body?.request || body?.toSign || req.nextUrl.searchParams.get("request") || "",
+      body?.request ||
+        body?.toSign ||
+        req.nextUrl.searchParams.get("request") ||
+        "",
     );
     const signature = await signMessage(toSign);
     return new NextResponse(signature, {
@@ -57,7 +58,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     return new NextResponse(
-      `Error al firmar mensaje QZ: ${String((err as Error)?.message || err)}`,
+      `Error al firmar mensaje QZ (${resolveQzPrivateKeyPath()}): ${String(
+        (err as Error)?.message || err,
+      )}. Copia private-key.pem a la carpeta qz-certs/ del admin (ver qz-certs/README.md).`,
       { status: 500 },
     );
   }
