@@ -1907,6 +1907,43 @@
   color: #881337;
 }
 
+.addPaymentBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  border: 1.5px solid #e11d48;
+  border-radius: 11px;
+  padding: 8px 14px;
+  min-height: 36px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #be123c 0%, #9f1239 100%);
+  color: #fff;
+  font-family: var(--pos-font-display);
+  font-weight: 800;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(159, 18, 57, 0.28);
+  transition:
+    transform 140ms var(--pos-ease),
+    box-shadow 160ms var(--pos-ease),
+    filter 140ms var(--pos-ease);
+}
+
+.addPaymentBtn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: 0 10px 20px rgba(159, 18, 57, 0.34);
+}
+
+.addPaymentBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--pos-ring), 0 6px 14px rgba(159, 18, 57, 0.28);
+}
+
 .saleNotesField {
   width: 100%;
 }

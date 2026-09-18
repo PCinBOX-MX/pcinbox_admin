@@ -165,14 +165,15 @@ export type PosProductSerial = {
 export type PosPaymentLine = {
   id: string;
   method: PosPaymentMethod;
-  amount: number;
+  /** `null` = input vacío (aún no capturado). */
+  amount: number | null;
   reference: string;
 };
 
 /** Asienta pagos: el efectivo puede exceder (cambio); tarjeta/transferencia no. */
 export function settlePosPayments(
   total: number,
-  payments: Array<{ method: PosPaymentMethod; amount: number }>,
+  payments: Array<{ method: PosPaymentMethod; amount: number | null }>,
 ) {
   const round = (n: number) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
   let nonCashSum = 0;

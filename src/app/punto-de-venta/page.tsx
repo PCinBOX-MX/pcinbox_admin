@@ -237,7 +237,7 @@ function PosNumberField({
   moneyInWords,
 }: {
   label: string;
-  value: string | number;
+  value: string | number | null;
   onCommit: (raw: string) => void;
   integer?: boolean;
   sx?: SxProps<Theme>;
@@ -1728,10 +1728,10 @@ export default function PuntoDeVentaPage() {
                       </strong>
                       <button
                         type="button"
-                        className={styles.secondaryBtn}
+                        className={styles.addPaymentBtn}
                         onClick={() => pos.addPayment("efectivo_sucursal")}
                       >
-                        <Plus size={14} />
+                        <Plus size={15} strokeWidth={2.5} />
                         Agregar pago
                       </button>
                     </div>
@@ -1766,13 +1766,17 @@ export default function PuntoDeVentaPage() {
                                   ? "Efectivo recibido"
                                   : "Monto a cobrar"
                               }
-                              value={p.amount}
-                              emptyAs="0"
-                              moneyInWords={false}
+                              value={p.amount ?? ""}
+                              emptyAs=""
                               onCommit={(raw) => {
+                                if (raw === "" || raw === ".") {
+                                  pos.updatePayment(p.id, { amount: null });
+                                  return;
+                                }
                                 const n = Number(raw);
                                 pos.updatePayment(p.id, {
-                                  amount: Number.isFinite(n) && n >= 0 ? n : 0,
+                                  amount:
+                                    Number.isFinite(n) && n >= 0 ? n : null,
                                 });
                               }}
                             />
@@ -2012,6 +2016,10 @@ export default function PuntoDeVentaPage() {
                       label="Notas (opcional)"
                       value={pos.cashNotes}
                       onChange={(e) => pos.setCashNotes(e.target.value)}
+                      multiline
+                      minRows={3}
+                      maxRows={8}
+                      placeholder="Observaciones al abrir caja (opcional)"
                       sx={fieldSx}
                     />
                     <button
@@ -2295,6 +2303,10 @@ export default function PuntoDeVentaPage() {
                         label="Notas de cierre (opcional)"
                         value={pos.cashNotes}
                         onChange={(e) => pos.setCashNotes(e.target.value)}
+                        multiline
+                        minRows={3}
+                        maxRows={8}
+                        placeholder="Observaciones al cerrar caja (opcional)"
                         sx={fieldSx}
                       />
                       <button

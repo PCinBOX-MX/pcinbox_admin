@@ -219,7 +219,7 @@ function firstImage(imageUrl: unknown): string | null {
 
 export default function usePos() {
   const { requestGet, requestPost } = UtilsService();
-  const { setDataModal } = useTheContext();
+  const { setDataModal, socketCron, socketCronReady } = useTheContext();
   const { isAdmin, hydrated, can } = usePermissions();
   const { searchParams, setQueryParams } = useQueryParams();
 
@@ -1004,6 +1004,167 @@ export default function usePos() {
     };
   }, [search, runProductSearch]);
 
+  // Precio / stock / active del cron → hits visibles + líneas del carrito POS.
+  useEffect(() => {
+    const cronSocket = socketCron?.current;
+    if (!cronSocket || !socketCronReady) return;
+
+    const onCronUpdate = (payload: unknown) => {
+      const updates = Array.isArray(payload) ? payload : [payload];
+      if (!updates.length) return;
+
+      const matchUpdate = (idProduct: number) =>
+        updates.find(
+          (u: any) => Number(u?.idProduct) === Number(idProduct),
+        ) as
+          | {
+              idProduct: number;
+              price?: number;
+              stock?: number;
+              active?: number;
+              branches?: Record<string, number>;
+            }
+          | undefined;
+
+      const patchStocksByBranch = (
+        stocksByBranch: PosCartLine["stocksByBranch"] | undefined,
+        branchMap: Record<string, number>,
+      ) => {
+        if (!stocksByBranch?.length) return stocksByBranch;
+        return stocksByBranch.map((st) => {
+          const keys = [st.name, st.label, st.city, String(st.branchId)]
+            .filter(Boolean)
+            .map((k) => String(k).toLowerCase());
+          const matchKey = Object.keys(branchMap).find((bk) =>
+            keys.some(
+              (k) =>
+                k === bk.toLowerCase() ||
+                k.includes(bk.toLowerCase()) ||
+                bk.toLowerCase().includes(k),
+            ),
+          );
+          if (!matchKey) return st;
+          return {
+            ...st,
+            stock: Math.max(0, Number(branchMap[matchKey]) || 0),
+          };
+        });
+      };
+
+      setHits((prev) => {
+        if (!prev.length) return prev;
+        let changed = false;
+        const next = prev.map((hit) => {
+          const update = matchUpdate(hit.idProduct);
+          if (!update) return hit;
+          changed = true;
+
+          let stockGlobal =
+            update.stock != null
+              ? Math.max(0, Number(update.stock) || 0)
+              : hit.stockGlobal;
+          let stocksByBranch = hit.stocksByBranch;
+
+          if (update.branches && Object.keys(update.branches).length > 0) {
+            const branchMap = update.branches;
+            if (hit.stocksByBranch?.length) {
+              stocksByBranch = patchStocksByBranch(
+                hit.stocksByBranch,
+                branchMap,
+              );
+              stockGlobal = (stocksByBranch ?? []).reduce(
+                (sum, st) => sum + Math.max(0, Number(st.stock) || 0),
+                0,
+              );
+            } else {
+              stockGlobal = Object.values(branchMap).reduce(
+                (sum, qty) => sum + Math.max(0, Number(qty) || 0),
+                0,
+              );
+            }
+          }
+
+          const active =
+            update.active != null ? Number(update.active) : undefined;
+          const inStock =
+            active != null
+              ? active === 1 && stockGlobal > 0
+              : stockGlobal > 0;
+
+          const priceRaw =
+            update.price != null ? Number(update.price) : undefined;
+
+          return {
+            ...hit,
+            price:
+              priceRaw != null && Number.isFinite(priceRaw)
+                ? priceRaw
+                : hit.price,
+            stockGlobal,
+            stocksByBranch,
+            inStock,
+          };
+        });
+        return changed ? next : prev;
+      });
+
+      setCart((prev) => {
+        if (!prev.length) return prev;
+        let changed = false;
+        const next = prev.map((line) => {
+          if (line.isManual) return line;
+          const update = matchUpdate(line.productId);
+          if (!update) return line;
+          changed = true;
+
+          let stocksByBranch = line.stocksByBranch;
+          let stockBranch = line.stockBranch;
+
+          if (update.branches && Object.keys(update.branches).length > 0) {
+            stocksByBranch =
+              patchStocksByBranch(line.stocksByBranch, update.branches) ??
+              line.stocksByBranch;
+            if (line.branchId != null && stocksByBranch?.length) {
+              const st = stocksByBranch.find(
+                (s) => Number(s.branchId) === Number(line.branchId),
+              );
+              if (st) stockBranch = Math.max(0, Number(st.stock) || 0);
+            } else if (update.stock != null) {
+              stockBranch = Math.max(0, Number(update.stock) || 0);
+            }
+          } else if (update.stock != null) {
+            stockBranch = Math.max(0, Number(update.stock) || 0);
+          }
+
+          const priceRaw =
+            update.price != null ? Number(update.price) : undefined;
+
+          const quantity =
+            stockBranch > 0 && line.quantity > stockBranch
+              ? stockBranch
+              : line.quantity;
+
+          return {
+            ...line,
+            unitPrice:
+              priceRaw != null && Number.isFinite(priceRaw)
+                ? roundMoney(priceRaw)
+                : line.unitPrice,
+            stocksByBranch,
+            stockBranch,
+            quantity,
+          };
+        });
+        return changed ? next : prev;
+      });
+    };
+
+    cronSocket.on("updatedStockCron", onCronUpdate);
+    return () => {
+      cronSocket.off("updatedStockCron", onCronUpdate);
+    };
+  }, [socketCron, socketCronReady]);
+
   const addProduct = useCallback(
     (product: PosProductHit, chosenBranchId?: number | null) => {
       // Validación interna: no se puede forzar agregar sin stock (UI deshabilitada ≠ bypass).
@@ -1656,24 +1817,18 @@ export default function usePos() {
 
   const addPayment = useCallback(
     (method: PosPaymentMethod = "efectivo_sucursal") => {
-      // Efectivo inicia en 0 para capturar lo recibido; otras formas sugieren el restante.
-      const amount =
-        method === "efectivo_sucursal"
-          ? 0
-          : remaining > 0
-            ? remaining
-            : 0;
+      // Inputs vacíos: el cajero captura el monto (no prellenar 0 ni el restante).
       setPayments((prev) => [
         ...prev,
         {
           id: `pay-${Date.now()}-${prev.length}`,
           method,
-          amount,
+          amount: null,
           reference: "",
         },
       ]);
     },
-    [remaining],
+    [],
   );
 
   const updatePayment = useCallback(
@@ -1682,13 +1837,13 @@ export default function usePos() {
         prev.map((p) => {
           if (p.id !== id) return p;
           const next = { ...p, ...patch };
-          // Al pasar a efectivo, el monto recibido empieza en 0.
+          // Al pasar a efectivo, el monto recibido vuelve a vacío.
           if (
             patch.method === "efectivo_sucursal" &&
             p.method !== "efectivo_sucursal" &&
             patch.amount === undefined
           ) {
-            next.amount = 0;
+            next.amount = null;
           }
           return next;
         }),
@@ -1751,7 +1906,7 @@ export default function usePos() {
           })),
           payments: payments.map((p) => ({
             method: p.method,
-            amount: p.amount,
+            amount: Number(p.amount) || 0,
             reference: p.reference || null,
           })),
         },
@@ -1920,7 +2075,14 @@ export default function usePos() {
       return;
     }
 
-    if (payments.some((p) => !Number.isFinite(p.amount) || p.amount <= 0)) {
+    if (
+      payments.some(
+        (p) =>
+          p.amount == null ||
+          !Number.isFinite(p.amount) ||
+          p.amount <= 0,
+      )
+    ) {
       setDataModal({
         isOpen: true,
         title: "Monto inválido",

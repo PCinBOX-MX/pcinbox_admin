@@ -30,6 +30,10 @@ import {
 } from "@/app/utils/caracteristicas.utils";
 import { isSameProduct } from "@/app/utils/productIdentity.utils";
 import {
+  applyCronStockUpdate,
+  normalizeCronStockPayload,
+} from "@/app/utils/cronStockLiveSync";
+import {
   LICENSE_SELECT_OPTIONS,
   LICENSE_TYPE_OPTIONS,
   LicenseSelectField,
@@ -70,6 +74,8 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     dataProductProveedor,
     dataProveedores,
     setProductsProveedor,
+    socketCron,
+    socketCronReady,
   } = useTheContext();
 
   const [loadingUpdateProduct, setLoadingUpdateProduct] =
@@ -132,6 +138,32 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       ),
     }));
   };
+
+  useEffect(() => {
+    const cronSocket = socketCron?.current;
+    if (!cronSocket || !socketCronReady) return;
+
+    const onCronUpdate = (payload: unknown) => {
+      const updates = normalizeCronStockPayload(payload);
+      const update = updates.find(
+        (u) => Number(u.idProduct) === Number(dataProductProp.idProduct),
+      );
+      if (!update) return;
+
+      if (update.price != null && Number.isFinite(update.price)) {
+        setValue("price", update.price);
+      }
+      if (update.stock != null && Number.isFinite(update.stock)) {
+        setValue("stock", update.stock);
+      }
+      updateCurrentProduct((item) => applyCronStockUpdate(item, update));
+    };
+
+    cronSocket.on("updatedStockCron", onCronUpdate);
+    return () => {
+      cronSocket.off("updatedStockCron", onCronUpdate);
+    };
+  }, [socketCron, socketCronReady, dataProductProp.idProduct, setValue]);
 
   const syncImages = (updater: (prev: string[]) => string[]) => {
     // No actualizar GlobalProvider dentro del updater de setProductImages.

@@ -24,6 +24,10 @@ import useProveedores from "@/app/proveedores/useProveedores";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import { takeFilesWithinLimit } from "@/app/constants/productImages.constants";
 import ProductImagesField from "../productImages/ProductImagesField";
+import {
+  applyCronStockUpdate,
+  normalizeCronStockPayload,
+} from "@/app/utils/cronStockLiveSync";
 
 interface BulkProduct {
   upc: string;
@@ -84,10 +88,40 @@ const BulkUploadProvider = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-  const { dataProductProveedor, setDataModal } = useTheContext();
+  const { dataProductProveedor, setDataModal, socketCron, socketCronReady } =
+    useTheContext();
   const { setProductsProveedor } = useProveedores();
   const { requestPostProveedores } = ProveedoresUtils();
   const { formatCurrency } = UtilsService();
+
+  useEffect(() => {
+    const cronSocket = socketCron?.current;
+    if (!cronSocket || !socketCronReady) return;
+
+    const onCronUpdate = (payload: unknown) => {
+      const updates = normalizeCronStockPayload(payload);
+      if (!updates.length) return;
+      setBulkData((prev) =>
+        prev.map((row) => {
+          if (!row.matchedProduct) return row;
+          const update = updates.find(
+            (u) =>
+              Number(u.idProduct) === Number(row.matchedProduct?.idProduct),
+          );
+          if (!update) return row;
+          return {
+            ...row,
+            matchedProduct: applyCronStockUpdate(row.matchedProduct, update),
+          };
+        }),
+      );
+    };
+
+    cronSocket.on("updatedStockCron", onCronUpdate);
+    return () => {
+      cronSocket.off("updatedStockCron", onCronUpdate);
+    };
+  }, [socketCron, socketCronReady]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -205,7 +239,15 @@ const BulkUploadProvider = () => {
         return d;
       });
 
-      const dataProductProp = item.matchedProduct;
+      const dataProductProp =
+        dataProductProveedor.data.find(
+          (p) => Number(p.idProduct) === Number(item.matchedProduct?.idProduct),
+        ) ||
+        dataProductProveedor.copyData?.find(
+          (p) => Number(p.idProduct) === Number(item.matchedProduct?.idProduct),
+        ) ||
+        item.matchedProduct;
+      if (!dataProductProp) continue;
       const parsedCharacteristics = parseCharacteristics(item.characteristics);
       
       let formData = new FormData();
