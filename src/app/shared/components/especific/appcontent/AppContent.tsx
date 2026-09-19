@@ -254,6 +254,8 @@ export default function AppContent({
           showActions={dataModal.showActions}
           maxWidth={dataModal.maxWidth}
           loading={dataModal.loading}
+          confirmLabel={dataModal.confirmLabel}
+          cancelLabel={dataModal.cancelLabel}
         />
 
         <SpinnerComponent />

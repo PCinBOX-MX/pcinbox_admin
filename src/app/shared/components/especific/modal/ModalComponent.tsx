@@ -19,6 +19,8 @@ const ModalComponent = ({
   showActions,
   maxWidth,
   loading = false,
+  confirmLabel = "Aceptar",
+  cancelLabel = "Cancelar",
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -30,6 +32,8 @@ const ModalComponent = ({
   showActions: boolean;
   maxWidth?: string;
   loading?: boolean;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -193,21 +197,37 @@ const ModalComponent = ({
           sx={{
             background: "white",
             width: "fit-content",
-            minWidth: "min(90vw, 320px)",
-            maxWidth: maxWidth || "min(90vw, 600px)",
+            minWidth: "min(90vw, 360px)",
+            maxWidth: maxWidth || "min(90vw, 440px)",
             maxHeight: "90vh",
             overflow: "hidden",
-            borderRadius: "16px",
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            borderRadius: "20px",
+            boxShadow:
+              "0 25px 50px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(15, 23, 42, 0.04)",
             outline: "none",
             display: "flex",
             flexDirection: "column",
-            paddingBottom: "24px",
+            paddingBottom: "20px",
+            position: "relative",
           }}
           className="animate-in fade-in zoom-in-95 duration-200"
         >
+          <div
+            style={{
+              height: 4,
+              background:
+                type === "error"
+                  ? "linear-gradient(90deg, #dc2626, #f87171)"
+                  : type === "success"
+                    ? "linear-gradient(90deg, #16a34a, #4ade80)"
+                    : type === "warning"
+                      ? "linear-gradient(90deg, #bb3d4b, #e11d48)"
+                      : "linear-gradient(90deg, #2563eb, #60a5fa)",
+              flexShrink: 0,
+            }}
+          />
           {/* Cabecera con boton cerrar */}
-        <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "16px 16px 0 0" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "12px 16px 0 0" }}>
           <button
             onClick={handleClose}
             disabled={loading}
@@ -307,19 +327,20 @@ const ModalComponent = ({
                 onMouseLeave={(e) => { if(!loading) e.currentTarget.style.backgroundColor = "#ffffff" }}
                 onClick={handleClose}
               >
-                Cancelar
+                {cancelLabel || "Cancelar"}
               </button>
               <button
                 disabled={loading}
                 style={{
-                  padding: "10px 24px",
+                  padding: "12px 28px",
+                  minWidth: 132,
                   backgroundColor: type === 'error' ? '#dc2626' : '#bb3d4b',
                   color: "white",
-                  fontWeight: "500",
-                  borderRadius: "8px",
+                  fontWeight: "600",
+                  borderRadius: "10px",
                   border: "none",
                   cursor: loading ? "not-allowed" : "pointer",
-                  boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                  boxShadow: "0 8px 16px -8px rgba(187, 61, 75, 0.55)",
                   transition: "background-color 0.2s",
                   display: "flex",
                   alignItems: "center",
@@ -332,7 +353,7 @@ const ModalComponent = ({
                 onClick={handleConfirm}
               >
                 {loading && <MdAutorenew size={18} className="the-spinner" />}
-                Aceptar
+                {confirmLabel || "Aceptar"}
               </button>
             </div>
           )}

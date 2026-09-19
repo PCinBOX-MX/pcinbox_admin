@@ -38,6 +38,7 @@ import {
   POS_CASH_MOVEMENT_LABELS,
   POS_PAYMENT_LABELS,
   POS_PAYMENT_OPTIONS,
+  formatPosPaymentLabel,
   POS_PHONE_LADAS,
   PosCashMovementType,
   PosPaymentMethod,
@@ -47,7 +48,7 @@ import {
 } from "../interfaces/pos/pos.interface";
 import { formatPosBranchUiLabel } from "../interfaces/pos/posBranchDisplay";
 import usePos from "./usePos";
-import { formatMoney, formatQty, moneyToWordsEsMx } from "./posFormat";
+import { formatMoney, formatPosFolio, formatQty, moneyToWordsEsMx } from "./posFormat";
 import {
   getMaxWindowScrollY,
   getWindowScrollY,
@@ -160,9 +161,11 @@ function productThumb(url?: string | null, className?: string) {
   const frame =
     cls === styles.hitImgLg
       ? styles.hitImgLgFrame
-      : cls === styles.hitImg
-        ? styles.hitImgFrame
-        : null;
+      : cls === styles.detailItemImg
+        ? styles.detailItemImgFrame
+        : cls === styles.hitImg
+          ? styles.hitImgFrame
+          : null;
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -173,6 +176,14 @@ function productThumb(url?: string | null, className?: string) {
     />
   );
   return frame ? <span className={frame}>{img}</span> : img;
+}
+
+/** Recorta texto largo y agrega "..." (hover: title con completo). */
+function clipText(value: unknown, max = 72): string {
+  const t = String(value ?? "").trim();
+  if (!t) return "";
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(1, max - 3)).trimEnd()}...`;
 }
 
 /** Campo numérico que permite vaciar al editar (sin atascarse en 0). */
@@ -331,6 +342,7 @@ export default function PuntoDeVentaPage() {
   const [manualServiceType, setManualServiceType] =
     useState("Mantenimiento");
   const [manualName, setManualName] = useState("");
+  const [manualDetail, setManualDetail] = useState("");
   const [manualPrice, setManualPrice] = useState("");
   const [manualQty, setManualQty] = useState("1");
   const [manualUpc, setManualUpc] = useState("");
@@ -533,6 +545,7 @@ export default function PuntoDeVentaPage() {
     setManualKind("product");
     setManualServiceType("Mantenimiento");
     setManualName("");
+    setManualDetail("");
     setManualPrice("");
     setManualQty("1");
     setManualUpc("");
@@ -541,12 +554,15 @@ export default function PuntoDeVentaPage() {
   const submitManual = () => {
     const price = Number(manualPrice);
     const qty = parseInt(manualQty, 10);
+    const detail = manualDetail.trim();
     const resolvedName =
       manualKind === "service"
         ? manualServiceType === "Otro"
-          ? manualName
-          : manualName.trim()
-            ? `${manualServiceType}: ${manualName.trim()}`
+          ? detail
+            ? `${manualName.trim()}: ${detail}`
+            : manualName.trim()
+          : detail
+            ? `${manualServiceType}: ${detail}`
             : manualServiceType
         : manualName;
     const ok = pos.addManualLine({
@@ -735,17 +751,28 @@ export default function PuntoDeVentaPage() {
           <div className={styles.posTabBody}>
           <div className={styles.cobrarWorkspace}>
             {pos.cashSync === "error" && pos.branchId ? (
-              <div className={styles.cashBanner}>
-                <Wallet size={16} />
-                <span>
-                  {pos.cashSyncMessage ||
-                    "No se pudo verificar el estado de la caja. No asumas que está cerrada."}
-                </span>
+              <div
+                className={`${styles.cashBanner} ${styles.cashBannerError}`}
+                role="status"
+              >
+                <div className={styles.cashBannerMain}>
+                  <span className={styles.cashBannerIcon} aria-hidden>
+                    <Wallet size={18} strokeWidth={2.25} />
+                  </span>
+                  <div className={styles.cashBannerCopy}>
+                    <p className={styles.cashBannerTitle}>
+                      No se pudo verificar la caja
+                    </p>
+                    <p className={styles.cashBannerText}>
+                      {pos.cashSyncMessage ||
+                        "No asumas que está cerrada. Reintenta o revisa en la pestaña Caja."}
+                    </p>
+                  </div>
+                </div>
                 <div className={styles.cashBannerActions}>
                   <button
                     type="button"
-                    className={styles.chargeBtn}
-                    style={{ marginTop: 0, width: "auto", padding: "10px 16px" }}
+                    className={styles.cashBannerPrimary}
                     disabled={pos.cashLoading}
                     onClick={() => void pos.loadCashStatus({ retries: 3 })}
                   >
@@ -753,7 +780,7 @@ export default function PuntoDeVentaPage() {
                   </button>
                   <button
                     type="button"
-                    className={styles.secondaryBtn}
+                    className={styles.cashBannerSecondary}
                     onClick={() => pos.setTab("caja")}
                   >
                     Ir a Caja
@@ -762,24 +789,35 @@ export default function PuntoDeVentaPage() {
               </div>
             ) : null}
             {pos.cashSync === "ready" && !pos.cashOpen && pos.branchId ? (
-              <div className={styles.cashBanner}>
-                <Wallet size={16} />
-                <span>
-                  Caja cerrada. Ábrela aquí si vas a cobrar en efectivo (tarjeta
-                  y transferencia no la requieren).
-                </span>
+              <div
+                className={`${styles.cashBanner} ${styles.cashBannerWarn}`}
+                role="status"
+              >
+                <div className={styles.cashBannerMain}>
+                  <span className={styles.cashBannerIcon} aria-hidden>
+                    <Wallet size={18} strokeWidth={2.25} />
+                  </span>
+                  <div className={styles.cashBannerCopy}>
+                    <p className={styles.cashBannerTitle}>Caja cerrada</p>
+                    <p className={styles.cashBannerText}>
+                      Ábrela solo si cobras en efectivo. Tarjeta y transferencia
+                      no la requieren.
+                    </p>
+                  </div>
+                </div>
                 <div className={styles.cashBannerActions}>
-                  <PosNumberField
-                    label="Efectivo inicial (fondo)"
-                    value={pos.openingFloat}
-                    emptyAs="0"
-                    onCommit={(raw) => pos.setOpeningFloat(raw || "0")}
-                    sx={{ ...fieldSx, minWidth: 140, maxWidth: 160 }}
-                  />
+                  <div className={styles.cashBannerFloat}>
+                    <PosNumberField
+                      label="Efectivo inicial (fondo)"
+                      value={pos.openingFloat}
+                      emptyAs="0"
+                      onCommit={(raw) => pos.setOpeningFloat(raw || "0")}
+                      sx={{ ...fieldSx, width: "100%" }}
+                    />
+                  </div>
                   <button
                     type="button"
-                    className={styles.chargeBtn}
-                    style={{ marginTop: 0, width: "auto", padding: "10px 16px" }}
+                    className={styles.cashBannerPrimary}
                     disabled={pos.cashBusy}
                     onClick={() => void pos.openCash()}
                   >
@@ -787,7 +825,7 @@ export default function PuntoDeVentaPage() {
                   </button>
                   <button
                     type="button"
-                    className={styles.secondaryBtn}
+                    className={styles.cashBannerSecondary}
                     onClick={() => pos.setTab("caja")}
                   >
                     Ir a Caja
@@ -796,12 +834,24 @@ export default function PuntoDeVentaPage() {
               </div>
             ) : null}
             {pos.cashOpen && pos.cashExpected != null ? (
-              <div className={`${styles.cashBanner} ${styles.cashBannerOk}`}>
-                <Wallet size={16} />
-                <span>
-                  Caja abierta · esperado {money(pos.cashExpected)}
-                  {pos.hasCashPayment ? " · esta venta incluye efectivo" : ""}
-                </span>
+              <div
+                className={`${styles.cashBanner} ${styles.cashBannerOk}`}
+                role="status"
+              >
+                <div className={styles.cashBannerMain}>
+                  <span className={styles.cashBannerIcon} aria-hidden>
+                    <Wallet size={18} strokeWidth={2.25} />
+                  </span>
+                  <div className={styles.cashBannerCopy}>
+                    <p className={styles.cashBannerTitle}>Caja abierta</p>
+                    <p className={styles.cashBannerText}>
+                      Esperado {money(pos.cashExpected)}
+                      {pos.hasCashPayment
+                        ? " · esta venta incluye efectivo"
+                        : ""}
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : null}
 
@@ -867,7 +917,7 @@ export default function PuntoDeVentaPage() {
                 <div className={styles.posPanelHeadRow}>
                   <div>
                     <p className={styles.panelEyebrow}>Catálogo</p>
-                    <h2>Buscar y agregar</h2>
+                    <h2>Buscar y agregar a la venta</h2>
                   </div>
                   <button
                     type="button"
@@ -1058,14 +1108,13 @@ export default function PuntoDeVentaPage() {
                         />
                       ) : null}
                     </div>
-                    {manualKind === "service" &&
-                    manualServiceType !== "Otro" ? (
+                    {manualKind === "service" ? (
                       <TextField
                         fullWidth
                         size="small"
                         label="Detalle (opcional)"
-                        value={manualName}
-                        onChange={(e) => setManualName(e.target.value)}
+                        value={manualDetail}
+                        onChange={(e) => setManualDetail(e.target.value)}
                         placeholder="Describe el trabajo con el detalle que necesites…"
                         multiline
                         minRows={6}
@@ -1102,15 +1151,18 @@ export default function PuntoDeVentaPage() {
                 ) : null}
                 <div className={styles.searchBlock}>
                   <div className={styles.searchBlockHead}>
-                    <strong>Catálogo</strong>
-                    <span>Busca por nombre, clave o código de barras.</span>
+                    <strong>Agregar del catálogo</strong>
+                    <span>
+                      Busca en inventario e incorpora al carrito (nombre, clave o
+                      código de barras).
+                    </span>
                   </div>
                   <div className={styles.searchCombobox}>
                   <TextField
                     fullWidth
                     size="small"
-                    label="Buscar o escanear"
-                    placeholder="Nombre, clave o código de barras…"
+                    label="Producto a agregar"
+                    placeholder="Escribe o escanea para agregar al carrito…"
                     value={pos.search}
                     onChange={(e) => pos.setSearch(e.target.value)}
                     inputRef={pos.searchRef}
@@ -1345,7 +1397,9 @@ export default function PuntoDeVentaPage() {
                           {multiBranch ? (
                             <div className={styles.hitBranchRow}>
                               {stocks.map((st) => {
-                                const empty = st.stock <= 0;
+                                const tracksStock =
+                                  Number(hit.providerId) === 1;
+                                const empty = tracksStock && st.stock <= 0;
                                 return (
                                   <button
                                     key={st.branchId}
@@ -1412,15 +1466,15 @@ export default function PuntoDeVentaPage() {
                       compact
                       icon="orders"
                       title="Carrito vacío"
-                      description="Agrega productos desde el buscador."
+                      description="Agrega productos desde «Producto a agregar» (catálogo)."
                     />
                   </div>
                 ) : (
                   <>
                     <TextField
                       size="small"
-                      label="Buscar en el carrito"
-                      placeholder="Nombre, SKU, UPC o serie…"
+                      label="Filtrar en este carrito"
+                      placeholder="Solo lo ya agregado (nombre, SKU, UPC o serie)…"
                       value={pos.cartSearch}
                       onChange={(e) => pos.setCartSearch(e.target.value)}
                       fullWidth
@@ -1572,7 +1626,10 @@ export default function PuntoDeVentaPage() {
                               <MenuItem
                                 key={st.branchId}
                                 value={st.branchId}
-                                disabled={st.stock <= 0}
+                                disabled={
+                                  Number(line.providerId) === 1 &&
+                                  st.stock <= 0
+                                }
                               >
                                 {formatPosBranchUiLabel({
                                   name: st.name,
@@ -1762,8 +1819,9 @@ export default function PuntoDeVentaPage() {
                             <PosNumberField
                               className={styles.payLineAmount}
                               label={
-                                p.method === "efectivo_sucursal"
-                                  ? "Efectivo recibido"
+                                p.method === "efectivo_sucursal" ||
+                                p.method === "otro"
+                                  ? "Monto recibido"
                                   : "Monto a cobrar"
                               }
                               value={p.amount ?? ""}
@@ -1782,12 +1840,34 @@ export default function PuntoDeVentaPage() {
                             />
                             <TextField
                               size="small"
-                              label="Referencia"
+                              label={
+                                p.method === "otro"
+                                  ? "Especificar método"
+                                  : "Referencia"
+                              }
                               value={p.reference}
                               onChange={(e) =>
                                 pos.updatePayment(p.id, {
                                   reference: e.target.value,
                                 })
+                              }
+                              required={p.method === "otro"}
+                              error={
+                                p.method === "otro" &&
+                                p.reference.trim().length > 0 &&
+                                p.reference.trim().length < 2
+                              }
+                              helperText={
+                                p.method === "otro" &&
+                                p.reference.trim().length > 0 &&
+                                p.reference.trim().length < 2
+                                  ? "Mínimo 2 caracteres"
+                                  : undefined
+                              }
+                              placeholder={
+                                p.method === "otro"
+                                  ? "Ej. Vale de despensa, depósito…"
+                                  : undefined
                               }
                               className={styles.payLineReference}
                               fullWidth
@@ -1872,7 +1952,12 @@ export default function PuntoDeVentaPage() {
                       !pos.guestPhone.trim() ||
                       !pos.phoneValid ||
                       pos.payments.length === 0 ||
-                      !pos.settlement.balanced
+                      !pos.settlement.balanced ||
+                      pos.payments.some(
+                        (p) =>
+                          p.method === "otro" &&
+                          p.reference.trim().length < 2,
+                      )
                     }
                     onClick={() => {
                       (document.activeElement as HTMLElement | null)?.blur?.();
@@ -1893,7 +1978,7 @@ export default function PuntoDeVentaPage() {
                 {pos.lastSale ? (
                   <div className={styles.postSaleBar}>
                     <div className={styles.postSaleInfo}>
-                      <strong>Última venta {pos.lastSale.folio}</strong>
+                      <strong>Última venta {formatPosFolio(pos.lastSale.folio)}</strong>
                       <span>
                         {money(pos.lastSale.total)} ·{" "}
                         {statusLabel(pos.lastSale.status)}
@@ -1907,7 +1992,9 @@ export default function PuntoDeVentaPage() {
                         type="button"
                         className={styles.secondaryBtn}
                         onClick={() =>
-                          pos.openTicket(pos.lastSale!.idPosSale)
+                          pos.openTicket(pos.lastSale!.idPosSale, {
+                            folio: pos.lastSale!.folio,
+                          })
                         }
                       >
                         <Printer size={14} />
@@ -2653,7 +2740,7 @@ export default function PuntoDeVentaPage() {
                 <TextField
                   size="small"
                   label="Folio"
-                  placeholder="PV-0000001"
+                  placeholder="0000001"
                   value={pos.warrantyFolio}
                   onChange={(e) => pos.setWarrantyFolio(e.target.value)}
                   sx={{ ...fieldSx, minWidth: 150, flex: "1 1 140px" }}
@@ -2743,7 +2830,7 @@ export default function PuntoDeVentaPage() {
                     {pos.warranties.map((sale) => (
                       <tr key={sale.idPosSale}>
                         <td>#{sale.idPosSale}</td>
-                        <td>{sale.folio}</td>
+                        <td>{formatPosFolio(sale.folio)}</td>
                         <td>
                           {formatPosBranchUiLabel({
                             name: sale.branchName,
@@ -2827,7 +2914,7 @@ export default function PuntoDeVentaPage() {
                           Venta #{pos.warrantyDetail.idPosSale}
                         </h3>
                         <p className={styles.detailWhen}>
-                          Folio {pos.warrantyDetail.folio} ·{" "}
+                          Folio {formatPosFolio(pos.warrantyDetail.folio)} ·{" "}
                           {new Date(
                             pos.warrantyDetail.createdAt,
                           ).toLocaleString("es-MX")}
@@ -2992,7 +3079,7 @@ export default function PuntoDeVentaPage() {
                 <TextField
                   size="small"
                   label="Folio"
-                  placeholder="PV-0000001"
+                  placeholder="0000001"
                   value={pos.historyFolio}
                   onChange={(e) => pos.setHistoryFolio(e.target.value)}
                   sx={{ ...fieldSx, minWidth: 160, flex: "1 1 140px" }}
@@ -3080,9 +3167,8 @@ export default function PuntoDeVentaPage() {
                       const paySummary =
                         sale.payments?.length > 0
                           ? sale.payments
-                              .map(
-                                (p) =>
-                                  POS_PAYMENT_LABELS[p.method] || p.method,
+                              .map((p) =>
+                                formatPosPaymentLabel(p.method, p.reference),
                               )
                               .join(" · ")
                           : "Sin pagos";
@@ -3126,7 +3212,7 @@ export default function PuntoDeVentaPage() {
                             <div className={styles.historyCardHeader}>
                               <div className={styles.historyIdentity}>
                                 <span className={styles.historyFolio}>
-                                  {sale.folio}
+                                  {formatPosFolio(sale.folio)}
                                 </span>
                                 <span
                                   className={`${styles.badge} ${statusBadge(sale.status)}`}
@@ -3192,7 +3278,9 @@ export default function PuntoDeVentaPage() {
                                 type="button"
                                 className={styles.historyActionBtnPrimary}
                                 onClick={() =>
-                                  pos.openTicket(sale.idPosSale)
+                                  pos.openTicket(sale.idPosSale, {
+                                    folio: sale.folio,
+                                  })
                                 }
                               >
                                 <Printer size={15} strokeWidth={2.25} />
@@ -3238,7 +3326,7 @@ export default function PuntoDeVentaPage() {
                   <div>
                     <p className={styles.detailEyebrow}>Detalle de venta</p>
                     <h3 className={styles.detailFolio}>
-                      {pos.detailSale.folio}
+                      {formatPosFolio(pos.detailSale.folio)}
                     </h3>
                     <p className={styles.detailWhen}>
                       {new Date(pos.detailSale.createdAt).toLocaleString(
@@ -3274,15 +3362,25 @@ export default function PuntoDeVentaPage() {
               <div className={styles.detailGrid}>
                 <div className={styles.detailTile}>
                   <span className={styles.historyMetaLabel}>Cliente</span>
-                  <strong>{pos.detailSale.customerName || "—"}</strong>
+                  <strong
+                    title={pos.detailSale.customerName || undefined}
+                  >
+                    {clipText(pos.detailSale.customerName || "—", 48)}
+                  </strong>
                   {pos.detailSale.customerPhone ? (
-                    <span className={styles.detailTileSub}>
-                      {pos.detailSale.customerPhone}
+                    <span
+                      className={styles.detailTileSub}
+                      title={pos.detailSale.customerPhone}
+                    >
+                      {clipText(pos.detailSale.customerPhone, 32)}
                     </span>
                   ) : null}
                   {pos.detailSale.customerEmail ? (
-                    <span className={styles.detailTileSub}>
-                      {pos.detailSale.customerEmail}
+                    <span
+                      className={styles.detailTileSub}
+                      title={pos.detailSale.customerEmail}
+                    >
+                      {clipText(pos.detailSale.customerEmail, 40)}
                     </span>
                   ) : null}
                 </div>
@@ -3292,12 +3390,21 @@ export default function PuntoDeVentaPage() {
                 </div>
                 <div className={styles.detailTile}>
                   <span className={styles.historyMetaLabel}>Bodega / caja</span>
-                  <strong>
-                    {formatPosBranchUiLabel({
+                  <strong
+                    title={formatPosBranchUiLabel({
                       name: pos.detailSale.branchName,
                       city: pos.detailSale.branchCity,
                       fallback: "Bodega PCinBOX",
                     })}
+                  >
+                    {clipText(
+                      formatPosBranchUiLabel({
+                        name: pos.detailSale.branchName,
+                        city: pos.detailSale.branchCity,
+                        fallback: "Bodega PCinBOX",
+                      }),
+                      42,
+                    )}
                   </strong>
                 </div>
                 <div className={styles.detailTile}>
@@ -3312,37 +3419,108 @@ export default function PuntoDeVentaPage() {
                 </div>
               </div>
 
-              <section className={styles.detailSection}>
-                <h4>Productos</h4>
+              <section
+                className={`${styles.detailSection} ${styles.detailProductsSection}`}
+              >
+                <div className={styles.detailSectionHead}>
+                  <h4>Productos</h4>
+                  <span className={styles.detailSectionCount}>
+                    {pos.detailSale.items.length} ítem
+                    {pos.detailSale.items.length === 1 ? "" : "s"}
+                  </span>
+                </div>
                 <div className={styles.detailItems}>
-                  {pos.detailSale.items.map((it) => (
-                    <div key={it.idPosSaleItem} className={styles.detailItem}>
-                      <div className={styles.detailItemMain}>
-                        <strong>
-                          {qty(it.quantity)} × {it.productName}
-                        </strong>
-                        {it.branchLabel || it.branchName ? (
-                          <span>
-                            Bodega:{" "}
-                            {formatPosBranchUiLabel({
-                              name: it.branchName,
-                              label: it.branchLabel,
-                              city: it.branchCity,
-                            })}
-                          </span>
-                        ) : null}
-                        {it.serials && it.serials.length > 0 ? (
-                          <span>
-                            Serie:{" "}
-                            {it.serials.map((s) => s.serialNumber).join(", ")}
-                          </span>
-                        ) : null}
+                  {pos.detailSale.items.map((it) => {
+                    const sku =
+                      it.productSku &&
+                      it.productSku !== "__POS_MANUAL__" &&
+                      it.productSku !== "__POS_SERVICE__" &&
+                      !/^manual$/i.test(it.productSku)
+                        ? it.productSku
+                        : null;
+                    const upc =
+                      it.productUpc &&
+                      it.productUpc !== "__POS_MANUAL__" &&
+                      it.productUpc !== "__POS_SERVICE__" &&
+                      !/^manual$/i.test(it.productUpc)
+                        ? it.productUpc
+                        : null;
+                    const fullName = String(it.productName || "");
+                    const nameShown = clipText(fullName, 90);
+                    const branchShown =
+                      it.branchLabel || it.branchName
+                        ? formatPosBranchUiLabel({
+                            name: it.branchName,
+                            label: it.branchLabel,
+                            city: it.branchCity,
+                          })
+                        : null;
+                    return (
+                      <div
+                        key={it.idPosSaleItem}
+                        className={styles.detailItem}
+                      >
+                        {productThumb(
+                          resolveProductImage(it.productImage),
+                          styles.detailItemImg,
+                        )}
+                        <div className={styles.detailItemMain}>
+                          <strong
+                            className={styles.detailItemName}
+                            title={fullName}
+                          >
+                            <span className={styles.detailItemQty}>
+                              {qty(it.quantity)} ×
+                            </span>{" "}
+                            {nameShown}
+                          </strong>
+                          <div className={styles.detailItemMeta}>
+                            {sku ? (
+                              <span title={`SKU: ${sku}`}>
+                                SKU: {clipText(sku, 28)}
+                              </span>
+                            ) : null}
+                            {upc ? (
+                              <span title={`UPC: ${upc}`}>
+                                UPC: {clipText(upc, 28)}
+                              </span>
+                            ) : null}
+                            <span>P. unit: {money(it.unitPrice)}</span>
+                            {Number(it.discountPct) > 0 ? (
+                              <span>
+                                Desc. {Number(it.discountPct)}%
+                              </span>
+                            ) : null}
+                            {branchShown ? (
+                              <span title={`Bodega: ${branchShown}`}>
+                                Bodega: {clipText(branchShown, 36)}
+                              </span>
+                            ) : null}
+                          </div>
+                          {it.serials && it.serials.length > 0 ? (
+                            <div className={styles.detailSerialList}>
+                              {it.serials.map((s) => {
+                                const sn = String(s.serialNumber || "");
+                                return (
+                                  <div
+                                    key={s.idProductSerial}
+                                    className={styles.detailSerialCard}
+                                  >
+                                    <strong title={sn ? `Serie: ${sn}` : undefined}>
+                                      Serie: {clipText(sn, 40) || "—"}
+                                    </strong>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className={styles.detailItemPrice}>
+                          {money(it.lineTotal)}
+                        </div>
                       </div>
-                      <div className={styles.detailItemPrice}>
-                        {money(it.lineTotal)}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 
@@ -3352,13 +3530,26 @@ export default function PuntoDeVentaPage() {
                   {pos.detailSale.payments.map((p) => (
                     <div key={p.idPosPayment} className={styles.detailPayment}>
                       <span>
-                        {POS_PAYMENT_LABELS[p.method] || p.method}
-                        {p.reference ? (
+                        {formatPosPaymentLabel(p.method, p.reference)}
+                        {p.reference && p.method !== "otro" ? (
                           <em className={styles.detailTileSub}>
                             {" "}
                             · {p.reference}
                           </em>
                         ) : null}
+                        {p.method === "otro" && p.reference
+                          ? (() => {
+                              const meta = String(p.reference).match(
+                                /Recibido\s+[\d.]+(?:\s*·\s*Cambio\s+[\d.]+)?|Cambio\s+[\d.]+/i,
+                              );
+                              return meta ? (
+                                <em className={styles.detailTileSub}>
+                                  {" "}
+                                  · {meta[0]}
+                                </em>
+                              ) : null;
+                            })()
+                          : null}
                       </span>
                       <strong>{money(p.amount)}</strong>
                     </div>
@@ -3378,7 +3569,11 @@ export default function PuntoDeVentaPage() {
                   type="button"
                   className={styles.chargeBtn}
                   style={{ marginTop: 0, width: "auto" }}
-                  onClick={() => pos.openTicket(pos.detailSale!.idPosSale)}
+                  onClick={() =>
+                    pos.openTicket(pos.detailSale!.idPosSale, {
+                      folio: pos.detailSale!.folio,
+                    })
+                  }
                 >
                   <Printer
                     size={14}
@@ -3386,43 +3581,6 @@ export default function PuntoDeVentaPage() {
                   />
                   Imprimir ticket
                 </button>
-                {pos.detailSale.status === "pending_payment" ? (
-                  <>
-                    {(pos.detailSale.checkoutLinkUrl ||
-                      pos.detailSale.paymentLinkUrl) && (
-                      <button
-                        type="button"
-                        className={styles.secondaryBtn}
-                        onClick={() =>
-                          window.open(
-                            pos.detailSale!.checkoutLinkUrl ||
-                              pos.detailSale!.paymentLinkUrl!,
-                            "_blank",
-                          )
-                        }
-                      >
-                        Abrir link de pago
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className={styles.secondaryBtn}
-                      onClick={() => void pos.retryPaymentLink()}
-                    >
-                      Generar otro link de pago
-                    </button>
-                    {pos.isAdmin ? (
-                      <button
-                        type="button"
-                        className={styles.chargeBtn}
-                        style={{ marginTop: 0, width: "auto" }}
-                        onClick={() => void pos.confirmPayment()}
-                      >
-                        Marcar como pagado (admin)
-                      </button>
-                    ) : null}
-                  </>
-                ) : null}
               </div>
 
               {pos.detailSale.status !== "cancelled" ? (
@@ -3490,7 +3648,7 @@ export default function PuntoDeVentaPage() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 style={{ marginTop: 0 }}>Venta {pos.lastSale.folio}</h3>
+              <h3 style={{ marginTop: 0 }}>Venta {formatPosFolio(pos.lastSale.folio)}</h3>
               <p style={{ fontSize: 14 }}>
                 Total {money(pos.lastSale.total)} ·{" "}
                 {statusLabel(pos.lastSale.status)}
@@ -3498,24 +3656,16 @@ export default function PuntoDeVentaPage() {
                   ? ` · No. Cotización: ${pos.lastSale.quoteNumber}`
                   : ""}
               </p>
-              {pos.lastPaymentLink ? (
-                <p style={{ fontSize: 13, wordBreak: "break-all" }}>
-                  Link de pago:{" "}
-                  <a
-                    href={pos.lastPaymentLink}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {pos.lastPaymentLink}
-                  </a>
-                </p>
-              ) : null}
               <div className={styles.drawerActions}>
                 <button
                   type="button"
                   className={styles.chargeBtn}
                   style={{ marginTop: 0 }}
-                  onClick={() => pos.openTicket(pos.lastSale!.idPosSale)}
+                  onClick={() =>
+                    pos.openTicket(pos.lastSale!.idPosSale, {
+                      folio: pos.lastSale!.folio,
+                    })
+                  }
                 >
                   <Printer
                     size={14}
@@ -3523,15 +3673,6 @@ export default function PuntoDeVentaPage() {
                   />
                   Imprimir ticket
                 </button>
-                {pos.lastPaymentLink ? (
-                  <button
-                    type="button"
-                    className={styles.secondaryBtn}
-                    onClick={() => window.open(pos.lastPaymentLink!, "_blank")}
-                  >
-                    Abrir link de pago
-                  </button>
-                ) : null}
                 <button
                   type="button"
                   className={styles.secondaryBtn}

@@ -1,7 +1,12 @@
 "use client";
 
 import type { PosSale } from "../../interfaces/pos/pos.interface";
-import { buildEscPosTicket, drawerKickBytes } from "./escposTicket";
+import {
+  buildEscPosTicket,
+  drawerKickBytes,
+  POS_TICKET_LOGO_URL,
+} from "./escposTicket";
+import { buildEscPosLogoRaster, clearEscPosLogoCache } from "./escposLogo";
 import { loadQzSettings, type QzDrawerDialect } from "./qzSettings";
 
 type QzApi = {
@@ -39,6 +44,7 @@ type QzApi = {
 
 let qzPromise: Promise<QzApi> | null = null;
 let securityConfigured = false;
+let logoBase64Cache: string | null | undefined;
 
 async function getQz(): Promise<QzApi> {
   if (!qzPromise) {
@@ -109,11 +115,6 @@ function requirePrinterName(name?: string): string {
   return printer;
 }
 
-/**
- * Impresoras virtuales / PDF: no entienden ESC/POS.
- * Si se les manda raw, Windows/QZ genera un .pdf vacío o corrupto
- * (p. ej. "QZ Tray Raw Print.pdf").
- */
 export function isQzPdfOrVirtualPrinter(printerName?: string | null): boolean {
   const n = String(printerName || "").toLowerCase();
   if (!n) return false;
@@ -130,6 +131,35 @@ export class QzPdfPrinterError extends Error {
     );
     this.name = "QzPdfPrinterError";
   }
+}
+
+function binaryStringToBase64(bin: string): string {
+  return btoa(bin);
+}
+
+/** Carga PNG: primero proxy local, luego ImageKit. */
+async function loadTicketLogoBase64(): Promise<string | null> {
+  logoBase64Cache = undefined;
+  const urls = ["/api/qz/logo", POS_TICKET_LOGO_URL];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: "reload" });
+      if (!res.ok) continue;
+      const buf = await res.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      logoBase64Cache = btoa(binary);
+      return logoBase64Cache;
+    } catch {
+      /* try next */
+    }
+  }
+  logoBase64Cache = null;
+  return null;
 }
 
 export async function printRawToQz(
@@ -161,13 +191,54 @@ export async function printPosTicketQz(
     throw new QzPdfPrinterError(printer);
   }
 
-  // Solo ESC/POS raw hacia térmica. Mezclar pixel+raw a PDF virtual rompe el archivo.
+  const qz = await connectQz();
+  const config = qz.configs.create(printer);
+
+  // Forzar regenerar logo (evita cache vacío de un intento fallido).
+  clearEscPosLogoCache();
+  const logoRaster = await buildEscPosLogoRaster("/api/qz/logo", true);
+  const logoB64 = logoRaster ? null : await loadTicketLogoBase64();
+
   const payload = buildEscPosTicket(sale, {
     openDrawer: Boolean(opts?.openDrawer),
     drawerDialect: settings.drawerDialect,
-    logoPrinted: false,
+    logoPrinted: Boolean(logoRaster || logoB64),
+    logoRaster: logoRaster || null,
   });
-  await printRawToQz(payload, printer);
+
+  // Un solo job raw en base64 (raster binario + texto) = más fiable en Nextep.
+  if (logoRaster) {
+    await qz.print(config, [
+      {
+        type: "raw",
+        format: "base64",
+        data: binaryStringToBase64(payload),
+      },
+    ]);
+    return;
+  }
+
+  // Fallback: pixel QZ + raw texto.
+  const job: unknown[] = [];
+  if (logoB64) {
+    job.push({
+      type: "pixel",
+      format: "image",
+      flavor: "base64",
+      data: logoB64,
+      options: {
+        language: "ESCPOS",
+        dotDensity: "single",
+        scaleContent: true,
+      },
+    });
+  }
+  job.push({
+    type: "raw",
+    format: "base64",
+    data: binaryStringToBase64(payload),
+  });
+  await qz.print(config, job);
 }
 
 export async function openCashDrawerQz(opts?: {

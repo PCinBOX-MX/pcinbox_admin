@@ -39,6 +39,13 @@
   z-index: 1;
 }
 
+/* Drawers/overlays: por encima del sticky (tabs/caja). Sin esto, `.posPage > *`
+   deja el drawer en z-index 1 y el navbar se pinta encima. */
+.posPage > .drawer {
+  position: fixed;
+  z-index: 1400;
+}
+
 .posLoadingShell {
   display: flex;
   align-items: center;
@@ -632,17 +639,34 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 16px 16px;
+  padding: 16px 16px 18px;
   border-radius: 16px;
-  border: 1px solid #e7e5e4;
-  background: #fff;
-  box-shadow: 0 1px 0 rgba(28, 25, 23, 0.03);
+  border: 1.5px solid rgba(187, 61, 75, 0.35);
+  background:
+    linear-gradient(180deg, rgba(187, 61, 75, 0.07) 0%, rgba(255, 255, 255, 0.96) 48%),
+    #fff;
+  box-shadow:
+    0 0 0 1px rgba(187, 61, 75, 0.08),
+    0 8px 20px -12px rgba(187, 61, 75, 0.35);
+  position: relative;
+}
+
+.searchBlock::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: #bb3d4b;
 }
 
 .searchBlockHead {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding-left: 8px;
 }
 
 .searchBlockHead strong {
@@ -650,7 +674,7 @@
   font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #1c1917;
+  color: #9f2d3a;
 }
 
 .searchBlockHead span {
@@ -668,6 +692,7 @@
 .searchCombobox {
   position: relative;
   z-index: 40;
+  padding-left: 8px;
 }
 
 .hitsDropdown {
@@ -2593,7 +2618,7 @@
 }
 
 .detailDrawer {
-  width: min(520px, 100%);
+  width: min(680px, 100%);
   padding: 0;
   background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
 }
@@ -2698,6 +2723,12 @@
   font-size: 14px;
   color: var(--pos-ink);
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  word-break: break-word;
 }
 
 .detailTileSub {
@@ -2705,6 +2736,9 @@
   color: var(--pos-muted);
   font-style: normal;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detailSection {
@@ -2715,6 +2749,28 @@
   padding: 14px 16px;
 }
 
+.detailProductsSection {
+  padding: 16px 18px;
+}
+
+.detailSectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.detailSectionHead h4 {
+  margin: 0;
+}
+
+.detailSectionCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pos-muted);
+}
+
 .detailSection h4 {
   margin: 0 0 10px;
   font-size: 13px;
@@ -2722,12 +2778,27 @@
   color: var(--pos-ink);
 }
 
-.detailItems,
+.detailProductsSection .detailItems {
+  max-height: min(52vh, 480px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.detailItems {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: none;
+  overflow: visible;
+}
+
 .detailPayments {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: min(40vh, 360px);
+  max-height: min(28vh, 240px);
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -2768,22 +2839,68 @@
   border-bottom: 1px dashed #e5e7eb;
 }
 
+.detailItem {
+  gap: 14px;
+  padding: 12px 4px 14px;
+  align-items: flex-start;
+}
+
 .detailItem:last-child,
 .detailPayment:last-child {
   border-bottom: 0;
   padding-bottom: 0;
 }
 
+.detailItemImgFrame {
+  display: block;
+  flex-shrink: 0;
+  line-height: 0;
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  min-height: 72px;
+}
+
+.detailItemImg {
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  min-height: 72px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  object-fit: contain;
+  background: #f8fafc;
+  border: 1px solid var(--pos-line);
+  display: block;
+}
+
 .detailItemMain {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
+  flex: 1;
 }
 
 .detailItemMain strong {
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.detailItemName {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.detailItemQty {
+  color: var(--pos-muted);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .detailItemMain span {
@@ -2795,6 +2912,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px 10px;
+}
+
+.detailItemMeta span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detailSerialList {
@@ -2812,6 +2936,7 @@
   border-radius: 8px;
   background: var(--pos-soft);
   border: 1px solid var(--pos-line);
+  min-width: 0;
 }
 
 .detailSerialCard strong {
@@ -2819,6 +2944,9 @@
   color: var(--pos-ink);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detailSerialCard span {
@@ -3000,33 +3128,178 @@
 }
 
 .cashBanner {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: var(--pos-radius-sm);
-  border: 1px solid #fde68a;
-  background: #fffbeb;
-  color: #92400e;
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: none;
+  gap: 14px 20px;
+  padding: 14px 16px;
+  border-radius: var(--pos-radius);
+  border: 1px solid var(--pos-line);
+  background: var(--pos-surface);
+  box-shadow: var(--pos-shadow);
+  color: var(--pos-ink);
+}
+
+.cashBannerMain {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cashBannerIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--pos-soft);
+  color: var(--pos-muted);
+}
+
+.cashBannerCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cashBannerTitle {
+  margin: 0;
+  font-family: var(--pos-font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--pos-ink);
+}
+
+.cashBannerText {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--pos-muted);
 }
 
 .cashBannerActions {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: flex-end;
+  justify-content: flex-end;
   gap: 8px;
-  margin-left: auto;
+}
+
+.cashBannerFloat {
+  width: min(180px, 100%);
+}
+
+.cashBannerFloat :global(.MuiFormHelperText-root) {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.cashBannerPrimary,
+.cashBannerSecondary {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-height: 40px;
+  transition:
+    background 160ms var(--pos-ease),
+    border-color 160ms var(--pos-ease),
+    color 160ms var(--pos-ease),
+    box-shadow 160ms var(--pos-ease),
+    transform 160ms var(--pos-ease);
+}
+
+.cashBannerPrimary {
+  background: var(--pos-brand);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(187, 61, 75, 0.25);
+}
+
+.cashBannerPrimary:hover:not(:disabled) {
+  background: var(--pos-brand-dark);
+}
+
+.cashBannerPrimary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.cashBannerSecondary {
+  background: #fff;
+  color: var(--pos-ink);
+  border: 1px solid var(--pos-line-strong);
+}
+
+.cashBannerSecondary:hover {
+  border-color: #9ca3af;
+  background: var(--pos-soft);
+}
+
+.cashBannerWarn {
+  border-color: #f5d0a9;
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.08), transparent 42%),
+    #fffdf8;
+}
+
+.cashBannerWarn .cashBannerIcon {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.cashBannerError {
+  border-color: #fecaca;
+  background:
+    linear-gradient(135deg, rgba(187, 61, 75, 0.06), transparent 45%),
+    #fff;
+}
+
+.cashBannerError .cashBannerIcon {
+  background: var(--pos-brand-soft);
+  color: var(--pos-brand);
 }
 
 .cashBannerOk {
-  border-color: #a7f3d0;
-  background: #ecfdf5;
-  color: #166534;
-  box-shadow: none;
+  border-color: #bbf7d0;
+  background:
+    linear-gradient(135deg, rgba(16, 185, 129, 0.07), transparent 45%),
+    #fff;
+}
+
+.cashBannerOk .cashBannerIcon {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+@media (max-width: 900px) {
+  .cashBanner {
+    grid-template-columns: 1fr;
+  }
+
+  .cashBannerActions {
+    justify-content: stretch;
+  }
+
+  .cashBannerFloat {
+    width: 100%;
+  }
+
+  .cashBannerPrimary,
+  .cashBannerSecondary {
+    flex: 1 1 auto;
+  }
 }
 
 .postSaleBar {
@@ -3724,7 +3997,7 @@
 .drawer {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 1400;
   background: rgba(15, 23, 42, 0.48);
   backdrop-filter: blur(3px);
   display: grid;

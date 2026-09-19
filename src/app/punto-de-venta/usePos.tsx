@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, TextField } from "@mui/material";
 import UtilsService from "../services/utils";
 import { useTheContext } from "../hooks/global.hook";
 import usePermissions from "../hooks/usePermissions";
@@ -19,7 +20,7 @@ import {
   isPosProductOutOfStock,
   settlePosPayments,
 } from "../interfaces/pos/pos.interface";
-import { formatMoney } from "./posFormat";
+import { formatMoney, formatPosFolio } from "./posFormat";
 import {
   loadQzSettings,
   saveQzSettings,
@@ -338,7 +339,6 @@ export default function usePos() {
   } | null>(null);
   const [charging, setCharging] = useState(false);
   const [lastSale, setLastSale] = useState<PosSale | null>(null);
-  const [lastPaymentLink, setLastPaymentLink] = useState<string | null>(null);
   const [ticketOpen, setTicketOpen] = useState(false);
 
   const [history, setHistory] = useState<PosSale[]>([]);
@@ -365,6 +365,8 @@ export default function usePos() {
   );
   const [detailSale, setDetailSale] = useState<PosSale | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelPassword, setCancelPassword] = useState("");
+  const cancelPasswordRef = useRef("");
   const [cancelling, setCancelling] = useState(false);
 
   const [warranties, setWarranties] = useState<PosSale[]>([]);
@@ -1140,7 +1142,9 @@ export default function usePos() {
             update.price != null ? Number(update.price) : undefined;
 
           const quantity =
-            stockBranch > 0 && line.quantity > stockBranch
+            Number(line.providerId) === 1 &&
+            stockBranch > 0 &&
+            line.quantity > stockBranch
               ? stockBranch
               : line.quantity;
 
@@ -1167,8 +1171,11 @@ export default function usePos() {
 
   const addProduct = useCallback(
     (product: PosProductHit, chosenBranchId?: number | null) => {
+      const tracksStock = Number(product.providerId) === 1;
+
       // Validación interna: no se puede forzar agregar sin stock (UI deshabilitada ≠ bypass).
-      if (isPosProductOutOfStock(product)) {
+      // Solo providerId=1 descuenta/valida stock en DB.
+      if (tracksStock && isPosProductOutOfStock(product)) {
         setDataModal({
           isOpen: true,
           title: "Sin stock",
@@ -1187,6 +1194,7 @@ export default function usePos() {
         chosenBranchId ??
         product.suggestedBranchId ??
         stocks.find((st) => st.stock > 0)?.branchId ??
+        stocks[0]?.branchId ??
         null;
 
       if (needsBranch) {
@@ -1203,22 +1211,24 @@ export default function usePos() {
           });
           return;
         }
-        const stockRow = stocks.find((st) => st.branchId === branchIdLine);
-        const available = stockRow?.stock ?? 0;
-        if (available <= 0) {
-          setDataModal({
-            isOpen: true,
-            title: "Sin stock",
-            content: `«${product.name}» no tiene existencia en ${stockRow?.label || "esa bodega"}.`,
-            type: "warning",
-            showActions: true,
-            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-            onConfirm: async () =>
-              setDataModal((p) => ({ ...p, isOpen: false })),
-          });
-          return;
+        if (tracksStock) {
+          const stockRow = stocks.find((st) => st.branchId === branchIdLine);
+          const available = stockRow?.stock ?? 0;
+          if (available <= 0) {
+            setDataModal({
+              isOpen: true,
+              title: "Sin stock",
+              content: `«${product.name}» no tiene existencia en ${stockRow?.label || "esa bodega"}.`,
+              type: "warning",
+              showActions: true,
+              onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+              onConfirm: async () =>
+                setDataModal((p) => ({ ...p, isOpen: false })),
+            });
+            return;
+          }
         }
-      } else if (product.stockGlobal <= 0) {
+      } else if (tracksStock && product.stockGlobal <= 0) {
         setDataModal({
           isOpen: true,
           title: "Sin stock",
@@ -1232,16 +1242,18 @@ export default function usePos() {
       }
 
       const branchMeta = stocks.find((st) => st.branchId === branchIdLine);
-      const stockCap = needsBranch
-        ? branchMeta?.stock ?? 0
-        : product.stockGlobal;
+      const stockCap = tracksStock
+        ? needsBranch
+          ? branchMeta?.stock ?? 0
+          : product.stockGlobal
+        : 999999;
       const lineKey = `p-${product.idProduct}-b-${branchIdLine ?? "g"}`;
 
       setCart((prev) => {
         const existing = prev.find((l) => l.key === lineKey);
         if (existing) {
           const nextQty = existing.quantity + 1;
-          if (nextQty > stockCap) {
+          if (tracksStock && nextQty > stockCap) {
             setDataModal({
               isOpen: true,
               title: "Stock insuficiente",
@@ -1294,6 +1306,7 @@ export default function usePos() {
             warrantyMonths: product.warrantyMonths ?? null,
             serials: [""],
             isManual: false,
+            providerId: product.providerId ?? null,
           },
         ];
       });
@@ -1418,6 +1431,7 @@ export default function usePos() {
           }
           if (
             !next.isManual &&
+            Number(next.providerId) === 1 &&
             next.stockBranch > 0 &&
             next.quantity > next.stockBranch
           ) {
@@ -1587,9 +1601,11 @@ export default function usePos() {
       for (const product of payload.items) {
         const stocks = product.stocksByBranch || [];
         const needsBranch = stocks.length > 0;
+        const tracksStock = Number(product.providerId) === 1;
         let branchIdLine: number | null =
           product.suggestedBranchId ??
           stocks.find((st) => st.stock > 0)?.branchId ??
+          stocks[0]?.branchId ??
           null;
 
         const qtyWanted = Math.max(1, Math.round(Number(product.quantity) || 1));
@@ -1602,24 +1618,26 @@ export default function usePos() {
             );
             continue;
           }
-          const stockRow = stocks.find((st) => st.branchId === branchIdLine);
-          const stockCap = stockRow?.stock ?? 0;
-          if (stockCap <= 0) {
-            warnings.push(
-              `«${product.name}» sin stock en ${stockRow?.label || "bodega"}.`,
-            );
-            continue;
+          if (tracksStock) {
+            const stockRow = stocks.find((st) => st.branchId === branchIdLine);
+            const stockCap = stockRow?.stock ?? 0;
+            if (stockCap <= 0) {
+              warnings.push(
+                `«${product.name}» sin stock en ${stockRow?.label || "bodega"}.`,
+              );
+              continue;
+            }
+            if (quantity > stockCap) {
+              warnings.push(
+                `«${product.name}»: cantidad ${qtyWanted} → ${stockCap} (stock).`,
+              );
+              quantity = stockCap;
+            }
           }
-          if (quantity > stockCap) {
-            warnings.push(
-              `«${product.name}»: cantidad ${qtyWanted} → ${stockCap} (stock).`,
-            );
-            quantity = stockCap;
-          }
-        } else if (product.stockGlobal <= 0) {
+        } else if (tracksStock && product.stockGlobal <= 0) {
           warnings.push(`«${product.name}» sin existencia global.`);
           continue;
-        } else if (quantity > product.stockGlobal) {
+        } else if (tracksStock && quantity > product.stockGlobal) {
           warnings.push(
             `«${product.name}»: cantidad ${qtyWanted} → ${product.stockGlobal} (stock).`,
           );
@@ -1627,14 +1645,18 @@ export default function usePos() {
         }
 
         const branchMeta = stocks.find((st) => st.branchId === branchIdLine);
-        const stockCap = needsBranch
-          ? branchMeta?.stock ?? 0
-          : product.stockGlobal;
+        const stockCap = tracksStock
+          ? needsBranch
+            ? branchMeta?.stock ?? 0
+            : product.stockGlobal
+          : 999999;
         const lineKey = `p-${product.idProduct}-b-${branchIdLine ?? "g"}`;
         const existing = nextCart.find((l) => l.key === lineKey);
         if (existing) {
-          const merged = Math.min(stockCap, existing.quantity + quantity);
-          if (merged < existing.quantity + quantity) {
+          const merged = tracksStock
+            ? Math.min(stockCap, existing.quantity + quantity)
+            : existing.quantity + quantity;
+          if (tracksStock && merged < existing.quantity + quantity) {
             warnings.push(
               `«${product.name}»: se limitó al stock disponible (${stockCap}).`,
             );
@@ -1669,6 +1691,7 @@ export default function usePos() {
           warrantyMonths: product.warrantyMonths ?? null,
           serials: Array(quantity).fill(""),
           isManual: false,
+          providerId: product.providerId ?? null,
         });
       }
 
@@ -1837,10 +1860,10 @@ export default function usePos() {
         prev.map((p) => {
           if (p.id !== id) return p;
           const next = { ...p, ...patch };
-          // Al pasar a efectivo, el monto recibido vuelve a vacío.
+          // Al pasar a método con cambio, el monto recibido vuelve a vacío.
           if (
-            patch.method === "efectivo_sucursal" &&
-            p.method !== "efectivo_sucursal" &&
+            (patch.method === "efectivo_sucursal" || patch.method === "otro") &&
+            p.method !== patch.method &&
             patch.amount === undefined
           ) {
             next.amount = null;
@@ -1913,14 +1936,8 @@ export default function usePos() {
         "/pos/sales",
       );
       const sale: PosSale = res?.data?.data;
-      const payUrl =
-        res?.data?.data?.checkoutLink ||
-        res?.data?.data?.paymentLink ||
-        null;
       setLastSale(sale);
-      setLastPaymentLink(payUrl);
       setTicketOpen(false);
-      if (payUrl) window.open(payUrl, "_blank");
       clearCart();
       if (usesCash) void loadCashStatus();
 
@@ -1943,7 +1960,7 @@ export default function usePos() {
           ? "Venta ya registrada"
           : "Venta registrada",
         content:
-          (res?.data?.message || `Folio ${sale?.folio}`) +
+          (res?.data?.message || `Folio ${formatPosFolio(sale?.folio)}`) +
           (changeDue > 0.009
             ? ` Cambio: ${formatMoney(changeDue)}.`
             : "") +
@@ -2053,7 +2070,7 @@ export default function usePos() {
         isOpen: true,
         title: "Monto de pago excedido",
         content:
-          "Tarjeta o transferencia no pueden superar el total. Usa efectivo si el cliente paga de más (ahí se calcula el cambio).",
+          "Tarjeta o transferencia no pueden superar el total. Usa efectivo u «Otro» si el cliente paga de más (ahí se calcula el cambio).",
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -2095,8 +2112,25 @@ export default function usePos() {
       return;
     }
 
+    if (
+      payments.some(
+        (p) => p.method === "otro" && p.reference.trim().length < 2,
+      )
+    ) {
+      setDataModal({
+        isOpen: true,
+        title: "Especifica el método",
+        content:
+          "En forma de pago «Otro» escribe cómo pagó el cliente (mín. 2 caracteres).",
+        type: "warning",
+        showActions: true,
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+      });
+      return;
+    }
+
     const usesCash = payments.some((p) => p.method === "efectivo_sucursal");
-    const usesOpenpay = payments.some((p) => p.method === "openpay_link");
     if (usesCash && !cashOpen) {
       const synced = await loadCashStatus({ retries: 2 });
       if (synced !== true) {
@@ -2149,21 +2183,142 @@ export default function usePos() {
       }
     }
 
-    const openpayWarn = usesOpenpay
-      ? " Con OpenPay el stock se reserva YA al crear el link; cancela la venta si el cliente no paga."
-      : "";
-    const changeWarn =
-      changeDue > 0.009
-        ? ` Cambio a entregar: ${formatMoney(changeDue)}.`
-        : "";
-
     chargeConfirmOpenRef.current = true;
     setDataModal({
       isOpen: true,
       title: "Confirmar cobro",
-      content: `¿Cobrar ${formatMoney(totals.total)} a ${customerName.trim()}?${changeWarn}${openpayWarn}`,
       type: "warning",
       showActions: true,
+      maxWidth: "420px",
+      confirmLabel: "Cobrar ahora",
+      cancelLabel: "Volver",
+      content: (
+        <div
+          style={{
+            textAlign: "left",
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: "#57534e",
+            }}
+          >
+            Revisa el total antes de registrar la venta.
+          </p>
+          <div
+            style={{
+              borderRadius: 14,
+              border: "1px solid rgba(187, 61, 75, 0.2)",
+              background:
+                "linear-gradient(165deg, rgba(187, 61, 75, 0.08) 0%, #fff 55%)",
+              padding: "14px 16px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "#a8a29e",
+                marginBottom: 4,
+              }}
+            >
+              Cliente
+            </div>
+            <div
+              style={{
+                fontSize: 17,
+                fontWeight: 700,
+                color: "#1c1917",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {customerName.trim()}
+            </div>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: changeDue > 0.009 ? "1fr 1fr" : "1fr",
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                borderRadius: 14,
+                background: "#1c1917",
+                color: "#fff",
+                padding: "14px 16px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  opacity: 0.65,
+                  marginBottom: 4,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Total a cobrar
+              </div>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  letterSpacing: "-0.03em",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {formatMoney(totals.total)}
+              </div>
+            </div>
+            {changeDue > 0.009 ? (
+              <div
+                style={{
+                  borderRadius: 14,
+                  background: "#ecfdf5",
+                  border: "1px solid #a7f3d0",
+                  color: "#065f46",
+                  padding: "14px 16px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    opacity: 0.8,
+                    marginBottom: 4,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  Cambio
+                </div>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 800,
+                    letterSpacing: "-0.03em",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {formatMoney(changeDue)}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ),
       onClose: () => {
         chargeConfirmOpenRef.current = false;
         setDataModal((p) => ({ ...p, isOpen: false }));
@@ -2855,6 +3010,8 @@ export default function usePos() {
       const res = await requestGet(`/pos/sales/${id}`, { silent: true });
       setDetailSale(res?.data?.data || null);
       setCancelReason("");
+      setCancelPassword("");
+      cancelPasswordRef.current = "";
     },
     [requestGet],
   );
@@ -2885,136 +3042,113 @@ export default function usePos() {
       });
       return;
     }
-    setCancelling(true);
-    try {
-      const res = await requestPost(
-        { reason: cancelReason.trim() },
-        `/pos/sales/${detailSale.idPosSale}/cancel`,
-      );
-      setDetailSale(res?.data?.data || null);
-      await loadHistory(historyPage);
-      void loadCashStatus();
+
+    const reason = cancelReason.trim();
+    const saleId = detailSale.idPosSale;
+
+    const openPasswordModal = (errorMessage?: string) => {
       setDataModal({
         isOpen: true,
-        title: "Venta cancelada",
-        content: res?.data?.message || "Cancelación registrada.",
-        type: "success",
+        title: "Confirmar cancelación",
+        type: "warning",
         showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        confirmLabel: "Cancelar venta",
+        cancelLabel: "Volver",
+        loading: false,
+        maxWidth: "440px",
+        content: (
+          <div style={{ textAlign: "left", width: "100%" }}>
+            <p style={{ margin: "0 0 12px", color: "#4b5563", fontSize: 15 }}>
+              Se restaurará el inventario, se liberarán series y, si hubo
+              efectivo, se descontará de la caja. Confirma con tu contraseña de
+              administrador.
+            </p>
+            {errorMessage ? (
+              <Alert severity="error" sx={{ mb: 1.5, textAlign: "left" }}>
+                {errorMessage}
+              </Alert>
+            ) : null}
+            <TextField
+              fullWidth
+              size="small"
+              type="password"
+              label="Contraseña de administrador"
+              autoComplete="current-password"
+              autoFocus={!errorMessage}
+              value={cancelPassword}
+              onChange={(e) => {
+                cancelPasswordRef.current = e.target.value;
+                setCancelPassword(e.target.value);
+              }}
+              helperText="La misma contraseña con la que inicias sesión"
+              error={Boolean(errorMessage)}
+            />
+          </div>
+        ),
+        onClose: () => {
+          cancelPasswordRef.current = "";
+          setCancelPassword("");
+          setDataModal((p) => ({ ...p, isOpen: false, loading: false }));
+        },
+        onConfirm: async () => {
+          const password = cancelPasswordRef.current.trim();
+          if (!password) {
+            openPasswordModal(
+              "Escribe tu contraseña de administrador para continuar.",
+            );
+            return;
+          }
+
+          setDataModal((p) => ({ ...p, loading: true }));
+          setCancelling(true);
+          try {
+            const res = await requestPost(
+              { reason, password },
+              `/pos/sales/${saleId}/cancel`,
+              { silent: true },
+            );
+            setCancelPassword("");
+            cancelPasswordRef.current = "";
+            setCancelReason("");
+            setDetailSale(res?.data?.data || null);
+            await loadHistory(historyPage);
+            void loadCashStatus();
+            setDataModal({
+              isOpen: true,
+              title: "Venta cancelada",
+              content: res?.data?.message || "Cancelación registrada.",
+              type: "success",
+              showActions: true,
+              onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+              onConfirm: async () =>
+                setDataModal((p) => ({ ...p, isOpen: false })),
+            });
+          } catch (error: any) {
+            const apiMessage =
+              error?.response?.data?.message ||
+              error?.message ||
+              "No se pudo cancelar la venta.";
+            // Mantener modal abierto; el Alert va dentro (silent evita modal global).
+            openPasswordModal(String(apiMessage));
+          } finally {
+            setCancelling(false);
+          }
+        },
       });
-    } catch {
-      // handled
-    } finally {
-      setCancelling(false);
-    }
+    };
+
+    setCancelPassword("");
+    cancelPasswordRef.current = "";
+    openPasswordModal();
   }, [
     detailSale,
     cancelGate,
     cancelReason,
+    cancelPassword,
     requestPost,
     loadHistory,
     historyPage,
     loadCashStatus,
-    setDataModal,
-  ]);
-
-  const confirmPayment = useCallback(async () => {
-    if (!detailSale) return;
-    if (!isAdmin) {
-      setDataModal({
-        isOpen: true,
-        title: "Solo administrador",
-        content:
-          "La confirmación manual de pago OpenPay está restringida a administradores. El cobro normal llega automáticamente del sistema.",
-        type: "warning",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
-      return;
-    }
-    const noteRaw = window.prompt(
-      "Motivo de confirmación manual (mín. 5 caracteres):",
-      "Pago verificado en panel OpenPay",
-    );
-    const note = String(noteRaw || "").trim();
-    if (note.length < 5) {
-      setDataModal({
-        isOpen: true,
-        title: "Motivo requerido",
-        content: "Debes indicar un motivo de confirmación manual.",
-        type: "warning",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
-      return;
-    }
-    try {
-      const res = await requestPost(
-        { note },
-        `/pos/sales/${detailSale.idPosSale}/confirmPayment`,
-      );
-      setDetailSale(res?.data?.data || null);
-      await loadHistory(historyPage);
-      setDataModal({
-        isOpen: true,
-        title: "Pago confirmado",
-        content:
-          res?.data?.message ||
-          "Pago confirmado. El inventario ya estaba reservado.",
-        type: "success",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
-    } catch {
-      // handled
-    }
-  }, [
-    detailSale,
-    isAdmin,
-    requestPost,
-    loadHistory,
-    historyPage,
-    setDataModal,
-  ]);
-
-  const retryPaymentLink = useCallback(async () => {
-    if (!detailSale) return;
-    try {
-      const res = await requestPost(
-        {
-          email: guestEmail || detailSale.customerEmail || undefined,
-          phone: guestPhone || detailSale.customerPhone || undefined,
-        },
-        `/pos/sales/${detailSale.idPosSale}/retryPaymentLink`,
-      );
-      const data = res?.data?.data;
-      setDetailSale(data || null);
-      const url = data?.checkoutLinkUrl || data?.checkoutLink || data?.paymentLinkUrl || data?.paymentLink;
-      if (url) {
-        setLastPaymentLink(url);
-        window.open(url, "_blank");
-      }
-      setDataModal({
-        isOpen: true,
-        title: "Nuevo link de pago",
-        content: res?.data?.message || "Se generó un nuevo link OpenPay.",
-        type: "success",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
-    } catch {
-      // handled
-    }
-  }, [
-    detailSale,
-    guestEmail,
-    guestPhone,
-    requestPost,
     setDataModal,
   ]);
 
@@ -3095,10 +3229,26 @@ export default function usePos() {
   );
 
   const openTicket = useCallback(
-    (id: number) => {
-      void printTicket(id);
+    (id: number, opts?: { folio?: string | null }) => {
+      const folioLabel = opts?.folio
+        ? ` del folio ${formatPosFolio(opts.folio)}`
+        : "";
+      setDataModal({
+        isOpen: true,
+        title: "Imprimir ticket",
+        content: `¿Deseas imprimir el ticket${folioLabel}?`,
+        type: "info",
+        showActions: true,
+        confirmLabel: "Imprimir",
+        cancelLabel: "Cancelar",
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => {
+          setDataModal((p) => ({ ...p, isOpen: false }));
+          await printTicket(id);
+        },
+      });
     },
-    [printTicket],
+    [printTicket, setDataModal],
   );
 
   const refreshQzPrinters = useCallback(async () => {
@@ -3110,6 +3260,24 @@ export default function usePos() {
       if (!current.printerName && list.length === 1) {
         const next = saveQzSettings({ printerName: list[0] });
         setQzSettings(next);
+      }
+      if (list.length === 0) {
+        setDataModal({
+          isOpen: true,
+          title: "Sin impresoras detectadas",
+          content:
+            "QZ Tray respondió, pero Windows no listó ninguna impresora. " +
+            "1) Instala el driver de la térmica y verifica que aparezca en " +
+            "Configuración → Bluetooth y dispositivos → Impresoras. " +
+            "2) Imprime una página de prueba desde Windows. " +
+            "3) Deja QZ Tray abierto, permite este sitio en Site Manager y " +
+            "vuelve a pulsar «Detectar impresoras».",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () =>
+            setDataModal((p) => ({ ...p, isOpen: false })),
+        });
       }
       return list;
     } catch (err) {
@@ -3518,7 +3686,6 @@ export default function usePos() {
     charging,
     charge,
     lastSale,
-    lastPaymentLink,
     ticketOpen,
     setTicketOpen,
     openTicket,
@@ -3575,9 +3742,9 @@ export default function usePos() {
     openDetail,
     cancelReason,
     setCancelReason,
+    cancelPassword,
+    setCancelPassword,
     cancelSale,
-    confirmPayment,
-    retryPaymentLink,
     cancelling,
     lineTotal,
     cashOpen,

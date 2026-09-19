@@ -4,7 +4,8 @@ export type PosPaymentMethod =
   | "tarjeta_credito_sucursal"
   | "tarjeta_debito_sucursal"
   | "transferencia_bancaria"
-  | "openpay_link";
+  | "openpay_link"
+  | "otro";
 
 export type PosSaleStatus = "completed" | "cancelled" | "pending_payment";
 
@@ -98,10 +99,19 @@ export type PosProductHit = {
   score: number;
 };
 
-/** Sin stock vendible (todas las bodegas POS en 0, o global ≤ 0). */
+/** Sin stock vendible. Solo aplica a providerId=1 (el que sí descuenta DB). */
 export function isPosProductOutOfStock(
-  hit: Pick<PosProductHit, "stockGlobal" | "stocksByBranch" | "inStock">,
+  hit: Pick<
+    PosProductHit,
+    "stockGlobal" | "stocksByBranch" | "inStock" | "providerId"
+  >,
 ): boolean {
+  if (
+    hit.providerId != null &&
+    Number(hit.providerId) !== 1
+  ) {
+    return false;
+  }
   if (typeof hit.inStock === "boolean") return !hit.inStock;
   const stocks = hit.stocksByBranch || [];
   if (stocks.length > 0) {
@@ -141,6 +151,8 @@ export type PosCartLine = {
   isManual?: boolean;
   /** product = artículo; service = mantenimiento/revisión/etc. */
   manualKind?: "product" | "service";
+  /** Proveedor del catálogo; solo providerId=1 descuenta stock. */
+  providerId?: number | null;
 };
 
 export type PosProductSerial = {
@@ -170,7 +182,12 @@ export type PosPaymentLine = {
   reference: string;
 };
 
-/** Asienta pagos: el efectivo puede exceder (cambio); tarjeta/transferencia no. */
+/** Efectivo y «Otro» pueden exceder el total (cambio); tarjeta/transferencia no. */
+export function paymentAllowsChange(method: PosPaymentMethod | string): boolean {
+  return method === "efectivo_sucursal" || method === "otro";
+}
+
+/** Asienta pagos: efectivo/Otro pueden exceder (cambio); tarjeta/transferencia no. */
 export function settlePosPayments(
   total: number,
   payments: Array<{ method: PosPaymentMethod; amount: number | null }>,
@@ -181,7 +198,7 @@ export function settlePosPayments(
   for (const p of payments) {
     const amt = Number(p.amount) || 0;
     if (!Number.isFinite(amt) || amt < 0) continue;
-    if (p.method === "efectivo_sucursal") {
+    if (paymentAllowsChange(p.method)) {
       cashReceived = round(cashReceived + amt);
     } else {
       nonCashSum = round(nonCashSum + amt);
@@ -282,7 +299,30 @@ export const POS_PAYMENT_LABELS: Record<PosPaymentMethod, string> = {
   tarjeta_debito_sucursal: "Tarjeta de débito",
   transferencia_bancaria: "Transferencia bancaria",
   openpay_link: "Link de pago OpenPay",
+  otro: "Otro",
 };
+
+/** Etiqueta para UI / ticket / historial (Otro incluye el texto capturado). */
+export function formatPosPaymentLabel(
+  method: PosPaymentMethod | string,
+  reference?: string | null,
+): string {
+  if (method === "otro") {
+    const raw = String(reference || "").trim();
+    // Quitar metadatos Recibido/Cambio del label legible.
+    const detail = raw
+      .replace(/\s*·\s*Recibido\s+[\d.]+/gi, "")
+      .replace(/\s*·\s*Cambio\s+[\d.]+/gi, "")
+      .replace(/\s*Recibido\s+[\d.]+/gi, "")
+      .replace(/\s*Cambio\s+[\d.]+/gi, "")
+      .replace(/^\s*·\s*|\s*·\s*$/g, "")
+      .trim();
+    return detail ? `Otro: ${detail}` : "Otro";
+  }
+  return (
+    POS_PAYMENT_LABELS[method as PosPaymentMethod] || String(method || "")
+  );
+}
 
 /** Métodos disponibles al cobrar (sin OpenPay link ni legado). */
 export const POS_PAYMENT_OPTIONS: PosPaymentMethod[] = [
@@ -290,6 +330,7 @@ export const POS_PAYMENT_OPTIONS: PosPaymentMethod[] = [
   "tarjeta_credito_sucursal",
   "tarjeta_debito_sucursal",
   "transferencia_bancaria",
+  "otro",
 ];
 
 export const POS_PHONE_LADAS = [

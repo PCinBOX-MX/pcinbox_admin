@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPosFolio } from "../posFormat";
 import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
 import type { PosSale } from "../../interfaces/pos/pos.interface";
 import {
@@ -13,33 +14,21 @@ const LOGO =
 const ADDRESS =
   "Blvd. Juan Alonso de Torres Pte. No. 1917 Local 1 Col. Unión Comunitaria de León C.P. 37239 León, Gto., México";
 
-/** Límites para que la fila no crezca sin control y deforme el layout. */
-const LIMITS = {
-  upc: 28,
-  clave: 28,
-  description: 90,
-  serial: 40,
-  coverage: 48,
-  customer: 80,
-} as const;
-
-function clampText(value: string, max: number): string {
-  const raw = String(value || "").trim() || "—";
-  if (raw.length <= max) return raw;
-  return `${raw.slice(0, Math.max(1, max - 1))}…`;
-}
-
-/** Saltos suaves: @react-pdf no parte bien cadenas sin espacios. */
-function softBreak(value: string, every = 8): string {
-  const raw = String(value || "");
-  if (raw.length <= every) return raw;
-  return raw
-    .replace(new RegExp(`(.{1,${every}})`, "g"), "$1\u200B")
-    .replace(/\u200B$/, "");
-}
-
-function cellText(value: string, max: number, every: number): string {
-  return softBreak(clampText(value, max), every);
+/**
+ * @react-pdf no parte bien tokens sin espacios. Inserta ZWSP en corridas largas
+ * (sin truncar) para que el wrap natural muestre el texto completo.
+ */
+function softBreakFull(value: string, every = 14): string {
+  const raw = String(value ?? "").trim() || "—";
+  return raw.replace(/[^\s\u200B]{15,}/g, (token) => {
+    // Preferir cortes en - _ / .
+    const withHints = token.replace(/([-/_.])/g, "$1\u200B");
+    if (withHints.includes("\u200B")) return withHints;
+    return withHints.replace(
+      new RegExp(`(.{1,${every}})`, "g"),
+      "$1\u200B",
+    ).replace(/\u200B$/, "");
+  });
 }
 
 function money(n: number) {
@@ -154,10 +143,14 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
   });
 
   const rows = buildWarrantyPdfRows(sale);
+  const customerName = softBreakFull(
+    sale.customerName || "Público general",
+    28,
+  );
 
   return (
     <Document
-      title={`Hoja de Garantía ${sale.folio}`}
+      title={`Hoja de Garantía ${formatPosFolio(sale.folio)}`}
       author="PCinBOX"
       subject={`Garantía #${sale.idPosSale}`}
     >
@@ -180,7 +173,7 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
           </View>
           <View style={s.metaRow}>
             <Text style={s.metaLabel}>Folio venta:</Text>
-            <Text style={s.metaValue}>{sale.folio}</Text>
+            <Text style={s.metaValue}>{formatPosFolio(sale.folio)}</Text>
           </View>
           <View style={s.metaRow}>
             <Text style={s.metaLabel}>Fecha de compra:</Text>
@@ -192,13 +185,7 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
           </View>
           <View style={s.metaRow}>
             <Text style={s.metaLabel}>Cliente:</Text>
-            <Text style={s.metaValue}>
-              {cellText(
-                sale.customerName || "Público general",
-                LIMITS.customer,
-                40,
-              )}
-            </Text>
+            <Text style={s.metaValue}>{customerName}</Text>
           </View>
         </View>
 
@@ -219,7 +206,7 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
               Costo
             </Cell>
             <Cell colStyle={s.colTiempo} textStyle={[s.th, s.tdCenter]}>
-              Tiempo / cobertura
+              Cobertura
             </Cell>
             <Cell colStyle={s.colSerie} textStyle={s.th} last>
               Serie
@@ -227,38 +214,33 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
           </View>
 
           {rows.map((row) => (
-            <View
-              key={row.key}
-              style={s.tableRow}
-              wrap={false}
-              minPresenceAhead={36}
-            >
+            <View key={row.key} style={s.tableRow} minPresenceAhead={28}>
               <Cell colStyle={s.colUpc} textStyle={s.td}>
-                {cellText(row.upc, LIMITS.upc, 7)}
+                {softBreakFull(row.upc, 10)}
               </Cell>
               <Cell colStyle={s.colClave} textStyle={s.td}>
-                {cellText(row.clave, LIMITS.clave, 7)}
+                {softBreakFull(row.clave, 12)}
               </Cell>
               <Cell colStyle={s.colDesc} textStyle={s.td}>
-                {cellText(row.description, LIMITS.description, 16)}
+                {softBreakFull(row.description, 18)}
               </Cell>
               <Cell colStyle={s.colCosto} textStyle={[s.td, s.tdRight]}>
                 {row.cost}
               </Cell>
               <Cell colStyle={s.colTiempo} textStyle={[s.td, s.tdCenter]}>
-                {cellText(row.coverage, LIMITS.coverage, 12)}
+                {softBreakFull(row.coverage, 14)}
               </Cell>
               <Cell colStyle={s.colSerie} textStyle={s.td} last>
-                {cellText(row.serial, LIMITS.serial, 8)}
+                {softBreakFull(row.serial, 12)}
               </Cell>
             </View>
           ))}
         </View>
 
         <Text style={s.note}>
-          Si la columna «Tiempo / cobertura» indica «Según marca / servicio», el
-          trámite se realiza con el fabricante o su red autorizada conforme a
-          sus políticas. No se captura un plazo fijo en mostrador salvo que el
+          Si la columna «Cobertura» indica «Según marca / servicio», el trámite
+          se realiza con el fabricante o su red autorizada conforme a sus
+          políticas. No se captura un plazo fijo en mostrador salvo que el
           producto lo tenga definido en catálogo.
         </Text>
 

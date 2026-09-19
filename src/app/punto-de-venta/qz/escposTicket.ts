@@ -1,15 +1,17 @@
+import { formatPosFolio } from "../posFormat";
 import type { PosSale } from "../../interfaces/pos/pos.interface";
-import { POS_PAYMENT_LABELS } from "../../interfaces/pos/pos.interface";
-import { resolveTicketBranchLabel } from "../../interfaces/pos/posBranchDisplay";
+import { formatPosPaymentLabel } from "../../interfaces/pos/pos.interface";
 import type { QzDrawerDialect } from "./qzSettings";
 
 const ESC = "\x1B";
 const GS = "\x1D";
 const LF = "\x0A";
 
-/** Branding fijo del ticket POS (estilo comprobante proveedor). */
-export const POS_TICKET_BRAND = "PCinBOX";
-export const POS_TICKET_SELLER = "PCinBOX";
+/** Branding fijo del ticket POS. */
+export const POS_TICKET_BRAND = "pcinbox";
+/** Fallback tipográfico si no se imprimió el logo. */
+export const POS_TICKET_BRAND_FALLBACK = "pcinbox";
+export const POS_TICKET_SELLER = "pcinbox";
 export const POS_TICKET_LOGO_URL =
   "https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587";
 export const POS_TICKET_WEB = "www.pcinbox.com.mx";
@@ -17,13 +19,16 @@ export const POS_TICKET_ADDRESS =
   "Blvd. Juan Alonso de Torres Pte. No. 1917 Local 1 Col. Union Comunitaria de Leon C.P. 37239 Leon, Gto.";
 /** Leyenda fija al pie del ticket (térmica y HTML). */
 export const POS_TICKET_DISCLAIMER_LINES = [
-  "PCinBOX no se hace responsable si usted eligio mal el producto o por incompatibilidad con su equipo.",
+  "pcinbox no se hace responsable si usted eligio mal el producto o por incompatibilidad con su equipo.",
   "Es responsabilidad del cliente revisar lo que se entrega y hacer reclamo u observacion en su momento.",
   "No hay devolucion ni cambios de productos. Cualquier devolucion justificada genera el 20% de comision.",
 ] as const;
+/** Aceptación de términos, impresa justo antes de www.pcinbox.com.mx */
+export const POS_TICKET_TERMS_LINE =
+  "Acepto terminos y condiciones de pcinbox en mantenimiento preventivo y correctivo";
 
 /** @deprecated Usar resolveTicketBranchLabel; se mantiene por compat. */
-export const POS_TICKET_BRANCH = "PCinBOX-León";
+export const POS_TICKET_BRANCH = "pcinbox-Leon";
 
 function isMeaningfulCode(value?: string | null): boolean {
   const v = String(value || "").trim();
@@ -97,7 +102,7 @@ function parseCashMeta(sale: PosSale): { pago: number; cambio: number } {
   let hasCashReceived = false;
   let cambio = 0;
   for (const p of sale.payments || []) {
-    if (p.method === "efectivo_sucursal") {
+    if (p.method === "efectivo_sucursal" || p.method === "otro") {
       const ref = String(p.reference || "");
       const rec = ref.match(/Recibido\s+([\d.]+)/i);
       const cam = ref.match(/Cambio\s+([\d.]+)/i);
@@ -123,6 +128,45 @@ function parseCashMeta(sale: PosSale): { pago: number; cambio: number } {
   };
 }
 
+const TICKET_METHOD_SHORT: Record<string, string> = {
+  efectivo_sucursal: "Efectivo",
+  tarjeta_sucursal: "Tarjeta",
+  tarjeta_credito_sucursal: "Tarjeta credito",
+  tarjeta_debito_sucursal: "Tarjeta debito",
+  transferencia_bancaria: "Transferencia",
+  openpay_link: "OpenPay",
+  otro: "Otro",
+};
+
+/** Monto a mostrar en detalle de pago: lo recibido, no solo lo aplicado a la venta. */
+function paymentDisplayAmount(p: {
+  method: string;
+  amount: number;
+  reference?: string | null;
+}): { label: string; amount: number; note: string | null } {
+  const ref = String(p.reference || "").trim();
+  const rec = ref.match(/Recibido\s+([\d.]+)/i);
+  const cam = ref.match(/Cambio\s+([\d.]+)/i);
+  let label =
+    TICKET_METHOD_SHORT[p.method] ||
+    formatPosPaymentLabel(p.method, p.reference);
+  if (p.method === "otro") {
+    label = formatPosPaymentLabel(p.method, p.reference);
+  }
+  if (rec) {
+    const received = Number(rec[1]) || 0;
+    const note = cam
+      ? `Cambio ${money(Number(cam[1]) || 0)}`
+      : null;
+    return { label, amount: received, note };
+  }
+  // Sin meta de recibido: no reimprimir basura Recibido/Cambio en la etiqueta.
+  if (p.method !== "otro" && ref && !/Recibido|Cambio/i.test(ref)) {
+    return { label: `${label} (${ref})`, amount: Number(p.amount) || 0, note: null };
+  }
+  return { label, amount: Number(p.amount) || 0, note: null };
+}
+
 /** Pulse cajón: Epson/compatible DLE DC4; Star Line Mode ESC p. */
 export function drawerKickBytes(dialect: QzDrawerDialect): string {
   if (dialect === "star") {
@@ -131,13 +175,19 @@ export function drawerKickBytes(dialect: QzDrawerDialect): string {
   return "\x10\x14\x01\x00\x05";
 }
 
+function formatTicketFolio(folio: string | null | undefined): string {
+  return formatPosFolio(folio);
+}
+
 export function buildEscPosTicket(
   sale: PosSale,
   opts?: {
     openDrawer?: boolean;
     drawerDialect?: QzDrawerDialect;
-    /** Si el logo ya se imprimió como imagen QZ, omitir marca tipográfica grande. */
+    /** Si el logo ya se imprimió como imagen QZ, tipografía de marca más chica. */
     logoPrinted?: boolean;
+    /** Raster ESC/POS del logo (se inserta tras el init). */
+    logoRaster?: string | null;
   },
 ): string {
   const width = 42;
@@ -147,35 +197,32 @@ export function buildEscPosTicket(
     (s, it) => s + Number(it.quantity || 0),
     0,
   );
-  const headerBranch = resolveTicketBranchLabel({
-    itemBranchName: (sale.items || []).find((it) => it.branchName)?.branchName,
-    saleBranchName: sale.branchName,
-  });
 
   parts.push(ESC + "@"); // init
+  parts.push(LF + LF + LF);
   parts.push(ESC + "a" + "\x01"); // center
 
-  if (!opts?.logoPrinted) {
-    parts.push(ESC + "E" + "\x01");
-    parts.push(GS + "!" + "\x11"); // double width+height
-    parts.push(POS_TICKET_BRAND + LF);
-    parts.push(GS + "!" + "\x00");
-    parts.push(ESC + "E" + "\x00");
-  } else {
-    parts.push(ESC + "E" + "\x01");
-    parts.push(POS_TICKET_BRAND + LF);
-    parts.push(ESC + "E" + "\x00");
+  if (opts?.logoRaster) {
+    parts.push(opts.logoRaster);
   }
 
+  // Marca siempre en minúsculas (además del logo si hubo).
+  parts.push(ESC + "E" + "\x01");
+  if (!opts?.logoRaster && !opts?.logoPrinted) {
+    parts.push(GS + "!" + "\x11");
+  }
+  parts.push(POS_TICKET_BRAND_FALLBACK + LF);
+  parts.push(GS + "!" + "\x00");
+  parts.push(ESC + "E" + "\x00");
+
   parts.push("TICKET DE VENTA" + LF);
-  parts.push(headerBranch + LF);
   for (const w of wrap(POS_TICKET_ADDRESS, width)) {
     parts.push(w + LF);
   }
   parts.push(POS_TICKET_WEB + LF);
   parts.push(ESC + "a" + "\x00"); // left
   parts.push("-".repeat(width) + LF);
-  parts.push(`Numero Venta: ${sale.folio}` + LF);
+  parts.push(`Folio: ${formatTicketFolio(sale.folio)}` + LF);
   if (sale.status && sale.status !== "completed") {
     parts.push(
       `ESTADO: ${
@@ -202,10 +249,6 @@ export function buildEscPosTicket(
   parts.push(centerDashed("PRODUCTOS", width) + LF);
 
   for (const it of sale.items || []) {
-    const itemBranch = resolveTicketBranchLabel({
-      itemBranchName: it.branchName,
-      saleBranchName: sale.branchName,
-    });
     for (const w of wrapLimited(it.productName, width, 4)) {
       parts.push(w + LF);
     }
@@ -215,11 +258,16 @@ export function buildEscPosTicket(
     if (isMeaningfulCode(it.productUpc)) {
       parts.push(`UPC: ${it.productUpc}` + LF);
     }
-    parts.push(`Bodega: ${itemBranch}` + LF);
-    parts.push(`Cantidad: ${it.quantity}` + LF);
-    parts.push(
-      line(width, money(it.unitPrice), money(it.lineTotal)) + LF,
-    );
+    const qty = Number(it.quantity) || 0;
+    const unit = Number(it.unitPrice) || 0;
+    const lineTotal = Number(it.lineTotal) || 0;
+    if (qty > 1) {
+      parts.push(`Cant: ${qty} x ${money(unit)}` + LF);
+    } else {
+      parts.push(`Cantidad: ${qty || 1}` + LF);
+    }
+    // Un solo importe por línea (evita repetir el mismo precio 2–3 veces).
+    parts.push(line(width, "Importe:", money(lineTotal)) + LF);
     if (it.serials?.length) {
       parts.push(
         `S/N: ${it.serials.map((s) => s.serialNumber).join(", ")}` + LF,
@@ -242,8 +290,11 @@ export function buildEscPosTicket(
     parts.push(ESC + "a" + "\x00");
     parts.push("Detalle de pago:" + LF);
     for (const p of sale.payments || []) {
-      const label = POS_PAYMENT_LABELS[p.method] || p.method;
-      parts.push(line(width, label, money(p.amount)) + LF);
+      const disp = paymentDisplayAmount(p);
+      parts.push(line(width, disp.label, money(disp.amount)) + LF);
+      if (disp.note) {
+        parts.push(`  ${disp.note}` + LF);
+      }
     }
   }
   const notes = String(sale.notes || "").trim();
@@ -269,10 +320,14 @@ export function buildEscPosTicket(
   }
   parts.push(LF);
   parts.push(ESC + "a" + "\x01");
+  for (const w of wrap(POS_TICKET_TERMS_LINE, width)) {
+    parts.push(w + LF);
+  }
   parts.push(POS_TICKET_WEB + LF);
-  parts.push(LF + LF + LF);
-  parts.push(ESC + "i");
-  parts.push(GS + "V" + "\x01");
+  // Margen inferior antes del corte automático.
+  parts.push(LF + LF + LF + LF + LF + LF);
+  parts.push(ESC + "d" + "\x06"); // feed extra lines
+  parts.push(GS + "V" + "\x41" + "\x10"); // feed + cut (Epson/compat)
 
   if (opts?.openDrawer) {
     parts.push(drawerKickBytes(opts.drawerDialect || "epson"));

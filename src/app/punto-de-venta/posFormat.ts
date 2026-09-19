@@ -1,5 +1,12 @@
 /** Formato de números solo UI (no cambia payloads al API). */
 
+/** Folio de venta para UI/ticket: sin prefijo PV-. */
+export function formatPosFolio(folio: string | null | undefined): string {
+  return String(folio || "")
+    .trim()
+    .replace(/^PV-/i, "");
+}
+
 export function formatMoney(n: number | null | undefined): string {
   const v = Number(n);
   return (Number.isFinite(v) ? v : 0).toLocaleString("en-US", {

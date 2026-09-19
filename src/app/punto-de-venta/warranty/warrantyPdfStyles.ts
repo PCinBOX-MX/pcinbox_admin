@@ -105,10 +105,9 @@ export const warrantyPdfStyles = StyleSheet.create({
     alignItems: "stretch",
   },
   cell: {
-    paddingVertical: 4,
-    paddingHorizontal: 3,
+    paddingVertical: 5,
+    paddingHorizontal: 4,
     justifyContent: "flex-start",
-    overflow: "hidden",
   },
   cellBorder: {
     borderRightWidth: 1,
@@ -124,7 +123,7 @@ export const warrantyPdfStyles = StyleSheet.create({
   td: {
     fontSize: 7,
     color: C.ink,
-    lineHeight: 1.2,
+    lineHeight: 1.25,
     maxWidth: "100%",
   },
   tdRight: {
@@ -133,13 +132,13 @@ export const warrantyPdfStyles = StyleSheet.create({
   tdCenter: {
     textAlign: "center",
   },
-  // 65+70+135+55+105+110 = 540
-  colUpc: { width: 65 },
-  colClave: { width: 70 },
-  colDesc: { width: 135 },
-  colCosto: { width: 55 },
-  colTiempo: { width: 105 },
-  colSerie: { width: 110 },
+  // 70+100+180+58+62+70 = 540 — más ancho a Clave y Descripción
+  colUpc: { width: 70 },
+  colClave: { width: 100 },
+  colDesc: { width: 180 },
+  colCosto: { width: 58 },
+  colTiempo: { width: 62 },
+  colSerie: { width: 70 },
   note: {
     marginTop: 10,
     fontSize: 8,
