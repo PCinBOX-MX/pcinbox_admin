@@ -90,6 +90,9 @@ export type PosProductHit = {
   image_url: unknown;
   requiresSerial?: boolean;
   warrantyMonths?: number | null;
+  warrantyMode?: string | null;
+  /** PC gamer / estaciones (provider 1 → 1 año fijo). */
+  isPC?: boolean;
   providerId?: number;
   providerName?: string | null;
   stocksByBranch?: PosBranchStock[];
@@ -146,6 +149,12 @@ export type PosCartLine = {
   imageUrl?: string | null;
   requiresSerial: boolean;
   warrantyMonths: number | null;
+  /** months | none | service_center — solo editable en componentes PCinBOX */
+  warrantyMode?: string | null;
+  /** months | years cuando warrantyMode=months */
+  warrantyUnit?: "months" | "years" | null;
+  /** PC gamer / estación */
+  isPC?: boolean;
   serials: string[];
   /** Captura libre (no está en catálogo / no descuenta stock). */
   isManual?: boolean;
@@ -170,6 +179,7 @@ export type PosProductSerial = {
   customerName: string | null;
   soldAt: string | null;
   warrantyMonths: number | null;
+  warrantyMode?: string | null;
   warrantyExpiresAt: string | null;
   notes: string | null;
 };
@@ -273,6 +283,7 @@ export type PosSale = {
       serialNumber: string;
       status: string;
       warrantyMonths: number | null;
+      warrantyMode?: string | null;
       warrantyExpiresAt: string | null;
     }>;
   }>;

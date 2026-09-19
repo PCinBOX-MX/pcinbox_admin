@@ -5,7 +5,7 @@ import { useTheContext } from "@/app/hooks/global.hook";
 import useProtected from "@/app/hooks/protectedRoute.hook";
 import { usePathname } from "next/navigation";
 import AdminSidebar from "../../layout/AdminSidebar";
-import React, { useEffect } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import SpinnerComponent from "../spinner/Spinner";
 import useProveedores from "@/app/proveedores/useProveedores";
 import useDashboard from "@/app/dashboard/useDashboard";
@@ -13,6 +13,12 @@ import { ProductsI } from "@/app/interfaces/products/products.interface";
 import { isAuthPathname } from "@/app/utils/authRoutes";
 import { orderIdsMatch } from "@/app/utils/orderIdMatch";
 import { SalesI } from "@/app/interfaces/sales/sales.interface";
+import {
+  getPageScrollY,
+  readAdminScrollY,
+  startAdminScrollRestore,
+  writeAdminScrollY,
+} from "@/app/shared/utils/adminScrollMemory";
 
 export default function AppContent({
   children,
@@ -36,6 +42,85 @@ export default function AppContent({
   const { handleGetAllSales } = useDashboard();
 
   useProtected(pathName);
+
+  // Scroll: el navegador en SPA/React suele perder Y en F5 por el shell corto.
+  // Guardamos Y y lo reaplicamos cuando la página ya tiene altura.
+  const restoreLockRef = useRef(true);
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if ("scrollRestoration" in window.history) {
+        // Manual: nosotros restauramos (auto falla con contenido que crece al hidratar).
+        window.history.scrollRestoration = "manual";
+      }
+    } catch {
+      /* ignore */
+    }
+
+    restoreLockRef.current = true;
+    const stop = startAdminScrollRestore(pathName);
+    // Mantener el lock mientras corre el restore (hasta ~8s) + margen.
+    const unlock = window.setTimeout(() => {
+      restoreLockRef.current = false;
+    }, 8500);
+    return () => {
+      stop();
+      window.clearTimeout(unlock);
+      restoreLockRef.current = false;
+    };
+  }, [pathName]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let lastY = Math.max(getPageScrollY(), readAdminScrollY(pathName));
+    let raf = 0;
+
+    const persist = (y: number, allowClear: boolean) => {
+      if (restoreLockRef.current && y <= 12) return;
+      writeAdminScrollY(y, { allowClear, pathname: pathName });
+    };
+
+    const onScroll = () => {
+      const y = getPageScrollY();
+      lastY = y;
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        // allowClear solo si el usuario realmente está arriba y ya pasó el restore.
+        persist(lastY, !restoreLockRef.current && lastY <= 12);
+      });
+    };
+
+    const flush = () => {
+      const y = getPageScrollY();
+      const out = y > 12 ? y : lastY > 12 ? lastY : y;
+      persist(out, false);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("scroll", onScroll, {
+      passive: true,
+      capture: true,
+    });
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      flush();
+      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [pathName]);
 
   useEffect(() => {
     const socket = socketPagos.current;

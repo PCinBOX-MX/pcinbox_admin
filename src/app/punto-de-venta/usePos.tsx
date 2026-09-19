@@ -40,6 +40,7 @@ import { useQueryParams } from "../hooks/useQueryParams";
 import WarrantySheetPdf, {
   buildWarrantyPdfRows,
 } from "./warranty/WarrantySheetPdf";
+import { cartWarrantyToPayload, posWarrantySelectable } from "./posWarranty";
 
 const BRANCH_STORAGE_KEY = "pcinbox-pos-branchId";
 const CASH_HINT_KEY = "pcinbox-pos-cash-hint";
@@ -1305,7 +1306,18 @@ export default function usePos() {
             stocksByBranch: stocks,
             imageUrl: firstImage(product.image_url),
             requiresSerial: Boolean(product.requiresSerial),
-            warrantyMonths: product.warrantyMonths ?? null,
+            warrantyMonths:
+              Number(product.providerId) === 2 ||
+              (Number(product.providerId) === 1 && Boolean(product.isPC))
+                ? 12
+                : product.warrantyMonths ?? null,
+            warrantyMode:
+              Number(product.providerId) === 2 ||
+              (Number(product.providerId) === 1 && Boolean(product.isPC))
+                ? "months"
+                : product.warrantyMode ?? null,
+            warrantyUnit: "months" as const,
+            isPC: Boolean(product.isPC),
             serials: [""],
             isManual: false,
             providerId: product.providerId ?? null,
@@ -1692,7 +1704,18 @@ export default function usePos() {
           stocksByBranch: stocks,
           imageUrl: firstImage(product.image_url),
           requiresSerial: Boolean(product.requiresSerial),
-          warrantyMonths: product.warrantyMonths ?? null,
+          warrantyMonths:
+            Number(product.providerId) === 2 ||
+            (Number(product.providerId) === 1 && Boolean(product.isPC))
+              ? 12
+              : product.warrantyMonths ?? null,
+          warrantyMode:
+            Number(product.providerId) === 2 ||
+            (Number(product.providerId) === 1 && Boolean(product.isPC))
+              ? "months"
+              : product.warrantyMode ?? null,
+          warrantyUnit: "months" as const,
+          isPC: Boolean(product.isPC),
           serials: Array(quantity).fill(""),
           isManual: false,
           providerId: product.providerId ?? null,
@@ -1920,7 +1943,13 @@ export default function usePos() {
             warrantyMonths:
               l.isManual && l.manualKind !== "service"
                 ? l.warrantyMonths
-                : undefined,
+                : cartWarrantyToPayload(l).warrantyMonths,
+            warrantyMode: l.isManual
+              ? undefined
+              : cartWarrantyToPayload(l).warrantyMode,
+            warrantyUnit: l.isManual
+              ? undefined
+              : cartWarrantyToPayload(l).warrantyUnit,
             requiresSerial:
               l.isManual && l.manualKind !== "service"
                 ? Boolean(l.requiresSerial)
@@ -2178,6 +2207,47 @@ export default function usePos() {
           isOpen: true,
           title: "Faltan números de serie",
           content: `«${line.name}» requiere ${line.quantity} número(s) de serie.`,
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+    }
+
+    for (const line of cart) {
+      if (
+        !posWarrantySelectable({
+          providerId: line.providerId,
+          isPC: line.isPC,
+          isManual: line.isManual,
+        })
+      ) {
+        continue;
+      }
+      const mode = String(line.warrantyMode || "").trim();
+      if (!mode) {
+        setDataModal({
+          isOpen: true,
+          title: "Garantía requerida",
+          content: `Elige la garantía de «${line.name}» (meses, años, no aplica o centro de servicio).`,
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+      if (
+        mode === "months" &&
+        (!(Number(line.warrantyMonths) > 0) ||
+          !line.warrantyUnit)
+      ) {
+        setDataModal({
+          isOpen: true,
+          title: "Duración de garantía",
+          content: `Indica cuántos meses o años de garantía para «${line.name}».`,
           type: "warning",
           showActions: true,
           onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),

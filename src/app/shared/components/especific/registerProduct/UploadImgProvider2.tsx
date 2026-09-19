@@ -18,6 +18,12 @@ import {
 } from "@/app/constants/productImages.constants";
 import ProductImagesField from "../productImages/ProductImagesField";
 import StickyFormAction from "../productImages/StickyFormAction";
+import CatalogWarrantyFields from "../CatalogWarrantyFields";
+import {
+  appendCatalogWarrantyToFormData,
+  CatalogWarrantyState,
+  validateCatalogWarranty,
+} from "@/app/shared/utils/catalogWarranty";
 import {
   applyCronStockUpdate,
   normalizeCronStockPayload,
@@ -50,6 +56,10 @@ const UploadImgProductProvider2 = ({
   const [liveProduct, setLiveProduct] = useState(dataProductProp);
 
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [warrantyState, setWarrantyState] = useState<CatalogWarrantyState>({
+    choice: "",
+    amount: "",
+  });
 
   useEffect(() => {
     setLiveProduct(dataProductProp);
@@ -135,6 +145,13 @@ const UploadImgProductProvider2 = ({
           }}
         />
       )}
+
+      <CatalogWarrantyFields
+        providerId={dataProductProp?.providerId}
+        isPC={false}
+        value={warrantyState}
+        onChange={setWarrantyState}
+      />
 
       <ProductImagesField
         sectionRef={imageSectionRef}
@@ -288,6 +305,25 @@ const UploadImgProductProvider2 = ({
               }
               setImageError(null);
 
+              const warrantyError = validateCatalogWarranty(warrantyState, {
+                providerId: dataProductProp.providerId,
+                isPC: false,
+              });
+              if (warrantyError) {
+                setDataModal({
+                  isOpen: true,
+                  type: "error",
+                  title: "Garantía",
+                  content: warrantyError,
+                  showActions: true,
+                  onClose: () =>
+                    setDataModal((prev) => ({ ...prev, isOpen: false })),
+                  onConfirm: () =>
+                    setDataModal((prev) => ({ ...prev, isOpen: false })),
+                });
+                return;
+              }
+
               let parsed;
 
               if (bulkText && bulkText.trim().length > 0) {
@@ -394,6 +430,11 @@ const UploadImgProductProvider2 = ({
                 "peso",
                 catalogProduct?.peso?.toString() ?? "null",
               );
+
+              appendCatalogWarrantyToFormData(formData, warrantyState, {
+                providerId: catalogProduct.providerId,
+                isPC: false,
+              });
 
               files.forEach((file) => formData.append("files", file));
 

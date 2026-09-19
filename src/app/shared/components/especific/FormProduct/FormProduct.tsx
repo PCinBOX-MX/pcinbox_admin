@@ -4,6 +4,13 @@ import { useTheContext } from "@/app/hooks/global.hook";
 import { providerUsesProfitMargin } from "@/app/constants/providers.constants";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
+import CatalogWarrantyFields from "../CatalogWarrantyFields";
+import {
+  appendCatalogWarrantyToFormData,
+  CatalogWarrantyState,
+  validateCatalogWarranty,
+  warrantyStateFromProduct,
+} from "@/app/shared/utils/catalogWarranty";
 import {
   Autocomplete,
   Box,
@@ -121,6 +128,12 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const [bulkText, setBulkText] = useState(() =>
     caracteristicasToTextarea(initialCaracs, {
       stripLicenseControlled: productIsLicense,
+    }),
+  );
+  const [warrantyState, setWarrantyState] = useState<CatalogWarrantyState>(() =>
+    warrantyStateFromProduct({
+      warrantyMode: dataProductProp.warrantyMode,
+      warrantyMonths: dataProductProp.warrantyMonths,
     }),
   );
 
@@ -257,6 +270,28 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         formData.append("licenseType", licenseFields.licenseType);
       }
       formData.append("caracteristicas", JSON.stringify(caracteristicas));
+
+      const warrantyError = validateCatalogWarranty(warrantyState, {
+        providerId,
+        isPC: productIsPc,
+      });
+      if (warrantyError) {
+        setDataModal({
+          isOpen: true,
+          type: "error",
+          content: warrantyError,
+          title: "Garantía",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        setLoadingUpdateProduct(false);
+        return;
+      }
+      appendCatalogWarrantyToFormData(formData, warrantyState, {
+        providerId,
+        isPC: productIsPc,
+      });
 
       const initialUrls = initialImageUrlsRef.current;
       const imagesChanged =
@@ -692,6 +727,28 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           />
         )}
       </div>
+
+      <CatalogWarrantyFields
+        providerId={dataProductProp?.providerId}
+        isPC={productIsPc}
+        value={warrantyState}
+        onChange={(next) => {
+          setWarrantyState(next);
+          updateCurrentProduct((item) => ({
+            ...item,
+            warrantyMode:
+              next.choice === "none" || next.choice === "service_center"
+                ? next.choice
+                : next.choice
+                  ? "months"
+                  : null,
+            warrantyMonths:
+              next.choice === "months" || next.choice === "years"
+                ? Number(next.amount) || null
+                : null,
+          }));
+        }}
+      />
 
       {productIsLicense && (
         <div

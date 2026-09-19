@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CircularProgress,
@@ -51,12 +51,9 @@ import { formatPosBranchUiLabel } from "../interfaces/pos/posBranchDisplay";
 import usePos from "./usePos";
 import { formatMoney, formatPosFolio, formatQty, moneyToWordsEsMx } from "./posFormat";
 import {
-  getMaxWindowScrollY,
-  getWindowScrollY,
-  readPosScrollY,
-  setWindowScrollY,
-  writePosScrollY,
-} from "./posScrollMemory";
+  posWarrantySelectable,
+  warrantyCoverageLabel,
+} from "./posWarranty";
 
 import styles from "./punto-de-venta.module.css";
 
@@ -324,9 +321,6 @@ function PosNumberField({
   );
 }
 
-/** Evita que el guardado pise el Y mientras corre el restore. */
-let posScrollRestoreLock = false;
-
 export default function PuntoDeVentaPage() {
   const { can, hydrated } = usePermissions();
   const pos = usePos();
@@ -354,167 +348,7 @@ export default function PuntoDeVentaPage() {
     setClientReady(true);
   }, []);
 
-  // Restore PRIMERO (useLayoutEffect): lock antes de que el saver pueda escribir 0.
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      if ("scrollRestoration" in window.history) {
-        window.history.scrollRestoration = "manual";
-      }
-    } catch {
-      /* ignore */
-    }
-
-    const savedY = readPosScrollY();
-    if (savedY <= 0) return;
-
-    let stopped = false;
-    let stableHits = 0;
-    let intervalId: number | undefined;
-    let resizeObserver: ResizeObserver | undefined;
-    const timers: number[] = [];
-    posScrollRestoreLock = true;
-
-    const stop = () => {
-      if (stopped) return;
-      stopped = true;
-      posScrollRestoreLock = false;
-      timers.forEach((id) => window.clearTimeout(id));
-      timers.length = 0;
-      if (intervalId) window.clearInterval(intervalId);
-      intervalId = undefined;
-      resizeObserver?.disconnect();
-      resizeObserver = undefined;
-      writePosScrollY(Math.max(getWindowScrollY(), savedY), { floor: true });
-    };
-
-    const tryRestore = () => {
-      if (stopped) return;
-      const targetSaved = Math.max(savedY, readPosScrollY());
-      const maxScroll = getMaxWindowScrollY();
-      if (maxScroll < 8) {
-        stableHits = 0;
-        return;
-      }
-      const target = Math.min(targetSaved, maxScroll);
-      if (Math.abs(getWindowScrollY() - target) > 6) {
-        setWindowScrollY(target);
-        stableHits = 0;
-        return;
-      }
-      stableHits += 1;
-      if (maxScroll + 40 >= targetSaved && stableHits >= 10) stop();
-    };
-
-    tryRestore();
-    intervalId = window.setInterval(tryRestore, 50);
-    for (const ms of [
-      0, 16, 50, 100, 200, 400, 700, 1100, 1600, 2200, 3000, 4500, 6500, 9000,
-    ]) {
-      timers.push(window.setTimeout(tryRestore, ms));
-    }
-    timers.push(window.setTimeout(stop, 10000));
-
-    try {
-      resizeObserver = new ResizeObserver(() => tryRestore());
-      resizeObserver.observe(document.documentElement);
-      if (document.body) resizeObserver.observe(document.body);
-    } catch {
-      /* ignore */
-    }
-
-    // Cuando el POS real monta, observar también su root.
-    const rootWatch = window.setInterval(() => {
-      const root = document.querySelector(".pos-page-root");
-      if (root && resizeObserver) {
-        try {
-          resizeObserver.observe(root);
-        } catch {
-          /* ignore */
-        }
-        window.clearInterval(rootWatch);
-      }
-    }, 100);
-    timers.push(rootWatch);
-
-    return () => stop();
-  }, []);
-
-  // Guardar scroll (después del restore layout). Nunca pisa Y con 0 en boot.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Si aún hay Y pendiente, mantener lock hasta que el restore lo suelte.
-    if (readPosScrollY() > 0 && getWindowScrollY() < readPosScrollY() - 40) {
-      posScrollRestoreLock = true;
-    }
-
-    const lastYRef = { current: Math.max(getWindowScrollY(), readPosScrollY()) };
-
-    let raf = 0;
-    const onScroll = () => {
-      const y = getWindowScrollY();
-      if (posScrollRestoreLock) {
-        lastYRef.current = Math.max(lastYRef.current, y);
-        return;
-      }
-      lastYRef.current = y;
-      if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        writePosScrollY(lastYRef.current, { allowClear: true });
-      });
-    };
-
-    const flush = () => {
-      const y = getWindowScrollY();
-      const out = y > 8 ? y : Math.max(lastYRef.current, readPosScrollY());
-      if (out > 0) writePosScrollY(out, { floor: true });
-    };
-
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") flush();
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    document.addEventListener("scroll", onScroll, {
-      passive: true,
-      capture: true,
-    });
-    window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      if (raf) window.cancelAnimationFrame(raf);
-      flush();
-      window.removeEventListener("scroll", onScroll);
-      document.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("pagehide", flush);
-      window.removeEventListener("beforeunload", flush);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, []);
-
-  // Re-aplicar cuando el POS deja el shell de loading.
-  useLayoutEffect(() => {
-    if (!clientReady || typeof window === "undefined") return;
-    const savedY = readPosScrollY();
-    if (savedY <= 0) return;
-
-    const apply = () => {
-      const max = getMaxWindowScrollY();
-      if (max < 8) return;
-      setWindowScrollY(Math.min(readPosScrollY() || savedY, max));
-    };
-
-    apply();
-    const timers = [50, 200, 600, 1200, 2000].map((ms) =>
-      window.setTimeout(apply, ms),
-    );
-    return () => timers.forEach((id) => window.clearTimeout(id));
-  }, [clientReady]);
+  // Scroll de página (F5): lo maneja AppContent + adminScrollMemory.
 
   useEffect(() => {
     const sentinel = posTopSentinelRef.current;
@@ -1719,6 +1553,107 @@ export default function PuntoDeVentaPage() {
                               </button>
                             ) : null}
                           </div>
+                          {posWarrantySelectable({
+                            providerId: line.providerId,
+                            isPC: line.isPC,
+                            isManual: line.isManual,
+                          }) ? (
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 8,
+                                marginBottom: 10,
+                              }}
+                            >
+                              <TextField
+                                select
+                                size="small"
+                                fullWidth
+                                label="Garantía"
+                                value={
+                                  line.warrantyMode === "none"
+                                    ? "none"
+                                    : line.warrantyMode === "service_center"
+                                      ? "service_center"
+                                      : line.warrantyMode === "months"
+                                        ? line.warrantyUnit === "years"
+                                          ? "years"
+                                          : "months"
+                                        : ""
+                                }
+                                onChange={(e) => {
+                                  const mode = e.target.value;
+                                  if (
+                                    mode === "none" ||
+                                    mode === "service_center"
+                                  ) {
+                                    pos.updateLine(line.key, {
+                                      warrantyMode: mode,
+                                      warrantyMonths: null,
+                                      warrantyUnit: null,
+                                    });
+                                    return;
+                                  }
+                                  pos.updateLine(line.key, {
+                                    warrantyMode: "months",
+                                    warrantyUnit:
+                                      mode === "years" ? "years" : "months",
+                                    warrantyMonths:
+                                      line.warrantyMonths &&
+                                      line.warrantyMonths > 0
+                                        ? line.warrantyMonths
+                                        : mode === "years"
+                                          ? 1
+                                          : 12,
+                                  });
+                                }}
+                                sx={fieldSx}
+                              >
+                                <MenuItem value="">Elegir…</MenuItem>
+                                <MenuItem value="months">Meses</MenuItem>
+                                <MenuItem value="years">Años</MenuItem>
+                                <MenuItem value="none">No aplica</MenuItem>
+                                <MenuItem value="service_center">
+                                  Centro de servicio
+                                </MenuItem>
+                              </TextField>
+                              {line.warrantyMode === "months" ? (
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  type="number"
+                                  label={
+                                    line.warrantyUnit === "years"
+                                      ? "Cantidad (años)"
+                                      : "Cantidad (meses)"
+                                  }
+                                  value={line.warrantyMonths ?? ""}
+                                  onChange={(e) => {
+                                    const n = parseInt(e.target.value, 10);
+                                    pos.updateLine(line.key, {
+                                      warrantyMonths: Number.isFinite(n)
+                                        ? n
+                                        : null,
+                                    });
+                                  }}
+                                  inputProps={{ min: 1, step: 1 }}
+                                  sx={fieldSx}
+                                />
+                              ) : null}
+                            </div>
+                          ) : line.warrantyMonths != null &&
+                            Number(line.warrantyMonths) > 0 ? (
+                            <p
+                              className={styles.hitMeta}
+                              style={{ marginBottom: 8 }}
+                            >
+                              Garantía:{" "}
+                              {warrantyCoverageLabel(
+                                line.warrantyMode,
+                                line.warrantyMonths,
+                              )}
+                            </p>
+                          ) : null}
                           {Array.from({ length: line.quantity }).map((_, i) => (
                             <TextField
                               key={`${line.key}-sn-${i}`}
@@ -3285,21 +3220,10 @@ export default function PuntoDeVentaPage() {
                               {it.serials && it.serials.length > 0 ? (
                                 <div className={styles.detailSerialList}>
                                   {it.serials.map((s) => {
-                                    const months =
-                                      s.warrantyMonths != null &&
-                                      Number(s.warrantyMonths) > 0
-                                        ? Number(s.warrantyMonths)
-                                        : null;
-                                    const coverage =
-                                      months == null
-                                        ? "Según marca / centro de servicio"
-                                        : months >= 12 && months % 12 === 0
-                                          ? `${months / 12} año${
-                                              months / 12 === 1 ? "" : "s"
-                                            }`
-                                          : `${months} mes${
-                                              months === 1 ? "" : "es"
-                                            }`;
+                                    const coverage = warrantyCoverageLabel(
+                                      s.warrantyMode,
+                                      s.warrantyMonths,
+                                    );
                                     const sn = String(s.serialNumber || "");
                                     return (
                                       <div

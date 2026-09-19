@@ -7,6 +7,7 @@ import {
   formatPcinboxBranchDisplayName,
   formatPosBranchUiLabel,
 } from "../../interfaces/pos/posBranchDisplay";
+import { warrantyCoverageLabel } from "../posWarranty";
 import { warrantyPdfStyles as s } from "./warrantyPdfStyles";
 
 const LOGO =
@@ -47,16 +48,11 @@ function meaningfulCode(value?: string | null) {
   return v;
 }
 
-function coverageLabel(months: number | null | undefined) {
-  if (months == null || Number(months) <= 0) {
-    return "Según marca / servicio";
-  }
-  const m = Number(months);
-  if (m >= 12 && m % 12 === 0) {
-    const y = m / 12;
-    return `${y} año${y === 1 ? "" : "s"}`;
-  }
-  return `${m} mes${m === 1 ? "" : "es"}`;
+function coverageLabel(
+  mode: string | null | undefined,
+  months: number | null | undefined,
+) {
+  return warrantyCoverageLabel(mode, months);
 }
 
 export type WarrantyPdfRow = {
@@ -83,7 +79,7 @@ export function buildWarrantyPdfRows(sale: PosSale): WarrantyPdfRow[] {
         clave: meaningfulCode(it.productSku) || "—",
         description: it.productName || "—",
         cost: money(it.unitPrice),
-        coverage: coverageLabel(ser.warrantyMonths),
+        coverage: coverageLabel(ser.warrantyMode, ser.warrantyMonths),
         serial: String(ser.serialNumber || "—"),
       });
     }
