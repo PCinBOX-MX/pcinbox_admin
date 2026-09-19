@@ -259,6 +259,7 @@ export type PosSale = {
     branchName?: string | null;
     branchCity?: string | null;
     branchLabel?: string | null;
+    providerId?: number | null;
     productName: string;
     productSku: string | null;
     productUpc: string | null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   CircularProgress,
   MenuItem,
@@ -856,7 +857,7 @@ export default function PuntoDeVentaPage() {
             ) : null}
 
             <section className={styles.customerBar} aria-label="Datos de la venta">
-              <div className={styles.customerBarLabel}>
+              <div className={styles.customerBarHead}>
                 <p className={styles.panelEyebrow}>Cliente</p>
                 <h2>Datos de la venta</h2>
               </div>
@@ -867,7 +868,7 @@ export default function PuntoDeVentaPage() {
                   label="Nombre del cliente"
                   value={pos.customerName}
                   onChange={(e) => pos.setCustomerName(e.target.value)}
-                  sx={fieldSx}
+                  sx={{ ...fieldSx, mt: 0.5 }}
                   required
                 />
                 <div className={styles.phoneRow}>
@@ -878,7 +879,7 @@ export default function PuntoDeVentaPage() {
                     value={pos.phoneLada}
                     onChange={(e) => pos.setPhoneLada(e.target.value)}
                     className={styles.ladaSelect}
-                    sx={fieldSx}
+                    sx={{ ...fieldSx, mt: 0.5 }}
                   >
                     {POS_PHONE_LADAS.map((lada) => (
                       <MenuItem key={lada} value={lada}>
@@ -897,7 +898,7 @@ export default function PuntoDeVentaPage() {
                         .slice(0, 10);
                       pos.setGuestPhone(digits);
                     }}
-                    sx={fieldSx}
+                    sx={{ ...fieldSx, mt: 0.5 }}
                     error={Boolean(pos.guestPhone.trim()) && !pos.phoneValid}
                     helperText={
                       pos.guestPhone.trim() && !pos.phoneValid
@@ -1540,13 +1541,31 @@ export default function PuntoDeVentaPage() {
                               {[
                                 line.sku && `SKU ${line.sku}`,
                                 line.upc && `UPC ${line.upc}`,
-                                line.branchLabel &&
-                                  formatPosBranchUiLabel({
-                                    label: line.branchLabel,
-                                    name: line.stocksByBranch?.find(
-                                      (s) => s.branchId === line.branchId,
-                                    )?.name,
-                                  }),
+                                !line.isManual &&
+                                  (line.branchId != null ||
+                                    line.branchLabel ||
+                                    Number(line.providerId) === 1) &&
+                                  `Bodega: ${
+                                    line.branchId != null || line.branchLabel
+                                      ? formatPosBranchUiLabel({
+                                          label: line.branchLabel,
+                                          name:
+                                            line.stocksByBranch?.find(
+                                              (s) =>
+                                                s.branchId === line.branchId,
+                                            )?.name || null,
+                                          city:
+                                            line.stocksByBranch?.find(
+                                              (s) =>
+                                                s.branchId === line.branchId,
+                                            )?.city || null,
+                                          fallback:
+                                            Number(line.providerId) === 1
+                                              ? "PCinBOX-León"
+                                              : "Bodega",
+                                        })
+                                      : "PCinBOX-León"
+                                  }`,
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
@@ -2894,162 +2913,6 @@ export default function PuntoDeVentaPage() {
                 </>
               )}
             </div>
-
-            {pos.warrantyDetail ? (
-              <div
-                className={styles.drawer}
-                role="dialog"
-                aria-modal="true"
-                onClick={() => pos.setWarrantyDetail(null)}
-              >
-                <div
-                  className={`${styles.drawerPanel} ${styles.detailDrawer} ${styles.warrantyDrawer}`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className={styles.detailHero}>
-                    <div className={styles.detailHeroTop}>
-                      <div>
-                        <p className={styles.detailEyebrow}>Detalle de garantía</p>
-                        <h3 className={styles.detailFolio}>
-                          Venta #{pos.warrantyDetail.idPosSale}
-                        </h3>
-                        <p className={styles.detailWhen}>
-                          Folio {formatPosFolio(pos.warrantyDetail.folio)} ·{" "}
-                          {new Date(
-                            pos.warrantyDetail.createdAt,
-                          ).toLocaleString("es-MX")}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className={styles.secondaryBtn}
-                        onClick={() => pos.setWarrantyDetail(null)}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className={styles.warrantyDrawerScroll}>
-                    <div className={styles.detailItems}>
-                      {pos.warrantyDetail.items.map((it) => {
-                        const sku =
-                          it.productSku &&
-                          it.productSku !== "__POS_MANUAL__" &&
-                          !/^manual$/i.test(it.productSku)
-                            ? it.productSku
-                            : null;
-                        const upc =
-                          it.productUpc &&
-                          it.productUpc !== "__POS_MANUAL__" &&
-                          !/^manual$/i.test(it.productUpc)
-                            ? it.productUpc
-                            : null;
-                        return (
-                          <div
-                            key={it.idPosSaleItem}
-                            className={styles.detailItem}
-                          >
-                            {productThumb(
-                              resolveProductImage(it.productImage),
-                            )}
-                            <div className={styles.detailItemMain}>
-                              <strong>
-                                {qty(it.quantity)} × {it.productName}
-                              </strong>
-                              <div className={styles.detailItemMeta}>
-                                {sku ? <span>SKU: {sku}</span> : null}
-                                {upc ? <span>UPC: {upc}</span> : null}
-                                <span>Precio: {money(it.unitPrice)}</span>
-                                {Number(it.discountPct) > 0 ? (
-                                  <span>
-                                    Descuento {Number(it.discountPct)}%
-                                  </span>
-                                ) : null}
-                                {it.branchLabel || it.branchName ? (
-                                  <span>
-                                    Bodega:{" "}
-                                    {formatPosBranchUiLabel({
-                                      name: it.branchName,
-                                      label: it.branchLabel,
-                                      city: it.branchCity,
-                                    })}
-                                  </span>
-                                ) : null}
-                              </div>
-                              {it.serials && it.serials.length > 0 ? (
-                                <div className={styles.detailSerialList}>
-                                  {it.serials.map((s) => {
-                                    const months =
-                                      s.warrantyMonths != null &&
-                                      Number(s.warrantyMonths) > 0
-                                        ? Number(s.warrantyMonths)
-                                        : null;
-                                    const coverage =
-                                      months == null
-                                        ? "Según marca / centro de servicio"
-                                        : months >= 12 && months % 12 === 0
-                                          ? `${months / 12} año${
-                                              months / 12 === 1 ? "" : "s"
-                                            }`
-                                          : `${months} mes${
-                                              months === 1 ? "" : "es"
-                                            }`;
-                                    return (
-                                      <div
-                                        key={s.idProductSerial}
-                                        className={styles.detailSerialCard}
-                                      >
-                                        <strong>
-                                          Serie: {s.serialNumber}
-                                        </strong>
-                                        <span>Cobertura: {coverage}</span>
-                                        {s.warrantyExpiresAt ? (
-                                          <span>
-                                            Garantía hasta:{" "}
-                                            {new Date(
-                                              s.warrantyExpiresAt,
-                                            ).toLocaleDateString("es-MX")}
-                                          </span>
-                                        ) : null}
-                                        {s.status ? (
-                                          <span>
-                                            Estado: {serialStatusLabel(s.status)}
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <span>Sin serie registrada</span>
-                              )}
-                            </div>
-                            <div className={styles.detailItemPrice}>
-                              {money(it.lineTotal)}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className={styles.warrantyDrawerFooter}>
-                    <button
-                      type="button"
-                      className={styles.chargeBtn}
-                      onClick={() =>
-                        pos.openWarrantySheet(pos.warrantyDetail!.idPosSale)
-                      }
-                    >
-                      <Printer
-                        size={14}
-                        style={{ display: "inline", marginRight: 6 }}
-                      />
-                      Imprimir hoja de garantía
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </section>
         ) : (
           <section className={`${styles.posTabBody} ${styles.posPanel}`}>
@@ -3309,6 +3172,198 @@ export default function PuntoDeVentaPage() {
             </div>
           </section>
         )}
+
+        {pos.warrantyDetail && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                className={`${styles.drawer} ${styles.posDrawerPortal}`}
+                role="dialog"
+                aria-modal="true"
+                onClick={() => pos.setWarrantyDetail(null)}
+              >
+                <div
+                  className={`${styles.drawerPanel} ${styles.detailDrawer} ${styles.warrantyDrawer}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className={styles.detailHero}>
+                    <div className={styles.detailHeroTop}>
+                      <div>
+                        <p className={styles.detailEyebrow}>
+                          Detalle de garantía
+                        </p>
+                        <h3 className={styles.detailFolio}>
+                          Venta #{pos.warrantyDetail.idPosSale}
+                        </h3>
+                        <p className={styles.detailWhen}>
+                          Folio{" "}
+                          {formatPosFolio(pos.warrantyDetail.folio)} ·{" "}
+                          {new Date(
+                            pos.warrantyDetail.createdAt,
+                          ).toLocaleString("es-MX")}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.secondaryBtn}
+                        onClick={() => pos.setWarrantyDetail(null)}
+                        aria-label="Cerrar"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className={styles.warrantyDrawerScroll}>
+                    <div className={styles.detailItems}>
+                      {pos.warrantyDetail.items.map((it) => {
+                        const sku =
+                          it.productSku &&
+                          it.productSku !== "__POS_MANUAL__" &&
+                          !/^manual$/i.test(it.productSku)
+                            ? it.productSku
+                            : null;
+                        const upc =
+                          it.productUpc &&
+                          it.productUpc !== "__POS_MANUAL__" &&
+                          !/^manual$/i.test(it.productUpc)
+                            ? it.productUpc
+                            : null;
+                        return (
+                          <div
+                            key={it.idPosSaleItem}
+                            className={styles.detailItem}
+                          >
+                            {productThumb(
+                              resolveProductImage(it.productImage),
+                            )}
+                            <div className={styles.detailItemMain}>
+                              <strong
+                                className={styles.detailItemName}
+                                title={it.productName}
+                              >
+                                <span className={styles.detailItemQty}>
+                                  {qty(it.quantity)} ×
+                                </span>{" "}
+                                {clipText(it.productName, 90)}
+                              </strong>
+                              <div className={styles.detailItemMeta}>
+                                {sku ? (
+                                  <span title={`SKU: ${sku}`}>
+                                    SKU: {clipText(sku, 28)}
+                                  </span>
+                                ) : null}
+                                {upc ? (
+                                  <span title={`UPC: ${upc}`}>
+                                    UPC: {clipText(upc, 28)}
+                                  </span>
+                                ) : null}
+                                <span>Precio: {money(it.unitPrice)}</span>
+                                {Number(it.discountPct) > 0 ? (
+                                  <span>
+                                    Descuento {Number(it.discountPct)}%
+                                  </span>
+                                ) : null}
+                                {it.branchLabel || it.branchName ? (
+                                  <span
+                                    title={`Bodega: ${formatPosBranchUiLabel({
+                                      name: it.branchName,
+                                      label: it.branchLabel,
+                                      city: it.branchCity,
+                                    })}`}
+                                  >
+                                    Bodega:{" "}
+                                    {clipText(
+                                      formatPosBranchUiLabel({
+                                        name: it.branchName,
+                                        label: it.branchLabel,
+                                        city: it.branchCity,
+                                      }),
+                                      36,
+                                    )}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {it.serials && it.serials.length > 0 ? (
+                                <div className={styles.detailSerialList}>
+                                  {it.serials.map((s) => {
+                                    const months =
+                                      s.warrantyMonths != null &&
+                                      Number(s.warrantyMonths) > 0
+                                        ? Number(s.warrantyMonths)
+                                        : null;
+                                    const coverage =
+                                      months == null
+                                        ? "Según marca / centro de servicio"
+                                        : months >= 12 && months % 12 === 0
+                                          ? `${months / 12} año${
+                                              months / 12 === 1 ? "" : "s"
+                                            }`
+                                          : `${months} mes${
+                                              months === 1 ? "" : "es"
+                                            }`;
+                                    const sn = String(s.serialNumber || "");
+                                    return (
+                                      <div
+                                        key={s.idProductSerial}
+                                        className={styles.detailSerialCard}
+                                      >
+                                        <strong
+                                          title={
+                                            sn ? `Serie: ${sn}` : undefined
+                                          }
+                                        >
+                                          Serie: {clipText(sn, 40) || "—"}
+                                        </strong>
+                                        <span>Cobertura: {coverage}</span>
+                                        {s.warrantyExpiresAt ? (
+                                          <span>
+                                            Garantía hasta:{" "}
+                                            {new Date(
+                                              s.warrantyExpiresAt,
+                                            ).toLocaleDateString("es-MX")}
+                                          </span>
+                                        ) : null}
+                                        {s.status ? (
+                                          <span>
+                                            Estado:{" "}
+                                            {serialStatusLabel(s.status)}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span>Sin serie registrada</span>
+                              )}
+                            </div>
+                            <div className={styles.detailItemPrice}>
+                              {money(it.lineTotal)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className={styles.warrantyDrawerFooter}>
+                    <button
+                      type="button"
+                      className={styles.chargeBtn}
+                      onClick={() =>
+                        pos.openWarrantySheet(pos.warrantyDetail!.idPosSale)
+                      }
+                    >
+                      <Printer
+                        size={14}
+                        style={{ display: "inline", marginRight: 6 }}
+                      />
+                      Imprimir hoja de garantía
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
 
         {pos.detailSale ? (
           <div

@@ -1,6 +1,10 @@
 import { formatPosFolio } from "../posFormat";
 import type { PosSale } from "../../interfaces/pos/pos.interface";
 import { formatPosPaymentLabel } from "../../interfaces/pos/pos.interface";
+import {
+  formatPcinboxBranchDisplayName,
+  formatPosBranchUiLabel,
+} from "../../interfaces/pos/posBranchDisplay";
 import type { QzDrawerDialect } from "./qzSettings";
 
 const ESC = "\x1B";
@@ -30,6 +34,18 @@ export const POS_TICKET_TERMS_LINE =
 /** @deprecated Usar resolveTicketBranchLabel; se mantiene por compat. */
 export const POS_TICKET_BRANCH = "pcinbox-Leon";
 
+/**
+ * La térmica Nextep/ESC-POS no imprime bien UTF-8 (é → basura tipo "<n").
+ * Quita diacríticos para texto legible en el ticket.
+ */
+export function thermalText(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ñ/gi, (m) => (m === "Ñ" ? "N" : "n"))
+    .replace(/[^\x20-\x7E\n\r\t]/g, "");
+}
+
 function isMeaningfulCode(value?: string | null): boolean {
   const v = String(value || "").trim();
   if (!v) return false;
@@ -37,6 +53,43 @@ function isMeaningfulCode(value?: string | null): boolean {
   if (v === "__POS_SERVICE__") return false;
   if (/^manual$/i.test(v)) return false;
   return true;
+}
+
+/** Bodega por línea (PCinBOX-Leon / SFD / GDL / CDMX…). Provider 1 → Leon. */
+function itemBodegaLabel(
+  it: PosSale["items"][number],
+  sale: PosSale,
+): string | null {
+  const raw = (() => {
+    if (Number(it.providerId) === 1) {
+      return (
+        formatPcinboxBranchDisplayName(it.branchName) ||
+        (it.branchLabel &&
+        !/^(leon2|santafe|gdl|cdmx)$/i.test(String(it.branchLabel))
+          ? formatPosBranchUiLabel({
+              name: it.branchName,
+              label: it.branchLabel,
+              city: it.branchCity,
+            })
+          : null) ||
+        "PCinBOX-Leon"
+      );
+    }
+    const fromItem =
+      formatPcinboxBranchDisplayName(it.branchName) ||
+      (it.branchLabel
+        ? formatPosBranchUiLabel({
+            name: it.branchName,
+            label: it.branchLabel,
+            city: it.branchCity,
+          })
+        : null);
+    if (fromItem && !/^(leon2|santafe|gdl|cdmx)$/i.test(fromItem)) {
+      return fromItem;
+    }
+    return formatPcinboxBranchDisplayName(sale.branchName);
+  })();
+  return raw ? thermalText(raw) : null;
 }
 
 function money(n: number): string {
@@ -230,33 +283,40 @@ export function buildEscPosTicket(
           ? "CANCELADA"
           : sale.status === "pending_payment"
             ? "PENDIENTE DE PAGO"
-            : String(sale.status).toUpperCase()
+            : thermalText(String(sale.status).toUpperCase())
       }` + LF,
     );
   }
   if (sale.quoteNumber) {
-    parts.push(`No. Cotizacion: ${sale.quoteNumber}` + LF);
+    parts.push(`No. Cotizacion: ${thermalText(sale.quoteNumber)}` + LF);
   }
   parts.push(
-    `Fecha: ${new Date(sale.createdAt).toLocaleString("es-MX")}` + LF,
+    `Fecha: ${thermalText(new Date(sale.createdAt).toLocaleString("es-MX"))}` +
+      LF,
   );
   parts.push(`Vendedor: ${POS_TICKET_SELLER}` + LF);
-  parts.push(`Cliente: ${sale.customerName || "Publico general"}` + LF);
+  parts.push(
+    `Cliente: ${thermalText(sale.customerName || "Publico general")}` + LF,
+  );
   const phone = String(sale.customerPhone || "").trim();
   if (phone) {
-    parts.push(`Telefono: ${phone}` + LF);
+    parts.push(`Telefono: ${thermalText(phone)}` + LF);
   }
   parts.push(centerDashed("PRODUCTOS", width) + LF);
 
   for (const it of sale.items || []) {
-    for (const w of wrapLimited(it.productName, width, 4)) {
+    for (const w of wrapLimited(thermalText(it.productName), width, 4)) {
       parts.push(w + LF);
     }
     if (isMeaningfulCode(it.productSku)) {
-      parts.push(`Clave: ${it.productSku}` + LF);
+      parts.push(`Clave: ${thermalText(it.productSku)}` + LF);
     }
     if (isMeaningfulCode(it.productUpc)) {
-      parts.push(`UPC: ${it.productUpc}` + LF);
+      parts.push(`UPC: ${thermalText(it.productUpc)}` + LF);
+    }
+    const bodega = itemBodegaLabel(it, sale);
+    if (bodega) {
+      parts.push(`Bodega: ${bodega}` + LF);
     }
     const qty = Number(it.quantity) || 0;
     const unit = Number(it.unitPrice) || 0;
@@ -270,7 +330,9 @@ export function buildEscPosTicket(
     parts.push(line(width, "Importe:", money(lineTotal)) + LF);
     if (it.serials?.length) {
       parts.push(
-        `S/N: ${it.serials.map((s) => s.serialNumber).join(", ")}` + LF,
+        `S/N: ${thermalText(
+          it.serials.map((s) => s.serialNumber).join(", "),
+        )}` + LF,
       );
     }
     parts.push(LF);
@@ -291,9 +353,11 @@ export function buildEscPosTicket(
     parts.push("Detalle de pago:" + LF);
     for (const p of sale.payments || []) {
       const disp = paymentDisplayAmount(p);
-      parts.push(line(width, disp.label, money(disp.amount)) + LF);
+      parts.push(
+        line(width, thermalText(disp.label), money(disp.amount)) + LF,
+      );
       if (disp.note) {
-        parts.push(`  ${disp.note}` + LF);
+        parts.push(`  ${thermalText(disp.note)}` + LF);
       }
     }
   }
@@ -302,7 +366,7 @@ export function buildEscPosTicket(
     parts.push(LF);
     parts.push(ESC + "a" + "\x00");
     parts.push(centerDashed("NOTA", width) + LF);
-    for (const w of wrapLimited(notes, width, 8)) {
+    for (const w of wrapLimited(thermalText(notes), width, 8)) {
       parts.push(w + LF);
     }
   }

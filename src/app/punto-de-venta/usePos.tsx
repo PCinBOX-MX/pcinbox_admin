@@ -1298,7 +1298,9 @@ export default function usePos() {
                   label: branchMeta.label,
                   city: branchMeta.city,
                 })
-              : null,
+              : Number(product.providerId) === 1
+                ? "PCinBOX-León"
+                : null,
             stockBranch: stockCap,
             stocksByBranch: stocks,
             imageUrl: firstImage(product.image_url),
@@ -1683,7 +1685,9 @@ export default function usePos() {
                 label: branchMeta.label,
                 city: branchMeta.city,
               })
-            : null,
+            : Number(product.providerId) === 1
+              ? "PCinBOX-León"
+              : null,
           stockBranch: stockCap,
           stocksByBranch: stocks,
           imageUrl: firstImage(product.image_url),
@@ -3375,15 +3379,6 @@ export default function usePos() {
     setQzBusy(true);
     try {
       await openCashDrawerQz();
-      setDataModal({
-        isOpen: true,
-        title: "Cajón de dinero",
-        content: "Se envió la señal para abrir el cajón.",
-        type: "success",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
     } catch (err) {
       setDataModal({
         isOpen: true,
