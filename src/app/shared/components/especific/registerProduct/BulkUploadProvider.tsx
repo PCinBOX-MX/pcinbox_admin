@@ -28,11 +28,15 @@ import {
   applyCronStockUpdate,
   normalizeCronStockPayload,
 } from "@/app/utils/cronStockLiveSync";
+import { appendCatalogWarrantyToFormData } from "@/app/shared/utils/catalogWarranty";
 
 interface BulkProduct {
   upc: string;
   margin: number;
   characteristics: string;
+  warrantyMode?: string;
+  warrantyMonths?: number | null;
+  warrantyUnit?: string | null;
   matchedProduct: ProductsI | null;
   files: File[];
   imageError: string | null;
@@ -147,10 +151,77 @@ const BulkUploadProvider = () => {
           (p) => String(p.upc) === upcStr || String(p.idProductExt) === upcStr
         ) || null;
 
+        const garantiaTipo = String(
+          lowerRow["garantiatipo"] ||
+            lowerRow["garantia tipo"] ||
+            lowerRow["warrantymode"] ||
+            "",
+        )
+          .trim()
+          .toLowerCase();
+        const warrantyUnitRaw = String(
+          lowerRow["warrantyunit"] || lowerRow["garantiaunidad"] || "",
+        )
+          .trim()
+          .toLowerCase();
+        let warrantyMode = String(lowerRow["warrantymode"] || "").trim();
+        let warrantyUnit =
+          warrantyUnitRaw === "years" || warrantyUnitRaw === "años"
+            ? "years"
+            : warrantyUnitRaw === "months" || warrantyUnitRaw === "meses"
+              ? "months"
+              : null;
+        let warrantyMonths: number | null = null;
+        const cant = Number(
+          lowerRow["garantiacantidad"] ||
+            lowerRow["warrantymonths"] ||
+            lowerRow["garantia"] ||
+            0,
+        );
+
+        if (
+          garantiaTipo === "none" ||
+          garantiaTipo === "no aplica" ||
+          garantiaTipo === "no_aplica"
+        ) {
+          warrantyMode = "none";
+          warrantyMonths = null;
+          warrantyUnit = null;
+        } else if (
+          garantiaTipo === "service_center" ||
+          garantiaTipo === "centro de servicio" ||
+          garantiaTipo === "centro_servicio"
+        ) {
+          warrantyMode = "service_center";
+          warrantyMonths = null;
+          warrantyUnit = null;
+        } else if (
+          garantiaTipo === "years" ||
+          garantiaTipo === "años" ||
+          garantiaTipo === "ano" ||
+          warrantyUnit === "years"
+        ) {
+          warrantyMode = "months";
+          warrantyUnit = "years";
+          warrantyMonths = Number.isFinite(cant) && cant > 0 ? cant : null;
+        } else if (
+          garantiaTipo === "months" ||
+          garantiaTipo === "meses" ||
+          warrantyMode === "months" ||
+          (Number.isFinite(cant) && cant > 0)
+        ) {
+          warrantyMode = "months";
+          warrantyUnit = warrantyUnit || "months";
+          warrantyMonths = Number.isFinite(cant) && cant > 0 ? cant : null;
+        }
+
         return {
           upc: upcStr,
           margin: Number(lowerRow["margen de utilidad"] || lowerRow["margen"] || lowerRow["margin"] || 0),
           characteristics: String(lowerRow["características"] || lowerRow["caracteristicas"] || ""),
+          warrantyMode: warrantyMode || undefined,
+          warrantyMonths,
+          warrantyUnit,
           matchedProduct,
           files: [],
           imageError: null,
@@ -279,6 +350,30 @@ const BulkUploadProvider = () => {
       formData.append("branches", JSON.stringify(dataProductProp?.branches || []));
       formData.append("peso", dataProductProp?.peso?.toString() ?? "null");
 
+      if (item.warrantyMode) {
+        appendCatalogWarrantyToFormData(
+          formData,
+          {
+            choice:
+              item.warrantyMode === "none"
+                ? "none"
+                : item.warrantyMode === "service_center"
+                  ? "service_center"
+                  : item.warrantyUnit === "years"
+                    ? "years"
+                    : "months",
+            amount:
+              item.warrantyMonths != null && item.warrantyMonths > 0
+                ? item.warrantyMonths
+                : "",
+          },
+          {
+            providerId: dataProductProp.providerId,
+            isPC: false,
+          },
+        );
+      }
+
       item.files.forEach((file) => formData.append("files", file));
 
       try {
@@ -355,7 +450,10 @@ const BulkUploadProvider = () => {
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 4 }}>
           <Typography variant="h6">Sube tu archivo Excel (.xlsx)</Typography>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ maxWidth: 400 }}>
-            El archivo debe contener las columnas: <b>UPC</b>, <b>Margen de Utilidad</b>, y <b>Características</b>.
+            El archivo debe contener las columnas: <b>UPC</b>, <b>Margen de Utilidad</b>,{" "}
+            <b>Características</b> y, si aplica,{" "}
+            <b>GarantiaTipo</b> / <b>GarantiaCantidad</b> (o warrantyMode /
+            warrantyMonths / warrantyUnit).
           </Typography>
           <Button
             variant="outlined"
