@@ -2,6 +2,7 @@
 
 import { formatPosFolio } from "../posFormat";
 import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
+import type { Style } from "@react-pdf/types";
 import type { PosSale } from "../../interfaces/pos/pos.interface";
 import {
   formatPcinboxBranchDisplayName,
@@ -103,8 +104,8 @@ function Cell({
   last = false,
 }: {
   children: string;
-  colStyle: object | object[];
-  textStyle?: object | object[];
+  colStyle: Style | Style[];
+  textStyle?: Style | Style[];
   last?: boolean;
 }) {
   return (
