@@ -6,6 +6,7 @@
     "dev": "npx kill-port 3001 && node scripts/run-with-env-local.mjs dev",
     "build": "node scripts/run-with-env-local.mjs build",
     "build:qa": "dotenv -e .env.local next build",
+    "start:qa": "npx dotenv -e .env.local -- next start -p 3001",
     "build:prod": "dotenv -e .env.prod next build",
     "start": "npx dotenv -e .env.prod -- next start -p 3002",
     "lint": "eslint",
