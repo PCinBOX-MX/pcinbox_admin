@@ -517,6 +517,12 @@
   border: 1px solid transparent;
   font-size: 12.5px;
   line-height: 1.45;
+  min-width: 0;
+}
+
+.quoteAlertContent {
+  flex: 1;
+  min-width: 0;
 }
 
 .quotePageAlert strong {
@@ -528,6 +534,43 @@
 .quotePageAlert p {
   margin: 0;
   color: inherit;
+}
+
+.quoteAlertScroll {
+  margin-top: 8px;
+  max-height: min(40vh, 260px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  background: color-mix(in srgb, #fff 55%, transparent);
+}
+
+.quoteAlertSection {
+  padding: 8px 10px;
+}
+
+.quoteAlertSection + .quoteAlertSection {
+  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.quoteAlertSectionTitle {
+  display: block;
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.quoteAlertList {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 3px;
+}
+
+.quoteAlertList li {
+  word-break: break-word;
 }
 
 .quotePageAlertError {

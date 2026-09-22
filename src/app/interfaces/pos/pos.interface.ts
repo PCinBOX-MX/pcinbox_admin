@@ -102,19 +102,13 @@ export type PosProductHit = {
   score: number;
 };
 
-/** Sin stock vendible. Solo aplica a providerId=1 (el que sí descuenta DB). */
+/** Sin stock vendible (product_stock / products.stock) — los 3 proveedores. */
 export function isPosProductOutOfStock(
   hit: Pick<
     PosProductHit,
     "stockGlobal" | "stocksByBranch" | "inStock" | "providerId"
   >,
 ): boolean {
-  if (
-    hit.providerId != null &&
-    Number(hit.providerId) !== 1
-  ) {
-    return false;
-  }
   if (typeof hit.inStock === "boolean") return !hit.inStock;
   const stocks = hit.stocksByBranch || [];
   if (stocks.length > 0) {

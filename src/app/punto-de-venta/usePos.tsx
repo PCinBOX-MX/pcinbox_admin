@@ -337,6 +337,7 @@ export default function usePos() {
     type: "error" | "warning" | "success";
     title: string;
     message: string;
+    sections?: Array<{ title: string; items: string[] }>;
   } | null>(null);
   const [charging, setCharging] = useState(false);
   const [lastSale, setLastSale] = useState<PosSale | null>(null);
@@ -1172,10 +1173,9 @@ export default function usePos() {
 
   const addProduct = useCallback(
     (product: PosProductHit, chosenBranchId?: number | null) => {
-      const tracksStock = Number(product.providerId) === 1;
+      const tracksStock = true;
 
       // Validación interna: no se puede forzar agregar sin stock (UI deshabilitada ≠ bypass).
-      // Solo providerId=1 descuenta/valida stock en DB.
       if (tracksStock && isPosProductOutOfStock(product)) {
         setDataModal({
           isOpen: true,
@@ -1584,12 +1584,14 @@ export default function usePos() {
       type: "error" | "warning" | "success";
       title: string;
       message: string;
+      sections?: Array<{ title: string; items: string[] }>;
     }) => {
       // Solo alert de página (sin modal) para errores/avisos de cotización.
       setQuotePageAlert({
         type: opts.type,
         title: opts.title,
         message: opts.message,
+        sections: opts.sections?.filter((s) => s.items.length > 0),
       });
     },
     [],
@@ -1602,6 +1604,7 @@ export default function usePos() {
         PosProductHit & { quantity: number; quoteStoreId: number | null }
       >;
       missingProductIds?: string[];
+      inactiveProducts?: Array<{ idProduct: number; name: string }>;
       expired?: boolean;
       customer?: {
         name?: string | null;
@@ -1610,12 +1613,28 @@ export default function usePos() {
       };
     }) => {
       const nextCart: PosCartLine[] = [];
-      const warnings: string[] = [];
+      const skippedInactive: string[] = [];
+      const skippedNoStock: string[] = [];
+      const adjustedStock: string[] = [];
+      const otherWarnings: string[] = [];
+
+      for (const inactive of payload.inactiveProducts || []) {
+        skippedInactive.push(
+          inactive.name || `Producto #${inactive.idProduct}`,
+        );
+      }
+
+      if (payload.missingProductIds?.length) {
+        otherWarnings.push(
+          `${payload.missingProductIds.length} producto(s) ya no existen en catálogo`,
+        );
+      }
 
       for (const product of payload.items) {
         const stocks = product.stocksByBranch || [];
         const needsBranch = stocks.length > 0;
-        const tracksStock = Number(product.providerId) === 1;
+        // Cotización: validar existencia en DB para PCinBOX, TechSmart y DicoTech.
+        const tracksStock = true;
         let branchIdLine: number | null =
           product.suggestedBranchId ??
           stocks.find((st) => st.stock > 0)?.branchId ??
@@ -1627,8 +1646,8 @@ export default function usePos() {
 
         if (needsBranch) {
           if (branchIdLine == null) {
-            warnings.push(
-              `«${product.name}» requiere elegir bodega (sin sugerencia).`,
+            otherWarnings.push(
+              `«${product.name}» requiere elegir bodega (sin sugerencia)`,
             );
             continue;
           }
@@ -1636,24 +1655,24 @@ export default function usePos() {
             const stockRow = stocks.find((st) => st.branchId === branchIdLine);
             const stockCap = stockRow?.stock ?? 0;
             if (stockCap <= 0) {
-              warnings.push(
-                `«${product.name}» sin stock en ${stockRow?.label || "bodega"}.`,
+              skippedNoStock.push(
+                `${product.name} (${stockRow?.label || "bodega"})`,
               );
               continue;
             }
             if (quantity > stockCap) {
-              warnings.push(
-                `«${product.name}»: cantidad ${qtyWanted} → ${stockCap} (stock).`,
+              adjustedStock.push(
+                `${product.name}: cotizado ${qtyWanted} → disponible ${stockCap}`,
               );
               quantity = stockCap;
             }
           }
         } else if (tracksStock && product.stockGlobal <= 0) {
-          warnings.push(`«${product.name}» sin existencia global.`);
+          skippedNoStock.push(`${product.name} (existencia global)`);
           continue;
         } else if (tracksStock && quantity > product.stockGlobal) {
-          warnings.push(
-            `«${product.name}»: cantidad ${qtyWanted} → ${product.stockGlobal} (stock).`,
+          adjustedStock.push(
+            `${product.name}: cotizado ${qtyWanted} → disponible ${product.stockGlobal}`,
           );
           quantity = product.stockGlobal;
         }
@@ -1671,8 +1690,8 @@ export default function usePos() {
             ? Math.min(stockCap, existing.quantity + quantity)
             : existing.quantity + quantity;
           if (tracksStock && merged < existing.quantity + quantity) {
-            warnings.push(
-              `«${product.name}»: se limitó al stock disponible (${stockCap}).`,
+            adjustedStock.push(
+              `${product.name}: se limitó al stock disponible (${stockCap})`,
             );
           }
           existing.quantity = merged;
@@ -1722,19 +1741,37 @@ export default function usePos() {
         });
       }
 
-      if (payload.missingProductIds?.length) {
-        warnings.push(
-          `${payload.missingProductIds.length} producto(s) de la cotización ya no están en catálogo.`,
-        );
-      }
+      const sections = [
+        {
+          title: "Inactivos (no importados)",
+          items: skippedInactive,
+        },
+        {
+          title: "Sin stock (no importados)",
+          items: skippedNoStock,
+        },
+        {
+          title: "Cantidad ajustada por stock",
+          items: adjustedStock,
+        },
+        {
+          title: "Otros avisos",
+          items: otherWarnings,
+        },
+      ].filter((s) => s.items.length > 0);
+
+      const skippedCount =
+        skippedInactive.length +
+        skippedNoStock.length +
+        (payload.missingProductIds?.length || 0);
 
       if (nextCart.length === 0) {
         showQuoteFeedback({
           type: "error",
           title: "Sin productos cargables",
           message:
-            warnings.join(" ") ||
-            "No se pudo agregar ningún producto de la cotización.",
+            "Ningún producto de la cotización pudo importarse (inactivos, sin stock o fuera de catálogo).",
+          sections,
         });
         return;
       }
@@ -1756,19 +1793,14 @@ export default function usePos() {
         }
       }
 
-      const suffix = [
-        warnings.length ? warnings.slice(0, 4).join(" ") : null,
-        warnings.length > 4
-          ? `…y ${warnings.length - 4} aviso(s) más.`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" ");
-
+      const hasSkips = sections.length > 0;
       showQuoteFeedback({
-        type: warnings.length ? "warning" : "success",
+        type: hasSkips ? "warning" : "success",
         title: "Cotización cargada",
-        message: `Se agregaron ${nextCart.length} línea(s) de la cotización ${payload.quoteNumber}.${suffix ? ` ${suffix}` : ""}`,
+        message: hasSkips
+          ? `Se importaron ${nextCart.length} línea(s) disponibles de ${payload.quoteNumber}. ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${adjustedStock.length ? `; ${adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
+          : `Se importaron ${nextCart.length} línea(s) de la cotización ${payload.quoteNumber}.`,
+        sections,
       });
     },
     [customerName, guestEmail, guestPhone, showQuoteFeedback],

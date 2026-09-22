@@ -782,9 +782,30 @@ export default function PuntoDeVentaPage() {
                       }`}
                       role="alert"
                     >
-                      <div>
+                      <div className={styles.quoteAlertContent}>
                         <strong>{pos.quotePageAlert.title}</strong>
                         <p>{pos.quotePageAlert.message}</p>
+                        {pos.quotePageAlert.sections?.length ? (
+                          <div className={styles.quoteAlertScroll}>
+                            {pos.quotePageAlert.sections.map((section) => (
+                              <div
+                                key={section.title}
+                                className={styles.quoteAlertSection}
+                              >
+                                <span className={styles.quoteAlertSectionTitle}>
+                                  {section.title} ({section.items.length})
+                                </span>
+                                <ul className={styles.quoteAlertList}>
+                                  {section.items.map((item, idx) => (
+                                    <li key={`${section.title}-${idx}`}>
+                                      {item}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                       <button
                         type="button"
