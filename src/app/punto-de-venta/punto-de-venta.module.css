@@ -90,7 +90,8 @@
 .posPage > .posTopSticky {
   position: sticky;
   top: 56px;
-  z-index: 40;
+  /* Por encima del buscador/dropdown del cobro (z-index 2–5) y del header admin (30) */
+  z-index: 50;
   margin: 0 -16px;
   padding: 4px 16px 6px;
   background: #ffffff;
@@ -760,7 +761,8 @@
 
 .searchCombobox {
   position: relative;
-  z-index: 40;
+  /* Por debajo del navbar sticky (z-index 100); solo encima de hermanos del bloque */
+  z-index: 2;
   padding-left: 8px;
 }
 
@@ -769,7 +771,7 @@
   left: 0;
   right: 0;
   top: calc(100% + 8px);
-  z-index: 50;
+  z-index: 5;
   max-height: min(48vh, 400px);
   overflow-x: hidden;
   overflow-y: auto;
