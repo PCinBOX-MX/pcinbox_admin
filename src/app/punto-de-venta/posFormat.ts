@@ -1,10 +1,14 @@
 /** Formato de números solo UI (no cambia payloads al API). */
 
-/** Folio de venta para UI/ticket: sin prefijo PV-. */
+/** Folio de venta para UI/ticket: sin prefijo PV- ni ceros a la izquierda. */
 export function formatPosFolio(folio: string | null | undefined): string {
-  return String(folio || "")
+  const raw = String(folio || "")
     .trim()
     .replace(/^PV-/i, "");
+  if (/^\d+$/.test(raw)) {
+    return String(Number(raw));
+  }
+  return raw;
 }
 
 export function formatMoney(n: number | null | undefined): string {
