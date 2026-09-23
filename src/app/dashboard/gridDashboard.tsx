@@ -21,6 +21,7 @@ import { Mail } from "lucide-react";
 import { useTheContext } from "../hooks/global.hook";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import DataProducts from "../shared/components/especific/dashboard/DataProducts";
+import { orderModalSpacing as sp } from "../shared/components/especific/dashboard/orderModalSpacing";
 // TechSmart WS bloqueado: no montar panel (generar pedido / vincular guía / facturar).
 // Quedan los selects de "Estado de envío" en DataProducts.
 // import TechsmartOrderPanel from "../shared/components/especific/dashboard/TechsmartOrderPanel";
@@ -28,7 +29,6 @@ import {
   formatOrderMoney,
   getAdminOrderCostBreakdown,
 } from "../utils/orderCostBreakdown";
-import OrderCancelSection from "../components/admin/OrderCancelSection";
 import {
   getPaymentStatusChipColor,
   getPaymentStatusLabel,
@@ -42,13 +42,17 @@ import {
 
 const GridDashboard = ({
   handleChangeStatusShip,
+  handleChangeStatusShipByShipment,
+  promptShipCancelReason,
   openCancelOrderModal,
   handleRetryDicotechPostPayment,
   can,
   rows,
 }: {
   handleChangeStatusShip: any;
-  openCancelOrderModal: (idOrder: number) => void;
+  handleChangeStatusShipByShipment: any;
+  promptShipCancelReason?: (description: string) => Promise<string | null>;
+  openCancelOrderModal?: (idOrder: number) => void | Promise<void>;
   handleRetryDicotechPostPayment?: (idOrder: number) => Promise<boolean>;
   can: (permission: import("../constants/permissions").AdminPermission) => boolean;
   rows: {
@@ -226,8 +230,8 @@ const GridDashboard = ({
                 setDataModal({
                   isOpen: true,
                   type: "info",
-                  title: "Productos de la orden",
-
+                  title: `Orden #${orderRow?.idOrder ?? params.row.idOrder}`,
+                  maxWidth: "min(95vw, 860px)",
                   showActions: true,
 
                   confirmLabel: "Cerrar",
@@ -236,9 +240,12 @@ const GridDashboard = ({
                   onConfirm: () =>
                     setDataModal((prev) => ({ ...prev, isOpen: false })),
                   content: (
-                    <div className="admin-order-products-modal">
+                    <div className="admin-order-products-modal" style={sp.modalRoot}>
                       {orderRow ? (
-                        <section className="admin-order-products-modal__summary">
+                        <section
+                          className="admin-order-products-modal__summary"
+                          style={{ margin: 0, padding: 0 }}
+                        >
                           {(() => {
                             const costs = getAdminOrderCostBreakdown(orderRow);
                             if (
@@ -249,7 +256,7 @@ const GridDashboard = ({
                             }
 
                             return (
-                              <div className="admin-order-cost-summary">
+                              <div className="admin-order-cost-summary" style={sp.costSummary}>
                                 {costs.shippingTotal > 0 ? (
                                   <span>
                                     Envío:{" "}
@@ -271,160 +278,132 @@ const GridDashboard = ({
                           })()}
                         </section>
                       ) : null}
-                      {/* TechSmart WS bloqueado: deshabilitado generar pedido / vincular guía / facturar.
-                          El estatus de entrega se sigue manejando abajo en DataProducts. */}
-                      {/* {orderRow?.hasTechsmartProducts && can("techsmart.manage") && (
-                        <section className="admin-order-products-modal__techsmart">
-                          <h3 className="admin-order-products-modal__section-title">
-                            Gestión TechSmart
-                          </h3>
-                          <TechsmartOrderPanel
-                            idOrder={orderRow.idOrder}
-                            initialOrder={orderRow.techsmartOrder}
-                            statusPay={orderRow.statusPay}
-                            onOrderUpdated={(updated) => {
-                              if (!updated) return;
-                              setRowsVentas((prev) => ({
-                                ...prev,
-                                data: prev.data.map((row) =>
-                                  row.idOrder === orderRow.idOrder
-                                    ? {
-                                      ...row,
-                                      techsmartOrder: updated,
-                                    }
-                                    : row,
-                                ),
-                              }));
-                            }}
-                          />
-                        </section>
-                      )} */}
-                      <section className="admin-order-products-modal__list">
-                        <h3 className="admin-order-products-modal__section-title">
-                          {orderRow?.products?.length === 1
-                            ? "1 producto en la orden"
-                            : `${orderRow?.products?.length ?? 0} productos en la orden`}
-                        </h3>
-                        {(() => {
-                          const digitalProducts = (
-                            orderRow?.products || []
-                          ).filter((p: any) => {
-                            const method = String(
-                              p?.address?.shipping_method ||
-                                p?.shipping_method ||
-                                "",
-                            ).toLowerCase();
-                            const licenseType = String(
-                              p?.licenseType || "",
-                            ).toLowerCase();
-                            return (
-                              method === "digital" ||
-                              licenseType === "windows" ||
-                              licenseType === "antivirus" ||
-                              licenseType === "office"
-                            );
-                          });
-                          if (!digitalProducts.length) return null;
-                          const email =
-                            orderRow?.dataUser?.email ||
-                            params.row?.dataUser?.email;
-                          const payStatus =
-                            orderRow?.statusPay ?? params.row?.statusPay;
-                          const paid = isOrderPaid(payStatus);
+                      {(() => {
+                        const digitalProducts = (
+                          orderRow?.products || []
+                        ).filter((p: any) => {
+                          const method = String(
+                            p?.address?.shipping_method ||
+                              p?.shipping_method ||
+                              "",
+                          ).toLowerCase();
+                          const licenseType = String(
+                            p?.licenseType || "",
+                          ).toLowerCase();
                           return (
-                            <Alert
-                              severity={paid ? "warning" : "info"}
-                              icon={<Mail size={18} />}
-                              sx={{ mb: 1.5, borderRadius: "12px" }}
+                            method === "digital" ||
+                            licenseType === "windows" ||
+                            licenseType === "antivirus" ||
+                            licenseType === "office"
+                          );
+                        });
+                        if (!digitalProducts.length) return null;
+                        const email =
+                          orderRow?.dataUser?.email ||
+                          params.row?.dataUser?.email;
+                        const payStatus =
+                          orderRow?.statusPay ?? params.row?.statusPay;
+                        const paid = isOrderPaid(payStatus);
+                        return (
+                          <Alert
+                            severity={paid ? "warning" : "info"}
+                            icon={<Mail size={18} />}
+                            sx={{ borderRadius: "12px" }}
+                          >
+                            Esta orden incluye{" "}
+                            <strong>
+                              {digitalProducts.length} licencia
+                              {digitalProducts.length === 1 ? "" : "s"} digital
+                              {digitalProducts.length === 1 ? "" : "es"}
+                            </strong>
+                            .{" "}
+                            {paid ? (
+                              <>
+                                Con pago confirmado, envía la información de
+                                activación desde el panel de cada producto al
+                                correo{" "}
+                                <strong>{email || "del cliente"}</strong>
+                                {email ? (
+                                  <>
+                                    {" "}
+                                    (<a href={`mailto:${email}`}>{email}</a>)
+                                  </>
+                                ) : null}
+                                .
+                              </>
+                            ) : (
+                              <>
+                                El envío desde Admin se habilita cuando el
+                                pago esté confirmado (estado:{" "}
+                                <strong>
+                                  {getPaymentStatusLabel(payStatus)}
+                                </strong>
+                                ).
+                              </>
+                            )}
+                          </Alert>
+                        );
+                      })()}
+                      {(() => {
+                        const hasDicotech =
+                          Boolean(orderRow?.hasDicotechPendingProducts) ||
+                          (orderRow?.products || []).some(
+                            (p: any) => Number(p?.providerId) === 3,
+                          );
+                        const paid = isOrderPaid(
+                          orderRow?.statusPay ?? params.row?.statusPay,
+                        );
+                        if (
+                          !hasDicotech ||
+                          !paid ||
+                          !can("orders.update_status_ship") ||
+                          !handleRetryDicotechPostPayment
+                        ) {
+                          return null;
+                        }
+                        return (
+                          <div>
+                            <button
+                              type="button"
+                              className="admin-btn-secondary"
+                              data-testid={`retry-dicotech-${orderRow?.idOrder ?? params.row.idOrder}`}
+                              onClick={() => {
+                                void handleRetryDicotechPostPayment(
+                                  Number(
+                                    orderRow?.idOrder ?? params.row.idOrder,
+                                  ),
+                                );
+                              }}
                             >
-                              Esta orden incluye{" "}
-                              <strong>
-                                {digitalProducts.length} licencia
-                                {digitalProducts.length === 1 ? "" : "s"} digital
-                                {digitalProducts.length === 1 ? "" : "es"}
-                              </strong>
-                              .{" "}
-                              {paid ? (
-                                <>
-                                  Con pago confirmado, envía la información de
-                                  activación desde el panel de cada producto al
-                                  correo{" "}
-                                  <strong>{email || "del cliente"}</strong>
-                                  {email ? (
-                                    <>
-                                      {" "}
-                                      (<a href={`mailto:${email}`}>{email}</a>)
-                                    </>
-                                  ) : null}
-                                  .
-                                </>
-                              ) : (
-                                <>
-                                  El envío desde Admin se habilita cuando el
-                                  pago esté confirmado (estado:{" "}
-                                  <strong>
-                                    {getPaymentStatusLabel(payStatus)}
-                                  </strong>
-                                  ).
-                                </>
-                              )}
-                            </Alert>
-                          );
-                        })()}
-                        {(() => {
-                          const hasDicotech =
-                            Boolean(orderRow?.hasDicotechPendingProducts) ||
-                            (orderRow?.products || []).some(
-                              (p: any) => Number(p?.providerId) === 3,
-                            );
-                          const paid = isOrderPaid(
-                            orderRow?.statusPay ?? params.row?.statusPay,
-                          );
-                          if (
-                            !hasDicotech ||
-                            !paid ||
-                            !can("orders.update_status_ship") ||
-                            !handleRetryDicotechPostPayment
-                          ) {
-                            return null;
-                          }
-                          return (
-                            <div style={{ marginBottom: 12 }}>
-                              <button
-                                type="button"
-                                className="admin-btn-secondary"
-                                data-testid={`retry-dicotech-${orderRow?.idOrder ?? params.row.idOrder}`}
-                                onClick={() => {
-                                  void handleRetryDicotechPostPayment(
-                                    Number(
-                                      orderRow?.idOrder ?? params.row.idOrder,
-                                    ),
-                                  );
+                              Reintentar Dicotech
+                            </button>
+                            {orderRow?.hasDicotechPendingProducts ? (
+                              <p
+                                style={{
+                                  margin: "10px 0 0",
+                                  fontSize: 12,
+                                  color: "#92400e",
                                 }}
                               >
-                                Reintentar Dicotech
-                              </button>
-                              {orderRow?.hasDicotechPendingProducts ? (
-                                <p
-                                  style={{
-                                    margin: "8px 0 0",
-                                    fontSize: 12,
-                                    color: "#92400e",
-                                  }}
-                                >
-                                  Hay líneas Dicotech sin purchaseId o con
-                                  tracking pendiente.
-                                </p>
-                              ) : null}
-                            </div>
-                          );
-                        })()}
-                        <DataProducts
+                                Hay líneas Dicotech sin purchaseId o con
+                                tracking pendiente.
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                      <DataProducts
                           params={{
                             value: orderRow?.products,
                             row: orderRow || params.row,
                           }}
                           handleChangeStatusShip={handleChangeStatusShip}
+                          handleChangeStatusShipByShipment={
+                            handleChangeStatusShipByShipment
+                          }
+                          promptShipCancelReason={promptShipCancelReason}
+                          openCancelOrderModal={openCancelOrderModal}
+                          canCancelOrder={can("orders.cancel")}
                           onSaleLicenseDelivered={(idSale: number, idOrder: number) => {
                             setRowsVentas((prev) => ({
                               ...prev,
@@ -437,6 +416,8 @@ const GridDashboard = ({
                                           ? {
                                               ...product,
                                               statusShip: "entregado",
+                                              statusChangedAt:
+                                                new Date().toISOString(),
                                               licenseDeliveredAt:
                                                 new Date().toISOString(),
                                             }
@@ -448,15 +429,6 @@ const GridDashboard = ({
                             }));
                           }}
                         />
-                      </section>
-                      {can("orders.cancel") && (
-                        <OrderCancelSection
-                          idOrder={orderRow?.idOrder ?? params.row.idOrder}
-                          statusPay={orderRow?.statusPay ?? params.row.statusPay}
-                          canCancelPermission={can("orders.cancel")}
-                          onCancelClick={openCancelOrderModal}
-                        />
-                      )}
                     </div>
                   ),
                 });
@@ -844,7 +816,7 @@ const GridDashboard = ({
         },
       },
     ],
-    [rows, can, openCancelOrderModal, rowsVentas, setRowsVentas, setDataModal, formatCurrency],
+    [rows, can, rowsVentas, setRowsVentas, setDataModal, formatCurrency, handleChangeStatusShip, handleChangeStatusShipByShipment, promptShipCancelReason, openCancelOrderModal],
   );
 
   return {

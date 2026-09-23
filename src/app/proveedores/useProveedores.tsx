@@ -53,7 +53,9 @@ const useProveedores = () => {
       setProvidersError("");
       setDataProveedores((prev) => ({ ...prev, loading: true }));
 
-      const resp = await requestGetProveedores("/getAllProveedores");
+      const resp = await requestGetProveedores("/getAllProveedores", {
+        silent: true,
+      });
       setDataProveedores((prev) => ({ ...prev, loading: false }));
 
       if (resp?.status == 200) {
@@ -96,6 +98,7 @@ const useProveedores = () => {
         const resp = await requestPostProveedores(
           { idProveedor, page, pageSize, search },
           "/getProductsByProveedor",
+          { silent: true },
         );
         if (!isCurrent(sequence)) return;
         setProductsProveedor((prev) => ({ ...prev, loading: false }));
@@ -268,10 +271,14 @@ const useProveedores = () => {
   const handleBulkUpload = () => {
     setDataModal({
       isOpen: true,
-      content: <BulkUploadProvider />,
+      content: (
+        <BulkUploadProvider
+          defaultProviderId={Number(slcProveedor) || undefined}
+        />
+      ),
       title: "Alta Masiva por Excel",
       type: "info",
-      maxWidth: "min(95vw, 1000px)",
+      maxWidth: "min(95vw, 860px)",
       showActions: false,
       onClose: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));

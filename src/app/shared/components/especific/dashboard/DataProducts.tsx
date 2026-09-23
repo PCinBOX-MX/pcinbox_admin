@@ -1,213 +1,126 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import EmptyState from "../../common/emptyState/EmptyState";
-import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
-import {
-  Alert,
-  FormControl,
-  MenuItem,
-  Select,
-  Chip,
-  Divider,
-  Tooltip,
-} from "@mui/material";
-import {
-  getProviderLabel,
-  PROVIDER_DICOTECH,
-} from "@/app/constants/providers.constants";
-import {
-  ModalDetailField,
-  ModalDetailGrid,
-  ModalDetailSection,
-} from "../modal/ModalDetail";
-import {
-  formatOrderMoney,
-} from "@/app/utils/orderCostBreakdown";
-import {
-  Mail,
-  MapPin,
-  Package,
-  ShieldCheck,
-  Store,
-  Truck,
-} from "lucide-react";
-import SendLicenseKeyPanel from "./SendLicenseKeyPanel";
+import { Alert, Chip } from "@mui/material";
+import { Clock3, Mail, Package, UserRound } from "lucide-react";
+import SendDeliveryStatusEmailPanel from "./SendDeliveryStatusEmailPanel";
+import ShipmentGroupSection from "./ShipmentGroupSection";
+import OrderCancelSection from "@/app/components/admin/OrderCancelSection";
 import {
   getPaymentStatusLabel,
   isOrderPaid,
 } from "@/app/utils/paymentStatus.util";
+import {
+  groupOrderProductsByShipment,
+  filterPhysicalProducts,
+  isDigitalDeliveryProduct,
+} from "@/app/utils/orderShipmentGroups";
+import { orderModalSpacing as sp } from "./orderModalSpacing";
 
-type BranchOption = {
-  idBranche: number;
-  name: string;
-  externalStoreId?: number | null;
-};
-
-let dicotechBranchesCache: BranchOption[] | null = null;
-
-const SHIPPING_LABELS: Record<string, string> = {
-  sucursal: "Recoger en sucursal",
-  sucursalExt: "Recoger en sucursal",
-  estafeta: "Estafeta",
-  paqueteexpress: "Paquete Express",
-  envioLeon: "Envío personalizado PCinBOX",
-  digital: "Entrega digital",
-};
-
-const PICKUP_SHIPPING_METHODS = new Set(["sucursal", "sucursalext"]);
-const HOME_DELIVERY_SHIPPING_METHODS = new Set([
-  "envioleon",
-  "estafeta",
-  "paqueteexpress",
-]);
-const PICKUP_BRANCH_DISPLAY = "PCinBOX-León";
-const TERMINAL_SHIP_STATUSES = new Set(["entregado", "cancelado"]);
-const LOCKED_SHIP_STATUS_TOOLTIP =
-  "Al tener estatus Entregado o Cancelado ya no se puede cambiar el estatus";
-
-function normalizeShippingMethod(method?: string | null): string {
-  return String(method ?? "").trim();
-}
-
-function shippingMethodKey(method?: string | null): string {
-  return normalizeShippingMethod(method).toLowerCase();
-}
-
-function isPickupShippingMethod(method?: string | null): boolean {
-  return PICKUP_SHIPPING_METHODS.has(shippingMethodKey(method));
-}
-
-function isHomeDeliveryShippingMethod(method?: string | null): boolean {
-  return HOME_DELIVERY_SHIPPING_METHODS.has(shippingMethodKey(method));
-}
-
-function isDigitalShippingMethod(method?: string | null): boolean {
-  return shippingMethodKey(method) === "digital";
-}
-
-function isTerminalShipStatus(status?: string | null): boolean {
-  return TERMINAL_SHIP_STATUSES.has(String(status ?? "").toLowerCase());
-}
-
-function looksLikePickupBranch(name?: string | null): boolean {
-  const normalized = String(name ?? "")
-    .toLowerCase()
-    .replace(/\s+/g, "");
-  return (
-    normalized.includes("leon") ||
-    normalized.includes("león") ||
-    normalized === "pcinbox-leon"
-  );
-}
-
-function getShippingLabel(method?: string | null): string | null {
-  const raw = normalizeShippingMethod(method);
-  if (!raw) return null;
-  if (SHIPPING_LABELS[raw]) return SHIPPING_LABELS[raw];
-  const match = Object.entries(SHIPPING_LABELS).find(
-    ([key]) => key.toLowerCase() === raw.toLowerCase(),
-  );
-  return match?.[1] ?? null;
-}
-
-function hasAddressLines(address: any): boolean {
-  return Boolean(
-    address?.street ||
-      address?.noExt ||
-      address?.cologne ||
-      address?.cp ||
-      address?.city,
-  );
-}
-
-function isLicenseProduct(item: any): boolean {
-  const licenseType = String(item?.licenseType ?? "").toLowerCase();
-  return (
-    licenseType === "windows" ||
-    licenseType === "antivirus" ||
-    licenseType === "office"
-  );
-}
-
-/** Entrega digital: shipping digital o producto con licenseType. */
-function isDigitalDeliveryProduct(item: any): boolean {
-  return (
-    isDigitalShippingMethod(item?.address?.shipping_method) ||
-    isDigitalShippingMethod(item?.shipping_method) ||
-    isLicenseProduct(item)
-  );
-}
+const STATUS_CHANGE_COOLDOWN_MS = 3000;
 
 const DataProducts = ({
   params,
   handleChangeStatusShip,
+  handleChangeStatusShipByShipment,
+  promptShipCancelReason,
   onSaleLicenseDelivered,
+  openCancelOrderModal,
+  canCancelOrder,
 }: any) => {
-  const { requestGetProveedores } = ProveedoresUtils();
-
   const [products, setProducts] = useState(params.value || []);
   const [updatingSaleId, setUpdatingSaleId] = useState<number | null>(null);
-  const [dicotechBranches, setDicotechBranches] = useState<BranchOption[]>(
-    dicotechBranchesCache ?? [],
+  const [updatingShipmentId, setUpdatingShipmentId] = useState<number | null>(
+    null,
   );
+  const [cooldownSaleIds, setCooldownSaleIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [cooldownShipmentIds, setCooldownShipmentIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [bulkCooldownUntil, setBulkCooldownUntil] = useState(0);
+  const [, setCooldownTick] = useState(0);
 
   useEffect(() => {
     setProducts(params.value || []);
   }, [params.value]);
 
-  useEffect(() => {
-    if (dicotechBranchesCache) {
-      setDicotechBranches(dicotechBranchesCache);
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const resp = await requestGetProveedores(
-          `/getBranchesByProvider/${PROVIDER_DICOTECH}`,
-          { silent: true },
-        );
-        if (!cancelled && resp?.data?.data) {
-          dicotechBranchesCache = resp.data.data;
-          setDicotechBranches(resp.data.data);
-        }
-      } catch {
-        // Fallback silencioso
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+  const armSaleCooldown = useCallback((idSale: number) => {
+    setCooldownSaleIds((prev) => new Set(prev).add(idSale));
+    setTimeout(() => {
+      setCooldownSaleIds((prev) => {
+        const next = new Set(prev);
+        next.delete(idSale);
+        return next;
+      });
+      setCooldownTick((tick) => tick + 1);
+    }, STATUS_CHANGE_COOLDOWN_MS);
   }, []);
 
-  const branchNameByStoreId = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const branch of dicotechBranches) {
-      if (branch.externalStoreId != null) {
-        map.set(Number(branch.externalStoreId), branch.name);
-      }
-      map.set(Number(branch.idBranche), branch.name);
-    }
-    return map;
-  }, [dicotechBranches]);
+  const armShipmentCooldown = useCallback((idShipment: number) => {
+    setCooldownShipmentIds((prev) => new Set(prev).add(idShipment));
+    setTimeout(() => {
+      setCooldownShipmentIds((prev) => {
+        const next = new Set(prev);
+        next.delete(idShipment);
+        return next;
+      });
+      setCooldownTick((tick) => tick + 1);
+    }, STATUS_CHANGE_COOLDOWN_MS);
+  }, []);
 
-  const handleProductStatusChange = async (event: any, idSale: number) => {
+  const armBulkCooldown = useCallback(() => {
+    const until = Date.now() + STATUS_CHANGE_COOLDOWN_MS;
+    setBulkCooldownUntil(until);
+    setTimeout(() => {
+      setBulkCooldownUntil(0);
+      setCooldownTick((tick) => tick + 1);
+    }, STATUS_CHANGE_COOLDOWN_MS);
+  }, []);
+
+  const { physical, digital } = useMemo(
+    () => groupOrderProductsByShipment(products),
+    [products],
+  );
+
+  const physicalProducts = useMemo(
+    () => filterPhysicalProducts(products),
+    [products],
+  );
+
+  const idOrder = Number(params?.row?.idOrder || 0);
+  const statusPay = params?.row?.statusPay;
+  const bulkOnCooldown = bulkCooldownUntil > Date.now();
+
+  const handleProductStatusChange = async (
+    event: { target: { value: string } },
+    idSale: number,
+    options?: { cancelReason?: string },
+  ) => {
+    if (cooldownSaleIds.has(Number(idSale))) return false;
+
     const prevStatus = products.find(
       (p: any) => Number(p.idSale) === Number(idSale),
     )?.statusShip;
     const nextStatus = event.target.value;
+    const isCancel = nextStatus === "cancelado";
 
-    setProducts((prev: any[]) =>
-      prev.map((p: any) =>
-        Number(p.idSale) === Number(idSale)
-          ? { ...p, statusShip: nextStatus }
-          : p,
-      ),
-    );
+    // No pintar Cancelado en el Select hasta confirmar motivo + API.
+    if (!isCancel) {
+      setProducts((prev: any[]) =>
+        prev.map((p: any) =>
+          Number(p.idSale) === Number(idSale)
+            ? {
+                ...p,
+                statusShip: nextStatus,
+                statusChangedAt: new Date().toISOString(),
+              }
+            : p,
+        ),
+      );
+    }
     setUpdatingSaleId(Number(idSale));
 
     try {
@@ -215,8 +128,37 @@ const DataProducts = ({
         event,
         idSale,
         params.row.idUser,
+        options,
       );
       if (ok === false) {
+        if (!isCancel) {
+          setProducts((prev: any[]) =>
+            prev.map((p: any) =>
+              Number(p.idSale) === Number(idSale)
+                ? { ...p, statusShip: prevStatus }
+                : p,
+            ),
+          );
+        }
+      } else if (isCancel) {
+        setProducts((prev: any[]) =>
+          prev.map((p: any) =>
+            Number(p.idSale) === Number(idSale)
+              ? {
+                  ...p,
+                  statusShip: nextStatus,
+                  statusChangedAt: new Date().toISOString(),
+                }
+              : p,
+          ),
+        );
+        armSaleCooldown(Number(idSale));
+      } else {
+        armSaleCooldown(Number(idSale));
+      }
+      return ok;
+    } catch {
+      if (!isCancel) {
         setProducts((prev: any[]) =>
           prev.map((p: any) =>
             Number(p.idSale) === Number(idSale)
@@ -225,32 +167,165 @@ const DataProducts = ({
           ),
         );
       }
-    } catch {
-      setProducts((prev: any[]) =>
-        prev.map((p: any) =>
-          Number(p.idSale) === Number(idSale)
-            ? { ...p, statusShip: prevStatus }
-            : p,
-        ),
-      );
+      return false;
     } finally {
       setUpdatingSaleId(null);
     }
   };
 
-  const markSaleDelivered = (idSale: number, nextStatus: "entregado") => {
+  const handleShipmentStatusChange = async (
+    event: { target: { value: string } },
+    idShipment: number,
+    options?: { cancelReason?: string },
+  ) => {
+    if (cooldownShipmentIds.has(Number(idShipment))) return false;
+
+    const nextStatus = event.target.value;
+    const isCancel = nextStatus === "cancelado";
+    const previous = products.map((p: any) => ({ ...p }));
+    const affectedSaleIds: number[] = products
+      .filter((p: any) => Number(p.idShipment) === Number(idShipment))
+      .map((p: any) => Number(p.idSale))
+      .filter((id: number) => Number.isFinite(id) && id > 0);
+
+    if (!isCancel) {
+      setProducts((prev: any[]) =>
+        prev.map((p: any) =>
+          Number(p.idShipment) === Number(idShipment) ||
+          affectedSaleIds.includes(Number(p.idSale))
+            ? {
+                ...p,
+                statusShip: nextStatus,
+                statusChangedAt: new Date().toISOString(),
+              }
+            : p,
+        ),
+      );
+    }
+    setUpdatingShipmentId(Number(idShipment));
+
+    try {
+      if (!handleChangeStatusShipByShipment) return false;
+      const ok = await handleChangeStatusShipByShipment(
+        event,
+        idShipment,
+        params.row.idUser,
+        options,
+      );
+      if (ok === false) {
+        if (!isCancel) setProducts(previous);
+      } else if (isCancel) {
+        setProducts((prev: any[]) =>
+          prev.map((p: any) =>
+            Number(p.idShipment) === Number(idShipment) ||
+            affectedSaleIds.includes(Number(p.idSale))
+              ? {
+                  ...p,
+                  statusShip: nextStatus,
+                  statusChangedAt: new Date().toISOString(),
+                }
+              : p,
+          ),
+        );
+        armShipmentCooldown(Number(idShipment));
+        affectedSaleIds.forEach((id) => armSaleCooldown(id));
+      } else {
+        armShipmentCooldown(Number(idShipment));
+        affectedSaleIds.forEach((id) => armSaleCooldown(id));
+      }
+      return ok;
+    } catch {
+      if (!isCancel) setProducts(previous);
+      return false;
+    } finally {
+      setUpdatingShipmentId(null);
+    }
+  };
+
+  const markSaleDelivered = (
+    idSale: number,
+    _idOrder: number,
+    nextStatus: "entregado",
+  ) => {
     setProducts((prev: any[]) =>
       prev.map((p) =>
         Number(p.idSale) === Number(idSale)
           ? {
               ...p,
               statusShip: nextStatus,
+              statusChangedAt: new Date().toISOString(),
               licenseDeliveredAt: new Date().toISOString(),
             }
           : p,
       ),
     );
     onSaleLicenseDelivered?.(idSale, params.row?.idOrder, nextStatus);
+  };
+
+  const isTerminalShipStatus = (status?: string | null) =>
+    ["entregado", "cancelado"].includes(String(status ?? "").toLowerCase());
+
+  const handleBulkPhysicalStatusChange = async (nextStatus: string) => {
+    if (bulkOnCooldown) return false;
+
+    let cancelReason: string | undefined;
+
+    if (nextStatus === "cancelado") {
+      if (typeof promptShipCancelReason !== "function") return false;
+      const prompted = await promptShipCancelReason(
+        `Vas a marcar como Cancelado todos los envíos físicos pendientes de la orden #${idOrder}. Cuando todos los productos queden cancelados, se cancelará la orden y se intentará el reembolso (solo dentro de las 24 h). Indica el motivo; el cliente lo verá en su historial y en el correo.`,
+      );
+      if (!prompted) return false;
+      cancelReason = prompted;
+    }
+
+    const shipmentIds = [
+      ...new Set(
+        physical
+          .filter(
+            (group) =>
+              group.idShipment != null &&
+              Number(group.idShipment) > 0 &&
+              !isTerminalShipStatus(group.statusShip) &&
+              String(group.statusShip || "").toLowerCase() !== nextStatus,
+          )
+          .map((group) => Number(group.idShipment)),
+      ),
+    ];
+
+    let anyOk = false;
+    for (const idShipment of shipmentIds) {
+      const ok = await handleShipmentStatusChange(
+        { target: { value: nextStatus } },
+        idShipment,
+        cancelReason ? { cancelReason } : undefined,
+      );
+      if (ok) anyOk = true;
+    }
+
+    const orphanSales = physicalProducts.filter(
+      (item: any) =>
+        (!item.idShipment || Number(item.idShipment) <= 0) &&
+        item.idSale &&
+        !isTerminalShipStatus(item.statusShip) &&
+        String(item.statusShip || "").toLowerCase() !== nextStatus,
+    );
+
+    for (const item of orphanSales) {
+      const ok = await handleProductStatusChange(
+        { target: { value: nextStatus } },
+        Number(item.idSale),
+        cancelReason ? { cancelReason } : undefined,
+      );
+      if (ok) anyOk = true;
+    }
+
+    if (shipmentIds.length === 0 && orphanSales.length === 0) {
+      return nextStatus !== "cancelado";
+    }
+
+    if (anyOk) armBulkCooldown();
+    return anyOk;
   };
 
   if (!products?.length) {
@@ -265,18 +340,17 @@ const DataProducts = ({
   }
 
   const customerEmail =
-    params?.row?.dataUser?.email ||
-    params?.row?.email ||
-    null;
+    params?.row?.dataUser?.email || params?.row?.email || null;
   const customerName = [
     params?.row?.dataUser?.name,
     params?.row?.dataUser?.lastName || params?.row?.dataUser?.lastname,
   ]
     .filter(Boolean)
     .join(" ");
-  const idOrder = Number(params?.row?.idOrder || 0);
-  const statusPay = params?.row?.statusPay;
   const orderPaid = isOrderPaid(statusPay);
+  const digitalProductCount = products.filter((item: any) =>
+    isDigitalDeliveryProduct(item),
+  ).length;
 
   const hasPendingDigital = products.some(
     (item: any) =>
@@ -287,350 +361,171 @@ const DataProducts = ({
   );
 
   return (
-    <div className="admin-modal-products">
+    <div className="admin-modal-products" style={sp.productsRoot}>
+      <header className="admin-order-hero" style={sp.orderHero}>
+        <div className="admin-order-hero__main">
+          <p className="admin-order-hero__eyebrow">Detalle de la orden</p>
+          <h2 className="admin-order-hero__title">Orden #{idOrder || "—"}</h2>
+          <p className="admin-order-hero__subtitle">
+            {physical.length > 0
+              ? `${physical.length} envío${physical.length === 1 ? "" : "s"} físico${physical.length === 1 ? "" : "s"}`
+              : "Sin envíos físicos"}
+            {digitalProductCount > 0
+              ? ` · ${digitalProductCount} licencia${digitalProductCount === 1 ? "" : "s"} digital${digitalProductCount === 1 ? "" : "es"}`
+              : ""}
+            {` · ${products.length} producto${products.length === 1 ? "" : "s"}`}
+          </p>
+        </div>
+        <div className="admin-order-hero__meta">
+          <Chip
+            size="small"
+            label={`Pago: ${getPaymentStatusLabel(statusPay)}`}
+            color={orderPaid ? "success" : "default"}
+            sx={{ fontWeight: 700 }}
+          />
+          {customerName || customerEmail ? (
+            <span className="admin-order-hero__customer">
+              <UserRound size={14} />
+              {customerName || customerEmail}
+            </span>
+          ) : null}
+        </div>
+      </header>
+
+      {params?.row?.cancelReason ? (
+        <Alert
+          severity="warning"
+          sx={{ borderRadius: "12px", margin: 0 }}
+        >
+          <strong>Motivo de cancelación:</strong> {params.row.cancelReason}
+        </Alert>
+      ) : null}
+
+      {typeof openCancelOrderModal === "function" ? (
+        <OrderCancelSection
+          idOrder={idOrder}
+          statusPay={statusPay}
+          canCancelPermission={canCancelOrder === true}
+          onCancelClick={openCancelOrderModal}
+        />
+      ) : null}
+
+      {physicalProducts.length > 0 ? (
+        <Alert
+          severity="info"
+          icon={<Clock3 size={18} />}
+          sx={{ borderRadius: "12px", margin: 0 }}
+        >
+          Al cambiar el <strong>estatus del envío</strong> se actualizan los
+          productos en vivo. El correo al cliente{" "}
+          <strong>solo se envía</strong> desde el panel de abajo (botón{" "}
+          <strong>Enviar correo al cliente</strong>), excepto al{" "}
+          <strong>cancelar la orden completa</strong> (correo automático).
+        </Alert>
+      ) : null}
+
+      {physicalProducts.length > 0 ? (
+        <SendDeliveryStatusEmailPanel
+          idOrder={idOrder}
+          statusPay={statusPay}
+          customerEmail={customerEmail}
+          products={physicalProducts}
+          allProducts={products}
+          onBulkStatusChange={handleBulkPhysicalStatusChange}
+          bulkDisabled={bulkOnCooldown}
+        />
+      ) : (
+        <Alert
+          severity="info"
+          icon={<Mail size={18} />}
+          sx={{ borderRadius: "12px", margin: 0 }}
+        >
+          Esta orden solo incluye <strong>licencias digitales</strong>. Usa el correo
+          de claves en cada producto; no aplica el correo de estatus de paquetería.
+        </Alert>
+      )}
+
       {hasPendingDigital ? (
         <Alert
           severity={orderPaid ? "warning" : "info"}
           icon={<Mail size={20} />}
-          sx={{ mb: 1, borderRadius: "12px" }}
+          sx={{ borderRadius: "12px", margin: 0 }}
         >
           {orderPaid ? (
             <>
-              <strong>Licencia digital pendiente de envío.</strong> Usa el
-              panel de cada producto para enviar la información de activación
-              al correo del cliente
+              <strong>Licencia digital pendiente.</strong> Envía la clave desde el
+              bloque de licencias
               {customerEmail ? (
                 <>
-                  :{" "}
-                  <a
-                    href={`mailto:${customerEmail}`}
-                    style={{ fontWeight: 700 }}
-                  >
+                  {" "}
+                  a{" "}
+                  <a href={`mailto:${customerEmail}`} style={{ fontWeight: 700 }}>
                     {customerEmail}
                   </a>
                 </>
-              ) : (
-                " (ver Datos del cliente)."
-              )}
-              . Al enviarla, el estado pasa a <strong>Entregado</strong>.
+              ) : null}
+              .
             </>
           ) : (
             <>
-              <strong>Licencia digital en espera del pago.</strong> El envío
-              desde Admin solo se habilita cuando la orden esté{" "}
-              <strong>Pagada</strong> (estado actual:{" "}
-              {getPaymentStatusLabel(statusPay)}).
+              Licencias en espera de pago (
+              <strong>{getPaymentStatusLabel(statusPay)}</strong>).
             </>
           )}
         </Alert>
       ) : null}
 
-      {products.map((item: any, index: number) => {
-        const providerLabel = getProviderLabel(item.providerId);
-        const providerChipColor =
-          Number(item.providerId) === PROVIDER_DICOTECH
-            ? "warning"
-            : Number(item.providerId) === 2
-              ? "info"
-              : "default";
+      {physical.length > 0 ? (
+        <section className="admin-order-products-modal__list" style={sp.sectionList}>
+          <h3 className="admin-order-products-modal__section-title" style={sp.sectionTitle}>
+            <Package size={14} style={{ verticalAlign: "middle", marginRight: 6 }} />
+            Envíos físicos ({physical.length})
+          </h3>
+          {physical.map((group, index) => (
+            <ShipmentGroupSection
+              key={group.key}
+              group={group}
+              stackGap={index > 0}
+              idOrder={idOrder}
+              statusPay={statusPay}
+              customerEmail={customerEmail}
+              customerName={customerName}
+              onShipmentStatusChange={handleShipmentStatusChange}
+              onProductStatusChange={handleProductStatusChange}
+              updatingShipmentId={updatingShipmentId}
+              updatingSaleId={updatingSaleId}
+              cooldownShipmentIds={cooldownShipmentIds}
+              cooldownSaleIds={cooldownSaleIds}
+            />
+          ))}
+        </section>
+      ) : null}
 
-        const shippingMethod =
-          item.address?.shipping_method ?? item.shipping_method ?? null;
-        const isDigital = isDigitalDeliveryProduct(item);
-        const isPickup = isPickupShippingMethod(shippingMethod);
-        const isHomeDelivery = isHomeDeliveryShippingMethod(shippingMethod);
-        const originBranchName =
-          isDigital || isHomeDelivery
-            ? null
-            : item.address?.originBranche ||
-              item.address?.branche ||
-              branchNameByStoreId.get(Number(item.address?.storeId)) ||
-              null;
-        const branchName = isPickup ? PICKUP_BRANCH_DISPLAY : null;
-        const showOriginWarehouseTag =
-          isPickup &&
-          Boolean(originBranchName) &&
-          !looksLikePickupBranch(originBranchName);
-        const shipStatusLocked = isTerminalShipStatus(item.statusShip);
-        const shippingLabel = getShippingLabel(shippingMethod);
-        const showAddress = isHomeDelivery;
-
-        const deliveryTypeValue = isDigital
-          ? "Entrega digital (clave por correo)"
-          : isPickup
-            ? `Sucursal — ${PICKUP_BRANCH_DISPLAY}`
-            : isHomeDelivery
-              ? shippingLabel || "Domicilio"
-              : shippingLabel || "—";
-
-        const showDescription =
-          item.description &&
-          item.description.trim() !== String(item.productName || "").trim();
-
-
-        const imageUrl =
-          (Array.isArray(item.image_url) ? item.image_url[0] : item.image_url) ||
-          item.image ||
-          item.coverImage ||
-          "/imagen-no-encontrada.png";
-
-        return (
-          <article
-            key={item.idSale ?? `${item.idShipment}-${index}`}
-            className="admin-product-card"
-          >
-            <header className="admin-product-card__header">
-              <div className="admin-product-card__content">
-                <div className="admin-product-card__image-container">
-                  <img
-                    src={imageUrl}
-                    alt={item.productName}
-                    className="admin-product-card__image"
-                    onError={(event) => {
-                      const target = event.currentTarget;
-                      if (target.src.includes("imagen-no-encontrada.png"))
-                        return;
-                      target.src = "/imagen-no-encontrada.png";
-                    }}
-                  />
-                </div>
-                <div className="admin-product-card__title-wrap">
-                  <span className="admin-product-card__index">
-                    Producto {index + 1}
-                  </span>
-                  <h3 className="admin-product-card__name">
-                    {item.productName}
-                  </h3>
-                  {showDescription ? (
-                    <p className="admin-product-card__description">
-                      {item.description}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="admin-product-card__badges">
-                {isDigital ? (
-                  <Chip
-                    size="small"
-                    icon={<Mail size={14} />}
-                    label="Licencia digital"
-                    color="secondary"
-                    variant="filled"
-                    sx={{ fontWeight: 700 }}
-                  />
-                ) : null}
-                <Chip
-                  size="small"
-                  label={providerLabel}
-                  color={providerChipColor}
-                  variant="outlined"
-                  sx={{ fontWeight: 600 }}
-                />
-                <span className="admin-product-card__qty">
-                  × {item.quantity}
-                </span>
-              </div>
-            </header>
-
-            <ModalDetailGrid columns={3}>
-              <ModalDetailField label="SKU" value={item.sku || "N/A"} />
-              <ModalDetailField label="UPC" value={item.upc || "N/A"} />
-              <ModalDetailField label="Clave" value={item.clave || "N/A"} />
-            </ModalDetailGrid>
-
-            <Divider sx={{ my: 1.5, borderColor: "#eef0f4" }} />
-
-            <ModalDetailSection
-              title={isDigital ? "Entrega digital" : "Entrega y envío"}
-              icon={isDigital ? <Mail size={16} /> : <Package size={16} />}
-              variant="accent"
-            >
-              <ModalDetailField
-                label="Tipo de entrega"
-                value={deliveryTypeValue}
-                fullWidth
-              />
-
-              {isDigital ? (
-                <ModalDetailField
-                  label="Correo para enviar la clave"
-                  value={customerEmail || "Ver Datos del cliente"}
-                  fullWidth
-                />
-              ) : null}
-
-              {isDigital &&
-              !["entregado", "cancelado"].includes(
-                String(item.statusShip || "").toLowerCase(),
-              ) ? (
-                <Alert
-                  severity={orderPaid ? "info" : "warning"}
-                  sx={{ width: "100%", borderRadius: "10px" }}
-                >
-                  {orderPaid ? (
-                    <>
-                      Envía la información de la licencia a{" "}
-                      <strong>
-                        {customerEmail || "el correo del cliente"}
-                      </strong>{" "}
-                      desde el panel inferior. Solo aplica con pago confirmado.
-                    </>
-                  ) : (
-                    <>
-                      Esta licencia se enviará cuando la orden esté pagada.
-                      Estado de pago:{" "}
-                      <strong>{getPaymentStatusLabel(statusPay)}</strong>.
-                    </>
-                  )}
-                </Alert>
-              ) : null}
-
-              {showAddress ? (
-                <div className="admin-product-card__address">
-                  <MapPin size={15} className="admin-product-card__address-icon" />
-                  <div className="admin-product-card__address-lines">
-                    {hasAddressLines(item.address) ? (
-                      <>
-                        <span>
-                          {item.address.street} #{item.address.noExt}
-                          {item.address.noInt ? ` Int. ${item.address.noInt}` : ""}
-                        </span>
-                        <span>
-                          CP {item.address.cp} · {item.address.cologne}
-                        </span>
-                        <span>
-                          {item.address.city}, {item.address.state},{" "}
-                          {item.address.country}
-                        </span>
-                      </>
-                    ) : (
-                      <span>Sin dirección registrada</span>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-
-              <ModalDetailGrid columns={2}>
-                {Number(item.address?.shippingCost ?? 0) > 0 ? (
-                  <ModalDetailField
-                    label="Costo de envío"
-                    value={formatOrderMoney(Number(item.address.shippingCost))}
-                  />
-                ) : null}
-                {Number(item.address?.insuranceCost ?? 0) > 0 ? (
-                  <ModalDetailField
-                    label="Costo de seguro"
-                    value={formatOrderMoney(Number(item.address.insuranceCost))}
-                  />
-                ) : null}
-              </ModalDetailGrid>
-
-              <div className="admin-product-card__tags">
-                {item.address?.requireInsurance === 1 ? (
-                  <span className="admin-product-card__tag admin-product-card__tag--success">
-                    <ShieldCheck size={14} />
-                    Seguro requerido
-                  </span>
-                ) : null}
-
-                {!isDigital && isPickup && branchName ? (
-                  <span className="admin-product-card__tag">
-                    <Store size={14} />
-                    {`Sucursal ${branchName}`}
-                  </span>
-                ) : null}
-
-                {showOriginWarehouseTag ? (
-                  <span className="admin-product-card__tag">
-                    <Package size={14} />
-                    Almacén proveedor: {originBranchName}
-                  </span>
-                ) : null}
-
-                {shippingLabel ? (
-                  <span className="admin-product-card__tag">
-                    {isDigital ? <Mail size={14} /> : <Truck size={14} />}
-                    {shippingLabel}
-                  </span>
-                ) : null}
-
-                {item.address?.trackingNumber ? (
-                  <span className="admin-product-card__tag admin-product-card__tag--guide">
-                    Guía {item.address.trackingNumber}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="admin-product-card__status">
-                <label htmlFor={`ship-status-${item.idSale ?? item.idShipment}`}>
-                  {isDigital ? "Estado de entrega digital" : "Estado de envío"}
-                </label>
-                <FormControl fullWidth size="small">
-                  <Tooltip
-                    title={shipStatusLocked ? LOCKED_SHIP_STATUS_TOOLTIP : ""}
-                    placement="top"
-                    arrow
-                  >
-                    <span style={{ display: "block" }}>
-                      <Select
-                        id={`ship-status-${item.idSale ?? item.idShipment}`}
-                        value={item.statusShip ?? "procesando"}
-                        onChange={(e) =>
-                          handleProductStatusChange(e, Number(item.idSale))
-                        }
-                        disabled={
-                          shipStatusLocked ||
-                          !item.idSale ||
-                          updatingSaleId === Number(item.idSale)
-                        }
-                        sx={{
-                          borderRadius: "12px",
-                          bgcolor: "#fff",
-                          fontWeight: 600,
-                          width: "100%",
-                        }}
-                      >
-                        <MenuItem value="procesando">Procesando</MenuItem>
-                        {!isDigital ? (
-                          <MenuItem value="disponible">Disponible</MenuItem>
-                        ) : null}
-                        {!isDigital ? (
-                          <MenuItem value="enviado">Enviado</MenuItem>
-                        ) : null}
-                        <MenuItem value="entregado">Entregado</MenuItem>
-                        <MenuItem value="cancelado">Cancelado</MenuItem>
-                      </Select>
-                    </span>
-                  </Tooltip>
-                </FormControl>
-              </div>
-
-              {isDigital &&
-              idOrder > 0 &&
-              item.idSale &&
-              item.idShipment &&
-              !["cancelado"].includes(
-                String(item.statusShip || "").toLowerCase(),
-              ) ? (
-                <SendLicenseKeyPanel
-                  idOrder={idOrder}
-                  idSale={Number(item.idSale)}
-                  idShipment={Number(item.idShipment)}
-                  productName={item.productName || item.name || "Licencia"}
-                  defaultEmail={customerEmail || ""}
-                  customerName={customerName}
-                  statusPay={statusPay}
-                  shipmentStatus={item.statusShip}
-                  quantity={item.quantity}
-                  onSent={(nextStatus) => {
-                    markSaleDelivered(Number(item.idSale), nextStatus);
-                  }}
-                />
-              ) : null}
-            </ModalDetailSection>
-          </article>
-        );
-      })}
+      {digital.length > 0 ? (
+        <section className="admin-order-products-modal__list" style={sp.sectionList}>
+          <h3 className="admin-order-products-modal__section-title" style={sp.sectionTitle}>
+            <Mail size={14} style={{ verticalAlign: "middle", marginRight: 6 }} />
+            Entrega digital ({digital.reduce((n, g) => n + g.products.length, 0)})
+          </h3>
+          {digital.map((group, index) => (
+            <ShipmentGroupSection
+              key={group.key}
+              group={group}
+              stackGap={index > 0}
+              idOrder={idOrder}
+              statusPay={statusPay}
+              customerEmail={customerEmail}
+              customerName={customerName}
+              onShipmentStatusChange={handleShipmentStatusChange}
+              onSaleLicenseDelivered={markSaleDelivered}
+              updatingShipmentId={updatingShipmentId}
+              updatingSaleId={updatingSaleId}
+              cooldownShipmentIds={cooldownShipmentIds}
+              cooldownSaleIds={cooldownSaleIds}
+            />
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 };

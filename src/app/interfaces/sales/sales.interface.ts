@@ -33,12 +33,16 @@ export interface SalesI {
     productName: string;
     description: string;
     quantity: number;
+    lineTotal?: number;
     upc: string;
     sku: string;
+    idProductExt?: string | number | null;
     providerId?: number;
     purchaseId?: string | null;
+    invoiceNumber?: string | null;
     licenseType?: string | null;
     statusShip: any;
+    statusChangedAt?: string | null;
     licenseDeliveredAt?: string | null;
     idShipment: number;
     address: null | {
@@ -67,6 +71,8 @@ export interface SalesI {
   insuranceTotal?: number;
   statusPay: any;
   statusShip: any;
+  orderStatus?: string | null;
+  cancelReason?: string | null;
   billing: any;
   requiredFactura: number;
   createdAt: string;

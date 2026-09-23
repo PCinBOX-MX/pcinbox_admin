@@ -17,13 +17,13 @@
 }
 
 .table th {
-  padding: 13px 16px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f8fafc;
+  padding: 14px 16px;
+  border-bottom: 2px solid rgba(187, 61, 75, 0.1);
+  background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
   color: #64748b;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   text-align: left;
   text-transform: uppercase;
 }
@@ -41,7 +41,8 @@
 }
 
 .table tbody tr:hover {
-  background: #fdf7f8;
+  background: rgba(187, 61, 75, 0.04);
+  box-shadow: inset 3px 0 0 #bb3d4b;
 }
 
 .table tbody tr:last-child td {

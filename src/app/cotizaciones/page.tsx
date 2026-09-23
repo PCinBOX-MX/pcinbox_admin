@@ -16,18 +16,12 @@ import {
 import usePermissions from "../hooks/usePermissions";
 import { Cotizacion } from "../interfaces/cotizaciones/cotizaciones.interface";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import AdminRefreshButton from "../shared/components/common/buttons/AdminRefreshButton";
+import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefreshablePanel";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import styles from "./cotizaciones.module.css";
 import useCotizaciones from "./useCotizaciones";
-
-const fieldSx = {
-  "& .MuiOutlinedInput-root": {
-    borderRadius: "10px",
-    "&:hover fieldset": { borderColor: "#bb3d4b" },
-    "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
-  },
-  "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
-};
+import { adminFieldSx } from "../theme/adminFieldSx";
 
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -169,18 +163,7 @@ export default function CotizacionesPage() {
     <AdminPageShell
       title="Cotizaciones"
       subtitle="Consulta, descarga y administra los PDF generados por clientes"
-      actions={
-        <button
-          type="button"
-          className="admin-btn-secondary"
-          onClick={() => void reload()}
-          disabled={loading}
-          data-testid="reload-cotizaciones"
-        >
-          <RefreshCw size={18} className={loading ? "the-spinner" : ""} />
-          Actualizar
-        </button>
-      }
+      actions={<AdminRefreshButton onClick={() => void reload()} loading={loading} />}
       filters={
         <>
           <div className="admin-filters-header">
@@ -193,7 +176,7 @@ export default function CotizacionesPage() {
               label="Folio, archivo, cliente o email"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              sx={fieldSx}
+              sx={adminFieldSx}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -209,7 +192,7 @@ export default function CotizacionesPage() {
               type="date"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
-              sx={fieldSx}
+              sx={adminFieldSx}
               slotProps={{ inputLabel: { shrink: true } }}
               inputProps={{
                 max: to || undefined,
@@ -222,7 +205,7 @@ export default function CotizacionesPage() {
               type="date"
               value={to}
               onChange={(event) => setTo(event.target.value)}
-              sx={fieldSx}
+              sx={adminFieldSx}
               slotProps={{ inputLabel: { shrink: true } }}
               inputProps={{
                 min: from || undefined,
@@ -242,19 +225,10 @@ export default function CotizacionesPage() {
           </div>
         </>
       }
-      paginationTop={
-        !loading && !error && records.length ? paginationBlock : undefined
-      }
-      paginationBottom={
-        !loading && !error && records.length ? paginationBlock : undefined
-      }
+      paginationTop={records.length > 0 ? paginationBlock : undefined}
+      paginationBottom={records.length > 0 ? paginationBlock : undefined}
     >
-      {loading ? (
-        <div className={styles.centerState} data-testid="cotizaciones-loading">
-          <CircularProgress size={30} />
-          <span>Cargando cotizaciones...</span>
-        </div>
-      ) : error ? (
+      {error ? (
         <div className={styles.state} data-testid="cotizaciones-error">
           <Alert
             severity="error"
@@ -271,15 +245,27 @@ export default function CotizacionesPage() {
             {error}
           </Alert>
         </div>
-      ) : records.length === 0 ? (
-        <EmptyState
-          testId="cotizaciones-empty"
-          title="No se encontraron cotizaciones"
-          description="Prueba con otros términos o cambia el periodo."
-          icon="quotes"
-        />
       ) : (
-        <>
+        <AdminRefreshablePanel
+          loading={loading}
+          hasContent={records.length > 0}
+          emptyState={
+            loading ? (
+              <div className={styles.centerState} data-testid="cotizaciones-loading">
+                <CircularProgress size={30} />
+                <span>Cargando cotizaciones...</span>
+              </div>
+            ) : (
+              <EmptyState
+                testId="cotizaciones-empty"
+                title="No se encontraron cotizaciones"
+                description="Prueba con otros términos o cambia el periodo."
+                icon="quotes"
+              />
+            )
+          }
+        >
+          <>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -405,7 +391,8 @@ export default function CotizacionesPage() {
               </article>
             ))}
           </div>
-        </>
+          </>
+        </AdminRefreshablePanel>
       )}
     </AdminPageShell>
   );

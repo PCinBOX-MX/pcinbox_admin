@@ -10,16 +10,15 @@ import { FormControl, InputLabel, MenuItem, Select, TextField, Alert } from "@mu
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
+import AdminRefreshButton from "../shared/components/common/buttons/AdminRefreshButton";
+import AdminRefreshablePanel from "../shared/components/common/layout/AdminRefreshablePanel";
 import { Filter, RefreshCw, Search, X } from "lucide-react";
-
-const fieldSx = {
-  "& .MuiOutlinedInput-root": {
-    borderRadius: "10px",
-    "&:hover fieldset": { borderColor: "#bb3d4b" },
-    "&.Mui-focused fieldset": { borderColor: "#bb3d4b" },
-  },
-  "& .MuiInputLabel-root.Mui-focused": { color: "#bb3d4b" },
-};
+import { adminFieldSx } from "../theme/adminFieldSx";
+import {
+  resolvePageParam,
+  resolvePageSizeParam,
+  useSkipInitialUrlWrite,
+} from "../utils/adminPagination";
 
 const DashBoard = () => {
   const [mounted, setMounted] = useState(false);
@@ -27,17 +26,19 @@ const DashBoard = () => {
 
   const { rowsVentas } = useTheContext();
   const { searchParams, setQueryParams } = useQueryParams();
-  
+  const shouldSkipInitialUrlWrite = useSkipInitialUrlWrite();
+
   const searchParam = searchParams.get("search") || "";
   const statusPayParam = searchParams.get("statusPay") || "all";
   const methodPayParam = searchParams.get("methodPay") || "all";
   const dateFromParam = searchParams.get("dateFrom") || "";
   const dateToParam = searchParams.get("dateTo") || "";
   const providerPendingParam = searchParams.get("providerPending") || "all";
-  const pageParam = parseInt(searchParams.get("page") || "0", 10);
-  const pageSizeParam = parseInt(searchParams.get("pageSize") || "25", 10);
+  const pageParam = resolvePageParam(searchParams.get("page"), 1);
+  const pageSizeParam = resolvePageSizeParam(searchParams.get("pageSize"), 25);
 
-  const [paginationModel, setPaginationModel] = useState({ page: pageParam, pageSize: pageSizeParam });
+  const [page, setPage] = useState(pageParam);
+  const [pageSize, setPageSize] = useState(pageSizeParam);
   const [search, setSearch] = useState(searchParam);
   const [debouncedSearch, setDebouncedSearch] = useState(searchParam);
   const [statusPay, setStatusPay] = useState(statusPayParam);
@@ -58,13 +59,13 @@ const DashBoard = () => {
     if (providerPendingParam !== providerPending) {
       setProviderPending(providerPendingParam);
     }
-    if (pageParam !== paginationModel.page || pageSizeParam !== paginationModel.pageSize) {
-      setPaginationModel({ page: pageParam, pageSize: pageSizeParam });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (pageParam !== page) setPage(pageParam);
+    if (pageSizeParam !== pageSize) setPageSize(pageSizeParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
+    if (shouldSkipInitialUrlWrite()) return;
     setQueryParams({
       search: debouncedSearch,
       statusPay,
@@ -72,8 +73,8 @@ const DashBoard = () => {
       dateFrom,
       dateTo,
       providerPending,
-      page: paginationModel.page,
-      pageSize: paginationModel.pageSize,
+      page,
+      pageSize,
     });
   }, [
     debouncedSearch,
@@ -82,22 +83,27 @@ const DashBoard = () => {
     dateFrom,
     dateTo,
     providerPending,
-    paginationModel,
+    page,
+    pageSize,
     setQueryParams,
+    shouldSkipInitialUrlWrite,
   ]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-      if (search.trim() !== debouncedSearch) {
-        setPaginationModel((prev) => ({ ...prev, page: 0 }));
-      }
+      const trimmed = search.trim();
+      if (trimmed === debouncedSearch) return;
+      setDebouncedSearch(trimmed);
+      setPage(1);
     }, 450);
     return () => clearTimeout(handler);
   }, [search, debouncedSearch]);
 
   const {
     handleChangeStatusShip,
+    handleChangeStatusShipByShipment,
+    promptShipCancelReason,
+    shipCancelReasonDialog,
     handleGetAllSales,
     can,
     openCancelOrderModal,
@@ -108,8 +114,10 @@ const DashBoard = () => {
 
   const { columns } = GridDashboard({
     handleChangeStatusShip,
-    rows: rowsVentas,
+    handleChangeStatusShipByShipment,
+    promptShipCancelReason,
     openCancelOrderModal,
+    rows: rowsVentas,
     handleRetryDicotechPostPayment,
     can,
   });
@@ -128,28 +136,31 @@ const DashBoard = () => {
   );
 
   const loadSales = async () => {
-    await handleGetAllSales(paginationModel.page + 1, paginationModel.pageSize, filters);
+    await handleGetAllSales(page, pageSize, filters);
   };
 
   useEffect(() => {
-    loadSales();
+    void loadSales();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paginationModel.page, paginationModel.pageSize, filters]);
+  }, [page, pageSize, filters]);
 
-  const pageCount = Math.ceil((rowsVentas?.totalRows || 0) / paginationModel.pageSize);
+  const pageCount = Math.max(
+    1,
+    Math.ceil((rowsVentas?.totalRows || 0) / pageSize),
+  );
+  const paginationModel = { page: page - 1, pageSize };
 
   const paginationBlock = (
     <ModernPagination
-      page={paginationModel.page + 1}
+      page={page}
       pageCount={pageCount}
       totalItems={rowsVentas?.totalRows || 0}
-      pageSize={paginationModel.pageSize}
-      onPageChange={(p) =>
-        setPaginationModel((prev) => ({ ...prev, page: p - 1 }))
-      }
-      onPageSizeChange={(size) =>
-        setPaginationModel({ page: 0, pageSize: size })
-      }
+      pageSize={pageSize}
+      onPageChange={setPage}
+      onPageSizeChange={(size) => {
+        setPage(1);
+        setPageSize(size);
+      }}
       label="ventas"
     />
   );
@@ -161,7 +172,7 @@ const DashBoard = () => {
     setDateFrom("");
     setDateTo("");
     setProviderPending("all");
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setPage(1);
     setQueryParams({
       search: "",
       statusPay: "all",
@@ -169,7 +180,7 @@ const DashBoard = () => {
       dateFrom: "",
       dateTo: "",
       providerPending: "all",
-      page: 0,
+      page: 1,
     });
   };
 
@@ -184,170 +195,178 @@ const DashBoard = () => {
   if (!mounted) return null;
 
   return (
-    <AdminPageShell
-      title="Ventas"
-      subtitle="Gestión de órdenes, pagos y envíos en tiempo real"
-      actions={
-        <button
-          type="button"
-          onClick={loadSales}
-          className="admin-btn-secondary"
-          disabled={loading}
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          Actualizar
-        </button>
-      }
-      filters={
-        <>
-          <div className="admin-filters-header">
-            <Filter size={16} />
-            <span>Filtros avanzados</span>
-          </div>
-          <div className="admin-filters-grid">
-            <TextField
-              size="small"
-              label="Buscar orden, cliente o email"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPaginationModel((prev) => ({ ...prev, page: 0 }));
-              }}
-              sx={fieldSx}
-              InputProps={{
-                startAdornment: <Search size={18} className="admin-filter-icon" />,
-              }}
-            />
-            <FormControl size="small" sx={fieldSx}>
-              <InputLabel>Estatus pago</InputLabel>
-              <Select
-                label="Estatus pago"
-                value={statusPay}
+    <>
+      <AdminPageShell
+        title="Ventas"
+        subtitle="Gestión de órdenes, pagos y envíos en tiempo real"
+        actions={
+          <AdminRefreshButton onClick={loadSales} loading={loading} />
+        }
+        filters={
+          <>
+            <div className="admin-filters-header">
+              <Filter size={16} />
+              <span>Filtros avanzados</span>
+            </div>
+            <div className="admin-filters-grid">
+              <TextField
+                size="small"
+                label="Buscar orden, cliente o email"
+                value={search}
                 onChange={(e) => {
-                  setStatusPay(e.target.value);
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  setSearch(e.target.value);
                 }}
+                sx={adminFieldSx}
+                InputProps={{
+                  startAdornment: (
+                    <Search size={18} className="admin-filter-icon" />
+                  ),
+                }}
+              />
+              <FormControl size="small" sx={adminFieldSx}>
+                <InputLabel>Estatus pago</InputLabel>
+                <Select
+                  label="Estatus pago"
+                  value={statusPay}
+                  onChange={(e) => {
+                    setStatusPay(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <MenuItem value="all">Todos</MenuItem>
+                  <MenuItem value="paid">Pagado</MenuItem>
+                  <MenuItem value="pending">Pendiente</MenuItem>
+                  <MenuItem value="failed">Fallido</MenuItem>
+                  <MenuItem value="cancelled">Cancelado</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={adminFieldSx}>
+                <InputLabel>Método de pago</InputLabel>
+                <Select
+                  label="Método de pago"
+                  value={methodPay}
+                  onChange={(e) => {
+                    setMethodPay(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <MenuItem value="all">Todos</MenuItem>
+                  <MenuItem value="mercadopago">Mercado Pago</MenuItem>
+                  <MenuItem value="tarjeta_de_credito">Tarjeta crédito</MenuItem>
+                  <MenuItem value="tarjeta_de_debito">Tarjeta débito</MenuItem>
+                  <MenuItem value="oxxo">Efectivo en establecimiento</MenuItem>
+                  <MenuItem value="transferencia_bancaria">
+                    Transferencia bancaria
+                  </MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl
+                size="small"
+                sx={adminFieldSx}
+                data-testid="ventas-provider-pending-filter"
               >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="paid">Pagado</MenuItem>
-                <MenuItem value="pending">Pendiente</MenuItem>
-                <MenuItem value="failed">Fallido</MenuItem>
-                <MenuItem value="cancelled">Cancelado</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={fieldSx}>
-              <InputLabel>Método de pago</InputLabel>
-              <Select
-                label="Método de pago"
-                value={methodPay}
+                <InputLabel>Pendientes proveedor</InputLabel>
+                <Select
+                  label="Pendientes proveedor"
+                  value={providerPending}
+                  onChange={(e) => {
+                    setProviderPending(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <MenuItem value="all">Todos</MenuItem>
+                  <MenuItem value="dicotech">Dicotech sin purchaseId</MenuItem>
+                  <MenuItem value="techsmart">TechSmart pendiente</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                size="small"
+                label="Desde"
+                type="date"
+                value={dateFrom}
                 onChange={(e) => {
-                  setMethodPay(e.target.value);
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  setDateFrom(e.target.value);
+                  setPage(1);
                 }}
-              >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="mercadopago">Mercado Pago</MenuItem>
-                <MenuItem value="tarjeta_de_credito">Tarjeta crédito</MenuItem>
-                <MenuItem value="tarjeta_de_debito">Tarjeta débito</MenuItem>
-                <MenuItem value="oxxo">Efectivo en establecimiento</MenuItem>
-                <MenuItem value="transferencia_bancaria">Transferencia bancaria</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl
-              size="small"
-              sx={fieldSx}
-              data-testid="ventas-provider-pending-filter"
-            >
-              <InputLabel>Pendientes proveedor</InputLabel>
-              <Select
-                label="Pendientes proveedor"
-                value={providerPending}
+                InputLabelProps={{ shrink: true }}
+                sx={adminFieldSx}
+              />
+              <TextField
+                size="small"
+                label="Hasta"
+                type="date"
+                value={dateTo}
                 onChange={(e) => {
-                  setProviderPending(e.target.value);
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  setDateTo(e.target.value);
+                  setPage(1);
                 }}
+                InputLabelProps={{ shrink: true }}
+                sx={adminFieldSx}
+              />
+              <button
+                type="button"
+                className="admin-btn-ghost"
+                onClick={clearFilters}
+                disabled={!hasFilters}
               >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="dicotech">Dicotech sin purchaseId</MenuItem>
-                <MenuItem value="techsmart">TechSmart pendiente</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              size="small"
-              label="Desde"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                setPaginationModel((prev) => ({ ...prev, page: 0 }));
-              }}
-              InputLabelProps={{ shrink: true }}
-              sx={fieldSx}
-            />
-            <TextField
-              size="small"
-              label="Hasta"
-              type="date"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                setPaginationModel((prev) => ({ ...prev, page: 0 }));
-              }}
-              InputLabelProps={{ shrink: true }}
-              sx={fieldSx}
-            />
+                <X size={16} />
+                Limpiar
+              </button>
+            </div>
+          </>
+        }
+        paginationTop={
+          (rowsVentas?.totalRows || 0) > 0 ? paginationBlock : undefined
+        }
+        paginationBottom={
+          (rowsVentas?.totalRows || 0) > 0 ? paginationBlock : undefined
+        }
+      >
+        {listError ? (
+          <div className="admin-empty-state" style={{ display: "grid", gap: 12 }}>
+            <Alert severity="error">{listError}</Alert>
             <button
               type="button"
-              className="admin-btn-ghost"
-              onClick={clearFilters}
-              disabled={!hasFilters}
+              className="admin-btn-secondary"
+              onClick={loadSales}
+              disabled={loading}
             >
-              <X size={16} />
-              Limpiar
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+              Reintentar
             </button>
           </div>
-        </>
-      }
-      paginationTop={rowsVentas?.data?.length ? paginationBlock : undefined}
-      paginationBottom={rowsVentas?.data?.length ? paginationBlock : undefined}
-    >
-      {listError ? (
-        <div className="admin-empty-state" style={{ display: "grid", gap: 12 }}>
-          <Alert severity="error">{listError}</Alert>
-          <button
-            type="button"
-            className="admin-btn-secondary"
-            onClick={loadSales}
-            disabled={loading}
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            Reintentar
-          </button>
-        </div>
-      ) : rowsVentas?.data && rowsVentas.data.length > 0 ? (
-        <TableComponent
-          loading={loading}
-          hideFooter
-          paginationModel={paginationModel}
-          handlePaginationChange={() => {}}
-          totalRows={rowsVentas?.totalRows}
-          columnsDataGrid={columns}
-          rowsDataGrid={rowsVentas?.data}
-        />
-      ) : (
-        <div className="admin-empty-state">
-          <EmptyState
-            title={loading ? "Cargando ventas..." : "Sin ventas"}
-            description={
-              loading
-                ? "Estamos obteniendo la información del panel."
-                : "Sin ventas que coincidan con los filtros seleccionados."
+        ) : (
+          <AdminRefreshablePanel
+            loading={loading}
+            hasContent={Boolean(rowsVentas?.data?.length)}
+            emptyState={
+              <div className="admin-empty-state">
+                <EmptyState
+                  title={loading ? "Cargando ventas..." : "Sin ventas"}
+                  description={
+                    loading
+                      ? "Estamos obteniendo la información del panel."
+                      : "Sin ventas que coincidan con los filtros seleccionados."
+                  }
+                  icon="orders"
+                />
+              </div>
             }
-            icon="orders"
-          />
-        </div>
-      )}
-    </AdminPageShell>
+          >
+            <TableComponent
+              loading={loading}
+              hideFooter
+              paginationModel={paginationModel}
+              handlePaginationChange={() => {}}
+              totalRows={rowsVentas?.totalRows}
+              columnsDataGrid={columns}
+              rowsDataGrid={rowsVentas?.data}
+            />
+          </AdminRefreshablePanel>
+        )}
+      </AdminPageShell>
+      {shipCancelReasonDialog}
+    </>
   );
 };
 

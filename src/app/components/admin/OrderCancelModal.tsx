@@ -11,6 +11,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { Ban, ShieldAlert, Wallet } from "lucide-react";
 import { CanCancelOrderResult } from "@/app/types/orderCancellation";
 
 type Props = {
@@ -74,38 +75,58 @@ export default function OrderCancelModal({
 
   if (hardBlocked) {
     return (
-      <Box
-        sx={{
-          width: "100%",
-          minWidth: { xs: "100%", sm: 420 },
-          textAlign: "left",
-        }}
-      >
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Orden{" "}
-          <Box component="span" fontWeight={700} color="text.primary">
-            #{idOrder}
-          </Box>
-        </Typography>
+      <Box className="admin-cancel-modal">
+        <div className="admin-cancel-modal__banner admin-cancel-modal__banner--blocked">
+          <div className="admin-cancel-modal__banner-icon">
+            <ShieldAlert size={22} strokeWidth={2.25} />
+          </div>
+          <div>
+            <p className="admin-cancel-modal__eyebrow">No disponible</p>
+            <h3 className="admin-cancel-modal__heading">
+              Esta orden no se puede cancelar
+            </h3>
+          </div>
+        </div>
 
-        <Alert severity="warning" sx={{ mb: 2, textAlign: "left" }}>
+        <div className="admin-cancel-modal__order-pill">Orden #{idOrder}</div>
+
+        <Alert
+          severity="warning"
+          sx={{
+            mb: 2,
+            borderRadius: "14px",
+            border: "1px solid #fde68a",
+            bgcolor: "#fffbeb",
+          }}
+        >
           {eligibility?.reason ||
             "Esta orden no puede cancelarse en este momento."}
         </Alert>
 
-        <Typography variant="body2" color="text.secondary">
-          Cuando el envío ya está en proceso, la cancelación automática no está
-          disponible. Revisa el estado del pedido o contacta soporte si necesitas
-          ayuda operativa.
+        <Typography
+          variant="body2"
+          sx={{ color: "#6b7280", lineHeight: 1.6, mb: 3 }}
+        >
+          Cuando el envío ya está en tránsito o entregado, la cancelación
+          automática no está disponible. Revisa el estado del pedido o contacta
+          soporte si necesitas ayuda operativa.
         </Typography>
 
-        <Stack
-          direction="row"
-          justifyContent="flex-end"
-          spacing={1.5}
-          sx={{ mt: 3, pt: 1 }}
-        >
-          <Button variant="contained" onClick={onCancel}>
+        <Stack direction="row" justifyContent="flex-end">
+          <Button
+            variant="contained"
+            onClick={onCancel}
+            sx={{
+              borderRadius: "12px",
+              px: 2.5,
+              py: 1.1,
+              fontWeight: 700,
+              textTransform: "none",
+              background:
+                "linear-gradient(135deg, #bb3d4b 0%, #9a3139 100%)",
+              boxShadow: "0 8px 20px rgba(187, 61, 75, 0.28)",
+            }}
+          >
             Entendido
           </Button>
         </Stack>
@@ -114,34 +135,58 @@ export default function OrderCancelModal({
   }
 
   return (
-    <Box
-      sx={{
-        width: "100%",
-        minWidth: { xs: "100%", sm: 440 },
-        textAlign: "left",
-      }}
-    >
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Vas a cancelar la orden{" "}
-        <Box component="span" fontWeight={700} color="text.primary">
-          #{idOrder}
-        </Box>
-        . Se intentará reembolso si el pago ya fue capturado.
-      </Typography>
+    <Box className="admin-cancel-modal">
+      <div className="admin-cancel-modal__banner">
+        <div className="admin-cancel-modal__banner-icon">
+          <Ban size={22} strokeWidth={2.25} />
+        </div>
+        <div>
+          <p className="admin-cancel-modal__eyebrow">Acción sensible</p>
+          <h3 className="admin-cancel-modal__heading">
+            Cancelar orden completa
+          </h3>
+        </div>
+      </div>
+
+      <div className="admin-cancel-modal__order-pill">Orden #{idOrder}</div>
+
+      <div className="admin-cancel-modal__impact">
+        <div className="admin-cancel-modal__impact-item">
+          <Wallet size={16} />
+          <span>Se intentará reembolso si el pago ya fue capturado</span>
+        </div>
+        <div className="admin-cancel-modal__impact-item">
+          <Ban size={16} />
+          <span>Todos los productos quedarán en Cancelado</span>
+        </div>
+      </div>
 
       {canTryOverride && eligibility?.reason ? (
-        <Alert severity="info" sx={{ mb: 2, textAlign: "left" }}>
+        <Alert
+          severity="info"
+          sx={{
+            mb: 2,
+            borderRadius: "14px",
+            border: "1px solid #bfdbfe",
+            bgcolor: "#eff6ff",
+          }}
+        >
           {eligibility.reason}
         </Alert>
       ) : null}
 
       {canTryOverride ? (
         <FormControlLabel
+          className="admin-cancel-modal__override"
           sx={{
             mb: 2,
             alignItems: "flex-start",
             mx: 0,
-            "& .MuiCheckbox-root": { pt: 0.25 },
+            p: 1.5,
+            borderRadius: "14px",
+            border: "1px solid #e8ecf4",
+            bgcolor: "#f8fafc",
+            "& .MuiCheckbox-root": { pt: 0.25, color: "#bb3d4b" },
           }}
           control={
             <Checkbox
@@ -153,13 +198,13 @@ export default function OrderCancelModal({
             />
           }
           label={
-            <Typography variant="body2" color="text.secondary">
-              <Box component="span" fontWeight={700} color="text.primary">
+            <Typography variant="body2" sx={{ color: "#4b5563", lineHeight: 1.5 }}>
+              <Box component="span" fontWeight={800} color="#111827">
                 Override manual
               </Box>{" "}
-              — solo para casos operativos excepcionales. No aplica si el envío
-              ya fue enviado o entregado, hay licencia digital entregada, Dicotech
-              en surtido o TechSmart fuera de plazo.
+              — solo casos operativos excepcionales. No aplica si el envío ya
+              fue enviado/entregado, hay licencia digital entregada, Dicotech en
+              surtido o TechSmart fuera de plazo.
             </Typography>
           }
         />
@@ -180,11 +225,17 @@ export default function OrderCancelModal({
           error ||
           (formDisabled
             ? "Activa el override manual para escribir el motivo."
-            : "Obligatorio para registrar la cancelación.")
+            : "El cliente verá este motivo en su historial y en el correo.")
         }
         onChange={(event) => {
           setReason(event.target.value);
           if (event.target.value.trim()) setError("");
+        }}
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "14px",
+            bgcolor: formDisabled ? "#f3f4f6" : "#fff",
+          },
         }}
       />
 
@@ -192,16 +243,40 @@ export default function OrderCancelModal({
         direction={{ xs: "column-reverse", sm: "row" }}
         justifyContent="flex-end"
         spacing={1.5}
-        sx={{ mt: 3, pt: 1 }}
+        sx={{ mt: 3 }}
       >
-        <Button variant="outlined" color="inherit" onClick={onCancel}>
+        <Button
+          variant="outlined"
+          color="inherit"
+          onClick={onCancel}
+          sx={{
+            borderRadius: "12px",
+            px: 2.25,
+            py: 1.05,
+            fontWeight: 700,
+            textTransform: "none",
+            borderColor: "#d1d5db",
+          }}
+        >
           Cerrar
         </Button>
         <Button
           variant="contained"
-          color="error"
           disabled={confirmDisabled}
           onClick={handleSubmit}
+          sx={{
+            borderRadius: "12px",
+            px: 2.5,
+            py: 1.05,
+            fontWeight: 800,
+            textTransform: "none",
+            background: confirmDisabled
+              ? undefined
+              : "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
+            boxShadow: confirmDisabled
+              ? "none"
+              : "0 10px 24px rgba(185, 28, 28, 0.35)",
+          }}
         >
           Confirmar cancelación
         </Button>
