@@ -11,6 +11,7 @@ export type AdminPermission =
   | "quotes.manage"
   | "catalog.manage"
   | "users.view"
+  | "users.deactivate"
   | "settings.manage"
   | "pos.manage"
   | "pos.cancel"
