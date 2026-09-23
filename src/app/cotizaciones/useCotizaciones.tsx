@@ -10,6 +10,10 @@ import {
   CotizacionesPagination,
 } from "../interfaces/cotizaciones/cotizaciones.interface";
 import UtilsService from "../services/utils";
+import {
+  resolvePageParam,
+  readWindowSearchParam,
+} from "../utils/adminPagination";
 
 const PAGE_SIZE = 25;
 
@@ -21,8 +25,7 @@ const emptyPagination: CotizacionesPagination = {
 };
 
 function positivePage(value: string | null): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+  return resolvePageParam(value, 1);
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -52,7 +55,7 @@ export default function useCotizaciones(enabled = true) {
   const [from, setFromState] = useState(() => searchParams.get("from") ?? "");
   const [to, setToState] = useState(() => searchParams.get("to") ?? "");
   const [page, setPageState] = useState(() =>
-    positivePage(searchParams.get("page")),
+    positivePage(searchParams.get("page") || readWindowSearchParam("page")),
   );
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState("");
@@ -109,7 +112,9 @@ export default function useCotizaciones(enabled = true) {
     const urlSearch = searchParams.get("search") ?? "";
     const urlFrom = searchParams.get("from") ?? "";
     const urlTo = searchParams.get("to") ?? "";
-    const urlPage = positivePage(searchParams.get("page"));
+    const urlPage = positivePage(
+      searchParams.get("page") || readWindowSearchParam("page"),
+    );
 
     if (urlSearch !== debouncedSearch) {
       setSearch(urlSearch);

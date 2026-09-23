@@ -24,15 +24,26 @@ const TableComponent = ({
 }) => {
   if (!rowsDataGrid?.length || !columnsDataGrid?.length) return null;
 
+  // Con footer externo (ModernPagination), las filas ya vienen paginadas por el API.
+  // "client" + page>0 re-corta esas filas y la UI muestra otra página / vacío.
+  const externalPagination = hideFooter;
+
   return (
     <div className="admin-table-scroll">
       <DataGrid
         loading={loading}
-        paginationMode={hideFooter ? "client" : "server"}
-        rowCount={hideFooter ? undefined : totalRows || 0}
+        paginationMode="server"
+        rowCount={totalRows || rowsDataGrid.length || 0}
         rows={rowsDataGrid}
         columns={columnsDataGrid}
-        paginationModel={paginationModel}
+        paginationModel={
+          externalPagination
+            ? {
+                page: 0,
+                pageSize: paginationModel?.pageSize ?? rowsDataGrid.length,
+              }
+            : paginationModel
+        }
         onPaginationModelChange={handlePaginationChange}
         hideFooter={hideFooter}
         pageSizeOptions={pageSizeOptions}

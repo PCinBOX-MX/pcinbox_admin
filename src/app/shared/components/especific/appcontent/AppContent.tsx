@@ -7,8 +7,6 @@ import { usePathname } from "next/navigation";
 import AdminSidebar from "../../layout/AdminSidebar";
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import SpinnerComponent from "../spinner/Spinner";
-import useProveedores from "@/app/proveedores/useProveedores";
-import useDashboard from "@/app/dashboard/useDashboard";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import { isAuthPathname } from "@/app/utils/authRoutes";
 import { orderIdsMatch } from "@/app/utils/orderIdMatch";
@@ -37,9 +35,6 @@ export default function AppContent({
     setProductsProveedor,
   } = useTheContext();
   const pathName = usePathname();
-
-  const { handleGetProveedores } = useProveedores();
-  const { handleGetAllSales } = useDashboard();
 
   useProtected(pathName);
 
@@ -309,16 +304,6 @@ export default function AppContent({
       socket.off("updateProduct", handlerUpdateProduct);
     };
   }, [socketServerReady, setProductsProveedor]);
-
-  useEffect(() => {
-    if (pathName) {
-      if (pathName == "/dashboard") {
-        handleGetAllSales();
-      } else if (pathName == "/proveedores") {
-        handleGetProveedores();
-      }
-    }
-  }, [pathName]);
 
   const isAuthPage = isAuthPathname(pathName);
 
