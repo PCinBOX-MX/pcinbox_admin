@@ -18,6 +18,16 @@ import {
 } from "@/app/constants/productImages.constants";
 import ProductImagesField from "../productImages/ProductImagesField";
 import StickyFormAction from "../productImages/StickyFormAction";
+import CatalogWarrantyFields from "../CatalogWarrantyFields";
+import {
+  appendCatalogWarrantyToFormData,
+  CatalogWarrantyState,
+  validateCatalogWarranty,
+} from "@/app/shared/utils/catalogWarranty";
+import {
+  applyCronStockUpdate,
+  normalizeCronStockPayload,
+} from "@/app/utils/cronStockLiveSync";
 
 const UploadImgProductProvider2 = ({
   dataProductProp,
@@ -29,7 +39,8 @@ const UploadImgProductProvider2 = ({
 
   const [loadingUploadImgProvider, setLoadingUploadImgProvider] =
     useState<boolean>(false);
-  const { setDataModal } = useTheContext();
+  const { setDataModal, socketCron, socketCronReady, dataProductProveedor, dataProducts } =
+    useTheContext();
   const { setProductsProveedor } = useProveedores();
 
   const { requestPostProveedores } = ProveedoresUtils();
@@ -42,8 +53,45 @@ const UploadImgProductProvider2 = ({
   const [caracteristicas, setCaracteristicas] = useState<
     { prop: string; value: string }[]
   >([]);
+  const [liveProduct, setLiveProduct] = useState(dataProductProp);
 
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [warrantyState, setWarrantyState] = useState<CatalogWarrantyState>({
+    choice: "",
+    amount: "",
+  });
+
+  useEffect(() => {
+    setLiveProduct(dataProductProp);
+  }, [dataProductProp]);
+
+  useEffect(() => {
+    const cronSocket = socketCron?.current;
+    if (!cronSocket || !socketCronReady) return;
+
+    const onCronUpdate = (payload: unknown) => {
+      const updates = normalizeCronStockPayload(payload);
+      const update = updates.find(
+        (u) => Number(u.idProduct) === Number(dataProductProp.idProduct),
+      );
+      if (!update) return;
+      setLiveProduct((prev) => applyCronStockUpdate(prev, update));
+    };
+
+    cronSocket.on("updatedStockCron", onCronUpdate);
+    return () => {
+      cronSocket.off("updatedStockCron", onCronUpdate);
+    };
+  }, [socketCron, socketCronReady, dataProductProp.idProduct]);
+
+  const resolveLiveCatalogProduct = (): ProductsI => {
+    const id = Number(dataProductProp.idProduct);
+    const fromProveedor =
+      dataProductProveedor?.data?.find((p) => Number(p.idProduct) === id) ||
+      dataProductProveedor?.copyData?.find((p) => Number(p.idProduct) === id);
+    const fromAll = dataProducts?.find((p) => Number(p.idProduct) === id);
+    return fromProveedor || fromAll || liveProduct;
+  };
 
   useEffect(() => {
     const urls = files.map((file) => URL.createObjectURL(file));
@@ -97,6 +145,13 @@ const UploadImgProductProvider2 = ({
           }}
         />
       )}
+
+      <CatalogWarrantyFields
+        providerId={dataProductProp?.providerId}
+        isPC={false}
+        value={warrantyState}
+        onChange={setWarrantyState}
+      />
 
       <ProductImagesField
         sectionRef={imageSectionRef}
@@ -250,6 +305,25 @@ const UploadImgProductProvider2 = ({
               }
               setImageError(null);
 
+              const warrantyError = validateCatalogWarranty(warrantyState, {
+                providerId: dataProductProp.providerId,
+                isPC: false,
+              });
+              if (warrantyError) {
+                setDataModal({
+                  isOpen: true,
+                  type: "error",
+                  title: "Garantía",
+                  content: warrantyError,
+                  showActions: true,
+                  onClose: () =>
+                    setDataModal((prev) => ({ ...prev, isOpen: false })),
+                  onConfirm: () =>
+                    setDataModal((prev) => ({ ...prev, isOpen: false })),
+                });
+                return;
+              }
+
               let parsed;
 
               if (bulkText && bulkText.trim().length > 0) {
@@ -287,6 +361,8 @@ const UploadImgProductProvider2 = ({
                   .filter((item) => item.prop !== "" && item.value !== "");
               }
 
+              const catalogProduct = resolveLiveCatalogProduct();
+
               let formData = new FormData();
 
               formData.append("clave", dataProductProp.idProductExt.toString());
@@ -298,39 +374,39 @@ const UploadImgProductProvider2 = ({
               if (Number(dataProductProp.providerId) === PROVIDER_PCINBOX) {
                 formData.append("newPrice", price?.toString() ?? "0");
               } else {
-                formData.append("newPrice", dataProductProp.price.toString());
+                formData.append("newPrice", catalogProduct.price.toString());
               }
 
               formData?.append(
                 "originPrice",
                 String(
-                  dataProductProp?.originPriceMxn ?? dataProductProp?.price ?? 0,
+                  catalogProduct?.originPriceMxn ?? catalogProduct?.price ?? 0,
                 ),
               );
-              if (providerUsesProfitMargin(dataProductProp.providerId)) {
+              if (providerUsesProfitMargin(catalogProduct.providerId)) {
                 formData?.append("profitMargin", profitMargin?.toString());
               }
 
-              if (Number(dataProductProp.providerId) === PROVIDER_TECHSMART) {
+              if (Number(catalogProduct.providerId) === PROVIDER_TECHSMART) {
                 formData.append(
                   "isDolares",
-                  String(Boolean(dataProductProp?.isDolares)),
+                  String(Boolean(catalogProduct?.isDolares)),
                 );
                 formData.append("originPriceMxn", "true");
               }
 
-              formData.append("sku", dataProductProp.sku);
+              formData.append("sku", catalogProduct.sku);
 
-              formData.append("stock", (dataProductProp.stock ?? 0).toString());
+              formData.append("stock", (catalogProduct.stock ?? 0).toString());
 
               formData.append(
                 "providerId",
-                dataProductProp.providerId?.toString(),
+                catalogProduct.providerId?.toString(),
               );
 
-              formData.append("nameMarca", dataProductProp.nameMarca!);
+              formData.append("nameMarca", catalogProduct.nameMarca!);
 
-              formData.append("nameCategory", dataProductProp.nameCategory!);
+              formData.append("nameCategory", catalogProduct.nameCategory!);
 
               formData.append("isPc", "false");
 
@@ -341,19 +417,24 @@ const UploadImgProductProvider2 = ({
                   : JSON.stringify(parsed),
               );
 
-              formData.append("upc", dataProductProp?.upc!.toString());
+              formData.append("upc", catalogProduct?.upc!.toString());
 
-              formData.append("width", dataProductProp?.width);
-              formData.append("height", dataProductProp?.height);
-              formData.append("length", dataProductProp?.largo);
+              formData.append("width", catalogProduct?.width);
+              formData.append("height", catalogProduct?.height);
+              formData.append("length", catalogProduct?.largo);
               formData.append(
                 "branches",
-                JSON.stringify(dataProductProp?.branches),
+                JSON.stringify(catalogProduct?.branches),
               );
               formData.append(
                 "peso",
-                dataProductProp?.peso?.toString() ?? "null",
+                catalogProduct?.peso?.toString() ?? "null",
               );
+
+              appendCatalogWarrantyToFormData(formData, warrantyState, {
+                providerId: catalogProduct.providerId,
+                isPC: false,
+              });
 
               files.forEach((file) => formData.append("files", file));
 

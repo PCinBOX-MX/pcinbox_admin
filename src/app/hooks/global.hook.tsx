@@ -18,6 +18,10 @@ import { GridRowsProp } from "@mui/x-data-grid";
 import { SalesI } from "../interfaces/sales/sales.interface";
 import ProveedoresUtils from "../services/utils/proveedores.utils";
 import { ProductsI } from "../interfaces/products/products.interface";
+import {
+  applyCronStockUpdate,
+  normalizeCronStockPayload,
+} from "../utils/cronStockLiveSync";
 
 type ModalType = "success" | "error" | "warning" | "info";
 
@@ -344,43 +348,43 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     const cronSocket = socketCron.current;
     if (!cronSocket) return;
 
-    const onCronUpdate = (payload: any) => {
-      const updates = Array.isArray(payload) ? payload : [payload];
+    const onCronUpdate = (payload: unknown) => {
+      const updates = normalizeCronStockPayload(payload);
       if (!updates.length) return;
 
       setDataProducts((prevProducts) => {
         let changed = false;
         const newProducts = prevProducts.map((p) => {
-          const update = updates.find((u: any) => Number(u.idProduct) === Number(p.idProduct));
+          const update = updates.find(
+            (u) => Number(u.idProduct) === Number(p.idProduct),
+          );
           if (!update) return p;
-
           changed = true;
-          return {
-            ...p,
-            price: update.price !== undefined ? Number(update.price) : p.price,
-            stock: update.stock !== undefined ? Number(update.stock) : p.stock,
-            stockBranches: update.branches ? update.branches : p.stockBranches,
-          };
+          return applyCronStockUpdate(p, update);
         });
         return changed ? newProducts : prevProducts;
       });
 
       setProductsProveedor((prev) => {
         let changed = false;
-        const newData = prev.data.map((p) => {
-          const update = updates.find((u: any) => Number(u.idProduct) === Number(p.idProduct));
-          if (!update) return p;
-
-          changed = true;
-          return {
-            ...p,
-            price: update.price !== undefined ? Number(update.price) : p.price,
-            stock: update.stock !== undefined ? Number(update.stock) : p.stock,
-            stockBranches: update.branches ? update.branches : p.stockBranches,
-          };
-        });
-        return changed ? { ...prev, data: newData } : prev;
+        const patchList = (list: ProductsI[] | undefined) => {
+          if (!list?.length) return list ?? [];
+          return list.map((p) => {
+            const update = updates.find(
+              (u) => Number(u.idProduct) === Number(p.idProduct),
+            );
+            if (!update) return p;
+            changed = true;
+            return applyCronStockUpdate(p, update);
+          });
+        };
+        const newData = patchList(prev.data);
+        const newCopy = patchList(prev.copyData);
+        if (!changed) return prev;
+        return { ...prev, data: newData, copyData: newCopy };
       });
+
+      setTableKey((k) => k + 1);
     };
 
     cronSocket.on("updatedStockCron", onCronUpdate);

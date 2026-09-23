@@ -21,13 +21,12 @@ import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import useProveedores from "@/app/proveedores/useProveedores";
 import { ProductsI } from "@/app/interfaces/products/products.interface";
 import { takeFilesWithinLimit } from "@/app/constants/productImages.constants";
+import ProductImagesField from "../productImages/ProductImagesField";
 import {
-  getProviderLabel,
-  PROVIDER_PCINBOX,
-  PROVIDER_TECHSMART,
-  providerUsesProfitMargin,
-} from "@/app/constants/providers.constants";
-import styles from "./bulkUploadProvider.module.css";
+  applyCronStockUpdate,
+  normalizeCronStockPayload,
+} from "@/app/utils/cronStockLiveSync";
+import { appendCatalogWarrantyToFormData } from "@/app/shared/utils/catalogWarranty";
 
 type BulkRow = {
   upc: string;
@@ -36,8 +35,9 @@ type BulkRow = {
   margin: number;
   price: number | null;
   characteristics: string;
-  providerId: number;
-  imageUrls: string[];
+  warrantyMode?: string;
+  warrantyMonths?: number | null;
+  warrantyUnit?: string | null;
   matchedProduct: ProductsI | null;
   files: File[];
   imageError: string | null;
@@ -550,7 +550,8 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [expandedChars, setExpandedChars] = useState<Set<number>>(new Set());
 
-  const { setDataModal } = useTheContext();
+  const { dataProductProveedor, setDataModal, socketCron, socketCronReady } =
+    useTheContext();
   const { setProductsProveedor } = useProveedores();
   const { requestPostProveedores } = ProveedoresUtils();
 
@@ -654,6 +655,35 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
     });
   };
 
+  useEffect(() => {
+    const cronSocket = socketCron?.current;
+    if (!cronSocket || !socketCronReady) return;
+
+    const onCronUpdate = (payload: unknown) => {
+      const updates = normalizeCronStockPayload(payload);
+      if (!updates.length) return;
+      setBulkData((prev) =>
+        prev.map((row) => {
+          if (!row.matchedProduct) return row;
+          const update = updates.find(
+            (u) =>
+              Number(u.idProduct) === Number(row.matchedProduct?.idProduct),
+          );
+          if (!update) return row;
+          return {
+            ...row,
+            matchedProduct: applyCronStockUpdate(row.matchedProduct, update),
+          };
+        }),
+      );
+    };
+
+    cronSocket.on("updatedStockCron", onCronUpdate);
+    return () => {
+      cronSocket.off("updatedStockCron", onCronUpdate);
+    };
+  }, [socketCron, socketCronReady]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -668,18 +698,89 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
         const imgColIndex = findImagenesColumnIndex(ws);
         const hyperlinkMap = buildHyperlinkMap(ws, imgColIndex, range.s.r + 1);
 
-        const parsed: BulkRow[] = rows.map((row, rowIndex) => {
-          const r = normalizeKeys(row);
-          const priceRaw = pick(r, [
-            "precio",
-            "precio proveedor",
-            "originprice",
-            "precio_proveedor",
-          ]);
-          const priceNum =
-            priceRaw == null || String(priceRaw).trim() === ""
-              ? null
-              : Number(priceRaw);
+        const upcStr = String(lowerRow["upc"] || "").trim();
+        // Match with existing products in context
+        const matchedProduct = dataProductProveedor.data.find(
+          (p) => String(p.upc) === upcStr || String(p.idProductExt) === upcStr
+        ) || null;
+
+        const garantiaTipo = String(
+          lowerRow["garantiatipo"] ||
+            lowerRow["garantia tipo"] ||
+            lowerRow["warrantymode"] ||
+            "",
+        )
+          .trim()
+          .toLowerCase();
+        const warrantyUnitRaw = String(
+          lowerRow["warrantyunit"] || lowerRow["garantiaunidad"] || "",
+        )
+          .trim()
+          .toLowerCase();
+        let warrantyMode = String(lowerRow["warrantymode"] || "").trim();
+        let warrantyUnit =
+          warrantyUnitRaw === "years" || warrantyUnitRaw === "años"
+            ? "years"
+            : warrantyUnitRaw === "months" || warrantyUnitRaw === "meses"
+              ? "months"
+              : null;
+        let warrantyMonths: number | null = null;
+        const cant = Number(
+          lowerRow["garantiacantidad"] ||
+            lowerRow["warrantymonths"] ||
+            lowerRow["garantia"] ||
+            0,
+        );
+
+        if (
+          garantiaTipo === "none" ||
+          garantiaTipo === "no aplica" ||
+          garantiaTipo === "no_aplica"
+        ) {
+          warrantyMode = "none";
+          warrantyMonths = null;
+          warrantyUnit = null;
+        } else if (
+          garantiaTipo === "service_center" ||
+          garantiaTipo === "centro de servicio" ||
+          garantiaTipo === "centro_servicio"
+        ) {
+          warrantyMode = "service_center";
+          warrantyMonths = null;
+          warrantyUnit = null;
+        } else if (
+          garantiaTipo === "years" ||
+          garantiaTipo === "años" ||
+          garantiaTipo === "ano" ||
+          warrantyUnit === "years"
+        ) {
+          warrantyMode = "months";
+          warrantyUnit = "years";
+          warrantyMonths = Number.isFinite(cant) && cant > 0 ? cant : null;
+        } else if (
+          garantiaTipo === "months" ||
+          garantiaTipo === "meses" ||
+          warrantyMode === "months" ||
+          (Number.isFinite(cant) && cant > 0)
+        ) {
+          warrantyMode = "months";
+          warrantyUnit = warrantyUnit || "months";
+          warrantyMonths = Number.isFinite(cant) && cant > 0 ? cant : null;
+        }
+
+        return {
+          upc: upcStr,
+          margin: Number(lowerRow["margen de utilidad"] || lowerRow["margen"] || lowerRow["margin"] || 0),
+          characteristics: String(lowerRow["características"] || lowerRow["caracteristicas"] || ""),
+          warrantyMode: warrantyMode || undefined,
+          warrantyMonths,
+          warrantyUnit,
+          matchedProduct,
+          files: [],
+          imageError: null,
+          status: "pending" as const,
+        };
+      });
 
           const fromCell = parseImageUrls(pick(r, IMAGENES_COLUMN_NAMES));
           const fromLinks = hyperlinkMap.get(rowIndex) ?? [];
@@ -804,10 +905,81 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
     setProgress({ current: 0, total: valid.length });
     let successCount = 0;
 
-    try {
-      for (let i = 0; i < bulkData.length; i++) {
-        const item = bulkData[i];
-        if (!canSubmitRow(item)) continue;
+    for (let i = 0; i < bulkData.length; i++) {
+      const item = bulkData[i];
+      if (!item.matchedProduct || item.status === 'success') continue;
+
+      setBulkData(prev => {
+        const d = [...prev];
+        d[i] = { ...d[i], status: 'uploading' };
+        return d;
+      });
+
+      const dataProductProp =
+        dataProductProveedor.data.find(
+          (p) => Number(p.idProduct) === Number(item.matchedProduct?.idProduct),
+        ) ||
+        dataProductProveedor.copyData?.find(
+          (p) => Number(p.idProduct) === Number(item.matchedProduct?.idProduct),
+        ) ||
+        item.matchedProduct;
+      if (!dataProductProp) continue;
+      const parsedCharacteristics = parseCharacteristics(item.characteristics);
+      
+      let formData = new FormData();
+      formData.append("clave", dataProductProp.idProductExt.toString());
+      formData.append("name", dataProductProp.name);
+      formData.append("description", dataProductProp.description || "");
+      formData.append("newPrice", dataProductProp.price?.toString() ?? "0");
+      formData.append("originPrice", String(dataProductProp?.originPriceMxn ?? dataProductProp?.price ?? 0));
+      
+      if (Number(dataProductProp.providerId) !== 1) {
+        formData.append("profitMargin", item.margin.toString());
+      }
+      if (Number(dataProductProp.providerId) === 2) {
+        formData.append("isDolares", String(Boolean(dataProductProp?.isDolares)));
+        formData.append("originPriceMxn", "true");
+      }
+      
+      formData.append("sku", dataProductProp.sku || "");
+      formData.append("stock", (dataProductProp.stock ?? 0).toString());
+      formData.append("providerId", dataProductProp.providerId?.toString() || "");
+      formData.append("nameMarca", dataProductProp.nameMarca || "");
+      formData.append("nameCategory", dataProductProp.nameCategory || "");
+      formData.append("isPc", "false");
+      formData.append("caracteristicas", JSON.stringify(parsedCharacteristics));
+      formData.append("upc", dataProductProp?.upc?.toString() || "");
+      formData.append("width", dataProductProp?.width?.toString() || "");
+      formData.append("height", dataProductProp?.height?.toString() || "");
+      formData.append("length", dataProductProp?.largo?.toString() || "");
+      formData.append("branches", JSON.stringify(dataProductProp?.branches || []));
+      formData.append("peso", dataProductProp?.peso?.toString() ?? "null");
+
+      if (item.warrantyMode) {
+        appendCatalogWarrantyToFormData(
+          formData,
+          {
+            choice:
+              item.warrantyMode === "none"
+                ? "none"
+                : item.warrantyMode === "service_center"
+                  ? "service_center"
+                  : item.warrantyUnit === "years"
+                    ? "years"
+                    : "months",
+            amount:
+              item.warrantyMonths != null && item.warrantyMonths > 0
+                ? item.warrantyMonths
+                : "",
+          },
+          {
+            providerId: dataProductProp.providerId,
+            isPC: false,
+          },
+        );
+      }
+
+      item.files.forEach((file) => formData.append("files", file));
 
         setBulkData((prev) => {
           const d = [...prev];
@@ -985,15 +1157,19 @@ export default function BulkUploadProvider({ defaultProviderId }: Props) {
   return (
     <div className={styles.root}>
       {step === 1 && (
-        <div className={styles.uploadStep}>
-          {defaultProviderId ? (
-            <span className={styles.providerBadge}>
-              Proveedor: {getProviderLabel(defaultProviderId)}
-            </span>
-          ) : null}
-
-          <label
-            className={`${styles.dropzone} ${isMatching ? styles.dropzoneDisabled : ""}`}
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 4 }}>
+          <Typography variant="h6">Sube tu archivo Excel (.xlsx)</Typography>
+          <Typography variant="body2" color="text.secondary" align="center" sx={{ maxWidth: 400 }}>
+            El archivo debe contener las columnas: <b>UPC</b>, <b>Margen de Utilidad</b>,{" "}
+            <b>Características</b> y, si aplica,{" "}
+            <b>GarantiaTipo</b> / <b>GarantiaCantidad</b> (o warrantyMode /
+            warrantyMonths / warrantyUnit).
+          </Typography>
+          <Button
+            variant="outlined"
+            component="label"
+            startIcon={<MdCloudUpload />}
+            sx={{ height: 56, borderStyle: "dashed", borderWidth: 2, px: 4 }}
           >
             <div className={styles.dropzoneIcon}>
               {isMatching ? (

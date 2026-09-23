@@ -18,6 +18,7 @@ const PATH_TO_TAB: Record<string, string> = {
   "/ventasInvitados": "ventasInvitados",
   "/reservas": "reservas",
   "/cotizaciones": "cotizaciones",
+  "/punto-de-venta": "puntoDeVenta",
 };
 
 const SIDEBAR_PREF_KEY = "pcinbox-admin-sidebar-open";
@@ -48,7 +49,12 @@ const AdminSidebar = () => {
 
     return navItems
       .map((item) => {
-        if (!item.subItems) return item;
+        // Ítem de nivel superior (sin submenú)
+        if (!item.subItems) {
+          const permission = NAV_PERMISSIONS[item.id];
+          if (permission && !can(permission)) return null;
+          return item;
+        }
         return {
           ...item,
           subItems: item.subItems.filter((subItem) => {
@@ -57,7 +63,10 @@ const AdminSidebar = () => {
           }),
         };
       })
-      .filter((item) => !item.subItems || item.subItems.length > 0);
+      .filter((item): item is (typeof navItems)[number] => {
+        if (!item) return false;
+        return !item.subItems || item.subItems.length > 0;
+      });
   }, [can, hydrated, navItems]);
 
   useEffect(() => {
@@ -87,7 +96,9 @@ const AdminSidebar = () => {
     setDesktopOpen((prev) => !prev);
   };
 
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    ventas_group: true,
+  });
 
   useEffect(() => {
     const parentGroup = visibleNavItems.find((item) =>
@@ -168,6 +179,19 @@ const AdminSidebar = () => {
         </div>
 
         <nav className={styles.nav}>
+          {visibleNavItems.length === 0 && hydrated ? (
+            <p
+              style={{
+                color: "rgba(255,255,255,0.55)",
+                fontSize: 12,
+                padding: "12px 16px",
+                lineHeight: 1.4,
+              }}
+            >
+              No hay menús visibles. Cierra sesión y vuelve a entrar para
+              actualizar permisos.
+            </p>
+          ) : null}
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const hasSubItems = item.subItems && item.subItems.length > 0;

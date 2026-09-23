@@ -35,4 +35,6 @@ export interface ProductsI {
   moneda?: string;
   isDolares?: boolean;
   tipoCambio?: number | null;
+  warrantyMonths?: number | null;
+  warrantyMode?: string | null;
 }

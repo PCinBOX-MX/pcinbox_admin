@@ -11,8 +11,10 @@ export type AdminPermission =
   | "quotes.manage"
   | "catalog.manage"
   | "users.view"
-  | "users.deactivate"
-  | "settings.manage";
+  | "settings.manage"
+  | "pos.manage"
+  | "pos.cancel"
+  | "pos.cancel.override";
 
 export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
   admin: [
@@ -28,6 +30,9 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "users.view",
     "users.deactivate",
     "settings.manage",
+    "pos.manage",
+    "pos.cancel",
+    "pos.cancel.override",
   ],
   support: [
     "orders.view",
@@ -36,6 +41,8 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     "orders.cancel",
     "reservas.manage",
     "users.view",
+    "pos.manage",
+    "pos.cancel",
   ],
 };
 
@@ -45,9 +52,11 @@ export const NAV_PERMISSIONS: Record<string, AdminPermission> = {
   clientes: "users.view",
   ventasInvitados: "orders.view",
   linkPagos: "orders.view",
+  linkPago: "orders.view",
   reservas: "reservas.manage",
   cotizaciones: "quotes.manage",
   ajustes: "settings.manage",
+  puntoDeVenta: "pos.manage",
 };
 
 export function normalizeAdminRole(raw: string | null | undefined): AdminRole | null {

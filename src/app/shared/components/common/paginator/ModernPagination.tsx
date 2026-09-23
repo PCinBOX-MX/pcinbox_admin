@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import { Pagination, Select, MenuItem, FormControl } from "@mui/material";
 
 type ModernPaginationProps = {
@@ -11,6 +12,10 @@ type ModernPaginationProps = {
   onPageChange: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
   label?: string;
+  /** Default true. Usar false en el paginado superior (dual). */
+  scrollOnChange?: boolean;
+  /** Si se define, el scroll va a este nodo en lugar del header de página. */
+  scrollTargetRef?: RefObject<HTMLElement | null>;
 };
 
 const ModernPagination = ({
@@ -22,6 +27,8 @@ const ModernPagination = ({
   onPageChange,
   onPageSizeChange,
   label = "registros",
+  scrollOnChange = true,
+  scrollTargetRef,
 }: ModernPaginationProps) => {
   if (pageCount <= 0 && totalItems <= 0) return null;
 
@@ -61,17 +68,19 @@ const ModernPagination = ({
           count={Math.max(pageCount, 1)}
           page={page}
           onChange={(_, value) => {
-            if (value !== page) {
-              onPageChange(value);
-              setTimeout(() => {
-                const header = document.querySelector(".admin-page-header");
-                if (header) {
-                  header.scrollIntoView({ behavior: "smooth", block: "start" });
-                } else {
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }
-              }, 150);
-            }
+            if (value === page) return;
+            onPageChange(value);
+            if (!scrollOnChange) return;
+            window.setTimeout(() => {
+              const target =
+                scrollTargetRef?.current ??
+                document.querySelector(".admin-page-header");
+              if (target) {
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
+              } else {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }, 150);
           }}
           shape="rounded"
           color="primary"

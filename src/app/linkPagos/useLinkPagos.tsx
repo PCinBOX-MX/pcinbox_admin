@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LinkPagosI } from "../interfaces/linkPagos/linkPagos.interface";
 import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
+import {
+  applyCronStockUpdate,
+  normalizeCronStockPayload,
+} from "../utils/cronStockLiveSync";
 
 const useLinkPagos = () => {
-  const { setDataModal, setShowSpinner } = useTheContext();
+  const { setDataModal, setShowSpinner, socketCron, socketCronReady } =
+    useTheContext();
 
   const [dataLinkPago, setDataLinkPago] = useState<LinkPagosI>({
     chargeId: "",
@@ -29,6 +34,47 @@ const useLinkPagos = () => {
 
   const [quantity, setQuantity] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const cronSocket = socketCron?.current;
+    if (!cronSocket || !socketCronReady) return;
+
+    const onCronUpdate = (payload: unknown) => {
+      const updates = normalizeCronStockPayload(payload);
+      if (!updates.length) return;
+
+      setSelectedProduct((prev) => {
+        if (!prev) return prev;
+        const update = updates.find(
+          (u) => Number(u.idProduct) === Number(prev.idProduct),
+        );
+        return update ? applyCronStockUpdate(prev, update) : prev;
+      });
+
+      setDataLinkPago((prev) => {
+        if (!prev.products?.length) return prev;
+        let changed = false;
+        const products = prev.products.map((p: any) => {
+          const update = updates.find(
+            (u) => Number(u.idProduct) === Number(p.idProduct),
+          );
+          if (!update) return p;
+          changed = true;
+          const next = applyCronStockUpdate(p as ProductsI, update);
+          return {
+            ...next,
+            quantity: p.quantity,
+          };
+        });
+        return changed ? { ...prev, products } : prev;
+      });
+    };
+
+    cronSocket.on("updatedStockCron", onCronUpdate);
+    return () => {
+      cronSocket.off("updatedStockCron", onCronUpdate);
+    };
+  }, [socketCron, socketCronReady]);
 
   const handleGeneratePDF = async () => {
     try {
@@ -84,8 +130,8 @@ const useLinkPagos = () => {
 
       if (resp.ok) {
         const data = await resp.json();
-        const url = data.link;
-        window.open(url, "_blank");
+        const url = data.checkoutLink || data.link;
+        if (url) window.open(url, "_blank");
         setDataLinkPago({
           chargeId: "",
           customerId: "",
@@ -99,6 +145,21 @@ const useLinkPagos = () => {
           referencia: "",
           phone: "",
           status: "payment_pending",
+        });
+        setDataModal({
+          isOpen: true,
+          content: url
+            ? `Link generado correctamente.${data.referencia ? ` Ref: ${data.referencia}` : ""}`
+            : "Link generado, pero no se recibió URL. Revisa la pasarela.",
+          showActions: true,
+          title: "Listo",
+          type: "success",
+          onConfirm: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+          onClose: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
         });
       } else {
         let message = "No se pudo generar el link de pago. Intenta de nuevo.";

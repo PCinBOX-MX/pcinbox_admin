@@ -15,6 +15,7 @@ const ROUTES_BY_TAB: Record<string, string> = {
   ventasInvitados: "/ventasInvitados",
   reservas: "/reservas",
   cotizaciones: "/cotizaciones",
+  puntoDeVenta: "/punto-de-venta",
 };
 
 const LOGIN_ROUTE = "/features/auth/Login";
@@ -94,7 +95,19 @@ const useNavbar = () => {
         "¿Seguro que deseas cerrar sesión? Dejarás de tener acceso al panel hasta volver a iniciar.",
       onClose: closeLogoutModal,
       onConfirm: () => {
-        void runLogout();
+
+        setDataModal((prev) => ({ ...prev, isOpen: false }));
+
+        localStorage.removeItem("token");
+
+        localStorage.removeItem("email");
+
+        localStorage.removeItem("adminRole");
+
+        clearAllQuerySessions();
+
+        onRouterPush("/features/auth/Login");
+
       },
     });
   };

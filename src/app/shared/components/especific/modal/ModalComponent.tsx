@@ -220,12 +220,37 @@ const ModalComponent = ({
           onClick={(e) => e.stopPropagation()}
           sx={{
             width: "fit-content",
-            minWidth: "min(90vw, 320px)",
-            maxWidth: maxWidth || "min(90vw, 600px)",
+            minWidth: "min(90vw, 360px)",
+            maxWidth: maxWidth || "min(90vw, 440px)",
+            maxHeight: "90vh",
+            overflow: "hidden",
+            borderRadius: "20px",
+            boxShadow:
+              "0 25px 50px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(15, 23, 42, 0.04)",
+            outline: "none",
+            display: "flex",
+            flexDirection: "column",
+            paddingBottom: "20px",
+            position: "relative",
           }}
           className="admin-modal-box animate-in fade-in zoom-in-95 duration-200"
         >
-          <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "16px 16px 0 0" }}>
+          <div
+            style={{
+              height: 4,
+              background:
+                type === "error"
+                  ? "linear-gradient(90deg, #dc2626, #f87171)"
+                  : type === "success"
+                    ? "linear-gradient(90deg, #16a34a, #4ade80)"
+                    : type === "warning"
+                      ? "linear-gradient(90deg, #bb3d4b, #e11d48)"
+                      : "linear-gradient(90deg, #2563eb, #60a5fa)",
+              flexShrink: 0,
+            }}
+          />
+          {/* Cabecera con boton cerrar */}
+        <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "12px 16px 0 0" }}>
           <button
             onClick={handleClose}
             disabled={loading}
@@ -284,18 +309,22 @@ const ModalComponent = ({
                 className="admin-modal-btn-cancel"
                 onClick={handleClose}
               >
-                {cancelLabel}
+                {cancelLabel || "Cancelar"}
               </button>
               <button
                 disabled={loading}
                 className="admin-modal-btn-confirm"
                 style={{
-                  background:
-                    type === "error"
-                      ? "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)"
-                      : undefined,
-                  opacity: loading ? 0.7 : 1,
+                  padding: "12px 28px",
+                  minWidth: 132,
+                  backgroundColor: type === 'error' ? '#dc2626' : '#bb3d4b',
+                  color: "white",
+                  fontWeight: "600",
+                  borderRadius: "10px",
+                  border: "none",
                   cursor: loading ? "not-allowed" : "pointer",
+                  boxShadow: "0 8px 16px -8px rgba(187, 61, 75, 0.55)",
+                  transition: "background-color 0.2s",
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
@@ -303,7 +332,7 @@ const ModalComponent = ({
                 onClick={handleConfirm}
               >
                 {loading && <MdAutorenew size={18} className="the-spinner" />}
-                {loading ? "Procesando…" : confirmLabel}
+                {confirmLabel || "Aceptar"}
               </button>
             </div>
           )}

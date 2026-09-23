@@ -28,6 +28,12 @@ import {
   validateProductImagesCount,
 } from "@/app/constants/productImages.constants";
 import ProductImagesField from "../productImages/ProductImagesField";
+import CatalogWarrantyFields from "../CatalogWarrantyFields";
+import {
+  appendCatalogWarrantyToFormData,
+  CatalogWarrantyState,
+  validateCatalogWarranty,
+} from "@/app/shared/utils/catalogWarranty";
 
 const ALLOWED_CATEGORIES = [
   "ALMACENAMIENTO",
@@ -154,6 +160,10 @@ const RegisterProduct = () => {
   });
 
   const [loadinNewProduct, setLoadingNewProduct] = useState<boolean>(false);
+  const [warrantyState, setWarrantyState] = useState<CatalogWarrantyState>({
+    choice: "",
+    amount: "",
+  });
 
   const { requestPostProveedores } = ProveedoresUtils();
 
@@ -267,6 +277,22 @@ const RegisterProduct = () => {
       return;
     }
 
+    const warrantyProviderId =
+      typeProduct === "license"
+        ? 1
+        : typeProduct?.toLowerCase() === "pcgamer"
+          ? dataNewPcGamer.providerId
+          : dataNewComponent.providerId;
+    const warrantyIsPc = typeProduct?.toLowerCase() === "pcgamer";
+    const warrantyError = validateCatalogWarranty(warrantyState, {
+      providerId: warrantyProviderId,
+      isPC: warrantyIsPc,
+    });
+    if (warrantyError) {
+      alert(warrantyError);
+      return;
+    }
+
     try {
       setLoadingNewProduct(true);
 
@@ -348,6 +374,11 @@ const RegisterProduct = () => {
         formData.append("providerId", dataNewPcGamer.providerId.toString());
         formData.append("isPc", "1");
       }
+
+      appendCatalogWarrantyToFormData(formData, warrantyState, {
+        providerId: warrantyProviderId,
+        isPC: warrantyIsPc,
+      });
 
       const resp = await requestPostProveedores(formData, "/newProductPcinbox");
       setLoadingNewProduct(false);
@@ -810,6 +841,17 @@ const RegisterProduct = () => {
               />
             </FormControl>
 
+            <div style={{ gridColumn: "1 / -1" }}>
+              <CatalogWarrantyFields
+                providerId={
+                  typeProduct === "license" ? 1 : dataNewComponent.providerId
+                }
+                isPC={false}
+                value={warrantyState}
+                onChange={setWarrantyState}
+              />
+            </div>
+
             <TextField
               required
               label="Clave"
@@ -1099,6 +1141,15 @@ const RegisterProduct = () => {
                 )}
               />
             </FormControl>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <CatalogWarrantyFields
+                providerId={dataNewPcGamer.providerId}
+                isPC={true}
+                value={warrantyState}
+                onChange={setWarrantyState}
+              />
+            </div>
 
             <FormControl fullWidth>
               <Controller

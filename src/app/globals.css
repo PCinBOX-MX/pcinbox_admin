@@ -209,32 +209,12 @@ html[data-admin-sidebar="closed"]:has(aside:hover) .admin-layout {
   overflow: hidden;
 }
 
-.admin-filters-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(
-    90deg,
-    var(--admin-primary) 0%,
-    var(--admin-primary-light) 42%,
-    transparent 100%
-  );
-}
-
-.admin-content-card {
-  background: var(--admin-surface-elevated);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-lg);
+.admin-content-card:has(.pos-page-root) {
   padding: 0;
-  box-shadow: var(--admin-shadow-md), var(--admin-shadow-lg);
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  overflow: hidden;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .admin-content-card__inner {
