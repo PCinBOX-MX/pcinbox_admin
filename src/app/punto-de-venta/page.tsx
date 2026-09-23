@@ -2715,7 +2715,7 @@ export default function PuntoDeVentaPage() {
                 <TextField
                   size="small"
                   label="Folio"
-                  placeholder="0000001"
+                  placeholder="3414"
                   value={pos.warrantyFolio}
                   onChange={(e) => pos.setWarrantyFolio(e.target.value)}
                   sx={{ ...fieldSx, minWidth: 150, flex: "1 1 140px" }}
@@ -2898,7 +2898,7 @@ export default function PuntoDeVentaPage() {
                 <TextField
                   size="small"
                   label="Folio"
-                  placeholder="0000001"
+                  placeholder="3414"
                   value={pos.historyFolio}
                   onChange={(e) => pos.setHistoryFolio(e.target.value)}
                   sx={{ ...fieldSx, minWidth: 160, flex: "1 1 140px" }}
