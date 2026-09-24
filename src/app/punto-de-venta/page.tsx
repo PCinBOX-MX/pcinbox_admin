@@ -39,12 +39,15 @@ import {
   POS_CASH_MOVEMENT_LABELS,
   POS_PAYMENT_LABELS,
   POS_PAYMENT_OPTIONS,
+  POS_PHYSICAL_CONDITION_PRESETS,
+  POS_SERVICE_TYPE_PRESETS,
   formatPosPaymentLabel,
   POS_PHONE_LADAS,
   PosCashMovementType,
   PosPaymentMethod,
   PosProductHit,
   PosSaleStatus,
+  PosServiceIntake,
   isPosProductOutOfStock,
 } from "../interfaces/pos/pos.interface";
 import { formatPosBranchUiLabel } from "../interfaces/pos/posBranchDisplay";
@@ -76,6 +79,15 @@ const qty = formatQty;
 
 const FALLBACK_IMG =
   "https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587";
+
+/** SKU/UPC visibles (oculta comodines internos POS). */
+function displayProductCode(value?: string | null): string | null {
+  const v = String(value || "").trim();
+  if (!v) return null;
+  if (v === "__POS_MANUAL__" || v === "__POS_SERVICE__") return null;
+  if (/^manual$/i.test(v)) return null;
+  return v;
+}
 
 function resolveProductImage(imageUrl: unknown): string {
   if (!imageUrl) return FALLBACK_IMG;
@@ -321,6 +333,26 @@ function PosNumberField({
   );
 }
 
+type ManualEquipRow = {
+  key: string;
+  quantity: string;
+  description: string;
+  serialNumber: string;
+  conditionPreset: string;
+  conditionOther: string;
+};
+
+function newManualEquipRow(): ManualEquipRow {
+  return {
+    key: `eq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    quantity: "1",
+    description: "",
+    serialNumber: "",
+    conditionPreset: POS_PHYSICAL_CONDITION_PRESETS[0],
+    conditionOther: "",
+  };
+}
+
 export default function PuntoDeVentaPage() {
   const { can, hydrated } = usePermissions();
   const pos = usePos();
@@ -335,18 +367,116 @@ export default function PuntoDeVentaPage() {
     "product",
   );
   const [manualServiceType, setManualServiceType] =
-    useState("Mantenimiento");
+    useState<string>(POS_SERVICE_TYPE_PRESETS[0]);
   const [manualName, setManualName] = useState("");
-  const [manualDetail, setManualDetail] = useState("");
   const [manualPrice, setManualPrice] = useState("");
   const [manualQty, setManualQty] = useState("1");
   const [manualUpc, setManualUpc] = useState("");
+  const [manualEquipRows, setManualEquipRows] = useState<ManualEquipRow[]>([
+    newManualEquipRow(),
+  ]);
+  const [manualFailure, setManualFailure] = useState("");
+  const [manualTechObs, setManualTechObs] = useState("");
   // Evita hydration mismatch de MUI TextField (useId distinto SSR vs cliente).
   const [clientReady, setClientReady] = useState(false);
+  const manualDraftAppliedRef = useRef(false);
+  const skipManualPersistRef = useRef(true);
+  const prevManualCaptureRef = useRef<typeof pos.manualCapture | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     setClientReady(true);
   }, []);
+
+  // Hidratar captura «sin catálogo» desde el borrador POS (una vez listo).
+  useEffect(() => {
+    if (!pos.draftReady || manualDraftAppliedRef.current) return;
+    manualDraftAppliedRef.current = true;
+    const m = pos.manualCapture;
+    prevManualCaptureRef.current = m;
+    if (m) {
+      setManualOpen(Boolean(m.open));
+      setManualKind(m.kind === "service" ? "service" : "product");
+      setManualServiceType(m.serviceType || POS_SERVICE_TYPE_PRESETS[0]);
+      setManualName(m.name || "");
+      setManualPrice(m.price || "");
+      setManualQty(m.qty || "1");
+      setManualUpc(m.upc || "");
+      setManualEquipRows(
+        Array.isArray(m.equipRows) && m.equipRows.length > 0
+          ? m.equipRows.map((row) => ({
+              key: row.key || newManualEquipRow().key,
+              quantity: row.quantity || "1",
+              description: row.description || "",
+              serialNumber: row.serialNumber || "",
+              conditionPreset:
+                row.conditionPreset || POS_PHYSICAL_CONDITION_PRESETS[0],
+              conditionOther: row.conditionOther || "",
+            }))
+          : [newManualEquipRow()],
+      );
+      setManualFailure(m.failure || "");
+      setManualTechObs(m.techObs || "");
+    }
+    skipManualPersistRef.current = true;
+    // Solo al quedar listo el draft; manualCapture ya viene en ese mismo tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- apply once when draftReady
+  }, [pos.draftReady]);
+
+  // Persistir captura manual en el borrador (después de hidratar).
+  useEffect(() => {
+    if (!pos.draftReady || !manualDraftAppliedRef.current) return;
+    if (skipManualPersistRef.current) {
+      skipManualPersistRef.current = false;
+      return;
+    }
+    pos.setManualCapture({
+      open: manualOpen,
+      kind: manualKind,
+      serviceType: manualServiceType,
+      name: manualName,
+      price: manualPrice,
+      qty: manualQty,
+      upc: manualUpc,
+      equipRows: manualEquipRows,
+      failure: manualFailure,
+      techObs: manualTechObs,
+    });
+  }, [
+    pos.draftReady,
+    pos.setManualCapture,
+    manualOpen,
+    manualKind,
+    manualServiceType,
+    manualName,
+    manualPrice,
+    manualQty,
+    manualUpc,
+    manualEquipRows,
+    manualFailure,
+    manualTechObs,
+  ]);
+
+  // Reset UI solo cuando el draft limpia captura (cobro/vaciar), no al montar con null.
+  useEffect(() => {
+    if (!pos.draftReady || !manualDraftAppliedRef.current) return;
+    const prev = prevManualCaptureRef.current;
+    prevManualCaptureRef.current = pos.manualCapture;
+    if (pos.manualCapture != null) return;
+    if (prev == null) return;
+    setManualOpen(false);
+    setManualKind("product");
+    setManualServiceType(POS_SERVICE_TYPE_PRESETS[0]);
+    setManualName("");
+    setManualPrice("");
+    setManualQty("1");
+    setManualUpc("");
+    setManualEquipRows([newManualEquipRow()]);
+    setManualFailure("");
+    setManualTechObs("");
+    skipManualPersistRef.current = true;
+  }, [pos.draftReady, pos.manualCapture]);
 
   // Scroll de página (F5): lo maneja AppContent + adminScrollMemory.
 
@@ -367,51 +497,104 @@ export default function PuntoDeVentaPage() {
     return () => io.disconnect();
   }, [clientReady]);
 
-  const SERVICE_PRESETS = [
-    "Mantenimiento",
-    "Revisión",
-    "Armado",
-    "Instalación",
-    "Diagnóstico",
-    "Otro",
-  ] as const;
-
   const resetManualForm = () => {
     setManualKind("product");
-    setManualServiceType("Mantenimiento");
+    setManualServiceType(POS_SERVICE_TYPE_PRESETS[0]);
     setManualName("");
-    setManualDetail("");
     setManualPrice("");
     setManualQty("1");
     setManualUpc("");
+    setManualEquipRows([newManualEquipRow()]);
+    setManualFailure("");
+    setManualTechObs("");
+  };
+
+  const buildServiceIntake = (): PosServiceIntake | null => {
+    const equipment = manualEquipRows
+      .map((row) => {
+        const condition =
+          row.conditionPreset === "Otro"
+            ? row.conditionOther.trim()
+            : row.conditionPreset.trim();
+        return {
+          quantity: Math.max(1, parseInt(row.quantity, 10) || 1),
+          description: row.description.trim(),
+          serialNumber: row.serialNumber.trim(),
+          physicalCondition: condition,
+        };
+      })
+      .filter((row) => row.description.length > 0);
+    return {
+      serviceType: manualServiceType,
+      equipment,
+      failureOrRequestedService: manualFailure.trim(),
+      technicalObservationsOnReceipt: manualTechObs.trim(),
+    };
   };
 
   const submitManual = () => {
-    const price = Number(manualPrice);
+    const priceRaw = String(manualPrice || "").trim();
+    const price = Number(priceRaw);
     const qty = parseInt(manualQty, 10);
-    const detail = manualDetail.trim();
     const resolvedName =
       manualKind === "service"
         ? manualServiceType === "Otro"
-          ? detail
-            ? `${manualName.trim()}: ${detail}`
-            : manualName.trim()
-          : detail
-            ? `${manualServiceType}: ${detail}`
-            : manualServiceType
-        : manualName;
+          ? manualName.trim()
+          : manualServiceType
+        : manualName.trim();
+    if (resolvedName.length < 2) {
+      return;
+    }
+    if (!priceRaw || !Number.isFinite(price) || price <= 0) {
+      // Delega mensaje al hook (misma validación).
+      pos.addManualLine({
+        name: resolvedName,
+        unitPrice: Number.isFinite(price) ? price : 0,
+        quantity: Number.isFinite(qty) ? qty : 1,
+        upc: manualKind === "product" ? manualUpc : undefined,
+        manualKind,
+        serviceIntake:
+          manualKind === "service" ? buildServiceIntake() : undefined,
+      });
+      return;
+    }
     const ok = pos.addManualLine({
       name: resolvedName,
       unitPrice: price,
-      quantity: Number.isFinite(qty) ? qty : 1,
+      quantity: Number.isFinite(qty) && qty >= 1 ? qty : 1,
       upc: manualKind === "product" ? manualUpc : undefined,
       manualKind,
+      serviceIntake:
+        manualKind === "service" ? buildServiceIntake() : undefined,
     });
     if (ok) {
       resetManualForm();
       setManualOpen(false);
     }
   };
+
+  const manualCanSubmit = (() => {
+    const nameOk =
+      manualKind === "service"
+        ? manualServiceType === "Otro"
+          ? manualName.trim().length >= 2
+          : Boolean(manualServiceType)
+        : manualName.trim().length >= 2;
+    const price = Number(String(manualPrice || "").trim());
+    const priceOk =
+      String(manualPrice || "").trim() !== "" &&
+      Number.isFinite(price) &&
+      price > 0;
+    const qty = parseInt(manualQty, 10);
+    const qtyOk = Number.isFinite(qty) ? qty >= 1 : true;
+    if (!nameOk || !priceOk || !qtyOk) return false;
+    if (manualKind !== "service") return true;
+    const intake = buildServiceIntake();
+    if (!intake || intake.equipment.length < 1) return false;
+    if (intake.equipment.some((r) => !r.physicalCondition)) return false;
+    if (intake.failureOrRequestedService.trim().length < 2) return false;
+    return true;
+  })();
 
   if (!clientReady) {
     return (
@@ -907,7 +1090,7 @@ export default function PuntoDeVentaPage() {
                           }
                           sx={fieldSx}
                         >
-                          {SERVICE_PRESETS.map((s) => (
+                          {POS_SERVICE_TYPE_PRESETS.map((s) => (
                             <MenuItem key={s} value={s}>
                               {s}
                             </MenuItem>
@@ -965,35 +1148,246 @@ export default function PuntoDeVentaPage() {
                       ) : null}
                     </div>
                     {manualKind === "service" ? (
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Detalle (opcional)"
-                        value={manualDetail}
-                        onChange={(e) => setManualDetail(e.target.value)}
-                        placeholder="Describe el trabajo con el detalle que necesites…"
-                        multiline
-                        minRows={6}
-                        maxRows={16}
-                        sx={{
-                          ...fieldSx,
-                          "& .MuiInputBase-root": {
-                            alignItems: "flex-start",
-                          },
-                        }}
-                      />
+                      <div className={styles.serviceIntakeBlock}>
+                        <div className={styles.serviceIntakeHead}>
+                          <strong>Datos del Equipo y/o componente</strong>
+                          <span>
+                            Registra cada equipo o componente que entra a
+                            taller.
+                          </span>
+                        </div>
+                        <div className={styles.equipTableWrap}>
+                          <table className={styles.equipTable}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: 72 }}>Cantidad</th>
+                                <th>
+                                  Descripción del Equipo/Comp. Marca/Modelo
+                                </th>
+                                <th style={{ width: 140 }}>Número de serie</th>
+                                <th style={{ width: 180 }}>Estado Físico</th>
+                                <th style={{ width: 44 }} aria-label="Quitar" />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {manualEquipRows.map((row) => (
+                                <tr key={row.key}>
+                                  <td>
+                                    <TextField
+                                      size="small"
+                                      value={row.quantity}
+                                      onChange={(e) => {
+                                        const digits = e.target.value
+                                          .replace(/\D/g, "")
+                                          .slice(0, 4);
+                                        setManualEquipRows((prev) =>
+                                          prev.map((r) =>
+                                            r.key === row.key
+                                              ? {
+                                                  ...r,
+                                                  quantity: digits || "1",
+                                                }
+                                              : r,
+                                          ),
+                                        );
+                                      }}
+                                      inputProps={{ inputMode: "numeric" }}
+                                      sx={fieldSx}
+                                    />
+                                  </td>
+                                  <td>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      value={row.description}
+                                      onChange={(e) =>
+                                        setManualEquipRows((prev) =>
+                                          prev.map((r) =>
+                                            r.key === row.key
+                                              ? {
+                                                  ...r,
+                                                  description: e.target.value,
+                                                }
+                                              : r,
+                                          ),
+                                        )
+                                      }
+                                      placeholder="Ej. Laptop HP Pavilion 15"
+                                      sx={fieldSx}
+                                    />
+                                  </td>
+                                  <td>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      value={row.serialNumber}
+                                      onChange={(e) =>
+                                        setManualEquipRows((prev) =>
+                                          prev.map((r) =>
+                                            r.key === row.key
+                                              ? {
+                                                  ...r,
+                                                  serialNumber: e.target.value,
+                                                }
+                                              : r,
+                                          ),
+                                        )
+                                      }
+                                      placeholder="Opcional"
+                                      sx={fieldSx}
+                                    />
+                                  </td>
+                                  <td>
+                                    <TextField
+                                      select
+                                      size="small"
+                                      fullWidth
+                                      value={row.conditionPreset}
+                                      onChange={(e) =>
+                                        setManualEquipRows((prev) =>
+                                          prev.map((r) =>
+                                            r.key === row.key
+                                              ? {
+                                                  ...r,
+                                                  conditionPreset:
+                                                    e.target.value,
+                                                }
+                                              : r,
+                                          ),
+                                        )
+                                      }
+                                      sx={fieldSx}
+                                    >
+                                      {POS_PHYSICAL_CONDITION_PRESETS.map(
+                                        (opt) => (
+                                          <MenuItem key={opt} value={opt}>
+                                            {opt}
+                                          </MenuItem>
+                                        ),
+                                      )}
+                                    </TextField>
+                                    {row.conditionPreset === "Otro" ? (
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.conditionOther}
+                                        onChange={(e) =>
+                                          setManualEquipRows((prev) =>
+                                            prev.map((r) =>
+                                              r.key === row.key
+                                                ? {
+                                                    ...r,
+                                                    conditionOther:
+                                                      e.target.value,
+                                                  }
+                                                : r,
+                                            ),
+                                          )
+                                        }
+                                        placeholder="Describe el estado…"
+                                        sx={{ ...fieldSx, mt: 0.75 }}
+                                      />
+                                    ) : null}
+                                  </td>
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className={styles.equipRowRemove}
+                                      disabled={manualEquipRows.length <= 1}
+                                      onClick={() =>
+                                        setManualEquipRows((prev) =>
+                                          prev.length <= 1
+                                            ? prev
+                                            : prev.filter(
+                                                (r) => r.key !== row.key,
+                                              ),
+                                        )
+                                      }
+                                      aria-label="Quitar fila"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.equipAddRowBtn}
+                          onClick={() =>
+                            setManualEquipRows((prev) => [
+                              ...prev,
+                              newManualEquipRow(),
+                            ])
+                          }
+                        >
+                          <Plus
+                            size={14}
+                            style={{ display: "inline", marginRight: 4 }}
+                          />
+                          Agregar fila
+                        </button>
+                        <div className={styles.serviceTextField}>
+                          <label
+                            className={`${styles.serviceFieldLabel} ${styles.serviceFieldLabelRequired}`}
+                            htmlFor="pos-service-failure"
+                          >
+                            Falla o Servicio solicitado
+                          </label>
+                          <TextField
+                            id="pos-service-failure"
+                            fullWidth
+                            size="small"
+                            value={manualFailure}
+                            onChange={(e) => setManualFailure(e.target.value)}
+                            placeholder="Describe la falla o el servicio que solicita el cliente…"
+                            multiline
+                            minRows={3}
+                            maxRows={10}
+                            sx={{
+                              ...fieldSx,
+                              "& .MuiInputBase-root": {
+                                alignItems: "flex-start",
+                                backgroundColor: "#fff",
+                              },
+                            }}
+                          />
+                        </div>
+                        <div className={styles.serviceTextField}>
+                          <label
+                            className={styles.serviceFieldLabel}
+                            htmlFor="pos-service-tech-obs"
+                          >
+                            Observaciones Técnicas al Recibir
+                          </label>
+                          <TextField
+                            id="pos-service-tech-obs"
+                            fullWidth
+                            size="small"
+                            value={manualTechObs}
+                            onChange={(e) => setManualTechObs(e.target.value)}
+                            placeholder="Notas técnicas al recibir el equipo (opcional)…"
+                            multiline
+                            minRows={3}
+                            maxRows={10}
+                            sx={{
+                              ...fieldSx,
+                              "& .MuiInputBase-root": {
+                                alignItems: "flex-start",
+                                backgroundColor: "#fff",
+                              },
+                            }}
+                          />
+                        </div>
+                      </div>
                     ) : null}
                     <button
                       type="button"
                       className={styles.primaryBtn}
                       onClick={submitManual}
-                      disabled={
-                        manualKind === "service"
-                          ? manualServiceType === "Otro"
-                            ? manualName.trim().length < 2
-                            : false
-                          : manualName.trim().length < 2
-                      }
+                      disabled={!manualCanSubmit}
                     >
                       <Plus
                         size={14}
@@ -1101,9 +1495,11 @@ export default function PuntoDeVentaPage() {
                       const singleBranch =
                         stocks.length === 1 ? stocks[0] : null;
                       const multiBranch = stocks.length > 1;
+                      const hitSku = displayProductCode(hit.sku);
+                      const hitUpc = displayProductCode(hit.upc);
                       const metaBits = [
-                        hit.sku ? `SKU ${hit.sku}` : null,
-                        hit.upc ? `UPC ${hit.upc}` : null,
+                        hitSku ? `SKU ${hitSku}` : null,
+                        hitUpc ? `UPC ${hitUpc}` : null,
                         hit.category || null,
                       ].filter(Boolean);
 
@@ -1368,7 +1764,10 @@ export default function PuntoDeVentaPage() {
                           </div>
                         ) : null}
                         <div ref={cartListRef} className={styles.cartList}>
-                          {pos.cartPageItems.map((line) => (
+                          {pos.cartPageItems.map((line) => {
+                      const lineSku = displayProductCode(line.sku);
+                      const lineUpc = displayProductCode(line.upc);
+                      return (
                       <div key={line.key} className={styles.cartCard}>
                         <div className={styles.cartCardHead}>
                           {productThumb(
@@ -1394,8 +1793,8 @@ export default function PuntoDeVentaPage() {
                             </div>
                             <div className={styles.hitMeta}>
                               {[
-                                line.sku && `SKU ${line.sku}`,
-                                line.upc && `UPC ${line.upc}`,
+                                lineSku && `SKU ${lineSku}`,
+                                lineUpc && `UPC ${lineUpc}`,
                                 !line.isManual &&
                                   (line.branchId != null ||
                                     line.branchLabel ||
@@ -1469,7 +1868,13 @@ export default function PuntoDeVentaPage() {
                             style={{ marginBottom: 8 }}
                           >
                             {line.manualKind === "service"
-                              ? "Servicio adicional · no descuenta inventario"
+                              ? line.serviceIntake?.failureOrRequestedService
+                                ? clipText(
+                                    line.serviceIntake
+                                      .failureOrRequestedService,
+                                    72,
+                                  )
+                                : "No descuenta inventario"
                               : "Captura manual · no descuenta inventario"}
                           </p>
                         ) : line.stocksByBranch?.length ? (
@@ -1695,7 +2100,8 @@ export default function PuntoDeVentaPage() {
                           ))}
                         </div>
                       </div>
-                    ))}
+                    );
+                          })}
                         </div>
                         {pos.cartFilteredTotal > 0 ? (
                           <div className={styles.cartPager}>
@@ -3171,18 +3577,8 @@ export default function PuntoDeVentaPage() {
                   <div className={styles.warrantyDrawerScroll}>
                     <div className={styles.detailItems}>
                       {pos.warrantyDetail.items.map((it) => {
-                        const sku =
-                          it.productSku &&
-                          it.productSku !== "__POS_MANUAL__" &&
-                          !/^manual$/i.test(it.productSku)
-                            ? it.productSku
-                            : null;
-                        const upc =
-                          it.productUpc &&
-                          it.productUpc !== "__POS_MANUAL__" &&
-                          !/^manual$/i.test(it.productUpc)
-                            ? it.productUpc
-                            : null;
+                        const sku = displayProductCode(it.productSku);
+                        const upc = displayProductCode(it.productUpc);
                         return (
                           <div
                             key={it.idPosSaleItem}
@@ -3310,17 +3706,18 @@ export default function PuntoDeVentaPage() {
             )
           : null}
 
-        {pos.detailSale ? (
-          <div
-            className={styles.drawer}
-            role="dialog"
-            aria-modal="true"
-            onClick={() => pos.setDetailSale(null)}
-          >
-            <div
-              className={`${styles.drawerPanel} ${styles.detailDrawer}`}
-              onClick={(e) => e.stopPropagation()}
-            >
+        {pos.detailSale && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                className={`${styles.drawer} ${styles.posDrawerPortal}`}
+                role="dialog"
+                aria-modal="true"
+                onClick={() => pos.setDetailSale(null)}
+              >
+                <div
+                  className={`${styles.drawerPanel} ${styles.detailDrawer}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
               <div className={styles.detailHero}>
                 <div className={styles.detailHeroTop}>
                   <div>
@@ -3431,20 +3828,8 @@ export default function PuntoDeVentaPage() {
                 </div>
                 <div className={styles.detailItems}>
                   {pos.detailSale.items.map((it) => {
-                    const sku =
-                      it.productSku &&
-                      it.productSku !== "__POS_MANUAL__" &&
-                      it.productSku !== "__POS_SERVICE__" &&
-                      !/^manual$/i.test(it.productSku)
-                        ? it.productSku
-                        : null;
-                    const upc =
-                      it.productUpc &&
-                      it.productUpc !== "__POS_MANUAL__" &&
-                      it.productUpc !== "__POS_SERVICE__" &&
-                      !/^manual$/i.test(it.productUpc)
-                        ? it.productUpc
-                        : null;
+                    const sku = displayProductCode(it.productSku);
+                    const upc = displayProductCode(it.productUpc);
                     const fullName = String(it.productName || "");
                     const nameShown = clipText(fullName, 90);
                     const branchShown =
@@ -3473,6 +3858,11 @@ export default function PuntoDeVentaPage() {
                               {qty(it.quantity)} ×
                             </span>{" "}
                             {nameShown}
+                            {it.serviceIntake?.equipment?.length ? (
+                              <span className={styles.detailServiceBadge}>
+                                Servicio
+                              </span>
+                            ) : null}
                           </strong>
                           <div className={styles.detailItemMeta}>
                             {sku ? (
@@ -3518,6 +3908,53 @@ export default function PuntoDeVentaPage() {
                         <div className={styles.detailItemPrice}>
                           {money(it.lineTotal)}
                         </div>
+                        {it.serviceIntake?.equipment?.length ? (
+                          <div
+                            className={`${styles.serviceIntakeDetail} ${styles.detailItemService}`}
+                          >
+                            <strong>Datos del Equipo y/o componente</strong>
+                            {it.serviceIntake.equipment.map((eq, idx) => (
+                              <div
+                                key={`${it.idPosSaleItem}-eq-${idx}`}
+                                className={styles.equipDescBlock}
+                              >
+                                <strong>
+                                  {eq.description || "—"}
+                                  {Number(eq.quantity) > 1
+                                    ? ` (×${eq.quantity})`
+                                    : ""}
+                                </strong>
+                                {eq.serialNumber ? (
+                                  <p>
+                                    <em>Nº serie:</em> {eq.serialNumber}
+                                  </p>
+                                ) : null}
+                                {eq.physicalCondition ? (
+                                  <p>
+                                    <em>Estado físico:</em>{" "}
+                                    {eq.physicalCondition}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ))}
+                            {it.serviceIntake.failureOrRequestedService ? (
+                              <p>
+                                <em>Falla o Servicio solicitado:</em>{" "}
+                                {it.serviceIntake.failureOrRequestedService}
+                              </p>
+                            ) : null}
+                            {it.serviceIntake
+                              .technicalObservationsOnReceipt ? (
+                              <p>
+                                <em>Observaciones Técnicas al Recibir:</em>{" "}
+                                {
+                                  it.serviceIntake
+                                    .technicalObservationsOnReceipt
+                                }
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -3627,63 +4064,70 @@ export default function PuntoDeVentaPage() {
                 </div>
               )}
             </div>
-          </div>
-        ) : null}
+          </div>,
+              document.body,
+            )
+          : null}
 
-        {pos.ticketOpen && pos.lastSale ? (
-          <div
-            className={styles.drawer}
-            role="dialog"
-            aria-modal="true"
-            onClick={() => pos.setTicketOpen(false)}
-          >
-            <div
-              className={styles.drawerPanel}
-              style={{
-                height: "auto",
-                maxHeight: "90vh",
-                placeSelf: "center",
-                borderRadius: 16,
-                width: "min(420px, 94vw)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ marginTop: 0 }}>Venta {formatPosFolio(pos.lastSale.folio)}</h3>
-              <p style={{ fontSize: 14 }}>
-                Total {money(pos.lastSale.total)} ·{" "}
-                {statusLabel(pos.lastSale.status)}
-                {pos.lastSale.quoteNumber
-                  ? ` · No. Cotización: ${pos.lastSale.quoteNumber}`
-                  : ""}
-              </p>
-              <div className={styles.drawerActions}>
-                <button
-                  type="button"
-                  className={styles.chargeBtn}
-                  style={{ marginTop: 0 }}
-                  onClick={() =>
-                    pos.openTicket(pos.lastSale!.idPosSale, {
-                      folio: pos.lastSale!.folio,
-                    })
-                  }
+        {pos.ticketOpen && pos.lastSale && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                className={`${styles.drawer} ${styles.posDrawerPortal}`}
+                role="dialog"
+                aria-modal="true"
+                onClick={() => pos.setTicketOpen(false)}
+              >
+                <div
+                  className={styles.drawerPanel}
+                  style={{
+                    height: "auto",
+                    maxHeight: "90vh",
+                    placeSelf: "center",
+                    borderRadius: 16,
+                    width: "min(420px, 94vw)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Printer
-                    size={14}
-                    style={{ display: "inline", marginRight: 6 }}
-                  />
-                  Imprimir ticket
-                </button>
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={() => pos.setTicketOpen(false)}
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+                  <h3 style={{ marginTop: 0 }}>
+                    Venta {formatPosFolio(pos.lastSale.folio)}
+                  </h3>
+                  <p style={{ fontSize: 14 }}>
+                    Total {money(pos.lastSale.total)} ·{" "}
+                    {statusLabel(pos.lastSale.status)}
+                    {pos.lastSale.quoteNumber
+                      ? ` · No. Cotización: ${pos.lastSale.quoteNumber}`
+                      : ""}
+                  </p>
+                  <div className={styles.drawerActions}>
+                    <button
+                      type="button"
+                      className={styles.chargeBtn}
+                      style={{ marginTop: 0 }}
+                      onClick={() =>
+                        pos.openTicket(pos.lastSale!.idPosSale, {
+                          folio: pos.lastSale!.folio,
+                        })
+                      }
+                    >
+                      <Printer
+                        size={14}
+                        style={{ display: "inline", marginRight: 6 }}
+                      />
+                      Imprimir ticket
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.secondaryBtn}
+                      onClick={() => pos.setTicketOpen(false)}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
 
         {pos.cashSessionDetail || pos.cashSessionDetailLoading ? (
           <div

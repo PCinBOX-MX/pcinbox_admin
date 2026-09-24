@@ -55,17 +55,26 @@ function isMeaningfulCode(value?: string | null): boolean {
   return true;
 }
 
-/** Bodega por línea (PCinBOX-Leon / SFD / GDL / CDMX…). Provider 1 → Leon. */
+/** Bodega por línea (PCinBOX-Leon / SFD / GDL / CDMX…). Provider 1 / servicio → Leon. */
 function itemBodegaLabel(
   it: PosSale["items"][number],
   sale: PosSale,
 ): string | null {
+  const isService = Boolean(
+    it.serviceIntake &&
+      ((it.serviceIntake.equipment?.length || 0) > 0 ||
+        String(it.serviceIntake.serviceType || "").trim() ||
+        String(it.serviceIntake.failureOrRequestedService || "").trim()),
+  );
+  if (isService) {
+    return thermalText("PCinBOX-Leon");
+  }
   const raw = (() => {
     if (Number(it.providerId) === 1) {
       return (
         formatPcinboxBranchDisplayName(it.branchName) ||
         (it.branchLabel &&
-        !/^(leon2|santafe|gdl|cdmx)$/i.test(String(it.branchLabel))
+        !/^(leon2|santafe|gdl|cdmx|pcinbox)$/i.test(String(it.branchLabel))
           ? formatPosBranchUiLabel({
               name: it.branchName,
               label: it.branchLabel,
@@ -84,12 +93,19 @@ function itemBodegaLabel(
             city: it.branchCity,
           })
         : null);
-    if (fromItem && !/^(leon2|santafe|gdl|cdmx)$/i.test(fromItem)) {
+    if (
+      fromItem &&
+      !/^(leon2|santafe|gdl|cdmx|dicoags2|arboledas|pcinbox)$/i.test(fromItem)
+    ) {
       return fromItem;
     }
-    return formatPcinboxBranchDisplayName(sale.branchName);
+    return (
+      formatPcinboxBranchDisplayName(sale.branchName) || "PCinBOX-Leon"
+    );
   })();
-  return raw ? thermalText(raw) : null;
+  const normalized =
+    !raw || /^pcinbox$/i.test(String(raw).trim()) ? "PCinBOX-Leon" : raw;
+  return thermalText(normalized);
 }
 
 function money(n: number): string {
@@ -305,7 +321,19 @@ export function buildEscPosTicket(
   parts.push(centerDashed("PRODUCTOS", width) + LF);
 
   for (const it of sale.items || []) {
-    for (const w of wrapLimited(thermalText(it.productName), width, 4)) {
+    const isService = Boolean(
+      it.serviceIntake &&
+        ((it.serviceIntake.equipment?.length || 0) > 0 ||
+          String(it.serviceIntake.serviceType || "").trim() ||
+          String(it.serviceIntake.failureOrRequestedService || "").trim()),
+    );
+    const serviceLabel = String(
+      it.serviceIntake?.serviceType || it.productName || "",
+    ).trim();
+    const title = isService
+      ? `Servicio: ${serviceLabel || it.productName}`
+      : it.productName;
+    for (const w of wrapLimited(thermalText(title), width, 4)) {
       parts.push(w + LF);
     }
     if (isMeaningfulCode(it.productSku)) {
@@ -334,6 +362,45 @@ export function buildEscPosTicket(
           it.serials.map((s) => s.serialNumber).join(", "),
         )}` + LF,
       );
+    }
+    const intake = it.serviceIntake;
+    if (intake?.equipment?.length) {
+      parts.push(centerDashed("EQUIPO / COMPONENTE", width) + LF);
+      for (const eq of intake.equipment) {
+        const qty = Number(eq.quantity) || 1;
+        const desc = thermalText(eq.description || "");
+        for (const w of wrapLimited(
+          `${qty}x ${desc}`,
+          width,
+          3,
+        )) {
+          parts.push(w + LF);
+        }
+        if (eq.serialNumber) {
+          parts.push(`S/N eq: ${thermalText(eq.serialNumber)}` + LF);
+        }
+        if (eq.physicalCondition) {
+          parts.push(
+            `Estado: ${thermalText(eq.physicalCondition)}` + LF,
+          );
+        }
+      }
+      const failure = String(intake.failureOrRequestedService || "").trim();
+      if (failure) {
+        parts.push("Falla/Servicio:" + LF);
+        for (const w of wrapLimited(thermalText(failure), width, 6)) {
+          parts.push(w + LF);
+        }
+      }
+      const obs = String(
+        intake.technicalObservationsOnReceipt || "",
+      ).trim();
+      if (obs) {
+        parts.push("Obs. tecnicas:" + LF);
+        for (const w of wrapLimited(thermalText(obs), width, 6)) {
+          parts.push(w + LF);
+        }
+      }
     }
     parts.push(LF);
   }

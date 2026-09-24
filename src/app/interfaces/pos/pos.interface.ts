@@ -126,6 +126,39 @@ export type PosCustomerHit = {
   label: string;
 };
 
+/** Datos de equipo / falla capturados en servicio POS sin catálogo. */
+export type PosServiceEquipmentRow = {
+  quantity: number;
+  description: string;
+  serialNumber: string;
+  physicalCondition: string;
+};
+
+export type PosServiceIntake = {
+  serviceType: string;
+  equipment: PosServiceEquipmentRow[];
+  failureOrRequestedService: string;
+  technicalObservationsOnReceipt: string;
+};
+
+export const POS_PHYSICAL_CONDITION_PRESETS = [
+  "Buen estado",
+  "Rayones leves",
+  "Golpes / abolladuras",
+  "Faltan piezas",
+  "No enciende",
+  "Otro",
+] as const;
+
+export const POS_SERVICE_TYPE_PRESETS = [
+  "Mantenimiento",
+  "Revisión",
+  "Ensamble",
+  "Instalación",
+  "Diagnóstico",
+  "Otro",
+] as const;
+
 export type PosCartLine = {
   key: string;
   productId: number;
@@ -154,6 +187,8 @@ export type PosCartLine = {
   isManual?: boolean;
   /** product = artículo; service = mantenimiento/revisión/etc. */
   manualKind?: "product" | "service";
+  /** Intake de taller cuando manualKind=service. */
+  serviceIntake?: PosServiceIntake | null;
   /** Proveedor del catálogo; solo providerId=1 descuenta stock. */
   providerId?: number | null;
 };
@@ -280,6 +315,8 @@ export type PosSale = {
       warrantyMode?: string | null;
       warrantyExpiresAt: string | null;
     }>;
+    /** Intake de taller (servicios POS). */
+    serviceIntake?: PosServiceIntake | null;
   }>;
   payments: Array<{
     idPosPayment: number;

@@ -19,15 +19,13 @@ export function formatPcinboxBranchDisplayName(
 
 
   if (key === "leon2" || key === "león" || key === "leon") {
-
     return "PCinBOX-León";
-
   }
-
+  if (key === "pcinbox" || key === "pcinboxleon" || key === "pcinboxleón") {
+    return "PCinBOX-León";
+  }
   if (key === "santafe") {
-
     return "PCinBOX-SFD";
-
   }
 
   if (key === "gdl") {

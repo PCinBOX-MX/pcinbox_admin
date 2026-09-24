@@ -202,7 +202,7 @@ const ModalComponent = ({
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
         sx={{
-          zIndex: 1300,
+          zIndex: 10000,
         }}
         slotProps={{
           backdrop: {
@@ -344,7 +344,7 @@ const ModalComponent = ({
         <Modal
           open={showConfirmClose}
           onClose={() => setShowConfirmClose(false)}
-          sx={{ zIndex: 1400 }}
+          sx={{ zIndex: 10050 }}
           className="flex justify-center items-center"
           slotProps={{
             backdrop: {

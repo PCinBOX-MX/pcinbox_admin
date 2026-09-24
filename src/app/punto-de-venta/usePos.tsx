@@ -15,6 +15,7 @@ import {
   PosProductHit,
   PosProductSerial,
   PosSale,
+  PosServiceIntake,
   SELLER_MAX_DISCOUNT_PCT,
   canCancelPosSale,
   isPosProductOutOfStock,
@@ -44,7 +45,8 @@ import { cartWarrantyToPayload, posWarrantySelectable } from "./posWarranty";
 
 const BRANCH_STORAGE_KEY = "pcinbox-pos-branchId";
 const CASH_HINT_KEY = "pcinbox-pos-cash-hint";
-const DRAFT_KEY = "pcinbox-pos-draft-v1";
+const DRAFT_KEY_V1 = "pcinbox-pos-draft-v1";
+const DRAFT_KEY = "pcinbox-pos-draft-v2";
 /** Persist filters to URL/session quickly (reload / menú). */
 const FILTER_URL_DEBOUNCE_MS = 150;
 /** Debounce API fetch for text filters. */
@@ -54,6 +56,16 @@ const CART_SEARCH_DEBOUNCE_MS = 350;
 /** Líneas visibles por página en el carrito. */
 const CART_PAGE_SIZE = 3;
 
+type PosTab = "cobrar" | "historial" | "caja" | "garantias";
+
+const POS_TABS = new Set<PosTab>(["cobrar", "historial", "caja", "garantias"]);
+
+function parsePosTab(raw: string | null | undefined): PosTab {
+  const v = String(raw || "").trim().toLowerCase();
+  if (POS_TABS.has(v as PosTab)) return v as PosTab;
+  return "cobrar";
+}
+
 type CashHint = {
   branchId: number;
   open: boolean;
@@ -61,8 +73,53 @@ type CashHint = {
   at?: number;
 };
 
-type PosDraftV1 = {
-  v: 1;
+/** Captura «Agregar sin catálogo» (sobrevive F5 / navegación). */
+export type PosManualEquipRow = {
+  key: string;
+  quantity: string;
+  description: string;
+  serialNumber: string;
+  conditionPreset: string;
+  conditionOther: string;
+};
+
+export type PosManualCapture = {
+  open: boolean;
+  kind: "product" | "service";
+  serviceType: string;
+  name: string;
+  price: string;
+  qty: string;
+  upc: string;
+  equipRows: PosManualEquipRow[];
+  failure: string;
+  techObs: string;
+};
+
+type PosCashFormsDraft = {
+  openingFloat: string;
+  closingCounted: string;
+  differenceReason: string;
+  cashMoveAmount: string;
+  cashMoveReason: string;
+  cashNotes: string;
+};
+
+type PosSerialFormsDraft = {
+  serialQuery: string;
+  rmaNotes: string;
+  newSerialProductId: string;
+  newSerialNumber: string;
+};
+
+type PosDraftV2 = {
+  v: 2;
+  /** Pestaña activa del módulo POS. */
+  tab: PosTab;
+  /** Búsqueda de catálogo en Cobrar. */
+  search: string;
+  cartSearch: string;
+  cartPage: number;
   cart: PosCartLine[];
   customerName: string;
   guestEmail: string;
@@ -73,6 +130,33 @@ type PosDraftV1 = {
   requiredFactura: boolean;
   quoteInput: string;
   linkedQuoteNumber: string | null;
+  manualCapture: PosManualCapture | null;
+  cashForms: PosCashFormsDraft;
+  serialForms: PosSerialFormsDraft;
+  /** Última venta cobrada (reimprimir / resumen). */
+  lastSale: PosSale | null;
+  ticketOpen: boolean;
+  /** Paneles abiertos (se rehidratan con fetch). */
+  detailSaleId: number | null;
+  warrantyDetailId: number | null;
+  cancelReason: string;
+  inventoryReason: string;
+};
+
+const EMPTY_CASH_FORMS: PosCashFormsDraft = {
+  openingFloat: "0",
+  closingCounted: "",
+  differenceReason: "",
+  cashMoveAmount: "",
+  cashMoveReason: "",
+  cashNotes: "",
+};
+
+const EMPTY_SERIAL_FORMS: PosSerialFormsDraft = {
+  serialQuery: "",
+  rmaNotes: "",
+  newSerialProductId: "",
+  newSerialNumber: "",
 };
 
 function newPosIdempotencyKey() {
@@ -83,27 +167,244 @@ function newPosIdempotencyKey() {
   return `pos_${rand}`.slice(0, 64);
 }
 
-function readPosDraft(): PosDraftV1 | null {
+function normalizeManualCapture(raw: unknown): PosManualCapture | null {
+  if (!raw || typeof raw !== "object") return null;
+  const m = raw as Record<string, unknown>;
+  const equipRows = Array.isArray(m.equipRows)
+    ? m.equipRows
+        .filter((row) => row && typeof row === "object")
+        .slice(0, 40)
+        .map((row, idx) => {
+          const r = row as Record<string, unknown>;
+          return {
+            key: String(r.key || `eq-restored-${idx}`),
+            quantity: String(r.quantity ?? "1"),
+            description: String(r.description ?? ""),
+            serialNumber: String(r.serialNumber ?? ""),
+            conditionPreset: String(r.conditionPreset || "Buen estado"),
+            conditionOther: String(r.conditionOther ?? ""),
+          };
+        })
+    : [];
+  return {
+    open: Boolean(m.open),
+    kind: m.kind === "service" ? "service" : "product",
+    serviceType: String(m.serviceType || "Mantenimiento"),
+    name: String(m.name || ""),
+    price: String(m.price || ""),
+    qty: String(m.qty || "1"),
+    upc: String(m.upc || ""),
+    equipRows:
+      equipRows.length > 0
+        ? equipRows
+        : [
+            {
+              key: `eq-${Date.now()}`,
+              quantity: "1",
+              description: "",
+              serialNumber: "",
+              conditionPreset: "Buen estado",
+              conditionOther: "",
+            },
+          ],
+    failure: String(m.failure || ""),
+    techObs: String(m.techObs || ""),
+  };
+}
+
+function draftHasContent(draft: PosDraftV2): boolean {
+  const m = draft.manualCapture;
+  const hasManual =
+    Boolean(m?.open) ||
+    Boolean(m?.name?.trim()) ||
+    Boolean(m?.price?.trim()) ||
+    Boolean(m?.failure?.trim()) ||
+    Boolean(m?.techObs?.trim()) ||
+    Boolean(m?.upc?.trim()) ||
+    m?.kind === "service" ||
+    (m?.serviceType != null && m.serviceType !== "Mantenimiento") ||
+    Boolean(
+      m?.equipRows?.some(
+        (r) =>
+          Boolean(r.description?.trim()) ||
+          Boolean(r.serialNumber?.trim()) ||
+          Boolean(r.conditionOther?.trim()) ||
+          (r.conditionPreset && r.conditionPreset !== "Buen estado"),
+      ),
+    );
+  const cash = draft.cashForms || EMPTY_CASH_FORMS;
+  const hasCashForms =
+    (cash.openingFloat.trim() !== "" && cash.openingFloat.trim() !== "0") ||
+    Boolean(cash.closingCounted.trim()) ||
+    Boolean(cash.differenceReason.trim()) ||
+    Boolean(cash.cashMoveAmount.trim()) ||
+    Boolean(cash.cashMoveReason.trim()) ||
+    Boolean(cash.cashNotes.trim());
+  const serial = draft.serialForms || EMPTY_SERIAL_FORMS;
+  const hasSerialForms =
+    Boolean(serial.serialQuery.trim()) ||
+    Boolean(serial.rmaNotes.trim()) ||
+    Boolean(serial.newSerialProductId.trim()) ||
+    Boolean(serial.newSerialNumber.trim());
+  return (
+    draft.tab !== "cobrar" ||
+    Boolean(draft.search.trim()) ||
+    Boolean(draft.cartSearch.trim()) ||
+    draft.cartPage > 1 ||
+    draft.cart.length > 0 ||
+    Boolean(draft.customerName.trim()) ||
+    Boolean(draft.guestEmail.trim()) ||
+    Boolean(draft.guestPhone.trim()) ||
+    draft.phoneLada !== "+52" ||
+    draft.payments.length > 0 ||
+    Boolean(draft.notes.trim()) ||
+    draft.requiredFactura ||
+    Boolean(draft.linkedQuoteNumber) ||
+    Boolean(draft.quoteInput.trim()) ||
+    hasManual ||
+    hasCashForms ||
+    hasSerialForms ||
+    Boolean(draft.lastSale) ||
+    Boolean(draft.ticketOpen) ||
+    draft.detailSaleId != null ||
+    draft.warrantyDetailId != null ||
+    Boolean(draft.cancelReason?.trim()) ||
+    Boolean(draft.inventoryReason?.trim())
+  );
+}
+
+function normalizeCashForms(raw: unknown): PosCashFormsDraft {
+  if (!raw || typeof raw !== "object") return { ...EMPTY_CASH_FORMS };
+  const c = raw as Record<string, unknown>;
+  return {
+    openingFloat: String(c.openingFloat ?? "0"),
+    closingCounted: String(c.closingCounted ?? ""),
+    differenceReason: String(c.differenceReason ?? ""),
+    cashMoveAmount: String(c.cashMoveAmount ?? ""),
+    cashMoveReason: String(c.cashMoveReason ?? ""),
+    cashNotes: String(c.cashNotes ?? ""),
+  };
+}
+
+function normalizeSerialForms(raw: unknown): PosSerialFormsDraft {
+  if (!raw || typeof raw !== "object") return { ...EMPTY_SERIAL_FORMS };
+  const s = raw as Record<string, unknown>;
+  return {
+    serialQuery: String(s.serialQuery ?? ""),
+    rmaNotes: String(s.rmaNotes ?? ""),
+    newSerialProductId: String(s.newSerialProductId ?? ""),
+    newSerialNumber: String(s.newSerialNumber ?? ""),
+  };
+}
+
+function readPosDraft(): PosDraftV2 | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(DRAFT_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PosDraftV1;
-    if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.cart)) return null;
-    return parsed;
+    const rawV2 = localStorage.getItem(DRAFT_KEY);
+    if (rawV2) {
+      const parsed = JSON.parse(rawV2) as Partial<PosDraftV2> & { v?: number };
+      if (parsed && parsed.v === 2 && Array.isArray(parsed.cart)) {
+        return {
+          v: 2,
+          tab: parsePosTab(parsed.tab),
+          search: String(parsed.search || ""),
+          cartSearch: String(parsed.cartSearch || ""),
+          cartPage: Math.max(1, Number(parsed.cartPage) || 1),
+          cart: parsed.cart,
+          customerName: String(parsed.customerName || ""),
+          guestEmail: String(parsed.guestEmail || ""),
+          phoneLada: String(parsed.phoneLada || "+52"),
+          guestPhone: String(parsed.guestPhone || ""),
+          payments: Array.isArray(parsed.payments) ? parsed.payments : [],
+          notes: String(parsed.notes || ""),
+          requiredFactura: Boolean(parsed.requiredFactura),
+          quoteInput: String(parsed.quoteInput || ""),
+          linkedQuoteNumber: parsed.linkedQuoteNumber || null,
+          manualCapture: normalizeManualCapture(parsed.manualCapture),
+          cashForms: normalizeCashForms(parsed.cashForms),
+          serialForms: normalizeSerialForms(parsed.serialForms),
+          lastSale:
+            parsed.lastSale && typeof parsed.lastSale === "object"
+              ? (parsed.lastSale as PosSale)
+              : null,
+          ticketOpen: Boolean(parsed.ticketOpen),
+          detailSaleId:
+            parsed.detailSaleId != null &&
+            Number.isSafeInteger(Number(parsed.detailSaleId))
+              ? Number(parsed.detailSaleId)
+              : null,
+          warrantyDetailId:
+            parsed.warrantyDetailId != null &&
+            Number.isSafeInteger(Number(parsed.warrantyDetailId))
+              ? Number(parsed.warrantyDetailId)
+              : null,
+          cancelReason: String(parsed.cancelReason || ""),
+          inventoryReason: String(parsed.inventoryReason || ""),
+        };
+      }
+    }
+    // Migrar v1 (sessionStorage legacy).
+    const rawV1 =
+      sessionStorage.getItem(DRAFT_KEY_V1) || localStorage.getItem(DRAFT_KEY_V1);
+    if (!rawV1) return null;
+    const legacy = JSON.parse(rawV1) as {
+      v?: number;
+      cart?: PosCartLine[];
+      customerName?: string;
+      guestEmail?: string;
+      phoneLada?: string;
+      guestPhone?: string;
+      payments?: PosPaymentLine[];
+      notes?: string;
+      requiredFactura?: boolean;
+      quoteInput?: string;
+      linkedQuoteNumber?: string | null;
+    };
+    if (!legacy || !Array.isArray(legacy.cart)) return null;
+    return {
+      v: 2,
+      tab: "cobrar",
+      search: "",
+      cartSearch: "",
+      cartPage: 1,
+      cart: legacy.cart,
+      customerName: String(legacy.customerName || ""),
+      guestEmail: String(legacy.guestEmail || ""),
+      phoneLada: String(legacy.phoneLada || "+52"),
+      guestPhone: String(legacy.guestPhone || ""),
+      payments: Array.isArray(legacy.payments) ? legacy.payments : [],
+      notes: String(legacy.notes || ""),
+      requiredFactura: Boolean(legacy.requiredFactura),
+      quoteInput: String(legacy.quoteInput || ""),
+      linkedQuoteNumber: legacy.linkedQuoteNumber || null,
+      manualCapture: null,
+      cashForms: { ...EMPTY_CASH_FORMS },
+      serialForms: { ...EMPTY_SERIAL_FORMS },
+      lastSale: null,
+      ticketOpen: false,
+      detailSaleId: null,
+      warrantyDetailId: null,
+      cancelReason: "",
+      inventoryReason: "",
+    };
   } catch {
     return null;
   }
 }
 
-function writePosDraft(draft: PosDraftV1 | null) {
+function writePosDraft(draft: PosDraftV2 | null) {
   if (typeof window === "undefined") return;
   try {
     if (!draft) {
-      sessionStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(DRAFT_KEY_V1);
+      sessionStorage.removeItem(DRAFT_KEY_V1);
       return;
     }
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    // Limpia legacy para no rehidratar datos viejos.
+    sessionStorage.removeItem(DRAFT_KEY_V1);
+    localStorage.removeItem(DRAFT_KEY_V1);
   } catch {
     // ignore quota / private mode
   }
@@ -116,7 +417,9 @@ function clearPosDraft() {
 function readCashHint(): CashHint | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(CASH_HINT_KEY);
+    const raw =
+      localStorage.getItem(CASH_HINT_KEY) ||
+      sessionStorage.getItem(CASH_HINT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CashHint;
     if (!parsed || !Number.isSafeInteger(Number(parsed.branchId))) return null;
@@ -136,13 +439,13 @@ function writeCashHint(hint: CashHint | null) {
   if (typeof window === "undefined") return;
   try {
     if (!hint) {
+      localStorage.removeItem(CASH_HINT_KEY);
       sessionStorage.removeItem(CASH_HINT_KEY);
       return;
     }
-    sessionStorage.setItem(
-      CASH_HINT_KEY,
-      JSON.stringify({ ...hint, at: Date.now() }),
-    );
+    const payload = JSON.stringify({ ...hint, at: Date.now() });
+    localStorage.setItem(CASH_HINT_KEY, payload);
+    sessionStorage.removeItem(CASH_HINT_KEY);
   } catch {
     // ignore quota / private mode
   }
@@ -152,16 +455,6 @@ function readStoredBranchId(): number | null {
   if (typeof window === "undefined") return null;
   const n = Number(localStorage.getItem(BRANCH_STORAGE_KEY));
   return Number.isSafeInteger(n) && n > 0 ? n : null;
-}
-
-type PosTab = "cobrar" | "historial" | "caja" | "garantias";
-
-const POS_TABS = new Set<PosTab>(["cobrar", "historial", "caja", "garantias"]);
-
-function parsePosTab(raw: string | null | undefined): PosTab {
-  const v = String(raw || "").trim().toLowerCase();
-  if (POS_TABS.has(v as PosTab)) return v as PosTab;
-  return "cobrar";
 }
 
 function parseListPage(raw: string | null | undefined, fallback = 1): number {
@@ -228,6 +521,7 @@ export default function usePos() {
   const tabFromUrl = parsePosTab(searchParams.get("tab"));
   const [tab, setTabState] = useState<PosTab>(tabFromUrl);
   const tabSyncLockRef = useRef(false);
+  const draftHydratedRef = useRef(false);
 
   useEffect(() => {
     if (tabSyncLockRef.current) {
@@ -253,6 +547,10 @@ export default function usePos() {
       }
       tabSyncLockRef.current = true;
       setTabState(next);
+      // Actualizar snapshot ya: el flush de cleanup no debe reescribir tab vieja.
+      if (draftSnapshotRef.current) {
+        draftSnapshotRef.current = { ...draftSnapshotRef.current, tab: next };
+      }
       setQueryParams({ tab: next === "cobrar" ? null : next });
       if (typeof window !== "undefined") {
         window.requestAnimationFrame(() => {
@@ -367,9 +665,9 @@ export default function usePos() {
   );
   const [detailSale, setDetailSale] = useState<PosSale | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-  const [cancelPassword, setCancelPassword] = useState("");
   const cancelPasswordRef = useRef("");
   const [cancelling, setCancelling] = useState(false);
+  const [inventoryReason, setInventoryReason] = useState("");
 
   const [warranties, setWarranties] = useState<PosSale[]>([]);
   const [warrantiesLoading, setWarrantiesLoading] = useState(false);
@@ -400,8 +698,17 @@ export default function usePos() {
   const chargeLockRef = useRef(false);
   const chargeIdempotencyKeyRef = useRef<string | null>(null);
   const chargeConfirmOpenRef = useRef(false);
-  const draftHydratedRef = useRef(false);
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftSnapshotRef = useRef<PosDraftV2 | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [manualCapture, setManualCapture] = useState<PosManualCapture | null>(
+    null,
+  );
+  const [pendingDetailSaleId, setPendingDetailSaleId] = useState<number | null>(
+    null,
+  );
+  const [pendingWarrantyDetailId, setPendingWarrantyDetailId] = useState<
+    number | null
+  >(null);
 
   const maxDiscount = isAdmin ? 100 : SELLER_MAX_DISCOUNT_PCT;
 
@@ -458,8 +765,10 @@ export default function usePos() {
       list.find((b) => Number(b.providerId) === 1)?.idBranche ||
       null;
     if (cashId) {
-      setBranchId(cashId);
-      localStorage.setItem(BRANCH_STORAGE_KEY, String(cashId));
+      setBranchId((prev) => prev ?? cashId);
+      if (!readStoredBranchId()) {
+        localStorage.setItem(BRANCH_STORAGE_KEY, String(cashId));
+      }
     }
   }, [requestGet]);
 
@@ -467,8 +776,13 @@ export default function usePos() {
     void loadBranches().catch(() => undefined);
   }, [loadBranches]);
 
-  // Evita hydration mismatch: localStorage / sessionStorage solo después del mount.
+  // Evita hydration mismatch: localStorage solo después del mount.
+  // UNA sola vez: si depende de setQueryParams, cada cambio de URL re-hidrata,
+  // fuerza tab=caja del draft y deja cashSync en "loading" sin re-fetch.
   useEffect(() => {
+    if (draftHydratedRef.current) return;
+    draftHydratedRef.current = true;
+
     setQzSettings(loadQzSettings());
     const storedBranch = readStoredBranchId();
     const hint = readCashHint();
@@ -482,8 +796,9 @@ export default function usePos() {
     }
 
     const draft = readPosDraft();
-    if (draft && draft.cart.length > 0) {
-      setCart(draft.cart);
+    // Aplicar siempre que exista borrador (cualquier checkbox/select/captura).
+    if (draft) {
+      setCart(Array.isArray(draft.cart) ? draft.cart : []);
       setCustomerName(draft.customerName || "");
       setGuestEmail(draft.guestEmail || "");
       setPhoneLada(draft.phoneLada || "+52");
@@ -493,46 +808,87 @@ export default function usePos() {
       setRequiredFactura(Boolean(draft.requiredFactura));
       setQuoteInput(draft.quoteInput || "");
       setLinkedQuoteNumber(draft.linkedQuoteNumber || null);
+      setManualCapture(draft.manualCapture);
+      setSearch(draft.search || "");
+      setCartSearch(draft.cartSearch || "");
+      setCartPage(Math.max(1, Number(draft.cartPage) || 1));
+      setOpeningFloat(draft.cashForms?.openingFloat || "0");
+      setClosingCounted(draft.cashForms?.closingCounted || "");
+      setDifferenceReason(draft.cashForms?.differenceReason || "");
+      setCashMoveAmount(draft.cashForms?.cashMoveAmount || "");
+      setCashMoveReason(draft.cashForms?.cashMoveReason || "");
+      setCashNotes(draft.cashForms?.cashNotes || "");
+      setSerialQuery(draft.serialForms?.serialQuery || "");
+      setRmaNotes(draft.serialForms?.rmaNotes || "");
+      setNewSerialProductId(draft.serialForms?.newSerialProductId || "");
+      setNewSerialNumber(draft.serialForms?.newSerialNumber || "");
+      setLastSale(draft.lastSale || null);
+      setTicketOpen(Boolean(draft.ticketOpen) && Boolean(draft.lastSale));
+      setCancelReason(draft.cancelReason || "");
+      setInventoryReason(draft.inventoryReason || "");
+      if (draft.detailSaleId != null) {
+        setPendingDetailSaleId(draft.detailSaleId);
+      }
+      if (draft.warrantyDetailId != null) {
+        setPendingWarrantyDetailId(draft.warrantyDetailId);
+      }
+      draftSnapshotRef.current = draft;
+      // Restaurar pestaña si la URL no trae `tab` (vuelva al módulo / F5 sin query).
+      const urlTab = new URLSearchParams(window.location.search).get("tab");
+      if (!urlTab && draft.tab && draft.tab !== "cobrar") {
+        tabSyncLockRef.current = true;
+        setTabState(draft.tab);
+        setQueryParams({ tab: draft.tab });
+      }
     }
-    draftHydratedRef.current = true;
+    setDraftReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only hydrate
   }, []);
 
-  // Borrador de venta en sessionStorage (sobrevive refresh).
-  useEffect(() => {
-    if (!draftHydratedRef.current) return;
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      const hasDraft =
-        cart.length > 0 ||
-        Boolean(customerName.trim()) ||
-        Boolean(guestPhone.trim()) ||
-        payments.length > 0 ||
-        Boolean(notes.trim()) ||
-        requiredFactura ||
-        Boolean(linkedQuoteNumber) ||
-        Boolean(quoteInput.trim());
-      if (!hasDraft) {
-        clearPosDraft();
-        return;
-      }
-      writePosDraft({
-        v: 1,
-        cart,
-        customerName,
-        guestEmail,
-        phoneLada,
-        guestPhone,
-        payments,
-        notes,
-        requiredFactura,
-        quoteInput,
-        linkedQuoteNumber,
-      });
-    }, 350);
-    return () => {
-      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+  const buildLiveDraft = useCallback((): PosDraftV2 => {
+    return {
+      v: 2,
+      tab,
+      search,
+      cartSearch,
+      cartPage,
+      cart,
+      customerName,
+      guestEmail,
+      phoneLada,
+      guestPhone,
+      payments,
+      notes,
+      requiredFactura,
+      quoteInput,
+      linkedQuoteNumber,
+      manualCapture,
+      cashForms: {
+        openingFloat,
+        closingCounted,
+        differenceReason,
+        cashMoveAmount,
+        cashMoveReason,
+        cashNotes,
+      },
+      serialForms: {
+        serialQuery,
+        rmaNotes,
+        newSerialProductId,
+        newSerialNumber,
+      },
+      lastSale,
+      ticketOpen,
+      detailSaleId: detailSale?.idPosSale ?? null,
+      warrantyDetailId: warrantyDetail?.idPosSale ?? null,
+      cancelReason,
+      inventoryReason,
     };
   }, [
+    tab,
+    search,
+    cartSearch,
+    cartPage,
     cart,
     customerName,
     guestEmail,
@@ -543,7 +899,85 @@ export default function usePos() {
     requiredFactura,
     quoteInput,
     linkedQuoteNumber,
+    manualCapture,
+    openingFloat,
+    closingCounted,
+    differenceReason,
+    cashMoveAmount,
+    cashMoveReason,
+    cashNotes,
+    serialQuery,
+    rmaNotes,
+    newSerialProductId,
+    newSerialNumber,
+    lastSale,
+    ticketOpen,
+    detailSale,
+    warrantyDetail,
+    cancelReason,
+    inventoryReason,
   ]);
+
+  // Borrador del módulo POS: escribir en cada cambio (sin debounce que pierda datos).
+  useEffect(() => {
+    if (!draftReady) return;
+    const snapshot = buildLiveDraft();
+    draftSnapshotRef.current = snapshot;
+    writePosDraft(snapshot);
+  }, [draftReady, buildLiveDraft]);
+
+  // Flush extra al ocultar/cerrar pestaña o salir del módulo.
+  useEffect(() => {
+    if (!draftReady) return;
+    const flush = () => {
+      const snap = buildLiveDraft();
+      draftSnapshotRef.current = snap;
+      writePosDraft(snap);
+    };
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      flush();
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [draftReady, buildLiveDraft]);
+
+  // Reabrir detalle de venta / garantía tras F5.
+  useEffect(() => {
+    if (!draftReady || pendingDetailSaleId == null) return;
+    const id = pendingDetailSaleId;
+    setPendingDetailSaleId(null);
+    void (async () => {
+      try {
+        const res = await requestGet(`/pos/sales/${id}`, { silent: true });
+        const sale = (res?.data?.data || null) as PosSale | null;
+        if (sale) setDetailSale(sale);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [draftReady, pendingDetailSaleId, requestGet]);
+
+  useEffect(() => {
+    if (!draftReady || pendingWarrantyDetailId == null) return;
+    const id = pendingWarrantyDetailId;
+    setPendingWarrantyDetailId(null);
+    void (async () => {
+      try {
+        const res = await requestGet(`/pos/sales/${id}`, { silent: true });
+        const sale = (res?.data?.data || null) as PosSale | null;
+        if (sale) setWarrantyDetail(sale);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [draftReady, pendingWarrantyDetailId, requestGet]);
 
   const applyCashStatusPayload = useCallback(
     (branch: number, data: any) => {
@@ -1341,6 +1775,7 @@ export default function usePos() {
       warrantyMonths?: number;
       serials?: string[];
       manualKind?: "product" | "service";
+      serviceIntake?: PosServiceIntake | null;
     }) => {
       const manualKind =
         input.manualKind === "service" ? "service" : "product";
@@ -1362,20 +1797,105 @@ export default function usePos() {
         });
         return false;
       }
-      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
         setDataModal({
           isOpen: true,
-          title: "Precio inválido",
+          title: "Precio requerido",
           content:
             manualKind === "service"
-              ? "Captura un precio válido para el servicio."
-              : "Captura un precio válido para el producto manual.",
+              ? "Captura el precio unitario del servicio (debe ser mayor a 0)."
+              : "Captura el precio unitario del producto (debe ser mayor a 0).",
           type: "warning",
           showActions: true,
           onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
           onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
         });
         return false;
+      }
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        setDataModal({
+          isOpen: true,
+          title: "Cantidad inválida",
+          content: "La cantidad debe ser al menos 1.",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return false;
+      }
+      let serviceIntake: PosServiceIntake | null = null;
+      if (manualKind === "service") {
+        const intake = input.serviceIntake;
+        const equipment = Array.isArray(intake?.equipment)
+          ? intake!.equipment
+              .map((row) => ({
+                quantity: Math.max(
+                  1,
+                  Math.round(Number(row.quantity) || 1),
+                ),
+                description: String(row.description || "").trim(),
+                serialNumber: String(row.serialNumber || "").trim(),
+                physicalCondition: String(row.physicalCondition || "").trim(),
+              }))
+              .filter((row) => row.description.length > 0)
+          : [];
+        const failure = String(
+          intake?.failureOrRequestedService || "",
+        ).trim();
+        if (equipment.length < 1) {
+          setDataModal({
+            isOpen: true,
+            title: "Datos del equipo",
+            content:
+              "Agrega al menos un equipo/componente con descripción en la tabla.",
+            type: "warning",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+          return false;
+        }
+        if (
+          equipment.some((row) => row.physicalCondition.length < 1)
+        ) {
+          setDataModal({
+            isOpen: true,
+            title: "Estado físico",
+            content:
+              "Indica el estado físico de cada equipo (si eliges Otro, escribe el detalle).",
+            type: "warning",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+          return false;
+        }
+        if (failure.length < 2) {
+          setDataModal({
+            isOpen: true,
+            title: "Falla o servicio",
+            content: "Describe la falla o el servicio solicitado.",
+            type: "warning",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+          return false;
+        }
+        serviceIntake = {
+          serviceType: String(intake?.serviceType || name).trim() || name,
+          equipment,
+          failureOrRequestedService: failure.slice(0, 4000),
+          technicalObservationsOnReceipt: String(
+            intake?.technicalObservationsOnReceipt || "",
+          )
+            .trim()
+            .slice(0, 4000),
+        };
       }
       const serialsRaw =
         manualKind === "service"
@@ -1396,7 +1916,7 @@ export default function usePos() {
           name,
           sku:
             manualKind === "service"
-              ? "__POS_SERVICE__"
+              ? null
               : String(input.sku || "").trim() || null,
           upc:
             manualKind === "service"
@@ -1421,6 +1941,7 @@ export default function usePos() {
           serials,
           isManual: true,
           manualKind,
+          serviceIntake,
         },
       ]);
       return true;
@@ -1451,7 +1972,14 @@ export default function usePos() {
           ) {
             next.quantity = next.stockBranch;
           }
-          if (next.isManual && Number.isFinite(Number(next.unitPrice))) {
+          if (next.isManual && "unitPrice" in safePatch) {
+            const p = Number(next.unitPrice);
+            if (!Number.isFinite(p) || p <= 0) {
+              next.unitPrice = l.unitPrice; // no permitir 0 / vacío en captura manual
+            } else {
+              next.unitPrice = roundMoney(p);
+            }
+          } else if (next.isManual && Number.isFinite(Number(next.unitPrice))) {
             next.unitPrice = roundMoney(Math.max(0, Number(next.unitPrice)));
           }
           next.discountPct = 0;
@@ -1503,9 +2031,68 @@ export default function usePos() {
     setQuoteInput("");
     setLinkedQuoteNumber(null);
     setQuotePageAlert(null);
+    setManualCapture(null);
     chargeIdempotencyKeyRef.current = null;
-    clearPosDraft();
-  }, []);
+    // Solo limpia la venta en curso; conserva pestaña, caja, series y última venta.
+    const next: PosDraftV2 = {
+      v: 2,
+      tab,
+      search,
+      cartSearch: "",
+      cartPage: 1,
+      cart: [],
+      customerName: "",
+      guestEmail: "",
+      phoneLada: "+52",
+      guestPhone: "",
+      payments: [],
+      notes: "",
+      requiredFactura: false,
+      quoteInput: "",
+      linkedQuoteNumber: null,
+      manualCapture: null,
+      cashForms: {
+        openingFloat,
+        closingCounted,
+        differenceReason,
+        cashMoveAmount,
+        cashMoveReason,
+        cashNotes,
+      },
+      serialForms: {
+        serialQuery,
+        rmaNotes,
+        newSerialProductId,
+        newSerialNumber,
+      },
+      lastSale,
+      ticketOpen: false,
+      detailSaleId: detailSale?.idPosSale ?? null,
+      warrantyDetailId: warrantyDetail?.idPosSale ?? null,
+      cancelReason,
+      inventoryReason,
+    };
+    draftSnapshotRef.current = next;
+    writePosDraft(next);
+  }, [
+    tab,
+    search,
+    openingFloat,
+    closingCounted,
+    differenceReason,
+    cashMoveAmount,
+    cashMoveReason,
+    cashNotes,
+    serialQuery,
+    rmaNotes,
+    newSerialProductId,
+    newSerialNumber,
+    lastSale,
+    detailSale,
+    warrantyDetail,
+    cancelReason,
+    inventoryReason,
+  ]);
 
   // Debounce búsqueda del carrito (no filtrar en cada tecla).
   useEffect(() => {
@@ -1986,6 +2573,10 @@ export default function usePos() {
               l.isManual && l.manualKind !== "service"
                 ? Boolean(l.requiresSerial)
                 : undefined,
+            serviceIntake:
+              l.isManual && l.manualKind === "service" && l.serviceIntake
+                ? l.serviceIntake
+                : undefined,
             branchId: l.branchId,
             quantity: l.quantity,
             unitPrice: l.unitPrice,
@@ -2010,33 +2601,28 @@ export default function usePos() {
       if (sale && qz.autoPrintOnCharge) {
         void printPosTicketQz(sale, {
           openDrawer: usesCash && qz.openDrawerOnCash,
-        }).catch(() => {
+        }).catch((err) => {
           if (usesCash && qz.openDrawerOnCash) {
             void openCashDrawerQz().catch(() => undefined);
           }
+          setDataModal({
+            isOpen: true,
+            title: "No se pudo imprimir el ticket",
+            content:
+              qzErrorMessage(err) ||
+              "La venta quedó registrada, pero el ticket no se envió a la impresora. Puedes reimprimirlo desde la última venta o el historial.",
+            type: "error",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
         });
       } else if (usesCash && qz.openDrawerOnCash) {
         void openCashDrawerQz().catch(() => undefined);
       }
-
-      setDataModal({
-        isOpen: true,
-        title: res?.data?.alreadyProcessed
-          ? "Venta ya registrada"
-          : "Venta registrada",
-        content:
-          (res?.data?.message || `Folio ${formatPosFolio(sale?.folio)}`) +
-          (changeDue > 0.009
-            ? ` Cambio: ${formatMoney(changeDue)}.`
-            : "") +
-          (qz.autoPrintOnCharge
-            ? " Ticket enviado a la impresora (si QZ Tray está activo)."
-            : " Usa «Imprimir ticket» cuando quieras el comprobante."),
-        type: "success",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
+      // Cobro OK: sin modal de éxito (el resumen queda en «Última venta»).
+      // Solo se avisa si falla la impresión automática arriba.
     } catch {
       // error modal handled by UtilsService — conservar idempotencyKey para reintento
     } finally {
@@ -2047,7 +2633,6 @@ export default function usePos() {
     branchId,
     cart,
     payments,
-    changeDue,
     customerName,
     guestEmail,
     guestPhone,
@@ -2070,6 +2655,78 @@ export default function usePos() {
         isOpen: true,
         title: "Carrito vacío",
         content: "Agrega productos antes de cobrar.",
+        type: "warning",
+        showActions: true,
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+      });
+      return;
+    }
+
+    for (const line of cart) {
+      if (line.isManual && (!Number.isFinite(line.unitPrice) || line.unitPrice <= 0)) {
+        setDataModal({
+          isOpen: true,
+          title: "Precio inválido",
+          content: `«${line.name}» necesita un precio unitario mayor a 0.`,
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+      if (!Number.isFinite(line.quantity) || line.quantity < 1) {
+        setDataModal({
+          isOpen: true,
+          title: "Cantidad inválida",
+          content: `«${line.name}» necesita cantidad al menos 1.`,
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+      if (line.isManual && line.manualKind === "service") {
+        const eq = line.serviceIntake?.equipment || [];
+        const failure = String(
+          line.serviceIntake?.failureOrRequestedService || "",
+        ).trim();
+        if (eq.length < 1) {
+          setDataModal({
+            isOpen: true,
+            title: "Datos del equipo",
+            content: `El servicio «${line.name}» necesita al menos un equipo/componente.`,
+            type: "warning",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+          return;
+        }
+        if (failure.length < 2) {
+          setDataModal({
+            isOpen: true,
+            title: "Falla o servicio",
+            content: `El servicio «${line.name}» necesita la falla o servicio solicitado.`,
+            type: "warning",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+          return;
+        }
+      }
+    }
+
+    if (totals.total <= 0) {
+      setDataModal({
+        isOpen: true,
+        title: "Total inválido",
+        content: "El total de la venta debe ser mayor a 0.",
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -3116,7 +3773,6 @@ export default function usePos() {
       const res = await requestGet(`/pos/sales/${id}`, { silent: true });
       setDetailSale(res?.data?.data || null);
       setCancelReason("");
-      setCancelPassword("");
       cancelPasswordRef.current = "";
     },
     [requestGet],
@@ -3153,6 +3809,9 @@ export default function usePos() {
     const saleId = detailSale.idPosSale;
 
     const openPasswordModal = (errorMessage?: string) => {
+      cancelPasswordRef.current = "";
+      // Input no controlado: el content del modal global no se re-renderiza
+      // con el state de usePos; value={state} dejaba el campo trabado en "".
       setDataModal({
         isOpen: true,
         title: "Confirmar cancelación",
@@ -3175,25 +3834,27 @@ export default function usePos() {
               </Alert>
             ) : null}
             <TextField
+              key={`cancel-pwd-${errorMessage || "ok"}-${Date.now()}`}
               fullWidth
               size="small"
               type="password"
               label="Contraseña de administrador"
               autoComplete="current-password"
-              autoFocus={!errorMessage}
-              value={cancelPassword}
+              autoFocus
+              defaultValue=""
               onChange={(e) => {
                 cancelPasswordRef.current = e.target.value;
-                setCancelPassword(e.target.value);
               }}
               helperText="La misma contraseña con la que inicias sesión"
               error={Boolean(errorMessage)}
+              inputProps={{
+                "data-testid": "pos-cancel-password",
+              }}
             />
           </div>
         ),
         onClose: () => {
           cancelPasswordRef.current = "";
-          setCancelPassword("");
           setDataModal((p) => ({ ...p, isOpen: false, loading: false }));
         },
         onConfirm: async () => {
@@ -3213,7 +3874,6 @@ export default function usePos() {
               `/pos/sales/${saleId}/cancel`,
               { silent: true },
             );
-            setCancelPassword("");
             cancelPasswordRef.current = "";
             setCancelReason("");
             setDetailSale(res?.data?.data || null);
@@ -3243,14 +3903,11 @@ export default function usePos() {
       });
     };
 
-    setCancelPassword("");
-    cancelPasswordRef.current = "";
     openPasswordModal();
   }, [
     detailSale,
     cancelGate,
     cancelReason,
-    cancelPassword,
     requestPost,
     loadHistory,
     historyPage,
@@ -3699,7 +4356,6 @@ export default function usePos() {
     }>
   >([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [inventoryReason, setInventoryReason] = useState("");
 
   const loadInventory = useCallback(async () => {
     setInventoryLoading(true);
@@ -3720,6 +4376,7 @@ export default function usePos() {
 
   return {
     hydrated,
+    draftReady,
     isAdmin,
     maxDiscount,
     cancelGate,
@@ -3749,6 +4406,8 @@ export default function usePos() {
     setLineSerial,
     clearCart,
     requestClearCart,
+    manualCapture,
+    setManualCapture,
     customerName,
     setCustomerName,
     guestEmail,
@@ -3839,8 +4498,6 @@ export default function usePos() {
     openDetail,
     cancelReason,
     setCancelReason,
-    cancelPassword,
-    setCancelPassword,
     cancelSale,
     cancelling,
     lineTotal,
