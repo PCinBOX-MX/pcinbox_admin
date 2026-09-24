@@ -10,6 +10,8 @@ export function useQueryParams() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const restoredRef = useRef(false);
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
 
   // Restaurar filtros de la pestaña si se entra por menú (path limpio).
   useLayoutEffect(() => {
@@ -24,8 +26,10 @@ export function useQueryParams() {
       return;
     }
 
+    // Path limpio tras haber restaurado/navegado (p. ej. tab Cobrar sin ?tab=).
+    // NO borrar la sesión: si no, al cambiar de pestaña o volver al default
+    // se pierden selects/filtros (hStatus, w*, paginación, etc.).
     if (restoredRef.current) {
-      saveQuerySession(pathname, "");
       return;
     }
 
@@ -40,12 +44,14 @@ export function useQueryParams() {
     restoredRef.current = true;
   }, [pathname, router, searchParams]);
 
+  // Identidad estable: no depender de `searchParams` (cada cambio de URL
+  // recreaba el callback y re-disparaba efectos que lo listaban como dep).
   const setQueryParams = useCallback(
     (params: Record<string, string | number | null | undefined>) => {
       const current =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search)
-          : new URLSearchParams(Array.from(searchParams.entries()));
+          : new URLSearchParams(Array.from(searchParamsRef.current.entries()));
       let hasChanges = false;
 
       Object.entries(params).forEach(([key, value]) => {
@@ -67,14 +73,32 @@ export function useQueryParams() {
         const search = current.toString();
         const query = search ? `?${search}` : "";
         const url = `${pathname}${query}`;
-        saveQuerySession(pathname, query);
+        if (query) {
+          saveQuerySession(pathname, query);
+        } else {
+          // URL limpia (p. ej. tab Cobrar): quitar `tab` del snapshot sin
+          // borrar filtros h*/w*/c* que aún puedan vivir en sesión.
+          const saved = readQuerySession(pathname);
+          if (saved) {
+            const sp = new URLSearchParams(
+              saved.startsWith("?") ? saved.slice(1) : saved,
+            );
+            sp.delete("tab");
+            const rest = sp.toString();
+            saveQuerySession(pathname, rest ? `?${rest}` : "", {
+              allowEmpty: true,
+            });
+          } else {
+            saveQuerySession(pathname, "", { allowEmpty: true });
+          }
+        }
         // Debe pasar por el router de Next: replaceState solo cambia la barra
         // de URL y NO actualiza useSearchParams(), así que page/filtros quedan
         // desincronizados (p. ej. /proveedores solo cambia la URL).
         router.replace(url, { scroll: false });
       }
     },
-    [pathname, router, searchParams]
+    [pathname, router],
   );
 
   return { searchParams, setQueryParams };
