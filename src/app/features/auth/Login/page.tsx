@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import UtilsService from "@/app/services/utils";
 import authStyle from "../auth.module.css";
 import useLogin from "@/app/hooks/login.hook";
@@ -11,10 +12,25 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useTheContext } from "@/app/hooks/global.hook";
+import { isVoluntaryLogoutPending } from "@/app/utils/sessionAuth";
 
 const LoginComponent = () => {
   const { onRouterPush } = UtilsService();
   const { handleOnChange, handleSubmit, dataLogin, loadingLogin } = useLogin();
+  const { setDataModal } = useTheContext();
+
+  // Si llegamos por logout voluntario, no dejar abierto «Sesión expirada».
+  useEffect(() => {
+    if (!isVoluntaryLogoutPending()) return;
+    setDataModal((prev) => {
+      if (!prev.isOpen) return prev;
+      if (prev.title === "Sesión expirada") {
+        return { ...prev, isOpen: false };
+      }
+      return prev;
+    });
+  }, [setDataModal]);
 
   return (
     <div className={authStyle.card}>

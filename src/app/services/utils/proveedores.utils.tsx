@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { RequestOptions } from "./request-options";
 import { resolveApiErrorMessage } from "@/app/utils/apiErrorMessage";
+import { isVoluntaryLogoutPending } from "@/app/utils/sessionAuth";
 
 export type { RequestOptions };
 
@@ -41,6 +42,8 @@ const ProveedoresUtils = () => {
   const { setDataModal, setShowSpinner } = useTheContext();
 
   const handleSessionExpired = useCallback(() => {
+    if (isVoluntaryLogoutPending()) return;
+
     setDataModal({
       isOpen: true,
       content: "Tu sesión expiró, debes iniciar sesión nuevamente.",

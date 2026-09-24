@@ -5,6 +5,10 @@ import UtilsService from "@/app/services/utils";
 import { useState } from "react";
 import { clearAllQuerySessions } from "@/app/utils/querySession";
 import { clearAdminRole } from "@/app/constants/permissions";
+import {
+  clearVoluntaryLogout,
+  markVoluntaryLogout,
+} from "@/app/utils/sessionAuth";
 
 const ROUTES_BY_TAB: Record<string, string> = {
   ventas: "/dashboard",
@@ -49,8 +53,9 @@ const useNavbar = () => {
     }));
 
     try {
-      // Limpieza local + navegación (sin API de logout en admin).
-      // Se mantiene el modal bloqueado hasta terminar.
+      // Antes de quitar el token: los 401 en vuelo no deben mostrar «Sesión expirada».
+      markVoluntaryLogout();
+
       await new Promise((resolve) => window.setTimeout(resolve, 150));
 
       localStorage.removeItem("token");
@@ -66,12 +71,12 @@ const useNavbar = () => {
         loading: false,
       }));
     } catch {
+      clearVoluntaryLogout();
       setDataModal({
         isOpen: true,
         type: "error",
         title: "No se pudo cerrar sesión",
-        content:
-          "Ocurrió un error al cerrar la sesión. Intenta de nuevo.",
+        content: "Ocurrió un error al cerrar la sesión. Intenta de nuevo.",
         showActions: true,
         loading: false,
         confirmLabel: "Aceptar",
@@ -94,20 +99,8 @@ const useNavbar = () => {
       content:
         "¿Seguro que deseas cerrar sesión? Dejarás de tener acceso al panel hasta volver a iniciar.",
       onClose: closeLogoutModal,
-      onConfirm: () => {
-
-        setDataModal((prev) => ({ ...prev, isOpen: false }));
-
-        localStorage.removeItem("token");
-
-        localStorage.removeItem("email");
-
-        localStorage.removeItem("adminRole");
-
-        clearAllQuerySessions();
-
-        onRouterPush("/features/auth/Login");
-
+      onConfirm: async () => {
+        await runLogout();
       },
     });
   };

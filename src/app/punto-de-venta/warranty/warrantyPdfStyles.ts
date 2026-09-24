@@ -13,6 +13,16 @@ const C = {
 /** Ancho útil LETTER con paddingHorizontal 36: 612 - 72 = 540 */
 export const WARRANTY_TABLE_WIDTH = 540;
 
+/** Anchos de columna (suman 540). Serie más ancha para códigos largos. */
+export const WARRANTY_COL = {
+  upc: 68,
+  clave: 92,
+  desc: 168,
+  costo: 56,
+  tiempo: 66,
+  serie: 90,
+} as const;
+
 export const warrantyPdfStyles = StyleSheet.create({
   page: {
     fontFamily: "Helvetica",
@@ -106,8 +116,9 @@ export const warrantyPdfStyles = StyleSheet.create({
   },
   cell: {
     paddingVertical: 5,
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
     justifyContent: "flex-start",
+    overflow: "hidden",
   },
   cellBorder: {
     borderRightWidth: 1,
@@ -123,8 +134,7 @@ export const warrantyPdfStyles = StyleSheet.create({
   td: {
     fontSize: 7,
     color: C.ink,
-    lineHeight: 1.25,
-    maxWidth: "100%",
+    lineHeight: 1.3,
   },
   tdRight: {
     textAlign: "right",
@@ -132,13 +142,12 @@ export const warrantyPdfStyles = StyleSheet.create({
   tdCenter: {
     textAlign: "center",
   },
-  // 70+100+180+58+62+70 = 540 — más ancho a Clave y Descripción
-  colUpc: { width: 70 },
-  colClave: { width: 100 },
-  colDesc: { width: 180 },
-  colCosto: { width: 58 },
-  colTiempo: { width: 62 },
-  colSerie: { width: 70 },
+  colUpc: { width: WARRANTY_COL.upc },
+  colClave: { width: WARRANTY_COL.clave },
+  colDesc: { width: WARRANTY_COL.desc },
+  colCosto: { width: WARRANTY_COL.costo },
+  colTiempo: { width: WARRANTY_COL.tiempo },
+  colSerie: { width: WARRANTY_COL.serie },
   note: {
     marginTop: 10,
     fontSize: 8,

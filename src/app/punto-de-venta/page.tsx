@@ -57,6 +57,13 @@ import {
   posWarrantySelectable,
   warrantyCoverageLabel,
 } from "./posWarranty";
+import CatalogWarrantyFields from "../shared/components/especific/CatalogWarrantyFields";
+import {
+  CatalogWarrantyState,
+  catalogWarrantyToPayload,
+  validateCatalogWarranty,
+} from "../shared/utils/catalogWarranty";
+import { PROVIDER_PCINBOX } from "../constants/providers.constants";
 
 import styles from "./punto-de-venta.module.css";
 
@@ -377,6 +384,10 @@ export default function PuntoDeVentaPage() {
   ]);
   const [manualFailure, setManualFailure] = useState("");
   const [manualTechObs, setManualTechObs] = useState("");
+  const [manualWarranty, setManualWarranty] = useState<CatalogWarrantyState>({
+    choice: "",
+    amount: "",
+  });
   // Evita hydration mismatch de MUI TextField (useId distinto SSR vs cliente).
   const [clientReady, setClientReady] = useState(false);
   const manualDraftAppliedRef = useRef(false);
@@ -418,6 +429,15 @@ export default function PuntoDeVentaPage() {
       );
       setManualFailure(m.failure || "");
       setManualTechObs(m.techObs || "");
+      setManualWarranty({
+        choice: m.warrantyChoice || "",
+        amount:
+          m.warrantyAmount === "" || m.warrantyAmount == null
+            ? ""
+            : Number(m.warrantyAmount) > 0
+              ? Number(m.warrantyAmount)
+              : "",
+      });
     }
     skipManualPersistRef.current = true;
     // Solo al quedar listo el draft; manualCapture ya viene en ese mismo tick.
@@ -442,6 +462,8 @@ export default function PuntoDeVentaPage() {
       equipRows: manualEquipRows,
       failure: manualFailure,
       techObs: manualTechObs,
+      warrantyChoice: manualWarranty.choice,
+      warrantyAmount: manualWarranty.amount,
     });
   }, [
     pos.draftReady,
@@ -456,6 +478,7 @@ export default function PuntoDeVentaPage() {
     manualEquipRows,
     manualFailure,
     manualTechObs,
+    manualWarranty,
   ]);
 
   // Reset UI solo cuando el draft limpia captura (cobro/vaciar), no al montar con null.
@@ -475,6 +498,7 @@ export default function PuntoDeVentaPage() {
     setManualEquipRows([newManualEquipRow()]);
     setManualFailure("");
     setManualTechObs("");
+    setManualWarranty({ choice: "", amount: "" });
     skipManualPersistRef.current = true;
   }, [pos.draftReady, pos.manualCapture]);
 
@@ -507,6 +531,12 @@ export default function PuntoDeVentaPage() {
     setManualEquipRows([newManualEquipRow()]);
     setManualFailure("");
     setManualTechObs("");
+    setManualWarranty({ choice: "", amount: "" });
+  };
+
+  const manualWarrantyOpts = {
+    providerId: PROVIDER_PCINBOX,
+    isPC: 0,
   };
 
   const buildServiceIntake = (): PosServiceIntake | null => {
@@ -545,8 +575,11 @@ export default function PuntoDeVentaPage() {
     if (resolvedName.length < 2) {
       return;
     }
-    if (!priceRaw || !Number.isFinite(price) || price <= 0) {
-      // Delega mensaje al hook (misma validación).
+    const warrantyErr = validateCatalogWarranty(
+      manualWarranty,
+      manualWarrantyOpts,
+    );
+    if (warrantyErr) {
       pos.addManualLine({
         name: resolvedName,
         unitPrice: Number.isFinite(price) ? price : 0,
@@ -558,11 +591,43 @@ export default function PuntoDeVentaPage() {
       });
       return;
     }
+    const warrantyPayload = catalogWarrantyToPayload(
+      manualWarranty,
+      manualWarrantyOpts,
+    );
+    const warrantyMode =
+      warrantyPayload?.warrantyMode ||
+      (manualWarranty.choice === "years" || manualWarranty.choice === "months"
+        ? "months"
+        : manualWarranty.choice) ||
+      null;
+    const warrantyMonths = warrantyPayload?.warrantyMonths ?? null;
+    const warrantyUnit =
+      (warrantyPayload?.warrantyUnit as "months" | "years" | null) || null;
+    if (!priceRaw || !Number.isFinite(price) || price <= 0) {
+      // Delega mensaje al hook (misma validación).
+      pos.addManualLine({
+        name: resolvedName,
+        unitPrice: Number.isFinite(price) ? price : 0,
+        quantity: Number.isFinite(qty) ? qty : 1,
+        upc: manualKind === "product" ? manualUpc : undefined,
+        warrantyMode,
+        warrantyMonths,
+        warrantyUnit,
+        manualKind,
+        serviceIntake:
+          manualKind === "service" ? buildServiceIntake() : undefined,
+      });
+      return;
+    }
     const ok = pos.addManualLine({
       name: resolvedName,
       unitPrice: price,
       quantity: Number.isFinite(qty) && qty >= 1 ? qty : 1,
       upc: manualKind === "product" ? manualUpc : undefined,
+      warrantyMode,
+      warrantyMonths,
+      warrantyUnit,
       manualKind,
       serviceIntake:
         manualKind === "service" ? buildServiceIntake() : undefined,
@@ -587,7 +652,9 @@ export default function PuntoDeVentaPage() {
       price > 0;
     const qty = parseInt(manualQty, 10);
     const qtyOk = Number.isFinite(qty) ? qty >= 1 : true;
-    if (!nameOk || !priceOk || !qtyOk) return false;
+    const warrantyOk =
+      validateCatalogWarranty(manualWarranty, manualWarrantyOpts) == null;
+    if (!nameOk || !priceOk || !qtyOk || !warrantyOk) return false;
     if (manualKind !== "service") return true;
     const intake = buildServiceIntake();
     if (!intake || intake.equipment.length < 1) return false;
@@ -1146,6 +1213,13 @@ export default function PuntoDeVentaPage() {
                           sx={fieldSx}
                         />
                       ) : null}
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <CatalogWarrantyFields
+                          alwaysShow
+                          value={manualWarranty}
+                          onChange={setManualWarranty}
+                        />
+                      </div>
                     </div>
                     {manualKind === "service" ? (
                       <div className={styles.serviceIntakeBlock}>
@@ -3641,7 +3715,10 @@ export default function PuntoDeVentaPage() {
                                       s.warrantyMode,
                                       s.warrantyMonths,
                                     );
-                                    const sn = String(s.serialNumber || "");
+                                    const snRaw = String(s.serialNumber || "");
+                                    const sn = /^POS-W-\d+-\d+-\d+$/i.test(snRaw)
+                                      ? ""
+                                      : snRaw;
                                     return (
                                       <div
                                         key={s.idProductSerial}
@@ -3890,7 +3967,10 @@ export default function PuntoDeVentaPage() {
                           {it.serials && it.serials.length > 0 ? (
                             <div className={styles.detailSerialList}>
                               {it.serials.map((s) => {
-                                const sn = String(s.serialNumber || "");
+                                const snRaw = String(s.serialNumber || "");
+                                const sn = /^POS-W-\d+-\d+-\d+$/i.test(snRaw)
+                                  ? ""
+                                  : snRaw;
                                 return (
                                   <div
                                     key={s.idProductSerial}
