@@ -22,17 +22,39 @@ const ADDRESS =
 const CELL_PAD_X = 6; // paddingHorizontal 3 * 2
 
 /**
- * @react-pdf no parte bien tokens sin espacios (series, SKUs).
- * Inserta ZWSP de forma agresiva para forzar wrap dentro de la celda.
+ * @react-pdf (Helvetica) casi no respeta ZWSP para wrap.
+ * Inserta espacios reales cada N chars en tokens densos para forzar salto de línea.
  */
-function softBreakFull(value: string, every = 8): string {
+function softBreakFull(value: string, every = 6): string {
   const raw = String(value ?? "").trim() || "—";
-  // Cortes en separadores naturales + cada N caracteres en corridas densas.
-  return raw
-    .replace(/([-/_.])/g, "$1\u200B")
-    .replace(/(\s+)/g, "$1\u200B")
-    .replace(new RegExp(`([^\\s\\u200B]{${every}})`, "g"), "$1\u200B")
-    .replace(/\u200B+$/g, "");
+  const spacedSeps = raw.replace(/([-/_.])/g, "$1 ");
+  return spacedSeps
+    .split(/(\s+)/)
+    .map((token) => {
+      if (!token || /^\s+$/.test(token)) return token;
+      if (token.length <= every) return token;
+      const chunks: string[] = [];
+      for (let i = 0; i < token.length; i += every) {
+        chunks.push(token.slice(i, i + every));
+      }
+      return chunks.join(" ");
+    })
+    .join("")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
+/** Serie: saltos explícitos cada N chars (máxima fiabilidad en react-pdf). */
+function wrapSerial(value: string, every = 8): string {
+  const raw = String(value ?? "").trim() || "—";
+  if (raw === "—") return raw;
+  const compact = raw.replace(/\s+/g, "");
+  if (compact.length <= every) return raw;
+  const chunks: string[] = [];
+  for (let i = 0; i < compact.length; i += every) {
+    chunks.push(compact.slice(i, i + every));
+  }
+  return chunks.join("\n");
 }
 
 function money(n: number) {
@@ -127,7 +149,7 @@ function Cell({
         s.cell,
         colStyle,
         last ? undefined : s.cellBorder,
-        { width: colWidth, maxWidth: colWidth, overflow: "hidden" },
+        { width: colWidth, maxWidth: colWidth },
       ]}
     >
       <Text
@@ -264,21 +286,21 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
                 colStyle={s.colUpc}
                 textStyle={s.td}
               >
-                {softBreakFull(row.upc, 7)}
+                {softBreakFull(row.upc, 6)}
               </Cell>
               <Cell
                 colWidth={WARRANTY_COL.clave}
                 colStyle={s.colClave}
                 textStyle={s.td}
               >
-                {softBreakFull(row.clave, 8)}
+                {softBreakFull(row.clave, 7)}
               </Cell>
               <Cell
                 colWidth={WARRANTY_COL.desc}
                 colStyle={s.colDesc}
                 textStyle={s.td}
               >
-                {softBreakFull(row.description, 14)}
+                {softBreakFull(row.description, 12)}
               </Cell>
               <Cell
                 colWidth={WARRANTY_COL.costo}
@@ -292,15 +314,15 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
                 colStyle={s.colTiempo}
                 textStyle={[s.td, s.tdCenter]}
               >
-                {softBreakFull(row.coverage, 10)}
+                {softBreakFull(row.coverage, 8)}
               </Cell>
               <Cell
                 colWidth={WARRANTY_COL.serie}
                 colStyle={s.colSerie}
-                textStyle={s.td}
+                textStyle={s.tdSerie}
                 last
               >
-                {softBreakFull(row.serial, 7)}
+                {wrapSerial(row.serial, 8)}
               </Cell>
             </View>
           ))}
