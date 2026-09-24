@@ -14,11 +14,13 @@ type Props = {
   onChange: (next: CatalogWarrantyState) => void;
   /** compact = una fila; default grid */
   dense?: boolean;
+  /** Forzar select (p. ej. captura POS sin catálogo). */
+  alwaysShow?: boolean;
 };
 
 /**
  * Select de garantía para catálogo proveedores.
- * Visible solo DicoTech o componentes PCinBOX.
+ * Visible solo DicoTech o componentes PCinBOX (o alwaysShow).
  */
 export default function CatalogWarrantyFields({
   providerId,
@@ -26,8 +28,9 @@ export default function CatalogWarrantyFields({
   value,
   onChange,
   dense,
+  alwaysShow,
 }: Props) {
-  if (catalogWarrantyForcedTwelve({ providerId, isPC })) {
+  if (!alwaysShow && catalogWarrantyForcedTwelve({ providerId, isPC })) {
     return (
       <TextField
         size="small"
@@ -44,7 +47,7 @@ export default function CatalogWarrantyFields({
     );
   }
 
-  if (!catalogWarrantyNeedsSelect({ providerId, isPC })) {
+  if (!alwaysShow && !catalogWarrantyNeedsSelect({ providerId, isPC })) {
     return null;
   }
 

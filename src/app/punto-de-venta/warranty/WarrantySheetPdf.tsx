@@ -9,28 +9,30 @@ import {
   formatPosBranchUiLabel,
 } from "../../interfaces/pos/posBranchDisplay";
 import { warrantyCoverageLabel } from "../posWarranty";
-import { warrantyPdfStyles as s } from "./warrantyPdfStyles";
+import {
+  WARRANTY_COL,
+  warrantyPdfStyles as s,
+} from "./warrantyPdfStyles";
 
 const LOGO =
   "https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587";
 const ADDRESS =
   "Blvd. Juan Alonso de Torres Pte. No. 1917 Local 1 Col. Unión Comunitaria de León C.P. 37239 León, Gto., México";
 
+const CELL_PAD_X = 6; // paddingHorizontal 3 * 2
+
 /**
- * @react-pdf no parte bien tokens sin espacios. Inserta ZWSP en corridas largas
- * (sin truncar) para que el wrap natural muestre el texto completo.
+ * @react-pdf no parte bien tokens sin espacios (series, SKUs).
+ * Inserta ZWSP de forma agresiva para forzar wrap dentro de la celda.
  */
-function softBreakFull(value: string, every = 14): string {
+function softBreakFull(value: string, every = 8): string {
   const raw = String(value ?? "").trim() || "—";
-  return raw.replace(/[^\s\u200B]{15,}/g, (token) => {
-    // Preferir cortes en - _ / .
-    const withHints = token.replace(/([-/_.])/g, "$1\u200B");
-    if (withHints.includes("\u200B")) return withHints;
-    return withHints.replace(
-      new RegExp(`(.{1,${every}})`, "g"),
-      "$1\u200B",
-    ).replace(/\u200B$/, "");
-  });
+  // Cortes en separadores naturales + cada N caracteres en corridas densas.
+  return raw
+    .replace(/([-/_.])/g, "$1\u200B")
+    .replace(/(\s+)/g, "$1\u200B")
+    .replace(new RegExp(`([^\\s\\u200B]{${every}})`, "g"), "$1\u200B")
+    .replace(/\u200B+$/g, "");
 }
 
 function money(n: number) {
@@ -66,6 +68,14 @@ export type WarrantyPdfRow = {
   serial: string;
 };
 
+function displaySerial(serial?: string | null): string {
+  const raw = String(serial || "").trim();
+  if (!raw) return "—";
+  // Series sintéticas solo para anclar garantía en PDF (sin N/S real).
+  if (/^POS-W-\d+-\d+-\d+$/i.test(raw)) return "—";
+  return raw;
+}
+
 export function buildWarrantyPdfRows(sale: PosSale): WarrantyPdfRow[] {
   const rows: WarrantyPdfRow[] = [];
   for (const it of sale.items || []) {
@@ -81,7 +91,7 @@ export function buildWarrantyPdfRows(sale: PosSale): WarrantyPdfRow[] {
         description: it.productName || "—",
         cost: money(it.unitPrice),
         coverage: coverageLabel(ser.warrantyMode, ser.warrantyMonths),
-        serial: String(ser.serialNumber || "—"),
+        serial: displaySerial(ser.serialNumber),
       });
     }
   }
@@ -99,18 +109,34 @@ const TERMS = [
 
 function Cell({
   children,
+  colWidth,
   colStyle,
   textStyle,
   last = false,
 }: {
   children: string;
+  colWidth: number;
   colStyle: Style | Style[];
   textStyle?: Style | Style[];
   last?: boolean;
 }) {
+  const textWidth = Math.max(12, colWidth - CELL_PAD_X);
   return (
-    <View style={[s.cell, colStyle, last ? undefined : s.cellBorder]}>
-      <Text style={textStyle || s.td} wrap>
+    <View
+      style={[
+        s.cell,
+        colStyle,
+        last ? undefined : s.cellBorder,
+        { width: colWidth, maxWidth: colWidth, overflow: "hidden" },
+      ]}
+    >
+      <Text
+        style={[
+          textStyle || s.td,
+          { width: textWidth, maxWidth: textWidth },
+        ]}
+        wrap
+      >
         {children}
       </Text>
     </View>
@@ -142,7 +168,7 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
   const rows = buildWarrantyPdfRows(sale);
   const customerName = softBreakFull(
     sale.customerName || "Público general",
-    28,
+    20,
   );
 
   return (
@@ -190,45 +216,91 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
 
         <View style={s.table}>
           <View style={s.tableHeader} wrap={false} minPresenceAhead={24}>
-            <Cell colStyle={s.colUpc} textStyle={s.th}>
+            <Cell colWidth={WARRANTY_COL.upc} colStyle={s.colUpc} textStyle={s.th}>
               UPC
             </Cell>
-            <Cell colStyle={s.colClave} textStyle={s.th}>
+            <Cell
+              colWidth={WARRANTY_COL.clave}
+              colStyle={s.colClave}
+              textStyle={s.th}
+            >
               Clave
             </Cell>
-            <Cell colStyle={s.colDesc} textStyle={s.th}>
+            <Cell
+              colWidth={WARRANTY_COL.desc}
+              colStyle={s.colDesc}
+              textStyle={s.th}
+            >
               Descripción
             </Cell>
-            <Cell colStyle={s.colCosto} textStyle={[s.th, s.tdRight]}>
+            <Cell
+              colWidth={WARRANTY_COL.costo}
+              colStyle={s.colCosto}
+              textStyle={[s.th, s.tdRight]}
+            >
               Costo
             </Cell>
-            <Cell colStyle={s.colTiempo} textStyle={[s.th, s.tdCenter]}>
+            <Cell
+              colWidth={WARRANTY_COL.tiempo}
+              colStyle={s.colTiempo}
+              textStyle={[s.th, s.tdCenter]}
+            >
               Cobertura
             </Cell>
-            <Cell colStyle={s.colSerie} textStyle={s.th} last>
+            <Cell
+              colWidth={WARRANTY_COL.serie}
+              colStyle={s.colSerie}
+              textStyle={s.th}
+              last
+            >
               Serie
             </Cell>
           </View>
 
           {rows.map((row) => (
             <View key={row.key} style={s.tableRow} minPresenceAhead={28}>
-              <Cell colStyle={s.colUpc} textStyle={s.td}>
-                {softBreakFull(row.upc, 10)}
+              <Cell
+                colWidth={WARRANTY_COL.upc}
+                colStyle={s.colUpc}
+                textStyle={s.td}
+              >
+                {softBreakFull(row.upc, 7)}
               </Cell>
-              <Cell colStyle={s.colClave} textStyle={s.td}>
-                {softBreakFull(row.clave, 12)}
+              <Cell
+                colWidth={WARRANTY_COL.clave}
+                colStyle={s.colClave}
+                textStyle={s.td}
+              >
+                {softBreakFull(row.clave, 8)}
               </Cell>
-              <Cell colStyle={s.colDesc} textStyle={s.td}>
-                {softBreakFull(row.description, 18)}
+              <Cell
+                colWidth={WARRANTY_COL.desc}
+                colStyle={s.colDesc}
+                textStyle={s.td}
+              >
+                {softBreakFull(row.description, 14)}
               </Cell>
-              <Cell colStyle={s.colCosto} textStyle={[s.td, s.tdRight]}>
+              <Cell
+                colWidth={WARRANTY_COL.costo}
+                colStyle={s.colCosto}
+                textStyle={[s.td, s.tdRight]}
+              >
                 {row.cost}
               </Cell>
-              <Cell colStyle={s.colTiempo} textStyle={[s.td, s.tdCenter]}>
-                {softBreakFull(row.coverage, 14)}
+              <Cell
+                colWidth={WARRANTY_COL.tiempo}
+                colStyle={s.colTiempo}
+                textStyle={[s.td, s.tdCenter]}
+              >
+                {softBreakFull(row.coverage, 10)}
               </Cell>
-              <Cell colStyle={s.colSerie} textStyle={s.td} last>
-                {softBreakFull(row.serial, 12)}
+              <Cell
+                colWidth={WARRANTY_COL.serie}
+                colStyle={s.colSerie}
+                textStyle={s.td}
+                last
+              >
+                {softBreakFull(row.serial, 7)}
               </Cell>
             </View>
           ))}

@@ -6,6 +6,7 @@ import { useTheContext } from "@/app/hooks/global.hook";
 import { usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { RequestOptions } from "./request-options";
+import { isVoluntaryLogoutPending } from "@/app/utils/sessionAuth";
 
 const mainApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -28,6 +29,9 @@ const UtilsService = () => {
   const router = useRouter();
 
   const handleSessionExpired = useCallback(() => {
+    // Logout voluntario: no asustar con «Sesión expirada».
+    if (isVoluntaryLogoutPending()) return;
+
     setDataModal({
       isOpen: true,
       content: "Tu sesión expiró, debes iniciar sesión nuevamente.",

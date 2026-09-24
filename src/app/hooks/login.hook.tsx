@@ -5,6 +5,7 @@ import { LoginI } from "../interfaces/login/login.interface";
 import UtilsService from "../services/utils";
 import { persistAdminRole, normalizeAdminRole } from "../constants/permissions";
 import { useTheContext } from "./global.hook";
+import { clearVoluntaryLogout } from "../utils/sessionAuth";
 
 const useLogin = () => {
   const [dataLogin, setDataLogin] = useState<LoginI>({
@@ -59,6 +60,7 @@ const useLogin = () => {
         const role = normalizeAdminRole(data?.data?.role);
 
         if (role === "admin" || role === "support") {
+          clearVoluntaryLogout();
           localStorage.setItem("email", email || "");
           localStorage.setItem("token", data?.data?.token || data?.token || "");
           persistAdminRole(role);

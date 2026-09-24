@@ -7,7 +7,7 @@ export function posWarrantySelectable(params: {
   isPC?: boolean | number | null;
   isManual?: boolean;
 }): boolean {
-  if (params.isManual) return false;
+  if (params.isManual) return true;
   return (
     Number(params.providerId) === 1 && !(Number(params.isPC) === 1)
   );

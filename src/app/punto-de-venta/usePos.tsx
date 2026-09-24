@@ -94,6 +94,9 @@ export type PosManualCapture = {
   equipRows: PosManualEquipRow[];
   failure: string;
   techObs: string;
+  /** UI garantía: months | years | none | service_center | "" */
+  warrantyChoice?: "" | "months" | "years" | "none" | "service_center";
+  warrantyAmount?: number | "";
 };
 
 type PosCashFormsDraft = {
@@ -209,6 +212,23 @@ function normalizeManualCapture(raw: unknown): PosManualCapture | null {
           ],
     failure: String(m.failure || ""),
     techObs: String(m.techObs || ""),
+    warrantyChoice: ((): PosManualCapture["warrantyChoice"] => {
+      const c = String(m.warrantyChoice || "").trim();
+      if (
+        c === "months" ||
+        c === "years" ||
+        c === "none" ||
+        c === "service_center"
+      ) {
+        return c;
+      }
+      return "";
+    })(),
+    warrantyAmount: (() => {
+      if (m.warrantyAmount === "" || m.warrantyAmount == null) return "";
+      const n = Number(m.warrantyAmount);
+      return Number.isFinite(n) && n > 0 ? Math.round(n) : "";
+    })(),
   };
 }
 
@@ -221,6 +241,7 @@ function draftHasContent(draft: PosDraftV2): boolean {
     Boolean(m?.failure?.trim()) ||
     Boolean(m?.techObs?.trim()) ||
     Boolean(m?.upc?.trim()) ||
+    Boolean(m?.warrantyChoice) ||
     m?.kind === "service" ||
     (m?.serviceType != null && m.serviceType !== "Mantenimiento") ||
     Boolean(
@@ -1772,7 +1793,9 @@ export default function usePos() {
       quantity?: number;
       upc?: string;
       sku?: string;
-      warrantyMonths?: number;
+      warrantyMode?: string | null;
+      warrantyMonths?: number | null;
+      warrantyUnit?: "months" | "years" | null;
       serials?: string[];
       manualKind?: "product" | "service";
       serviceIntake?: PosServiceIntake | null;
@@ -1817,6 +1840,55 @@ export default function usePos() {
           isOpen: true,
           title: "Cantidad inválida",
           content: "La cantidad debe ser al menos 1.",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return false;
+      }
+      const warrantyMode = String(input.warrantyMode || "").trim();
+      if (!warrantyMode) {
+        setDataModal({
+          isOpen: true,
+          title: "Garantía requerida",
+          content:
+            "Elige la garantía (meses, años, no aplica o centro de servicio).",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return false;
+      }
+      let warrantyMonths: number | null = null;
+      let warrantyUnit: "months" | "years" | null = null;
+      if (warrantyMode === "months") {
+        const n = Number(input.warrantyMonths);
+        if (!Number.isFinite(n) || n <= 0) {
+          setDataModal({
+            isOpen: true,
+            title: "Garantía requerida",
+            content: "Indica la duración de la garantía.",
+            type: "warning",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+          return false;
+        }
+        warrantyMonths = Math.round(n);
+        warrantyUnit =
+          input.warrantyUnit === "years" ? "years" : "months";
+      } else if (
+        warrantyMode !== "none" &&
+        warrantyMode !== "service_center"
+      ) {
+        setDataModal({
+          isOpen: true,
+          title: "Garantía inválida",
+          content: "Elige una opción de garantía válida.",
           type: "warning",
           showActions: true,
           onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -1932,12 +2004,12 @@ export default function usePos() {
           stocksByBranch: [],
           imageUrl: null,
           requiresSerial: false,
-          warrantyMonths:
-            manualKind === "service"
-              ? null
-              : input.warrantyMonths != null && Number(input.warrantyMonths) > 0
-                ? Math.round(Number(input.warrantyMonths))
-                : null,
+          warrantyMode:
+            warrantyMode === "none" || warrantyMode === "service_center"
+              ? warrantyMode
+              : "months",
+          warrantyMonths,
+          warrantyUnit,
           serials,
           isManual: true,
           manualKind,
@@ -2559,16 +2631,9 @@ export default function usePos() {
             name: l.isManual ? l.name : undefined,
             sku: l.isManual ? l.sku : undefined,
             upc: l.isManual ? l.upc : undefined,
-            warrantyMonths:
-              l.isManual && l.manualKind !== "service"
-                ? l.warrantyMonths
-                : cartWarrantyToPayload(l).warrantyMonths,
-            warrantyMode: l.isManual
-              ? undefined
-              : cartWarrantyToPayload(l).warrantyMode,
-            warrantyUnit: l.isManual
-              ? undefined
-              : cartWarrantyToPayload(l).warrantyUnit,
+            warrantyMonths: cartWarrantyToPayload(l).warrantyMonths,
+            warrantyMode: cartWarrantyToPayload(l).warrantyMode,
+            warrantyUnit: cartWarrantyToPayload(l).warrantyUnit,
             requiresSerial:
               l.isManual && l.manualKind !== "service"
                 ? Boolean(l.requiresSerial)
