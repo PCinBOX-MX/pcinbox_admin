@@ -13,14 +13,17 @@ const C = {
 /** Ancho útil LETTER con paddingHorizontal 36: 612 - 72 = 540 */
 export const WARRANTY_TABLE_WIDTH = 540;
 
-/** Anchos de columna (suman 540). Serie más ancha para códigos largos. */
+/**
+ * Anchos de columna (suman 540).
+ * Serie más ancha: códigos largos deben caber en 2–3 líneas.
+ */
 export const WARRANTY_COL = {
-  upc: 68,
-  clave: 92,
-  desc: 168,
-  costo: 56,
-  tiempo: 66,
-  serie: 90,
+  upc: 64,
+  clave: 86,
+  desc: 156,
+  costo: 54,
+  tiempo: 62,
+  serie: 118,
 } as const;
 
 export const warrantyPdfStyles = StyleSheet.create({
@@ -118,7 +121,6 @@ export const warrantyPdfStyles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 3,
     justifyContent: "flex-start",
-    overflow: "hidden",
   },
   cellBorder: {
     borderRightWidth: 1,
@@ -134,7 +136,12 @@ export const warrantyPdfStyles = StyleSheet.create({
   td: {
     fontSize: 7,
     color: C.ink,
-    lineHeight: 1.3,
+    lineHeight: 1.35,
+  },
+  tdSerie: {
+    fontSize: 6.5,
+    color: C.ink,
+    lineHeight: 1.35,
   },
   tdRight: {
     textAlign: "right",
