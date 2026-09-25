@@ -29,7 +29,7 @@ export const POS_TICKET_DISCLAIMER_LINES = [
 ] as const;
 /** Aceptación de términos, impresa justo antes de www.pcinbox.com.mx */
 export const POS_TICKET_TERMS_LINE =
-  "Acepto terminos y condiciones de pcinbox en mantenimiento preventivo y correctivo";
+  "Al dejar su equipo, el cliente acepta nuestros Términos y Condiciones de Servicio Técnico. Consúltelos en pcinbox.com.mx/servicio-tecnico";
 
 /** @deprecated Usar resolveTicketBranchLabel; se mantiene por compat. */
 export const POS_TICKET_BRANCH = "pcinbox-Leon";
@@ -445,10 +445,11 @@ export function buildEscPosTicket(
     }
   }
   parts.push(LF);
-  parts.push(ESC + "a" + "\x01");
-  for (const w of wrap(POS_TICKET_TERMS_LINE, width)) {
+  for (const w of wrap(thermalText(POS_TICKET_TERMS_LINE), width)) {
     parts.push(w + LF);
   }
+  parts.push(LF);
+  parts.push(ESC + "a" + "\x01");
   parts.push(POS_TICKET_WEB + LF);
   // Margen inferior antes del corte automático.
   parts.push(LF + LF + LF + LF + LF + LF);
