@@ -360,6 +360,302 @@ function newManualEquipRow(): ManualEquipRow {
   };
 }
 
+/** Cantidad entera: permite vaciar al editar; al salir vacío → 1; solo dígitos. */
+function EquipQtyField({
+  value,
+  onCommit,
+}: {
+  value: number | string;
+  onCommit: (n: number) => void;
+}) {
+  const committed = String(Math.max(1, parseInt(String(value), 10) || 1));
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState(committed);
+
+  useEffect(() => {
+    if (!focused) setDraft(committed);
+  }, [committed, focused]);
+
+  return (
+    <TextField
+      size="small"
+      value={focused ? draft : committed}
+      onFocus={() => {
+        setFocused(true);
+        setDraft(committed);
+      }}
+      onChange={(e) => {
+        const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+        setDraft(digits);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        const n = Math.max(1, parseInt(draft, 10) || 1);
+        setDraft(String(n));
+        onCommit(n);
+      }}
+      inputProps={{
+        inputMode: "numeric",
+        pattern: "[0-9]*",
+        maxLength: 4,
+      }}
+      sx={fieldSx}
+    />
+  );
+}
+
+function conditionUiFromStored(cond: string): {
+  preset: string;
+  other: string;
+} {
+  const c = String(cond || "").trim();
+  if (
+    (POS_PHYSICAL_CONDITION_PRESETS as readonly string[]).includes(c) &&
+    c !== "Otro"
+  ) {
+    return { preset: c, other: "" };
+  }
+  if (!c) {
+    return { preset: POS_PHYSICAL_CONDITION_PRESETS[0], other: "" };
+  }
+  return { preset: "Otro", other: c };
+}
+
+function emptyServiceEquipmentRow(): PosServiceIntake["equipment"][number] {
+  return {
+    quantity: 1,
+    description: "",
+    serialNumber: "",
+    physicalCondition: POS_PHYSICAL_CONDITION_PRESETS[0],
+  };
+}
+
+/** Editor de intake de taller dentro de una línea del carrito. */
+function CartServiceIntakeEditor({
+  lineKey,
+  intake,
+  onChange,
+}: {
+  lineKey: string;
+  intake: PosServiceIntake | null | undefined;
+  onChange: (next: PosServiceIntake) => void;
+}) {
+  const equipment =
+    intake?.equipment?.length ? intake.equipment : [emptyServiceEquipmentRow()];
+  const serviceType = String(intake?.serviceType || "").trim() || "Servicio";
+  const failure = String(intake?.failureOrRequestedService || "");
+  const techObs = String(intake?.technicalObservationsOnReceipt || "");
+
+  const commit = (
+    patch: Partial<PosServiceIntake> & {
+      equipment?: PosServiceIntake["equipment"];
+    },
+  ) => {
+    onChange({
+      serviceType,
+      equipment,
+      failureOrRequestedService: failure,
+      technicalObservationsOnReceipt: techObs,
+      ...patch,
+    });
+  };
+
+  const patchEquip = (
+    index: number,
+    patch: Partial<PosServiceIntake["equipment"][number]>,
+  ) => {
+    commit({
+      equipment: equipment.map((row, i) =>
+        i === index ? { ...row, ...patch } : row,
+      ),
+    });
+  };
+
+  return (
+    <div className={`${styles.serviceIntakeBlock} ${styles.cartServiceIntake}`}>
+      <div className={styles.serviceIntakeHead}>
+        <strong>Datos del Equipo y/o componente</strong>
+        <span>Puedes agregar, editar o quitar filas antes de cobrar.</span>
+      </div>
+      <div className={styles.equipTableWrap}>
+        <table className={styles.equipTable}>
+          <thead>
+            <tr>
+              <th style={{ width: 64 }}>Cant.</th>
+              <th>Descripción / Marca / Modelo</th>
+              <th style={{ width: 120 }}>Nº serie</th>
+              <th style={{ width: 150 }}>Estado físico</th>
+              <th style={{ width: 40 }} aria-label="Quitar" />
+            </tr>
+          </thead>
+          <tbody>
+            {equipment.map((row, idx) => {
+              const condUi = conditionUiFromStored(row.physicalCondition);
+              return (
+                <tr key={`${lineKey}-eq-${idx}`}>
+                  <td>
+                    <EquipQtyField
+                      value={row.quantity}
+                      onCommit={(n) => patchEquip(idx, { quantity: n })}
+                    />
+                  </td>
+                  <td>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      value={row.description}
+                      onChange={(e) =>
+                        patchEquip(idx, { description: e.target.value })
+                      }
+                      placeholder="Ej. Laptop HP Pavilion 15"
+                      sx={fieldSx}
+                    />
+                  </td>
+                  <td>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      value={row.serialNumber}
+                      onChange={(e) =>
+                        patchEquip(idx, { serialNumber: e.target.value })
+                      }
+                      placeholder="Opcional"
+                      sx={fieldSx}
+                    />
+                  </td>
+                  <td>
+                    <TextField
+                      select
+                      size="small"
+                      fullWidth
+                      value={condUi.preset}
+                      onChange={(e) => {
+                        const preset = e.target.value;
+                        if (preset === "Otro") {
+                          patchEquip(idx, {
+                            physicalCondition: condUi.other || "",
+                          });
+                          return;
+                        }
+                        patchEquip(idx, { physicalCondition: preset });
+                      }}
+                      sx={fieldSx}
+                    >
+                      {POS_PHYSICAL_CONDITION_PRESETS.map((opt) => (
+                        <MenuItem key={opt} value={opt}>
+                          {opt}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    {condUi.preset === "Otro" ? (
+                      <TextField
+                        size="small"
+                        fullWidth
+                        value={condUi.other}
+                        onChange={(e) =>
+                          patchEquip(idx, {
+                            physicalCondition: e.target.value,
+                          })
+                        }
+                        placeholder="Describe el estado…"
+                        sx={{ ...fieldSx, mt: 0.75 }}
+                      />
+                    ) : null}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className={styles.equipRowRemove}
+                      disabled={equipment.length <= 1}
+                      onClick={() => {
+                        if (equipment.length <= 1) return;
+                        commit({
+                          equipment: equipment.filter((_, i) => i !== idx),
+                        });
+                      }}
+                      aria-label="Quitar fila"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button
+        type="button"
+        className={styles.equipAddRowBtn}
+        onClick={() =>
+          commit({
+            equipment: [...equipment, emptyServiceEquipmentRow()],
+          })
+        }
+      >
+        <Plus size={14} style={{ display: "inline", marginRight: 4 }} />
+        Agregar fila
+      </button>
+      <div className={styles.serviceTextField}>
+        <label
+          className={`${styles.serviceFieldLabel} ${styles.serviceFieldLabelRequired}`}
+          htmlFor={`cart-service-failure-${lineKey}`}
+        >
+          Falla o Servicio solicitado
+        </label>
+        <TextField
+          id={`cart-service-failure-${lineKey}`}
+          fullWidth
+          size="small"
+          value={failure}
+          onChange={(e) =>
+            commit({ failureOrRequestedService: e.target.value })
+          }
+          placeholder="Describe la falla o el servicio…"
+          multiline
+          minRows={2}
+          maxRows={8}
+          sx={{
+            ...fieldSx,
+            "& .MuiInputBase-root": {
+              alignItems: "flex-start",
+              backgroundColor: "#fff",
+            },
+          }}
+        />
+      </div>
+      <div className={styles.serviceTextField}>
+        <label
+          className={styles.serviceFieldLabel}
+          htmlFor={`cart-service-obs-${lineKey}`}
+        >
+          Observaciones Técnicas al Recibir
+        </label>
+        <TextField
+          id={`cart-service-obs-${lineKey}`}
+          fullWidth
+          size="small"
+          value={techObs}
+          onChange={(e) =>
+            commit({ technicalObservationsOnReceipt: e.target.value })
+          }
+          placeholder="Opcional"
+          multiline
+          minRows={2}
+          maxRows={6}
+          sx={{
+            ...fieldSx,
+            "& .MuiInputBase-root": {
+              alignItems: "flex-start",
+              backgroundColor: "#fff",
+            },
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function PuntoDeVentaPage() {
   const { can, hydrated } = usePermissions();
   const pos = usePos();
@@ -1247,26 +1543,17 @@ export default function PuntoDeVentaPage() {
                               {manualEquipRows.map((row) => (
                                 <tr key={row.key}>
                                   <td>
-                                    <TextField
-                                      size="small"
+                                    <EquipQtyField
                                       value={row.quantity}
-                                      onChange={(e) => {
-                                        const digits = e.target.value
-                                          .replace(/\D/g, "")
-                                          .slice(0, 4);
+                                      onCommit={(n) =>
                                         setManualEquipRows((prev) =>
                                           prev.map((r) =>
                                             r.key === row.key
-                                              ? {
-                                                  ...r,
-                                                  quantity: digits || "1",
-                                                }
+                                              ? { ...r, quantity: String(n) }
                                               : r,
                                           ),
-                                        );
-                                      }}
-                                      inputProps={{ inputMode: "numeric" }}
-                                      sx={fieldSx}
+                                        )
+                                      }
                                     />
                                   </td>
                                   <td>
@@ -1936,20 +2223,22 @@ export default function PuntoDeVentaPage() {
                             <Trash2 size={14} />
                           </button>
                         </div>
-                        {line.isManual ? (
+                        {line.isManual && line.manualKind === "service" ? (
+                          <CartServiceIntakeEditor
+                            lineKey={line.key}
+                            intake={line.serviceIntake}
+                            onChange={(next) =>
+                              pos.updateLine(line.key, {
+                                serviceIntake: next,
+                              })
+                            }
+                          />
+                        ) : line.isManual ? (
                           <p
                             className={styles.hitMeta}
                             style={{ marginBottom: 8 }}
                           >
-                            {line.manualKind === "service"
-                              ? line.serviceIntake?.failureOrRequestedService
-                                ? clipText(
-                                    line.serviceIntake
-                                      .failureOrRequestedService,
-                                    72,
-                                  )
-                                : "No descuenta inventario"
-                              : "Captura manual · no descuenta inventario"}
+                            Captura manual · no descuenta inventario
                           </p>
                         ) : line.stocksByBranch?.length ? (
                           <TextField
