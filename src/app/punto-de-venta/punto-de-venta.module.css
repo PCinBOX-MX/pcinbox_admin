@@ -703,6 +703,10 @@
   overflow: hidden;
 }
 
+.cartServiceIntake {
+  margin-bottom: 10px;
+}
+
 .serviceIntakeBlock::before {
   content: "";
   position: absolute;

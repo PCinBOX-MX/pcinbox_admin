@@ -2771,6 +2771,32 @@ export default function usePos() {
           });
           return;
         }
+        if (eq.some((row) => !String(row.description || "").trim())) {
+          setDataModal({
+            isOpen: true,
+            title: "Datos del equipo",
+            content: `El servicio «${line.name}» tiene filas sin descripción del equipo/componente.`,
+            type: "warning",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+          return;
+        }
+        if (eq.some((row) => !String(row.physicalCondition || "").trim())) {
+          setDataModal({
+            isOpen: true,
+            title: "Estado físico",
+            content: `Indica el estado físico de cada equipo en «${line.name}».`,
+            type: "warning",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+          return;
+        }
         if (failure.length < 2) {
           setDataModal({
             isOpen: true,

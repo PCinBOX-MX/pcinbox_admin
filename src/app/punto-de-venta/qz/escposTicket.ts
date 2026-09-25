@@ -379,11 +379,6 @@ export function buildEscPosTicket(
         if (eq.serialNumber) {
           parts.push(`S/N eq: ${thermalText(eq.serialNumber)}` + LF);
         }
-        if (eq.physicalCondition) {
-          parts.push(
-            `Estado: ${thermalText(eq.physicalCondition)}` + LF,
-          );
-        }
       }
       const failure = String(intake.failureOrRequestedService || "").trim();
       if (failure) {
