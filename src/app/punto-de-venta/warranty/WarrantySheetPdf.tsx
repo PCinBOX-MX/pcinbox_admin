@@ -188,10 +188,9 @@ export default function WarrantySheetPdf({ sale }: { sale: PosSale }) {
   });
 
   const rows = buildWarrantyPdfRows(sale);
-  const customerName = softBreakFull(
-    sale.customerName || "Público general",
-    20,
-  );
+  const customerName = String(sale.customerName || "").trim()
+    ? softBreakFull(sale.customerName!, 20)
+    : "";
 
   return (
     <Document

@@ -173,7 +173,7 @@ export default function CotizacionesPage() {
           <div className={styles.filters}>
             <TextField
               size="small"
-              label="Folio, archivo, cliente o email"
+              label="Folio, archivo, cliente, email o teléfono"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               sx={adminFieldSx}
@@ -300,6 +300,11 @@ export default function CotizacionesPage() {
                       <span className={styles.secondary}>
                         {record.customer?.email || "Sin email"}
                       </span>
+                      <span className={styles.tertiary}>
+                        {record.customer?.phone?.trim()
+                          ? record.customer.phone
+                          : "Sin teléfono"}
+                      </span>
                     </td>
                     <td>
                       <span>{record.itemCount} artículos</span>
@@ -351,6 +356,11 @@ export default function CotizacionesPage() {
                   <strong>{record.customer?.name || "Sin nombre"}</strong>
                   <span>
                     {record.customer?.email || "Sin email"}
+                  </span>
+                  <span>
+                    {record.customer?.phone?.trim()
+                      ? record.customer.phone
+                      : "Sin teléfono"}
                   </span>
                 </div>
                 <dl className={styles.cardGrid}>
