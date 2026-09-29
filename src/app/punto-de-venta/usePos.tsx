@@ -16,6 +16,7 @@ import {
   PosProductSerial,
   PosSale,
   PosServiceIntake,
+  POS_PHONE_LADAS,
   SELLER_MAX_DISCOUNT_PCT,
   canCancelPosSale,
   isPosProductOutOfStock,
@@ -41,6 +42,7 @@ import { useQueryParams } from "../hooks/useQueryParams";
 import WarrantySheetPdf, {
   buildWarrantyPdfRows,
 } from "./warranty/WarrantySheetPdf";
+import { ticketHtmlToPdfBlob } from "./ticketHtmlToPdf";
 import { cartWarrantyToPayload, posWarrantySelectable } from "./posWarranty";
 
 const BRANCH_STORAGE_KEY = "pcinbox-pos-branchId";
@@ -748,16 +750,26 @@ export default function usePos() {
   const totals = useMemo(() => {
     let subtotal = 0;
     let discountTotal = 0;
+    let productsItems = 0;
+    let servicesItems = 0;
     for (const line of cart) {
       const base = roundMoney(line.unitPrice * line.quantity);
       const total = lineTotal(line.unitPrice, line.quantity, line.discountPct);
       subtotal = roundMoney(subtotal + base);
       discountTotal = roundMoney(discountTotal + (base - total));
+      const qty = Math.max(0, Math.round(Number(line.quantity) || 0));
+      if (line.isManual && line.manualKind === "service") {
+        servicesItems += qty;
+      } else {
+        productsItems += qty;
+      }
     }
     return {
       subtotal,
       discountTotal,
       total: roundMoney(subtotal - discountTotal),
+      productsItems,
+      servicesItems,
     };
   }, [cart]);
 
@@ -2225,11 +2237,13 @@ export default function usePos() {
     if (cart.length === 0) return;
     setDataModal({
       isOpen: true,
-      title: "Vaciar carrito",
+      title: "Advertencia: eliminar carrito",
       content:
-        "¿Seguro que quieres vaciar el carrito? Se quitarán productos, pagos y datos del cliente de esta venta.",
+        "¿Estás seguro de eliminar todo el carrito? Se quitarán productos, servicios, formas de pago y datos del cliente de esta venta. Esta acción no se puede deshacer.",
       type: "warning",
       showActions: true,
+      confirmLabel: "Sí, vaciar carrito",
+      cancelLabel: "Cancelar",
       onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
       onConfirm: async () => {
         setDataModal((p) => ({ ...p, isOpen: false }));
@@ -2271,11 +2285,20 @@ export default function usePos() {
         phone?: string | null;
       };
     }) => {
-      const nextCart: PosCartLine[] = [];
+      // Partir del carrito actual: fusionar, no reemplazar.
+      const nextCart: PosCartLine[] = cart.map((line) => ({
+        ...line,
+        serials: [...(line.serials || [])],
+        stocksByBranch: line.stocksByBranch
+          ? line.stocksByBranch.map((s) => ({ ...s }))
+          : line.stocksByBranch,
+      }));
       const skippedInactive: string[] = [];
       const skippedNoStock: string[] = [];
       const adjustedStock: string[] = [];
       const otherWarnings: string[] = [];
+      let importedUnits = 0;
+      let touchedLines = 0;
 
       for (const inactive of payload.inactiveProducts || []) {
         skippedInactive.push(
@@ -2345,17 +2368,30 @@ export default function usePos() {
         const lineKey = `p-${product.idProduct}-b-${branchIdLine ?? "g"}`;
         const existing = nextCart.find((l) => l.key === lineKey);
         if (existing) {
+          const before = existing.quantity;
+          const desired = before + quantity;
           const merged = tracksStock
-            ? Math.min(stockCap, existing.quantity + quantity)
-            : existing.quantity + quantity;
-          if (tracksStock && merged < existing.quantity + quantity) {
+            ? Math.min(stockCap, desired)
+            : desired;
+          if (tracksStock && merged < desired) {
             adjustedStock.push(
-              `${product.name}: se limitó al stock disponible (${stockCap})`,
+              `${product.name}: en carrito ${before} + cotizado ${quantity} → se limitó a stock ${stockCap}`,
+            );
+          }
+          const added = merged - before;
+          if (added > 0) {
+            importedUnits += added;
+            touchedLines += 1;
+          } else if (quantity > 0 && added === 0) {
+            skippedNoStock.push(
+              `${product.name}: ya tienes ${before} en carrito y no hay stock extra`,
             );
           }
           existing.quantity = merged;
           existing.serials = Array(merged).fill("");
           existing.stockBranch = stockCap;
+          existing.stocksByBranch = stocks;
+          existing.unitPrice = product.price;
           continue;
         }
 
@@ -2398,6 +2434,8 @@ export default function usePos() {
           isManual: false,
           providerId: product.providerId ?? null,
         });
+        importedUnits += quantity;
+        touchedLines += 1;
       }
 
       const sections = [
@@ -2424,12 +2462,14 @@ export default function usePos() {
         skippedNoStock.length +
         (payload.missingProductIds?.length || 0);
 
-      if (nextCart.length === 0) {
+      if (touchedLines === 0 && importedUnits === 0) {
         showQuoteFeedback({
-          type: "error",
-          title: "Sin productos cargables",
+          type: "warning",
+          title: "Nada importado de la cotización",
           message:
-            "Ningún producto de la cotización pudo importarse (inactivos, sin stock o fuera de catálogo).",
+            cart.length > 0
+              ? "No se pudo agregar nada de la cotización al carrito (inactivos, sin stock o sin cupo extra). Se conservó lo que ya tenías."
+              : "Ningún producto de la cotización pudo importarse (inactivos, sin stock o fuera de catálogo).",
           sections,
         });
         return;
@@ -2446,23 +2486,37 @@ export default function usePos() {
         setGuestEmail(payload.customer.email);
       }
       if (payload.customer?.phone && !guestPhone.trim()) {
-        const digits = String(payload.customer.phone).replace(/\D/g, "");
-        if (digits.length >= 10) {
+        const rawPhone = String(payload.customer.phone).trim();
+        const plusMatch = rawPhone.match(/^(\+\d{1,3})\s*(\d{7,15})$/);
+        if (plusMatch) {
+          const lada = plusMatch[1];
+          const digits = plusMatch[2];
+          if ((POS_PHONE_LADAS as readonly string[]).includes(lada)) {
+            setPhoneLada(lada);
+          }
           setGuestPhone(digits.slice(-10));
+        } else {
+          const digits = rawPhone.replace(/\D/g, "");
+          if (digits.length >= 10) {
+            setGuestPhone(digits.slice(-10));
+          }
         }
       }
 
       const hasSkips = sections.length > 0;
+      const mergedWithExisting = cart.length > 0;
       showQuoteFeedback({
         type: hasSkips ? "warning" : "success",
-        title: "Cotización cargada",
+        title: mergedWithExisting
+          ? "Cotización fusionada con el carrito"
+          : "Cotización cargada",
         message: hasSkips
-          ? `Se importaron ${nextCart.length} línea(s) disponibles de ${payload.quoteNumber}. ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${adjustedStock.length ? `; ${adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
-          : `Se importaron ${nextCart.length} línea(s) de la cotización ${payload.quoteNumber}.`,
+          ? `${mergedWithExisting ? "Se fusionaron" : "Se importaron"} ${touchedLines} línea(s) de ${payload.quoteNumber} (+${importedUnits} uds.). ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${adjustedStock.length ? `; ${adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
+          : `${mergedWithExisting ? "Se fusionaron" : "Se importaron"} ${touchedLines} línea(s) de la cotización ${payload.quoteNumber} (+${importedUnits} uds.).`,
         sections,
       });
     },
-    [customerName, guestEmail, guestPhone, showQuoteFeedback],
+    [cart, customerName, guestEmail, guestPhone, showQuoteFeedback],
   );
 
   const loadQuote = useCallback(async () => {
@@ -2607,14 +2661,16 @@ export default function usePos() {
       }
       const idempotencyKey = chargeIdempotencyKeyRef.current;
       const phoneDigits = guestPhone.trim();
-      const fullPhone = `${phoneLada} ${phoneDigits}`.trim();
+      const fullPhone = phoneDigits
+        ? `${phoneLada} ${phoneDigits}`.trim()
+        : null;
       const usesCash = payments.some((p) => p.method === "efectivo_sucursal");
       const res = await requestPost(
         {
           idempotencyKey,
           branchId,
           customerUserId: null,
-          customerName: customerName.trim(),
+          customerName: customerName.trim() || null,
           customerEmail: guestEmail.trim() || null,
           customerPhone: fullPhone,
           notes: notes || null,
@@ -2826,11 +2882,12 @@ export default function usePos() {
       return;
     }
 
-    if (customerName.trim().length < 2) {
+    // Nombre y teléfono opcionales; si se capturan, validar formato.
+    if (customerName.trim().length > 0 && customerName.trim().length < 2) {
       setDataModal({
         isOpen: true,
-        title: "Cliente requerido",
-        content: "Escribe el nombre del cliente (mín. 2 caracteres) antes de cobrar.",
+        title: "Nombre inválido",
+        content: "Si capturas el nombre, usa al menos 2 caracteres.",
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -2839,24 +2896,11 @@ export default function usePos() {
       return;
     }
 
-    if (!guestPhone.trim()) {
-      setDataModal({
-        isOpen: true,
-        title: "Teléfono requerido",
-        content: "Captura el teléfono del cliente (10 dígitos).",
-        type: "warning",
-        showActions: true,
-        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-      });
-      return;
-    }
-
-    if (!isValidPhoneDigits(guestPhone)) {
+    if (guestPhone.trim() && !isValidPhoneDigits(guestPhone)) {
       setDataModal({
         isOpen: true,
         title: "Teléfono inválido",
-        content: "El teléfono debe tener exactamente 10 dígitos.",
+        content: "Si capturas teléfono, debe tener exactamente 10 dígitos.",
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -4007,18 +4051,41 @@ export default function usePos() {
   ]);
 
   const openTicketHtml = useCallback(async (id: number) => {
-    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
-    const token = localStorage.getItem("token") || "";
-    const res = await fetch(`${base}/pos/sales/${id}/ticket`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const html = await res.text();
-    const w = window.open("", "_blank");
-    if (w) {
-      w.document.write(html);
-      w.document.close();
+    const preview = window.open("about:blank", "_blank");
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
+      const token = localStorage.getItem("token") || "";
+      const res = await fetch(`${base}/pos/sales/${id}/ticket`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error("No se pudo cargar el ticket.");
+      }
+      const html = await res.text();
+      if (preview && !preview.closed) {
+        preview.document.open();
+        preview.document.write(html);
+        preview.document.close();
+      } else {
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(html);
+          w.document.close();
+        }
+      }
+    } catch (e: any) {
+      if (preview && !preview.closed) preview.close();
+      setDataModal({
+        isOpen: true,
+        title: "Ticket",
+        content: e?.message || "No se pudo abrir el ticket.",
+        type: "error",
+        showActions: true,
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+      });
     }
-  }, []);
+  }, [setDataModal]);
 
   const printTicket = useCallback(
     async (
@@ -4103,6 +4170,76 @@ export default function usePos() {
       });
     },
     [printTicket, setDataModal],
+  );
+
+  const downloadTicketPdf = useCallback(
+    (id: number, _opts?: { folio?: string | null }) => {
+      void (async () => {
+        const preview = window.open("about:blank", "_blank");
+        let htmlUrl: string | null = null;
+        let pdfUrl: string | null = null;
+        try {
+          if (preview && !preview.closed) {
+            preview.document.write(
+              "<!doctype html><title>Ticket</title><body style=\"font-family:system-ui;padding:24px;color:#374151\">Cargando ticket…</body>",
+            );
+            preview.document.close();
+          }
+
+          const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
+          const token = localStorage.getItem("token") || "";
+          const res = await fetch(`${base}/pos/sales/${id}/ticket`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error("No se pudo cargar el ticket.");
+          const html = await res.text();
+
+          // 1) Mostrar de inmediato el mismo HTML (blob:), sin esperar el PDF.
+          const htmlBlob = new Blob([html], {
+            type: "text/html;charset=utf-8",
+          });
+          htmlUrl = URL.createObjectURL(htmlBlob);
+          if (!preview || preview.closed) {
+            URL.revokeObjectURL(htmlUrl);
+            return;
+          }
+          preview.location.href = htmlUrl;
+
+          // 2) Intentar PDF; si el usuario ya cerró, no abrir otra pestaña.
+          try {
+            const pdfBlob = await ticketHtmlToPdfBlob(html);
+            if (!preview || preview.closed) return;
+            pdfUrl = URL.createObjectURL(pdfBlob);
+            preview.location.href = pdfUrl;
+            if (htmlUrl) {
+              URL.revokeObjectURL(htmlUrl);
+              htmlUrl = null;
+            }
+            window.setTimeout(() => {
+              if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+            }, 60_000);
+          } catch {
+            // Se queda el HTML (idéntico); el usuario puede Imprimir / Guardar PDF.
+          }
+        } catch (e: any) {
+          if (htmlUrl) URL.revokeObjectURL(htmlUrl);
+          if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+          if (preview && !preview.closed) preview.close();
+          setDataModal({
+            isOpen: true,
+            title: "Ticket PDF",
+            content:
+              e?.message || "No se pudo generar el ticket en PDF.",
+            type: "error",
+            showActions: true,
+            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+            onConfirm: async () =>
+              setDataModal((p) => ({ ...p, isOpen: false })),
+          });
+        }
+      })();
+    },
+    [setDataModal],
   );
 
   const refreshQzPrinters = useCallback(async () => {
@@ -4536,6 +4673,7 @@ export default function usePos() {
     ticketOpen,
     setTicketOpen,
     openTicket,
+    downloadTicketPdf,
     printTicket,
     qzSettings,
     qzPrinters,

@@ -312,12 +312,11 @@ export function buildEscPosTicket(
   );
   parts.push(`Vendedor: ${POS_TICKET_SELLER}` + LF);
   parts.push(
-    `Cliente: ${thermalText(sale.customerName || "Publico general")}` + LF,
+    `Cliente: ${thermalText(String(sale.customerName || "").trim())}` + LF,
   );
-  const phone = String(sale.customerPhone || "").trim();
-  if (phone) {
-    parts.push(`Telefono: ${thermalText(phone)}` + LF);
-  }
+  parts.push(
+    `Telefono: ${thermalText(String(sale.customerPhone || "").trim())}` + LF,
+  );
   parts.push(centerDashed("PRODUCTOS", width) + LF);
 
   for (const it of sale.items || []) {

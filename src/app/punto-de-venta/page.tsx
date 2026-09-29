@@ -24,6 +24,7 @@ import {
   Shield,
   X,
   FileText,
+  FileDown,
   FileX2,
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -1245,11 +1246,10 @@ export default function PuntoDeVentaPage() {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Nombre del cliente"
+                  label="Nombre del cliente (opcional)"
                   value={pos.customerName}
                   onChange={(e) => pos.setCustomerName(e.target.value)}
                   sx={{ ...fieldSx, mt: 0.5 }}
-                  required
                 />
                 <div className={styles.phoneRow}>
                   <TextField
@@ -1270,7 +1270,7 @@ export default function PuntoDeVentaPage() {
                   <TextField
                     fullWidth
                     size="small"
-                    label="Teléfono"
+                    label="Teléfono (opcional)"
                     value={pos.guestPhone}
                     onChange={(e) => {
                       const digits = e.target.value
@@ -1286,7 +1286,6 @@ export default function PuntoDeVentaPage() {
                         : undefined
                     }
                     inputProps={{ inputMode: "numeric", maxLength: 10 }}
-                    required
                   />
                 </div>
               </div>
@@ -2069,6 +2068,16 @@ export default function PuntoDeVentaPage() {
                         : `${pos.cart.length} línea${pos.cart.length === 1 ? "" : "s"} · ${money(pos.totals.total)}`}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    className={styles.clearCartBtn}
+                    onClick={pos.requestClearCart}
+                    disabled={pos.cart.length === 0}
+                    title="Eliminar todos los ítems del carrito"
+                  >
+                    <Trash2 size={15} strokeWidth={2.25} />
+                    Vaciar carrito
+                  </button>
                 </div>
               </div>
               <div className={styles.cartPanelBody}>
@@ -2488,6 +2497,19 @@ export default function PuntoDeVentaPage() {
                 <div className={styles.cartFooterFixed}>
                 <div className={styles.cartCheckoutBlock}>
                   <div className={styles.totalsBox}>
+                    <div
+                      className={styles.totalsSplitBox}
+                      aria-label="Conteo de productos y servicios"
+                    >
+                      <div className={styles.totalsSplitRow}>
+                        <span>Total Productos</span>
+                        <strong>{pos.totals.productsItems}</strong>
+                      </div>
+                      <div className={styles.totalsSplitRow}>
+                        <span>Total Servicios</span>
+                        <strong>{pos.totals.servicesItems}</strong>
+                      </div>
+                    </div>
                     <div className={styles.totalsRow}>
                       <span>Subtotal</span>
                       <span>{money(pos.totals.subtotal)}</span>
@@ -2680,21 +2702,13 @@ export default function PuntoDeVentaPage() {
                 <div className={styles.cartChargeBar}>
                   <button
                     type="button"
-                    className={styles.secondaryBtn}
-                    onClick={pos.requestClearCart}
-                    disabled={pos.cart.length === 0}
-                  >
-                    Vaciar carrito
-                  </button>
-                  <button
-                    type="button"
                     className={styles.chargeBtn}
                     disabled={
                       pos.charging ||
                       pos.cart.length === 0 ||
-                      !pos.customerName.trim() ||
-                      !pos.guestPhone.trim() ||
-                      !pos.phoneValid ||
+                      (Boolean(pos.guestPhone.trim()) && !pos.phoneValid) ||
+                      (pos.customerName.trim().length > 0 &&
+                        pos.customerName.trim().length < 2) ||
                       pos.payments.length === 0 ||
                       !pos.settlement.balanced ||
                       pos.payments.some(
@@ -3817,7 +3831,7 @@ export default function PuntoDeVentaPage() {
                             </div>
 
                             <div className={styles.historyCustomer}>
-                              {sale.customerName || "Público general"}
+                              {sale.customerName?.trim() || "—"}
                             </div>
 
                             <div className={styles.historyFacts}>
@@ -3873,6 +3887,18 @@ export default function PuntoDeVentaPage() {
                               >
                                 <Printer size={15} strokeWidth={2.25} />
                                 Ticket
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.historyActionBtn}
+                                onClick={() =>
+                                  pos.downloadTicketPdf(sale.idPosSale, {
+                                    folio: sale.folio,
+                                  })
+                                }
+                              >
+                                <FileDown size={15} strokeWidth={2.25} />
+                                Ticket PDF
                               </button>
                             </div>
                           </div>
@@ -4386,6 +4412,22 @@ export default function PuntoDeVentaPage() {
                     style={{ display: "inline", marginRight: 6 }}
                   />
                   Imprimir ticket
+                </button>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  style={{ marginTop: 0, width: "auto" }}
+                  onClick={() =>
+                    pos.downloadTicketPdf(pos.detailSale!.idPosSale, {
+                      folio: pos.detailSale!.folio,
+                    })
+                  }
+                >
+                  <FileDown
+                    size={14}
+                    style={{ display: "inline", marginRight: 6 }}
+                  />
+                  Ticket PDF
                 </button>
               </div>
 
