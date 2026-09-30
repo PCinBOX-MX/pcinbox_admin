@@ -95,16 +95,30 @@ const useDashboard = () => {
               }
 
               products.forEach((product: any) => {
-                const existingProduct = existing.products.find(
-                  (p) => p.productName === product.productName,
-                );
+                const saleKey = Number(product.idSale);
+                const existingProduct =
+                  Number.isFinite(saleKey) && saleKey > 0
+                    ? existing.products.find(
+                        (p) => Number(p.idSale) === saleKey,
+                      )
+                    : undefined;
 
                 if (existingProduct) {
-                  existingProduct.quantity += product.quantity;
-                  const prevTotal = Number(existingProduct.lineTotal) || 0;
-                  const nextTotal = Number(product.lineTotal) || 0;
-                  if (prevTotal > 0 || nextTotal > 0) {
-                    existingProduct.lineTotal = prevTotal + nextTotal;
+                  // Misma línea de venta: no sumar quantity otra vez (evita doble conteo).
+                  if (
+                    existingProduct.providerPrice == null &&
+                    product.providerPrice != null
+                  ) {
+                    existingProduct.providerPrice = product.providerPrice;
+                  }
+                  if (
+                    existingProduct.idProductExt == null &&
+                    product.idProductExt != null
+                  ) {
+                    existingProduct.idProductExt = product.idProductExt;
+                  }
+                  if (existingProduct.upc == null && product.upc != null) {
+                    existingProduct.upc = product.upc;
                   }
                 } else {
                   existing.products.push({ ...product });

@@ -34,6 +34,8 @@ export interface SalesI {
     description: string;
     quantity: number;
     lineTotal?: number;
+    /** Precio proveedor sin IVA (products_providers.price). Solo Dicotech. */
+    providerPrice?: number | null;
     upc: string;
     sku: string;
     idProductExt?: string | number | null;

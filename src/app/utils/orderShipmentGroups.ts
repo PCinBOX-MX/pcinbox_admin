@@ -6,6 +6,9 @@ export type OrderProductRow = {
   statusShip?: string | null;
   licenseType?: string | null;
   shipping_method?: string | null;
+  upc?: string | null;
+  sku?: string | null;
+  idProductExt?: string | number | null;
   address?: {
     shipping_method?: string | null;
     street?: string | null;
@@ -18,6 +21,9 @@ export type OrderProductRow = {
     country?: string | null;
     requireInsurance?: number | null;
     trackingNumber?: string | null;
+    branche?: string | null;
+    originBranche?: string | null;
+    storeId?: number | null;
   } | null;
   lineTotal?: number;
   total?: number;
@@ -31,6 +37,8 @@ export type ShipmentGroup = {
   title: string;
   subtitle: string;
   shippingMethod: string | null;
+  /** Bodega de origen del envío (products_providers / branches.name). */
+  originBranche: string | null;
   address: OrderProductRow["address"];
   products: OrderProductRow[];
   statusShip: string;
@@ -106,6 +114,10 @@ export function groupOrderProductsByShipment(
     if (existing) {
       existing.products.push(item);
       existing.statusShip = resolveGroupStatus(existing.products);
+      if (!existing.originBranche) {
+        existing.originBranche =
+          item.address?.originBranche ?? item.address?.branche ?? null;
+      }
       return;
     }
 
@@ -119,6 +131,9 @@ export function groupOrderProductsByShipment(
       ? "Las claves se envían con el correo de activación (no usa estatus de paquetería)."
       : getShippingLabel(shippingMethod);
 
+    const originBranche =
+      item.address?.originBranche ?? item.address?.branche ?? null;
+
     map.set(key, {
       key,
       idShipment,
@@ -126,6 +141,7 @@ export function groupOrderProductsByShipment(
       title,
       subtitle,
       shippingMethod: shippingMethod ? String(shippingMethod) : null,
+      originBranche: originBranche ? String(originBranche) : null,
       address: item.address ?? null,
       products: [item],
       statusShip: String(item.statusShip || "procesando").toLowerCase(),
