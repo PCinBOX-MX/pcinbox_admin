@@ -190,14 +190,15 @@ export const adminTheme = createTheme({
     MuiPopper: {
       styleOverrides: {
         root: {
-          zIndex: 1600,
+          // Por encima de ModalComponent (zIndex 10000).
+          zIndex: 11000,
         },
       },
     },
     MuiPopover: {
       styleOverrides: {
         root: {
-          zIndex: 1600,
+          zIndex: 11000,
         },
       },
     },
@@ -205,14 +206,24 @@ export const adminTheme = createTheme({
       defaultProps: {
         MenuProps: {
           disableScrollLock: true,
+          style: { zIndex: 11000 },
+          slotProps: {
+            root: {
+              style: { zIndex: 11000 },
+            },
+          },
         },
       },
     },
     MuiMenu: {
       defaultProps: {
         disableScrollLock: true,
+        style: { zIndex: 11000 },
       },
       styleOverrides: {
+        root: {
+          zIndex: 11000,
+        },
         paper: {
           borderRadius: 14,
           border: "1px solid #e8ecf4",

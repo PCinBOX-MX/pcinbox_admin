@@ -190,6 +190,9 @@ const ModalComponent = ({
       <Modal
         className="flex justify-center items-center"
         open={isVisible}
+        // Permite enfocar/usar Select y menús portaleados dentro del modal.
+        disableEnforceFocus
+        disableAutoFocus
         onClose={(_, reason) => {
           // Bloquear backdrop / Escape mientras loading (p. ej. import Excel).
           if (loading) return;
