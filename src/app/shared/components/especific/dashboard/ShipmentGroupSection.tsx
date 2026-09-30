@@ -26,6 +26,7 @@ import {
 } from "@/app/utils/orderShipmentGroups";
 import SendLicenseKeyPanel from "./SendLicenseKeyPanel";
 import { getProviderLabel, PROVIDER_DICOTECH } from "@/app/constants/providers.constants";
+import { formatPcinboxBranchDisplayName } from "@/app/interfaces/pos/posBranchDisplay";
 import { orderModalSpacing as sp } from "./orderModalSpacing";
 
 const PICKUP_SHIPPING_METHODS = new Set(["sucursal", "sucursalext"]);
@@ -34,10 +35,21 @@ const HOME_DELIVERY_SHIPPING_METHODS = new Set([
   "estafeta",
   "paqueteexpress",
 ]);
-const PICKUP_BRANCH_DISPLAY = "PCinBOX-León";
 const TERMINAL_SHIP_STATUSES = new Set(["entregado", "cancelado"]);
 const LOCKED_SHIP_STATUS_TOOLTIP =
   "Al tener estatus Entregado o Cancelado ya no se puede cambiar el estatus";
+
+function resolveGroupWarehouseLabel(group: ShipmentGroup): string | null {
+  const raw =
+    group.originBranche ||
+    group.address?.originBranche ||
+    group.products.find((p) => p.address?.originBranche)?.address
+      ?.originBranche ||
+    group.products.find((p) => p.address?.branche)?.address?.branche ||
+    null;
+  if (!raw) return null;
+  return formatPcinboxBranchDisplayName(raw) || String(raw);
+}
 
 function shippingMethodKey(method?: string | null): string {
   return String(method ?? "").trim().toLowerCase();
@@ -75,6 +87,13 @@ function formatProductUnitPrice(item: any): string | null {
   const qty = Number(item?.quantity);
   if (lineTotal == null || !Number.isFinite(qty) || qty <= 1) return null;
   return formatOrderMoney(lineTotal / qty);
+}
+
+/** Precio pagado sin IVA (quita 16%): monto / 1.16 */
+function resolvePaidPriceWithoutIva(item: any): number | null {
+  const paid = resolveProductLineTotal(item);
+  if (paid == null || paid <= 0) return null;
+  return Math.round((paid / 1.16) * 100) / 100;
 }
 
 function hasAddressLines(address: any): boolean {
@@ -142,6 +161,7 @@ export default function ShipmentGroupSection({
   const isHomeDelivery = isHomeDeliveryShippingMethod(shippingMethod);
   const shippingLabel = getShippingLabel(shippingMethod);
   const showAddress = !group.isDigital && isHomeDelivery;
+  const warehouseLabel = resolveGroupWarehouseLabel(group);
 
   const statusBadgeClass = `admin-shipment-block__status-badge admin-shipment-block__status-badge--${group.statusShip}`;
 
@@ -268,10 +288,14 @@ export default function ShipmentGroupSection({
 
       {!group.isDigital ? (
         <div className="admin-shipment-block__meta" style={{ ...sp.shipmentMeta, display: "flex" }}>
-          {isPickup ? (
-            <span className="admin-product-card__tag" style={{ padding: "6px 10px", margin: 0 }}>
+          {warehouseLabel ? (
+            <span
+              className="admin-product-card__tag"
+              style={{ padding: "6px 10px", margin: 0 }}
+              title={isPickup ? "Bodega de origen (retiro en sucursal)" : "Bodega de origen"}
+            >
               <Store size={14} />
-              {PICKUP_BRANCH_DISPLAY}
+              {warehouseLabel}
             </span>
           ) : null}
           {shippingLabel ? (
@@ -311,6 +335,11 @@ export default function ShipmentGroupSection({
           const purchaseId = String(item.purchaseId ?? "").trim();
           const invoiceNumber = String(item.invoiceNumber ?? "").trim();
           const clave = String(item.idProductExt ?? "").trim();
+          const upc = String(item.upc ?? "").trim();
+          const qty = Math.max(0, Number(item.quantity) || 0);
+          const priceWithoutIva = isDicotech
+            ? resolvePaidPriceWithoutIva(item)
+            : null;
 
           return (
             <article
@@ -349,6 +378,14 @@ export default function ShipmentGroupSection({
                         {unitPriceLabel} c/u
                       </span>
                     ) : null}
+                    {priceWithoutIva != null ? (
+                      <span
+                        className="admin-shipment-product__provider-price"
+                        title="Precio pagado por el cliente sin IVA (monto ÷ 1.16)"
+                      >
+                        Sin IVA {formatOrderMoney(priceWithoutIva)}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="admin-shipment-product__meta" style={sp.shipmentProductMeta}>
@@ -358,11 +395,19 @@ export default function ShipmentGroupSection({
                     color={isDicotech ? "warning" : "default"}
                     variant="outlined"
                   />
-                  <span className="admin-shipment-product__qty">× {item.quantity}</span>
-                  <span className="admin-shipment-product__sku">
-                    SKU {item.sku || "N/A"}
+                  <span className="admin-shipment-product__highlight admin-shipment-product__highlight--qty">
+                    × {qty}
                   </span>
-                  <span className="admin-shipment-product__sku" title="idProductExt">
+                  <span
+                    className="admin-shipment-product__highlight admin-shipment-product__highlight--upc"
+                    title="UPC"
+                  >
+                    UPC {upc || "N/A"}
+                  </span>
+                  <span
+                    className="admin-shipment-product__highlight admin-shipment-product__highlight--clave"
+                    title="idProductExt"
+                  >
                     clave {clave || "N/A"}
                   </span>
                 </div>
@@ -394,7 +439,7 @@ export default function ShipmentGroupSection({
                     customerName={customerName}
                     statusPay={statusPay}
                     shipmentStatus={item.statusShip}
-                    quantity={item.quantity}
+                    quantity={qty}
                     onSent={(nextStatus) => {
                       onSaleLicenseDelivered?.(
                         Number(item.idSale),

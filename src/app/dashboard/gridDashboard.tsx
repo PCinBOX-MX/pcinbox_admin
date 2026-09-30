@@ -436,10 +436,16 @@ const GridDashboard = ({
             >
               <span className={`${styles.cellText} admin-whitespace-normal`}>
                 {Array.isArray(params.value) &&
-                  `${params.value.length == 1
-                    ? `1 Producto`
-                    : `${params.value.length} Productos`
-                  }`}
+                  (() => {
+                    const totalQty = params.value.reduce(
+                      (sum: number, product: any) =>
+                        sum + Math.max(0, Number(product?.quantity) || 0),
+                      0,
+                    );
+                    const label =
+                      totalQty === 1 ? "1 producto" : `${totalQty} productos`;
+                    return label;
+                  })()}
               </span>
             </div>
           );
