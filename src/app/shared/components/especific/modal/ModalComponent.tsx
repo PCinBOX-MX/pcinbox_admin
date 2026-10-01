@@ -418,3 +418,7 @@ const ModalComponent = ({
 };
 
 export default ModalComponent;
+
+export default ModalComponent;
+
+

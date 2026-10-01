@@ -453,11 +453,11 @@ export function buildEscPosTicket(
   // Margen inferior antes del corte automático.
   parts.push(LF + LF + LF + LF + LF + LF);
   parts.push(ESC + "d" + "\x06"); // feed extra lines
-  parts.push(GS + "V" + "\x41" + "\x10"); // feed + cut (Epson/compat)
-
+  // Kick antes del corte: varias impresoras descartan bytes posteriores al cut.
   if (opts?.openDrawer) {
     parts.push(drawerKickBytes(opts.drawerDialect || "epson"));
   }
+  parts.push(GS + "V" + "\x41" + "\x10"); // feed + cut (Epson/compat)
 
   return parts.join("");
 }

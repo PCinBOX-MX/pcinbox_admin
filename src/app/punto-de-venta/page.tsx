@@ -3344,8 +3344,8 @@ export default function PuntoDeVentaPage() {
                 </h2>
                 <p>
                   Instala QZ Tray en esta PC, permite este sitio y elige la
-                  impresora térmica. El cajón se abre por el kick en cobros con
-                  efectivo.
+                  impresora térmica. En cobros con efectivo el cajón se abre con
+                  el mismo comando que el botón naranja (job aparte del ticket).
                 </p>
               </div>
               <div className={styles.cashPanelBody}>

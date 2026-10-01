@@ -2719,13 +2719,13 @@ export default function usePos() {
       if (usesCash) void loadCashStatus();
 
       const qz = loadQzSettings();
+      // Cajón: job raw aparte (igual que el botón naranja). Embebido en el
+      // ticket tras el corte falla en varias térmicas aunque la prueba sí abra.
+      if (usesCash && qz.openDrawerOnCash) {
+        void openCashDrawerQz().catch(() => undefined);
+      }
       if (sale && qz.autoPrintOnCharge) {
-        void printPosTicketQz(sale, {
-          openDrawer: usesCash && qz.openDrawerOnCash,
-        }).catch((err) => {
-          if (usesCash && qz.openDrawerOnCash) {
-            void openCashDrawerQz().catch(() => undefined);
-          }
+        void printPosTicketQz(sale, { openDrawer: false }).catch((err) => {
           setDataModal({
             isOpen: true,
             title: "No se pudo imprimir el ticket",
@@ -2739,8 +2739,6 @@ export default function usePos() {
               setDataModal((p) => ({ ...p, isOpen: false })),
           });
         });
-      } else if (usesCash && qz.openDrawerOnCash) {
-        void openCashDrawerQz().catch(() => undefined);
       }
       // Cobro OK: sin modal de éxito (el resumen queda en «Última venta»).
       // Solo se avisa si falla la impresión automática arriba.
