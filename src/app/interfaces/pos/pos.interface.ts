@@ -191,6 +191,13 @@ export type PosCartLine = {
   serviceIntake?: PosServiceIntake | null;
   /** Proveedor del catálogo; solo providerId=1 descuenta stock. */
   providerId?: number | null;
+  /**
+   * Precio fijado desde cotización: no lo pisa el cron y al cobrar se envía
+   * useQuotePrice para validar contra linesJson.
+   */
+  quotePriceLocked?: boolean;
+  /** Precio de catálogo al importar (para restaurar si se quita el vínculo). */
+  catalogUnitPrice?: number;
 };
 
 export type PosProductSerial = {

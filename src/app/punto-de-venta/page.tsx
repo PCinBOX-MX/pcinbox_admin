@@ -1392,6 +1392,12 @@ export default function PuntoDeVentaPage() {
                       <span>
                         Cotización vinculada:{" "}
                         <strong>{pos.linkedQuoteNumber}</strong>
+                        <span className={styles.quoteLinkedHint}>
+                          {" "}
+                          (puedes agregar más del catálogo o sin catálogo; no
+                          otra cotización ni reimportar esta. Al desvincular
+                          podrás cargar otra)
+                        </span>
                       </span>
                       <button
                         type="button"
@@ -2218,7 +2224,9 @@ export default function PuntoDeVentaPage() {
                                   {money(line.unitPrice)}
                                 </span>
                                 <span className={styles.cartUnitPriceHint}>
-                                  por unidad
+                                  {line.quotePriceLocked
+                                    ? "precio de cotización"
+                                    : "por unidad"}
                                 </span>
                               </div>
                             )}

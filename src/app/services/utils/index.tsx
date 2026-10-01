@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { RequestOptions } from "./request-options";
 import { isVoluntaryLogoutPending } from "@/app/utils/sessionAuth";
+import { clearLocalStorageKeepingDevicePrefs } from "@/app/utils/clearLocalStorageKeepingDevicePrefs";
 
 const mainApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -38,12 +39,12 @@ const UtilsService = () => {
       title: "Sesión expirada",
       onClose: () => {
         location.href = "/features/auth/Login";
-        localStorage.clear();
+        clearLocalStorageKeepingDevicePrefs();
         setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
       onConfirm: async () => {
         location.href = "/features/auth/Login";
-        localStorage.clear();
+        clearLocalStorageKeepingDevicePrefs();
         setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
       type: "info",

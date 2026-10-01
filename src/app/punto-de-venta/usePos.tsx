@@ -24,6 +24,11 @@ import {
 } from "../interfaces/pos/pos.interface";
 import { formatMoney, formatPosFolio } from "./posFormat";
 import {
+  QuoteImportPriceBody,
+  defaultQuotePriceChoices,
+  type QuotePriceChoice,
+} from "./QuoteImportPriceBody";
+import {
   loadQzSettings,
   saveQzSettings,
   DEFAULT_QZ_SETTINGS,
@@ -1620,9 +1625,11 @@ export default function usePos() {
           return {
             ...line,
             unitPrice:
-              priceRaw != null && Number.isFinite(priceRaw)
-                ? roundMoney(priceRaw)
-                : line.unitPrice,
+              line.quotePriceLocked
+                ? line.unitPrice
+                : priceRaw != null && Number.isFinite(priceRaw)
+                  ? roundMoney(priceRaw)
+                  : line.unitPrice,
             stocksByBranch,
             stockBranch,
             quantity,
@@ -2271,21 +2278,29 @@ export default function usePos() {
   );
 
   const applyQuoteToCart = useCallback(
-    (payload: {
-      quoteNumber: string;
-      items: Array<
-        PosProductHit & { quantity: number; quoteStoreId: number | null }
-      >;
-      missingProductIds?: string[];
-      inactiveProducts?: Array<{ idProduct: number; name: string }>;
-      expired?: boolean;
-      customer?: {
-        name?: string | null;
-        email?: string | null;
-        phone?: string | null;
-      };
-    }) => {
-      // Partir del carrito actual: fusionar, no reemplazar.
+    (
+      payload: {
+        quoteNumber: string;
+        items: Array<
+          PosProductHit & {
+            quantity: number;
+            quoteStoreId: number | null;
+            quoteUnitPrice?: number | null;
+          }
+        >;
+        missingProductIds?: string[];
+        inactiveProducts?: Array<{ idProduct: number; name: string }>;
+        expired?: boolean;
+        customer?: {
+          name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+        };
+      },
+      priceChoices: Record<number, QuotePriceChoice> = {},
+    ) => {
+      // Fusionar: conservar lo ya capturado; la cotización suma líneas/cantidades.
+      const hadCart = cart.length > 0;
       const nextCart: PosCartLine[] = cart.map((line) => ({
         ...line,
         serials: [...(line.serials || [])],
@@ -2315,7 +2330,6 @@ export default function usePos() {
       for (const product of payload.items) {
         const stocks = product.stocksByBranch || [];
         const needsBranch = stocks.length > 0;
-        // Cotización: validar existencia en DB para PCinBOX, TechSmart y DicoTech.
         const tracksStock = true;
         let branchIdLine: number | null =
           product.suggestedBranchId ??
@@ -2366,13 +2380,26 @@ export default function usePos() {
             : product.stockGlobal
           : 999999;
         const lineKey = `p-${product.idProduct}-b-${branchIdLine ?? "g"}`;
+
+        const catalogPrice = roundMoney(Number(product.price) || 0);
+        const quotePriceRaw = product.quoteUnitPrice;
+        const hasQuotePrice =
+          quotePriceRaw != null && Number.isFinite(Number(quotePriceRaw));
+        const quotePrice = hasQuotePrice
+          ? roundMoney(Number(quotePriceRaw))
+          : null;
+        const choice = priceChoices[product.idProduct] || "current";
+        const useQuote = choice === "quote" && quotePrice != null;
+        const unitPrice = useQuote ? quotePrice : catalogPrice;
+        const quotePriceLocked =
+          useQuote && Math.abs(unitPrice - catalogPrice) > 0.009;
+
         const existing = nextCart.find((l) => l.key === lineKey);
         if (existing) {
+          // Línea ya en carrito: sumar cantidad y respetar precio/flags existentes.
           const before = existing.quantity;
           const desired = before + quantity;
-          const merged = tracksStock
-            ? Math.min(stockCap, desired)
-            : desired;
+          const merged = tracksStock ? Math.min(stockCap, desired) : desired;
           if (tracksStock && merged < desired) {
             adjustedStock.push(
               `${product.name}: en carrito ${before} + cotizado ${quantity} → se limitó a stock ${stockCap}`,
@@ -2391,7 +2418,7 @@ export default function usePos() {
           existing.serials = Array(merged).fill("");
           existing.stockBranch = stockCap;
           existing.stocksByBranch = stocks;
-          existing.unitPrice = product.price;
+          // No pisar unitPrice / quotePriceLocked / catalogUnitPrice.
           continue;
         }
 
@@ -2401,7 +2428,7 @@ export default function usePos() {
           name: product.name,
           sku: product.sku,
           upc: product.upc,
-          unitPrice: product.price,
+          unitPrice,
           quantity,
           discountPct: 0,
           branchId: branchIdLine,
@@ -2433,6 +2460,8 @@ export default function usePos() {
           serials: Array(quantity).fill(""),
           isManual: false,
           providerId: product.providerId ?? null,
+          quotePriceLocked,
+          catalogUnitPrice: catalogPrice,
         });
         importedUnits += quantity;
         touchedLines += 1;
@@ -2466,10 +2495,9 @@ export default function usePos() {
         showQuoteFeedback({
           type: "warning",
           title: "Nada importado de la cotización",
-          message:
-            cart.length > 0
-              ? "No se pudo agregar nada de la cotización al carrito (inactivos, sin stock o sin cupo extra). Se conservó lo que ya tenías."
-              : "Ningún producto de la cotización pudo importarse (inactivos, sin stock o fuera de catálogo).",
+          message: hadCart
+            ? "No se pudo agregar nada de la cotización al carrito (inactivos, sin stock o sin cupo extra). Se conservó lo que ya tenías."
+            : "Ningún producto de la cotización pudo importarse (inactivos, sin stock o fuera de catálogo).",
           sections,
         });
         return;
@@ -2504,19 +2532,82 @@ export default function usePos() {
       }
 
       const hasSkips = sections.length > 0;
-      const mergedWithExisting = cart.length > 0;
       showQuoteFeedback({
         type: hasSkips ? "warning" : "success",
-        title: mergedWithExisting
+        title: hadCart
           ? "Cotización fusionada con el carrito"
           : "Cotización cargada",
         message: hasSkips
-          ? `${mergedWithExisting ? "Se fusionaron" : "Se importaron"} ${touchedLines} línea(s) de ${payload.quoteNumber} (+${importedUnits} uds.). ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${adjustedStock.length ? `; ${adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
-          : `${mergedWithExisting ? "Se fusionaron" : "Se importaron"} ${touchedLines} línea(s) de la cotización ${payload.quoteNumber} (+${importedUnits} uds.).`,
+          ? `${hadCart ? "Se fusionaron" : "Se importaron"} ${touchedLines} línea(s) de ${payload.quoteNumber} (+${importedUnits} uds.). ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${adjustedStock.length ? `; ${adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
+          : `${hadCart ? "Se fusionaron" : "Se importaron"} ${touchedLines} línea(s) de la cotización ${payload.quoteNumber} (+${importedUnits} uds.).`,
         sections,
       });
     },
     [cart, customerName, guestEmail, guestPhone, showQuoteFeedback],
+  );
+
+  const openQuotePriceModal = useCallback(
+    (data: {
+      quoteNumber: string;
+      items: Array<
+        PosProductHit & {
+          quantity: number;
+          quoteStoreId: number | null;
+          quoteUnitPrice?: number | null;
+        }
+      >;
+      missingProductIds?: string[];
+      inactiveProducts?: Array<{ idProduct: number; name: string }>;
+      customer?: {
+        name?: string | null;
+        email?: string | null;
+        phone?: string | null;
+      };
+    }) => {
+      const priceItems = (data.items || []).map((it) => ({
+        idProduct: it.idProduct,
+        name: it.name,
+        quantity: Math.max(1, Math.round(Number(it.quantity) || 1)),
+        price: Number(it.price) || 0,
+        quoteUnitPrice:
+          it.quoteUnitPrice != null && Number.isFinite(Number(it.quoteUnitPrice))
+            ? Number(it.quoteUnitPrice)
+            : null,
+      }));
+
+      if (priceItems.length === 0) {
+        applyQuoteToCart(data, {});
+        return;
+      }
+
+      const choicesRef = {
+        current: defaultQuotePriceChoices(priceItems),
+      };
+
+      setDataModal({
+        isOpen: true,
+        title: "Precios de la cotización",
+        type: "info",
+        showActions: true,
+        confirmLabel: "Importar",
+        cancelLabel: "Cancelar",
+        maxWidth: "820px",
+        content: (
+          <QuoteImportPriceBody
+            items={priceItems}
+            onChoicesChange={(choices) => {
+              choicesRef.current = choices;
+            }}
+          />
+        ),
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => {
+          setDataModal((p) => ({ ...p, isOpen: false }));
+          applyQuoteToCart(data, choicesRef.current);
+        },
+      });
+    },
+    [applyQuoteToCart, setDataModal],
   );
 
   const loadQuote = useCallback(async () => {
@@ -2526,6 +2617,20 @@ export default function usePos() {
         type: "warning",
         title: "Cotización",
         message: "Ingresa el número de cotización.",
+      });
+      return;
+    }
+
+    if (linkedQuoteNumber) {
+      const sameQuote = linkedQuoteNumber === raw;
+      showQuoteFeedback({
+        type: "warning",
+        title: sameQuote
+          ? "Cotización ya importada"
+          : "Ya hay una cotización vinculada",
+        message: sameQuote
+          ? `La cotización ${linkedQuoteNumber} ya está vinculada a esta venta. No se puede volver a importar ni fusionar. Desvinculala si quieres cargar otra (o la misma de nuevo). Sí puedes agregar más productos del catálogo o captura sin catálogo.`
+          : `Solo se puede vincular una cotización por venta. Ahora está vinculada ${linkedQuoteNumber}. Desvinculala para cargar otra. Sí puedes agregar más productos del catálogo o captura sin catálogo.`,
       });
       return;
     }
@@ -2549,7 +2654,7 @@ export default function usePos() {
           });
           return;
         }
-        applyQuoteToCart(data);
+        openQuotePriceModal(data);
       } catch (e: any) {
         const code = String(e?.response?.data?.code || "");
         const apiMessage = String(e?.response?.data?.message || "").trim();
@@ -2578,11 +2683,13 @@ export default function usePos() {
     if (cart.length > 0) {
       setDataModal({
         isOpen: true,
-        title: "Reemplazar carrito",
+        title: "Fusionar con el carrito",
         content:
-          "El carrito tiene productos. ¿Reemplazarlos con los de la cotización?",
+          "El carrito ya tiene productos. Se conservarán tal cual (precios y cantidades) y se agregarán los de la cotización. Si un producto ya está, solo se sumará cantidad (sin cambiar su precio). ¿Continuar?",
         type: "warning",
         showActions: true,
+        confirmLabel: "Fusionar",
+        cancelLabel: "Cancelar",
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
         onConfirm: async () => {
           setDataModal((p) => ({ ...p, isOpen: false }));
@@ -2594,8 +2701,9 @@ export default function usePos() {
 
     await runFetch();
   }, [
-    applyQuoteToCart,
     cart.length,
+    linkedQuoteNumber,
+    openQuotePriceModal,
     quoteInput,
     requestGet,
     setDataModal,
@@ -2604,6 +2712,21 @@ export default function usePos() {
 
   const clearLinkedQuote = useCallback(() => {
     setLinkedQuoteNumber(null);
+    setCart((prev) =>
+      prev.map((line) => {
+        if (!line.quotePriceLocked) return line;
+        const restored =
+          line.catalogUnitPrice != null &&
+          Number.isFinite(line.catalogUnitPrice)
+            ? roundMoney(line.catalogUnitPrice)
+            : line.unitPrice;
+        return {
+          ...line,
+          unitPrice: restored,
+          quotePriceLocked: false,
+        };
+      }),
+    );
   }, []);
 
   const dismissQuotePageAlert = useCallback(() => {
@@ -2702,6 +2825,7 @@ export default function usePos() {
             quantity: l.quantity,
             unitPrice: l.unitPrice,
             discountPct: 0,
+            useQuotePrice: Boolean(l.quotePriceLocked) && Boolean(linkedQuoteNumber),
             serials: l.serials.map((s) => s.trim()).filter(Boolean),
           })),
           payments: payments.map((p) => ({
