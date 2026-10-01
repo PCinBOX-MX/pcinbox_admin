@@ -1,14 +1,11 @@
-# Plan: bloquear estatus terminal en reservas
+# Plan: Spinner en botones del modal + aviso refresh
 
-## Objetivo
-En pcinbox_admin `/reservas`, si una reserva pasa a `completed` o `cancelled`, el select de estatus queda bloqueado.
-
-## Estado
-Hecho.
-
-## Cambios
-- `reservas/page.tsx`: select deshabilitado + tooltip para `completed` y `cancelled`
-- `reservas/useReservas.tsx`: guard que rechaza cambios si el estatus actual ya es terminal
+## Hecho
+- Sin overlay centrado
+- Al `loading`: barra de acciones visible, Cancelar/Aceptar disabled, Confirm con spinner + “Procesando…”
+- Alert warning: no actualizar/cerrar navegador
+- `beforeunload` nativo del navegador sigue activo durante la petición
+- Contenido atenuado y no interactivo
 
 ## Fuera de alcance
-- Validación extra en API de reservas (si el backend está en otro repo)
+- Spinner global de página

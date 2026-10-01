@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
-import { MdCheckCircle, MdError, MdInfo, MdWarningAmber, MdAutorenew } from "react-icons/md";
 import { Modal, Typography } from "@mui/material";
 import Box from "@mui/material/Box";
 
@@ -182,6 +181,10 @@ const ModalComponent = ({
 
   const config = getTypeConfig();
   const IconComponent = config.icon;
+  const showActionBar = showActions || loading;
+  const confirmButtonLabel = loading
+    ? "Procesando…"
+    : confirmLabel || "Aceptar";
 
   if (!isOpen) return null;
 
@@ -296,16 +299,38 @@ const ModalComponent = ({
               minHeight: 0,
               overflowX: "hidden",
               overflowY: "auto",
-              padding: "0 28px 28px",
+              padding: "0 28px 16px",
               margin: 0,
             }}
           >
-            <div className="admin-modal-content-inner" style={{ margin: 0, padding: 0, width: "100%" }}>
+            <div
+              className="admin-modal-content-inner"
+              style={{
+                margin: 0,
+                padding: 0,
+                width: "100%",
+                opacity: loading ? 0.55 : 1,
+                pointerEvents: loading ? "none" : "auto",
+                transition: "opacity 0.2s ease",
+                filter: loading ? "grayscale(0.15)" : "none",
+              }}
+              aria-hidden={loading}
+            >
               {content}
             </div>
           </div>
+
+          {loading && (
+            <div className="admin-modal-loading-warning" role="status" aria-live="polite">
+              <AlertTriangle size={16} strokeWidth={2.4} aria-hidden />
+              <span>
+                No actualices ni cierres el navegador mientras se completa la petición.
+              </span>
+            </div>
+          )}
+
           {/* Botones de Accion */}
-          {showActions && (
+          {showActionBar && (
             <div className="admin-modal-actions">
               <button
                 disabled={loading}
@@ -316,26 +341,30 @@ const ModalComponent = ({
               </button>
               <button
                 disabled={loading}
-                className="admin-modal-btn-confirm"
+                className={`admin-modal-btn-confirm${loading ? " is-loading" : ""}`}
                 style={{
                   padding: "12px 28px",
-                  minWidth: 132,
+                  minWidth: 148,
                   backgroundColor: type === 'error' ? '#dc2626' : '#bb3d4b',
                   color: "white",
                   fontWeight: "600",
                   borderRadius: "10px",
                   border: "none",
-                  cursor: loading ? "not-allowed" : "pointer",
+                  cursor: loading ? "wait" : "pointer",
                   boxShadow: "0 8px 16px -8px rgba(187, 61, 75, 0.55)",
-                  transition: "background-color 0.2s",
+                  transition: "background-color 0.2s, opacity 0.2s",
                   display: "flex",
                   alignItems: "center",
+                  justifyContent: "center",
                   gap: 8,
+                  opacity: loading ? 0.92 : 1,
                 }}
                 onClick={handleConfirm}
               >
-                {loading && <MdAutorenew size={18} className="the-spinner" />}
-                {confirmLabel || "Aceptar"}
+                {loading && (
+                  <span className="admin-modal-spinner admin-modal-spinner--sm" aria-hidden />
+                )}
+                {confirmButtonLabel}
               </button>
             </div>
           )}

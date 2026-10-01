@@ -1392,6 +1392,82 @@ html[data-admin-sidebar="closed"]:has(aside:hover) .admin-layout {
   cursor: not-allowed;
 }
 
+.admin-modal-loading-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 24px 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.admin-modal-loading-warning svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #d97706;
+}
+
+.admin-modal-spinner {
+  --spinner-size: 16px;
+  --spinner-stroke: 2px;
+  width: var(--spinner-size);
+  height: var(--spinner-size);
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 50deg,
+      rgba(255, 255, 255, 0.25) 120deg,
+      #ffffff 260deg,
+      transparent 360deg
+    );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - var(--spinner-stroke)),
+    #000 calc(100% - var(--spinner-stroke) + 0.5px)
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - var(--spinner-stroke)),
+    #000 calc(100% - var(--spinner-stroke) + 0.5px)
+  );
+  animation: admin-modal-spinner-rotate 0.85s linear infinite;
+  flex-shrink: 0;
+}
+
+.admin-modal-spinner--sm {
+  --spinner-size: 16px;
+  --spinner-stroke: 2px;
+}
+
+.admin-modal-btn-confirm.is-loading {
+  pointer-events: none;
+}
+
+@keyframes admin-modal-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.the-spinner {
+  animation: admin-spin 0.85s linear infinite;
+}
+
 .admin-modal-icon {
   display: flex;
   align-items: center;

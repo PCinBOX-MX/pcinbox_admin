@@ -240,10 +240,30 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     }
 
     try {
-      setLoadingUpdateProduct(true);
       const keptRemoteUrls = remoteImageUrls(productImages);
       const providerId =
         findDataProduct?.providerId ?? dataProductProp.providerId;
+
+      const warrantyError = validateCatalogWarranty(warrantyState, {
+        providerId,
+        isPC: productIsPc,
+      });
+      if (warrantyError) {
+        setDataModal({
+          isOpen: true,
+          loading: false,
+          type: "error",
+          content: warrantyError,
+          title: "Garantía",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+
+      setLoadingUpdateProduct(true);
+      setDataModal((prev) => ({ ...prev, loading: true }));
 
       const formData = new FormData();
       formData.append("idProduct", String(dataProductProp.idProduct));
@@ -271,23 +291,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       }
       formData.append("caracteristicas", JSON.stringify(caracteristicas));
 
-      const warrantyError = validateCatalogWarranty(warrantyState, {
-        providerId,
-        isPC: productIsPc,
-      });
-      if (warrantyError) {
-        setDataModal({
-          isOpen: true,
-          type: "error",
-          content: warrantyError,
-          title: "Garantía",
-          showActions: true,
-          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
-        });
-        setLoadingUpdateProduct(false);
-        return;
-      }
       appendCatalogWarrantyToFormData(formData, warrantyState, {
         providerId,
         isPC: productIsPc,
@@ -307,7 +310,29 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       const resp = await requestPostProveedores(
         formData,
         "/editProductPcinbox",
+        { silent: true },
       );
+
+      if (resp.status !== 200) {
+        setDataModal({
+          isOpen: true,
+          loading: false,
+          type: "error",
+          content:
+            resp?.data?.message ||
+            "No se pudo actualizar el producto. Intenta de nuevo.",
+          title: "Error",
+          showActions: true,
+          onClose: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+          onConfirm: () => {
+            setDataModal((prev) => ({ ...prev, isOpen: false }));
+          },
+        });
+        return;
+      }
+
       const data = resp.data;
       const updatedProduct =
         data?.data?.data ?? data?.data ?? null;
@@ -329,8 +354,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
       setDataModal({
         isOpen: true,
+        loading: false,
         type: "success",
-        content: data.message,
+        content: data.message || "Producto actualizado correctamente",
         title: "Correcto",
         showActions: true,
         onClose: () => {
@@ -343,6 +369,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     } catch (error: any) {
       setDataModal({
         isOpen: true,
+        loading: false,
         type: "error",
         content:
           error?.response?.data?.message ||
@@ -734,6 +761,13 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         value={warrantyState}
         onChange={(next) => {
           setWarrantyState(next);
+          const amount = Number(next.amount);
+          const monthsFromUi =
+            next.choice === "months" && Number.isFinite(amount) && amount > 0
+              ? Math.round(amount)
+              : next.choice === "years" && Number.isFinite(amount) && amount > 0
+                ? Math.round(amount) * 12
+                : null;
           updateCurrentProduct((item) => ({
             ...item,
             warrantyMode:
@@ -742,10 +776,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 : next.choice
                   ? "months"
                   : null,
-            warrantyMonths:
-              next.choice === "months" || next.choice === "years"
-                ? Number(next.amount) || null
-                : null,
+            warrantyMonths: monthsFromUi,
           }));
         }}
       />

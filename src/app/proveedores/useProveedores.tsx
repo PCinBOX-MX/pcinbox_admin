@@ -174,6 +174,7 @@ const useProveedores = () => {
   const handleRegisterProveedores = async (dataForm: Record<string, any>) => {
     try {
       setRegisterProveedores((prev) => ({ ...prev, loading: true }));
+      setDataModal((prev) => ({ ...prev, loading: true }));
 
       const resp = await requestPostProveedores(
         {
@@ -183,12 +184,12 @@ const useProveedores = () => {
           phone: dataForm.phone,
         },
         "/registerProveedor",
+        { silent: true },
       );
 
       if (resp?.status == 200) {
         const data = resp.data;
 
-        setDataModal((prev) => ({ ...prev, isOpen: false }));
         setDataProveedores((prev1) => ({
           ...prev1,
           data: data.data.data,
@@ -199,6 +200,7 @@ const useProveedores = () => {
         }));
         setDataModal({
           isOpen: true,
+          loading: false,
           type: "success",
           content:
             "Proveedor " + dataForm.companyName + " registrado correctamente.",
@@ -218,6 +220,7 @@ const useProveedores = () => {
         setRegisterProveedores((prev) => ({ ...prev, loading: false }));
         setDataModal({
           isOpen: true,
+          loading: false,
           type: "error",
           title: "No se registró el proveedor",
           content:
@@ -236,6 +239,7 @@ const useProveedores = () => {
       setRegisterProveedores((prev) => ({ ...prev, loading: false }));
       setDataModal({
         isOpen: true,
+        loading: false,
         type: "error",
         title: "No se registró el proveedor",
         content:

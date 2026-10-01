@@ -195,6 +195,22 @@ export const adminTheme = createTheme({
         },
       },
     },
+    // Autocomplete aplica zIndex: theme.zIndex.modal (1300) en su Popper;
+    // MuiPopper solo no basta — hay que sobreescribir el slot popper.
+    MuiAutocomplete: {
+      defaultProps: {
+        slotProps: {
+          popper: {
+            sx: { zIndex: 11000 },
+          },
+        },
+      },
+      styleOverrides: {
+        popper: {
+          zIndex: 11000,
+        },
+      },
+    },
     MuiPopover: {
       styleOverrides: {
         root: {

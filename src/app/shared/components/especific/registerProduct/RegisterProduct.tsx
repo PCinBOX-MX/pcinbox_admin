@@ -295,6 +295,7 @@ const RegisterProduct = () => {
 
     try {
       setLoadingNewProduct(true);
+      setDataModal((prev) => ({ ...prev, loading: true }));
 
       const formData = new FormData();
 
@@ -380,13 +381,22 @@ const RegisterProduct = () => {
         isPC: warrantyIsPc,
       });
 
-      const resp = await requestPostProveedores(formData, "/newProductPcinbox");
+      const resp = await requestPostProveedores(formData, "/newProductPcinbox", {
+        silent: true,
+      });
       setLoadingNewProduct(false);
 
       if (resp.status == 200) {
         const data = resp.data;
+        setProductsProveedor((prev) => {
+          const newProduct = data?.data?.data ?? data?.data;
+          if (!newProduct) return prev;
+          const newData = [newProduct, ...prev.data];
+          return { ...prev, data: newData, copyData: newData };
+        });
         setDataModal({
           isOpen: true,
+          loading: false,
           type: "success",
           title: "Correcto",
           content: "Producto dado de alta correctamente",
@@ -404,16 +414,10 @@ const RegisterProduct = () => {
             }));
           },
         });
-
-        setProductsProveedor((prev) => {
-          const newProduct = data?.data?.data ?? data?.data;
-          if (!newProduct) return prev;
-          const newData = [newProduct, ...prev.data];
-          return { ...prev, data: newData, copyData: newData };
-        });
       } else {
         setDataModal({
           isOpen: true,
+          loading: false,
           type: "error",
           title: "No se dio de alta el producto",
           content:
@@ -432,6 +436,7 @@ const RegisterProduct = () => {
       setLoadingNewProduct(false);
       setDataModal({
         isOpen: true,
+        loading: false,
         type: "error",
         title: "No se dio de alta el producto",
         content:

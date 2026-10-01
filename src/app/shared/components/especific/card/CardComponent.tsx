@@ -77,10 +77,10 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             const resp = await requestPostProveedores(
               { idProduct: dataProductProp.idProduct },
               "/reactivateProductPcinbox",
+              { silent: true },
             );
 
             setLoadingReactivateProduct(false);
-            setDataModal((prev) => ({ ...prev, loading: false }));
 
             if (resp.status === 200) {
               setProductsProveedor((prev) => {
@@ -98,11 +98,12 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
               });
               setDataModal({
                 isOpen: true,
+                loading: false,
                 title: "Correcto",
                 type: "success",
                 content:
                   resp.data?.message || "Producto dado de alta correctamente",
-                showActions: false,
+                showActions: true,
                 onClose: () => {
                   setDataModal((prev) => ({ ...prev, isOpen: false }));
                 },
@@ -110,12 +111,10 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                   setDataModal((prev) => ({ ...prev, isOpen: false }));
                 },
               });
-              setTimeout(() => {
-                setDataModal((prev) => ({ ...prev, isOpen: false }));
-              }, 1500);
             } else {
               setDataModal({
                 isOpen: true,
+                loading: false,
                 title: "Error",
                 type: "error",
                 content:
@@ -134,12 +133,13 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
             setLoadingReactivateProduct(false);
             setDataModal({
               isOpen: true,
+              loading: false,
               title: "Error",
               type: "error",
               content:
                 error?.response?.data?.message ||
                 "Ocurrió un error al dar de alta el producto.",
-              showActions: false,
+              showActions: true,
               onClose: () => {
                 setDataModal((prev) => ({ ...prev, isOpen: false }));
               },
@@ -405,10 +405,10 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                           idProductExt: dataProduct.idProductExt,
                         },
                         "/removeProductPcinbox",
+                        { silent: true },
                       );
 
                       setLoadingRemoveProduct(false);
-                      setDataModal((prev) => ({ ...prev, loading: false }));
 
                       if (resp.status == 200) {
                         setProductsProveedor((prev) => {
@@ -428,10 +428,11 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                         });
                         setDataModal({
                           isOpen: true,
+                          loading: false,
                           title: "Correcto",
                           type: "success",
                           content: "Producto dado de baja correctamente",
-                          showActions: false,
+                          showActions: true,
                           onClose: () => {
                             setDataModal((prev) => ({
                               ...prev,
@@ -445,15 +446,10 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                             }));
                           },
                         });
-                        setTimeout(() => {
-                          setDataModal((prev) => ({
-                            ...prev,
-                            isOpen: false,
-                          }));
-                        }, 1500);
                       } else {
                         setDataModal({
                           isOpen: true,
+                          loading: false,
                           title: "Error",
                           type: "error",
                           content:
@@ -478,11 +474,12 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                       setLoadingRemoveProduct(false);
                       setDataModal({
                         isOpen: true,
+                        loading: false,
                         title: "Error",
                         type: "error",
                         content:
                           "Ocurrió un error al intentar dar de baja el producto.",
-                        showActions: false,
+                        showActions: true,
                         onClose: () => {
                           setDataModal((prev) => ({
                             ...prev,
@@ -496,9 +493,6 @@ const CardComponent = ({ dataProduct }: { dataProduct: ProductsI }) => {
                           }));
                         },
                       });
-                      setTimeout(() => {
-                        setDataModal((prev) => ({ ...prev, isOpen: false }));
-                      }, 1500);
                     }
                   },
                   title: "Cuidado",

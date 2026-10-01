@@ -439,10 +439,12 @@ const UploadImgProductProvider2 = ({
               files.forEach((file) => formData.append("files", file));
 
               setLoadingUploadImgProvider(true);
+              setDataModal((prev) => ({ ...prev, loading: true }));
 
               const resp = await requestPostProveedores(
                 formData,
                 "/newProductPcinbox",
+                { silent: true },
               );
               setLoadingUploadImgProvider(false);
               if (resp.status == 200) {
@@ -488,6 +490,7 @@ const UploadImgProductProvider2 = ({
 
                 setDataModal({
                   isOpen: true,
+                  loading: false,
                   type: "success",
                   content: `${dataProductProp.name} dado de alta correctamente`,
                   showActions: true,
@@ -502,6 +505,7 @@ const UploadImgProductProvider2 = ({
               } else {
                 setDataModal({
                   isOpen: true,
+                  loading: false,
                   type: "error",
                   title: "No se dio de alta el producto",
                   content:
@@ -520,6 +524,7 @@ const UploadImgProductProvider2 = ({
               setLoadingUploadImgProvider(false);
               setDataModal({
                 isOpen: true,
+                loading: false,
                 type: "error",
                 title: "No se dio de alta el producto",
                 content:
