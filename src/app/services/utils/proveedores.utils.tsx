@@ -7,6 +7,7 @@ import { useCallback } from "react";
 import { RequestOptions } from "./request-options";
 import { resolveApiErrorMessage } from "@/app/utils/apiErrorMessage";
 import { isVoluntaryLogoutPending } from "@/app/utils/sessionAuth";
+import { clearLocalStorageKeepingDevicePrefs } from "@/app/utils/clearLocalStorageKeepingDevicePrefs";
 
 export type { RequestOptions };
 
@@ -50,12 +51,12 @@ const ProveedoresUtils = () => {
       title: "Sesión expirada",
       onClose: () => {
         location.href = "/features/auth/Login";
-        localStorage.clear();
+        clearLocalStorageKeepingDevicePrefs();
         setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
       onConfirm: async () => {
         location.href = "/features/auth/Login";
-        localStorage.clear();
+        clearLocalStorageKeepingDevicePrefs();
         setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
       type: "info",

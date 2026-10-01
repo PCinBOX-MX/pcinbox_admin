@@ -538,6 +538,11 @@
   color: #1c1917;
 }
 
+.quoteLinkedHint {
+  font-weight: 400;
+  color: #78716c;
+}
+
 .quotePageAlert {
   display: flex;
   gap: 10px;

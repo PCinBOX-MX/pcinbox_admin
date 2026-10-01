@@ -9,6 +9,9 @@ export type QzPosSettings = {
 
 const STORAGE_KEY = "pcinbox.pos.qz.settings.v1";
 
+/** Exportado para whitelist de prefs de equipo al limpiar sesión. */
+export const QZ_SETTINGS_STORAGE_KEY = STORAGE_KEY;
+
 export const DEFAULT_QZ_SETTINGS: QzPosSettings = {
   printerName: "",
   drawerDialect: "epson",
