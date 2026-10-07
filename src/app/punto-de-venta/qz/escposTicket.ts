@@ -1,4 +1,4 @@
-import { formatPosFolio } from "../posFormat";
+import { formatPosFolio, formatPosSaleDateTime } from "../posFormat";
 import type { PosSale } from "../../interfaces/pos/pos.interface";
 import { formatPosPaymentLabel } from "../../interfaces/pos/pos.interface";
 import {
@@ -307,8 +307,7 @@ export function buildEscPosTicket(
     parts.push(`No. Cotizacion: ${thermalText(sale.quoteNumber)}` + LF);
   }
   parts.push(
-    `Fecha: ${thermalText(new Date(sale.createdAt).toLocaleString("es-MX"))}` +
-      LF,
+    `Fecha: ${thermalText(formatPosSaleDateTime(sale.createdAt))}` + LF,
   );
   parts.push(`Vendedor: ${POS_TICKET_SELLER}` + LF);
   parts.push(

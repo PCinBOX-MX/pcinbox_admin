@@ -1,5 +1,31 @@
 /** Formato de números solo UI (no cambia payloads al API). */
 
+/**
+ * Fecha de la venta como se muestra en el historial del POS.
+ * El ticket debe usar esta misma cadena: el HTML del API formatea en la
+ * zona del servidor y no coincide con el ítem.
+ */
+export function formatPosSaleDateTime(
+  value: string | Date | null | undefined,
+): string {
+  const d = value instanceof Date ? value : new Date(String(value ?? ""));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Sustituye la fecha del ticket HTML por la del ítem del historial. */
+export function replaceTicketHtmlDate(html: string, createdAt: string): string {
+  const label = formatPosSaleDateTime(createdAt);
+  if (!label) return html;
+  return html.replace(/(<div>\s*Fecha:\s*)[^<]*(<\/div>)/i, `$1${label}$2`);
+}
+
 /** Folio de venta para UI/ticket: sin prefijo PV- ni ceros a la izquierda. */
 export function formatPosFolio(folio: string | null | undefined): string {
   const raw = String(folio || "")

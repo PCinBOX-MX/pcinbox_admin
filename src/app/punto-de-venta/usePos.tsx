@@ -22,7 +22,7 @@ import {
   isPosProductOutOfStock,
   settlePosPayments,
 } from "../interfaces/pos/pos.interface";
-import { formatMoney, formatPosFolio } from "./posFormat";
+import { formatMoney, formatPosFolio, replaceTicketHtmlDate } from "./posFormat";
 import {
   QuoteImportPriceBody,
   defaultQuotePriceChoices,
@@ -4172,7 +4172,7 @@ export default function usePos() {
     setDataModal,
   ]);
 
-  const openTicketHtml = useCallback(async (id: number) => {
+  const openTicketHtml = useCallback(async (id: number, createdAt?: string) => {
     const preview = window.open("about:blank", "_blank");
     try {
       const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
@@ -4183,7 +4183,9 @@ export default function usePos() {
       if (!res.ok) {
         throw new Error("No se pudo cargar el ticket.");
       }
-      const html = await res.text();
+      const html = createdAt
+        ? replaceTicketHtmlDate(await res.text(), createdAt)
+        : await res.text();
       if (preview && !preview.closed) {
         preview.document.open();
         preview.document.write(html);
@@ -4212,7 +4214,11 @@ export default function usePos() {
   const printTicket = useCallback(
     async (
       saleOrId: PosSale | number,
-      opts?: { openDrawer?: boolean; preferHtml?: boolean },
+      opts?: {
+        openDrawer?: boolean;
+        preferHtml?: boolean;
+        createdAt?: string;
+      },
     ) => {
       try {
         let sale: PosSale | null =
@@ -4224,9 +4230,12 @@ export default function usePos() {
           sale = res?.data?.data || null;
         }
         if (!sale) throw new Error("Venta no encontrada");
+        if (opts?.createdAt) {
+          sale = { ...sale, createdAt: opts.createdAt };
+        }
 
         if (opts?.preferHtml) {
-          await openTicketHtml(sale.idPosSale);
+          await openTicketHtml(sale.idPosSale, sale.createdAt);
           return;
         }
 
@@ -4238,7 +4247,7 @@ export default function usePos() {
           const isPdfPrinter =
             qzErr instanceof QzPdfPrinterError ||
             isQzPdfOrVirtualPrinter(loadQzSettings().printerName);
-          await openTicketHtml(sale.idPosSale);
+          await openTicketHtml(sale.idPosSale, sale.createdAt);
           setDataModal({
             isOpen: true,
             title: isPdfPrinter
@@ -4272,7 +4281,7 @@ export default function usePos() {
   );
 
   const openTicket = useCallback(
-    (id: number, opts?: { folio?: string | null }) => {
+    (id: number, opts?: { folio?: string | null; createdAt?: string }) => {
       const folioLabel = opts?.folio
         ? ` del folio ${formatPosFolio(opts.folio)}`
         : "";
@@ -4287,7 +4296,7 @@ export default function usePos() {
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
         onConfirm: async () => {
           setDataModal((p) => ({ ...p, isOpen: false }));
-          await printTicket(id);
+          await printTicket(id, { createdAt: opts?.createdAt });
         },
       });
     },
@@ -4295,7 +4304,7 @@ export default function usePos() {
   );
 
   const downloadTicketPdf = useCallback(
-    (id: number, _opts?: { folio?: string | null }) => {
+    (id: number, opts?: { folio?: string | null; createdAt?: string }) => {
       void (async () => {
         const preview = window.open("about:blank", "_blank");
         let htmlUrl: string | null = null;
@@ -4314,7 +4323,9 @@ export default function usePos() {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (!res.ok) throw new Error("No se pudo cargar el ticket.");
-          const html = await res.text();
+          const html = opts?.createdAt
+            ? replaceTicketHtmlDate(await res.text(), opts.createdAt)
+            : await res.text();
 
           // 1) Mostrar de inmediato el mismo HTML (blob:), sin esperar el PDF.
           const htmlBlob = new Blob([html], {

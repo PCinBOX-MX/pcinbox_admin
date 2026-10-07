@@ -53,7 +53,13 @@ import {
 } from "../interfaces/pos/pos.interface";
 import { formatPosBranchUiLabel } from "../interfaces/pos/posBranchDisplay";
 import usePos from "./usePos";
-import { formatMoney, formatPosFolio, formatQty, moneyToWordsEsMx } from "./posFormat";
+import {
+  formatMoney,
+  formatPosFolio,
+  formatPosSaleDateTime,
+  formatQty,
+  moneyToWordsEsMx,
+} from "./posFormat";
 import {
   posWarrantySelectable,
   warrantyCoverageLabel,
@@ -2760,6 +2766,7 @@ export default function PuntoDeVentaPage() {
                         onClick={() =>
                           pos.openTicket(pos.lastSale!.idPosSale, {
                             folio: pos.lastSale!.folio,
+                            createdAt: pos.lastSale!.createdAt,
                           })
                         }
                       >
@@ -3795,14 +3802,7 @@ export default function PuntoDeVentaPage() {
                               city: sale.branchCity,
                             })
                           : null;
-                      const when = new Date(sale.createdAt);
-                      const whenLabel = when.toLocaleString("es-MX", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      });
+                      const whenLabel = formatPosSaleDateTime(sale.createdAt);
                       return (
                         <article
                           key={sale.idPosSale}
@@ -3890,6 +3890,7 @@ export default function PuntoDeVentaPage() {
                                 onClick={() =>
                                   pos.openTicket(sale.idPosSale, {
                                     folio: sale.folio,
+                                    createdAt: sale.createdAt,
                                   })
                                 }
                               >
@@ -3902,6 +3903,7 @@ export default function PuntoDeVentaPage() {
                                 onClick={() =>
                                   pos.downloadTicketPdf(sale.idPosSale, {
                                     folio: sale.folio,
+                                    createdAt: sale.createdAt,
                                   })
                                 }
                               >
@@ -4412,6 +4414,7 @@ export default function PuntoDeVentaPage() {
                   onClick={() =>
                     pos.openTicket(pos.detailSale!.idPosSale, {
                       folio: pos.detailSale!.folio,
+                      createdAt: pos.detailSale!.createdAt,
                     })
                   }
                 >
@@ -4428,6 +4431,7 @@ export default function PuntoDeVentaPage() {
                   onClick={() =>
                     pos.downloadTicketPdf(pos.detailSale!.idPosSale, {
                       folio: pos.detailSale!.folio,
+                      createdAt: pos.detailSale!.createdAt,
                     })
                   }
                 >
@@ -4525,6 +4529,7 @@ export default function PuntoDeVentaPage() {
                       onClick={() =>
                         pos.openTicket(pos.lastSale!.idPosSale, {
                           folio: pos.lastSale!.folio,
+                          createdAt: pos.lastSale!.createdAt,
                         })
                       }
                     >
