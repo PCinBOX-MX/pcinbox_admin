@@ -2,8 +2,6 @@
 
 /**
  * Fecha de la venta como se muestra en el historial del POS.
- * El ticket debe usar esta misma cadena: el HTML del API formatea en la
- * zona del servidor y no coincide con el ítem.
  */
 export function formatPosSaleDateTime(
   value: string | Date | null | undefined,
@@ -19,9 +17,30 @@ export function formatPosSaleDateTime(
   });
 }
 
-/** Sustituye la fecha del ticket HTML por la del ítem del historial. */
+/** Fecha del ticket: DD/MM/YYYY HH:mm en America/Mexico_City. */
+export function formatPosTicketDate(
+  value: string | Date | null | undefined,
+): string {
+  const d = value instanceof Date ? value : new Date(String(value ?? ""));
+  if (Number.isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Mexico_City",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value || "";
+  const hour = pick("hour") === "24" ? "00" : pick("hour");
+  return `${pick("day")}/${pick("month")}/${pick("year")} ${hour}:${pick("minute")}`;
+}
+
+/** Sustituye la fecha del ticket HTML por DD/MM/YYYY de la venta. */
 export function replaceTicketHtmlDate(html: string, createdAt: string): string {
-  const label = formatPosSaleDateTime(createdAt);
+  const label = formatPosTicketDate(createdAt);
   if (!label) return html;
   return html.replace(/(<div>\s*Fecha:\s*)[^<]*(<\/div>)/i, `$1${label}$2`);
 }
