@@ -35,6 +35,7 @@ export type QuoteCatalogProduct = {
   active?: boolean;
   stock?: number;
   stocksByBranch?: QuoteBranchStock[];
+  kind?: string | null;
 };
 
 export type QuoteDraftLine = QuoteCatalogProduct & { quantity: number | "" };

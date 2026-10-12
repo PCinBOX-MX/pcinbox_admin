@@ -282,12 +282,17 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                 <div className={styles.resultBody}>
                   <div className={styles.resultHead}>
                     <strong>{product.name}</strong>
-                    <span
-                      className={
-                        product.active === false ? styles.badgeOff : styles.badgeOn
-                      }
-                    >
-                      {product.active === false ? "Inactivo" : "Activo"}
+                    <span className={styles.resultBadges}>
+                      <span
+                        className={
+                          product.active === false ? styles.badgeOff : styles.badgeOn
+                        }
+                      >
+                        {product.active === false ? "Inactivo" : "Activo"}
+                      </span>
+                      {product.kind ? (
+                        <span className={styles.badgePc}>{product.kind}</span>
+                      ) : null}
                     </span>
                   </div>
                   <dl className={styles.resultCodes}>

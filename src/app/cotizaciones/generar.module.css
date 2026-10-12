@@ -260,9 +260,18 @@
 }
 
 .resultHead .badgeOn,
-.resultHead .badgeOff {
+.resultHead .badgeOff,
+.resultHead .badgePc {
   flex: 0 0 auto;
   margin-top: 1px;
+}
+
+.resultBadges {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 .resultCodes {
@@ -341,6 +350,7 @@
 
 .badgeOn,
 .badgeOff,
+.badgePc,
 .stockTotal,
 .stockChip {
   display: inline-flex;
@@ -355,6 +365,11 @@
 .badgeOn {
   background: #ecfdf3;
   color: #166534;
+}
+
+.badgePc {
+  background: #e0e7ff;
+  color: #1e3a8a;
 }
 
 .badgeOff {
