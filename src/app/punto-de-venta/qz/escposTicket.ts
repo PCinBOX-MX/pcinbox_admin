@@ -139,12 +139,23 @@ function wrap(text: string, width: number): string[] {
   return out;
 }
 
-/** Wrap con tope de líneas (descripciones largas en térmica). */
-function wrapLimited(
-  text: string,
-  width: number,
-  maxLines = 4,
-): string[] {
+/** Texto capturado completo: conserva saltos de línea y no recorta. */
+function wrapNote(text: string, width: number): string[] {
+  const out: string[] = [];
+  const paragraphs = String(text || "").replace(/\r\n/g, "\n").split("\n");
+  paragraphs.forEach((paragraph, index) => {
+    const lines = wrap(paragraph, width);
+    if (lines.length === 0) {
+      if (index < paragraphs.length - 1) out.push("");
+      return;
+    }
+    out.push(...lines);
+  });
+  return out;
+}
+
+/** Solo el nombre del producto: si pasa de 4 renglones, se corta. */
+function wrapProductName(text: string, width: number, maxLines = 4): string[] {
   const lines = wrap(text, width);
   if (lines.length <= maxLines) return lines;
   const kept = lines.slice(0, maxLines);
@@ -311,10 +322,16 @@ export function buildEscPosTicket(
   );
   parts.push(`Vendedor: ${POS_TICKET_SELLER}` + LF);
   parts.push(
-    `Cliente: ${thermalText(String(sale.customerName || "").trim())}` + LF,
+    ...wrapNote(
+      `Cliente: ${thermalText(String(sale.customerName || "").trim())}`,
+      width,
+    ).map((w) => w + LF),
   );
   parts.push(
-    `Telefono: ${thermalText(String(sale.customerPhone || "").trim())}` + LF,
+    ...wrapNote(
+      `Telefono: ${thermalText(String(sale.customerPhone || "").trim())}`,
+      width,
+    ).map((w) => w + LF),
   );
   parts.push(centerDashed("PRODUCTOS", width) + LF);
 
@@ -331,7 +348,7 @@ export function buildEscPosTicket(
     const title = isService
       ? `Servicio: ${serviceLabel || it.productName}`
       : it.productName;
-    for (const w of wrapLimited(thermalText(title), width, 4)) {
+    for (const w of wrapProductName(thermalText(title), width)) {
       parts.push(w + LF);
     }
     if (isMeaningfulCode(it.productSku)) {
@@ -355,11 +372,12 @@ export function buildEscPosTicket(
     // Un solo importe por línea (evita repetir el mismo precio 2–3 veces).
     parts.push(line(width, "Importe:", money(lineTotal)) + LF);
     if (it.serials?.length) {
-      parts.push(
-        `S/N: ${thermalText(
-          it.serials.map((s) => s.serialNumber).join(", "),
-        )}` + LF,
-      );
+      for (const w of wrapNote(
+        `S/N: ${thermalText(it.serials.map((s) => s.serialNumber).join(", "))}`,
+        width,
+      )) {
+        parts.push(w + LF);
+      }
     }
     const intake = it.serviceIntake;
     if (intake?.equipment?.length) {
@@ -367,21 +385,22 @@ export function buildEscPosTicket(
       for (const eq of intake.equipment) {
         const qty = Number(eq.quantity) || 1;
         const desc = thermalText(eq.description || "");
-        for (const w of wrapLimited(
-          `${qty}x ${desc}`,
-          width,
-          3,
-        )) {
+        for (const w of wrapNote(`${qty}x ${desc}`, width)) {
           parts.push(w + LF);
         }
         if (eq.serialNumber) {
-          parts.push(`S/N eq: ${thermalText(eq.serialNumber)}` + LF);
+          for (const w of wrapNote(
+            `S/N eq: ${thermalText(eq.serialNumber)}`,
+            width,
+          )) {
+            parts.push(w + LF);
+          }
         }
       }
       const failure = String(intake.failureOrRequestedService || "").trim();
       if (failure) {
         parts.push("Falla/Servicio:" + LF);
-        for (const w of wrapLimited(thermalText(failure), width, 6)) {
+        for (const w of wrapNote(thermalText(failure), width)) {
           parts.push(w + LF);
         }
       }
@@ -390,7 +409,7 @@ export function buildEscPosTicket(
       ).trim();
       if (obs) {
         parts.push("Obs. tecnicas:" + LF);
-        for (const w of wrapLimited(thermalText(obs), width, 6)) {
+        for (const w of wrapNote(thermalText(obs), width)) {
           parts.push(w + LF);
         }
       }
@@ -417,7 +436,9 @@ export function buildEscPosTicket(
         line(width, thermalText(disp.label), money(disp.amount)) + LF,
       );
       if (disp.note) {
-        parts.push(`  ${thermalText(disp.note)}` + LF);
+        for (const w of wrapNote(`  ${thermalText(disp.note)}`, width)) {
+          parts.push(w + LF);
+        }
       }
     }
   }
@@ -426,7 +447,7 @@ export function buildEscPosTicket(
     parts.push(LF);
     parts.push(ESC + "a" + "\x00");
     parts.push(centerDashed("NOTA", width) + LF);
-    for (const w of wrapLimited(thermalText(notes), width, 8)) {
+    for (const w of wrapNote(thermalText(notes), width)) {
       parts.push(w + LF);
     }
   }

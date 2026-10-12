@@ -45,6 +45,25 @@ type QzApi = {
 let qzPromise: Promise<QzApi> | null = null;
 let securityConfigured = false;
 let logoBase64Cache: string | null | undefined;
+/** La térmica acaba de encender: el primer pulso corto se pierde hasta que hay un init. */
+let printerAwake = false;
+/** Un solo job a la vez. Dos raw en paralelo (cajón + ticket) se pisan en frío. */
+let printChain: Promise<unknown> = Promise.resolve();
+
+function enqueueQzJob<T>(job: () => Promise<T>): Promise<T> {
+  const run = printChain.then(job, job);
+  printChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 async function getQz(): Promise<QzApi> {
   if (!qzPromise) {
@@ -162,7 +181,7 @@ async function loadTicketLogoBase64(): Promise<string | null> {
   return null;
 }
 
-export async function printRawToQz(
+async function printRawUnlocked(
   data: string,
   printerName?: string,
 ): Promise<void> {
@@ -181,73 +200,91 @@ export async function printRawToQz(
   ]);
 }
 
-export async function printPosTicketQz(
+export function printRawToQz(
+  data: string,
+  printerName?: string,
+): Promise<void> {
+  return enqueueQzJob(() => printRawUnlocked(data, printerName));
+}
+
+export function printPosTicketQz(
   sale: PosSale,
   opts?: { openDrawer?: boolean; printerName?: string },
 ): Promise<void> {
-  const settings = loadQzSettings();
-  const printer = requirePrinterName(opts?.printerName);
-  if (isQzPdfOrVirtualPrinter(printer)) {
-    throw new QzPdfPrinterError(printer);
-  }
+  return enqueueQzJob(async () => {
+    const settings = loadQzSettings();
+    const printer = requirePrinterName(opts?.printerName);
+    if (isQzPdfOrVirtualPrinter(printer)) {
+      throw new QzPdfPrinterError(printer);
+    }
 
-  const qz = await connectQz();
-  const config = qz.configs.create(printer);
+    const qz = await connectQz();
+    const config = qz.configs.create(printer);
 
-  // Forzar regenerar logo (evita cache vacío de un intento fallido).
-  clearEscPosLogoCache();
-  const logoRaster = await buildEscPosLogoRaster("/api/qz/logo", true);
-  const logoB64 = logoRaster ? null : await loadTicketLogoBase64();
+    // Forzar regenerar logo (evita cache vacío de un intento fallido).
+    clearEscPosLogoCache();
+    const logoRaster = await buildEscPosLogoRaster("/api/qz/logo", true);
+    const logoB64 = logoRaster ? null : await loadTicketLogoBase64();
 
-  const payload = buildEscPosTicket(sale, {
-    openDrawer: Boolean(opts?.openDrawer),
-    drawerDialect: settings.drawerDialect,
-    logoPrinted: Boolean(logoRaster || logoB64),
-    logoRaster: logoRaster || null,
-  });
+    const payload = buildEscPosTicket(sale, {
+      openDrawer: Boolean(opts?.openDrawer),
+      drawerDialect: settings.drawerDialect,
+      logoPrinted: Boolean(logoRaster || logoB64),
+      logoRaster: logoRaster || null,
+    });
 
-  // Un solo job raw en base64 (raster binario + texto) = más fiable en Nextep.
-  if (logoRaster) {
-    await qz.print(config, [
-      {
+    // Un solo job raw en base64 (raster binario + texto) = más fiable en Nextep.
+    if (logoRaster) {
+      await qz.print(config, [
+        {
+          type: "raw",
+          format: "base64",
+          data: binaryStringToBase64(payload),
+        },
+      ]);
+    } else {
+      // Fallback: pixel QZ + raw texto.
+      const job: unknown[] = [];
+      if (logoB64) {
+        job.push({
+          type: "pixel",
+          format: "image",
+          flavor: "base64",
+          data: logoB64,
+          options: {
+            language: "ESCPOS",
+            dotDensity: "single",
+            scaleContent: true,
+          },
+        });
+      }
+      job.push({
         type: "raw",
         format: "base64",
         data: binaryStringToBase64(payload),
-      },
-    ]);
-    return;
-  }
-
-  // Fallback: pixel QZ + raw texto.
-  const job: unknown[] = [];
-  if (logoB64) {
-    job.push({
-      type: "pixel",
-      format: "image",
-      flavor: "base64",
-      data: logoB64,
-      options: {
-        language: "ESCPOS",
-        dotDensity: "single",
-        scaleContent: true,
-      },
-    });
-  }
-  job.push({
-    type: "raw",
-    format: "base64",
-    data: binaryStringToBase64(payload),
+      });
+      await qz.print(config, job);
+    }
+    printerAwake = true;
   });
-  await qz.print(config, job);
 }
 
-export async function openCashDrawerQz(opts?: {
+export function openCashDrawerQz(opts?: {
   printerName?: string;
   dialect?: QzDrawerDialect;
 }): Promise<void> {
-  const settings = loadQzSettings();
-  const dialect = opts?.dialect || settings.drawerDialect;
-  await printRawToQz(drawerKickBytes(dialect), opts?.printerName);
+  return enqueueQzJob(async () => {
+    const settings = loadQzSettings();
+    const dialect = opts?.dialect || settings.drawerDialect;
+    const printerName = opts?.printerName;
+    // En frío el primer pulso se pierde. Un init y una pausa dejan la térmica lista.
+    if (!printerAwake) {
+      await printRawUnlocked("\x1B\x40", printerName);
+      await delay(700);
+    }
+    await printRawUnlocked(drawerKickBytes(dialect), printerName);
+    printerAwake = true;
+  });
 }
 
 export function isQzConnectionError(err: unknown): boolean {

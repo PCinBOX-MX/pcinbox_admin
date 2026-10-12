@@ -115,7 +115,7 @@ async function renderTicketCanvas(html: string): Promise<HTMLCanvasElement> {
       if (brandImg.naturalWidth > 0) fixLogoBox(brandImg, 72);
     }
 
-    iframe.style.height = `${Math.min(Math.max(ticket.scrollHeight + 24, 360), 3500)}px`;
+    iframe.style.height = `${Math.max(ticket.scrollHeight + 24, 360)}px`;
 
     return await html2canvas(ticket, {
       scale: 1.25,

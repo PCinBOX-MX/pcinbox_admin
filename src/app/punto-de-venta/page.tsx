@@ -1776,7 +1776,8 @@ export default function PuntoDeVentaPage() {
                     <strong>Agregar del catálogo</strong>
                     <span>
                       Busca en inventario e incorpora al carrito (nombre, clave o
-                      código de barras).
+                      código de barras). Incluye componentes, PC gamer y
+                      workstation.
                     </span>
                   </div>
                   <div className={styles.searchCombobox}>
@@ -1937,6 +1938,11 @@ export default function PuntoDeVentaPage() {
                                 {outOfStock ? (
                                   <span className={styles.chipOutOfStock}>
                                     Sin stock
+                                  </span>
+                                ) : null}
+                                {hit.isPC ? (
+                                  <span className={styles.chip} title={hit.pcLabel || "PC armada"}>
+                                    {hit.pcLabel || "PC armada"}
                                   </span>
                                 ) : null}
                                 {hit.providerName ? (
@@ -3359,8 +3365,8 @@ export default function PuntoDeVentaPage() {
                 </h2>
                 <p>
                   Instala QZ Tray en esta PC, permite este sitio y elige la
-                  impresora térmica. En cobros con efectivo el cajón se abre con
-                  el mismo comando que el botón naranja (job aparte del ticket).
+                  impresora térmica. En cobros con efectivo el ticket sale primero
+                  y el cajón se abre después, cuando la impresora ya está lista.
                 </p>
               </div>
               <div className={styles.cashPanelBody}>
