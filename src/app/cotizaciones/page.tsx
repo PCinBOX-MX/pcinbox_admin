@@ -2,17 +2,20 @@
 
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
 import { Alert, CircularProgress, TextField } from "@mui/material";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   Download,
   Eye,
+  FilePlus,
   FileText,
   Filter,
-  RefreshCw,
   Search,
   Archive,
   X,
 } from "lucide-react";
+import GenerarCotizacionPanel from "./GenerarCotizacionPanel";
+import { patchAdminQuoteDraft, readAdminQuoteDraft } from "./useGenerarCotizacion";
 import usePermissions from "../hooks/usePermissions";
 import { Cotizacion } from "../interfaces/cotizaciones/cotizaciones.interface";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
@@ -102,6 +105,11 @@ function QuoteActions({
 export default function CotizacionesPage() {
   const { can, hydrated } = usePermissions();
   const hasPermission = hydrated && can("quotes.manage");
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    setCreating(readAdminQuoteDraft()?.open === true);
+  }, []);
   const {
     records,
     pagination,
@@ -162,9 +170,31 @@ export default function CotizacionesPage() {
   return (
     <AdminPageShell
       title="Cotizaciones"
-      subtitle="Consulta, descarga y administra los PDF generados por clientes"
-      actions={<AdminRefreshButton onClick={() => void reload()} loading={loading} />}
-      filters={
+      subtitle={
+        creating
+          ? "Genera un PDF con datos completos o solo con nombres y el total"
+          : "Consulta, descarga y genera cotizaciones"
+      }
+      actions={
+        creating ? null : (
+          <>
+            <button
+              type="button"
+              className="admin-btn-primary"
+              onClick={() => {
+                patchAdminQuoteDraft({ open: true });
+                setCreating(true);
+              }}
+              data-testid="open-generar-cotizacion"
+            >
+              <FilePlus size={16} />
+              Generar cotización
+            </button>
+            <AdminRefreshButton onClick={() => void reload()} loading={loading} />
+          </>
+        )
+      }
+      filters={creating ? undefined : (
         <>
           <div className="admin-filters-header">
             <Filter size={16} />
@@ -224,11 +254,26 @@ export default function CotizacionesPage() {
             </button>
           </div>
         </>
+      )}
+      paginationTop={
+        !creating && records.length > 0 ? paginationBlock : undefined
       }
-      paginationTop={records.length > 0 ? paginationBlock : undefined}
-      paginationBottom={records.length > 0 ? paginationBlock : undefined}
+      paginationBottom={
+        !creating && records.length > 0 ? paginationBlock : undefined
+      }
     >
-      {error ? (
+      {creating ? (
+        <GenerarCotizacionPanel
+          onClose={() => {
+            patchAdminQuoteDraft({ open: false });
+            setCreating(false);
+          }}
+          onCreated={() => {
+            setCreating(false);
+            void reload();
+          }}
+        />
+      ) : error ? (
         <div className={styles.state} data-testid="cotizaciones-error">
           <Alert
             severity="error"
