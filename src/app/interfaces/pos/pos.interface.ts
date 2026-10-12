@@ -93,6 +93,8 @@ export type PosProductHit = {
   warrantyMode?: string | null;
   /** PC gamer / estaciones (provider 1 → 1 año fijo). */
   isPC?: boolean;
+  /** Etiqueta corta: PC Gamer Pro, Workstation, etc. */
+  pcLabel?: string | null;
   providerId?: number;
   providerName?: string | null;
   stocksByBranch?: PosBranchStock[];

@@ -78,7 +78,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
     setDataModal,
     dataMarca,
     dataCategoria,
-    dataProductProveedor,
     dataProveedores,
     setProductsProveedor,
     socketCron,
@@ -138,7 +137,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const { register, handleSubmit, control, setValue } = useForm();
+  const { register, handleSubmit, control, setValue, watch } = useForm();
+  const draftProviderId =
+    watch("Proveedor") ?? dataProductProp.providerId;
 
   const updateCurrentProduct = (updater: (item: ProductsI) => ProductsI) => {
     setProductsProveedor((prev) => ({
@@ -179,13 +180,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   }, [socketCron, socketCronReady, dataProductProp.idProduct, setValue]);
 
   const syncImages = (updater: (prev: string[]) => string[]) => {
-    // No actualizar GlobalProvider dentro del updater de setProductImages.
-    let nextImages = productImages;
-    setProductImages((prev) => {
-      nextImages = updater(prev);
-      return nextImages;
-    });
-    updateCurrentProduct((item) => ({ ...item, image_url: nextImages }));
+    setProductImages((prev) => updater(prev));
   };
 
   const syncCaracteristicasFromText = (text: string, tipo: string | null) => {
@@ -194,18 +189,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       cleaned = stripLicenseControlledLinesFromText(cleaned);
     }
     setBulkText(cleaned);
-    const payload = buildCaracteristicasPayload(cleaned, tipo, productIsPc);
-    updateCurrentProduct((item) => ({
-      ...item,
-      caracteristicas: payload,
-    }));
   };
 
   const handleEditProduct = async (event: any) => {
-    const findDataProduct = dataProductProveedor?.data?.find((item) =>
-      isSameProduct(item, dataProductProp),
-    );
-
     if (productIsPc && !selectedPcTipo) {
       alert("Selecciona el tipo de PC");
       return;
@@ -241,8 +227,9 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
 
     try {
       const keptRemoteUrls = remoteImageUrls(productImages);
-      const providerId =
-        findDataProduct?.providerId ?? dataProductProp.providerId;
+      const providerId = Number(
+        event?.Proveedor ?? dataProductProp.providerId,
+      );
 
       const warrantyError = validateCatalogWarranty(warrantyState, {
         providerId,
@@ -337,20 +324,63 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
       const updatedProduct =
         data?.data?.data ?? data?.data ?? null;
 
-      if (imagesChanged) {
-        const nextUrls = remoteImageUrls(
-          updatedProduct?.image_url ??
-            updatedProduct?.imageUrl ??
-            keptRemoteUrls,
-        );
+      const saved =
+        updatedProduct && typeof updatedProduct === "object"
+          ? updatedProduct
+          : {};
+      const nextUrls = imagesChanged
+        ? remoteImageUrls(
+            saved.image_url ?? saved.imageUrl ?? keptRemoteUrls,
+          )
+        : null;
+
+      if (nextUrls) {
         productImages.forEach((url) => {
           if (url.startsWith("blob:")) URL.revokeObjectURL(url);
         });
         setNewImageFiles([]);
         setProductImages(nextUrls);
         initialImageUrlsRef.current = nextUrls;
-        updateCurrentProduct((item) => ({ ...item, image_url: nextUrls }));
       }
+
+      const asNumber = (value: unknown, fallback: unknown) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : Number(fallback);
+      };
+
+      updateCurrentProduct((item) => ({
+        ...item,
+        name: String(saved.name ?? event.name ?? item.name ?? ""),
+        description: String(
+          saved.description ?? event.description ?? item.description ?? "",
+        ),
+        categoryId: asNumber(
+          saved.categoryId ?? event.categoria,
+          item.categoryId,
+        ),
+        marcaId: asNumber(saved.marcaId ?? event.marca, item.marcaId),
+        stock: asNumber(saved.stock ?? event.stock, item.stock),
+        price: asNumber(saved.price ?? event.price, item.price),
+        sku: String(saved.sku ?? event.sku ?? item.sku ?? ""),
+        upc: String(saved.upc ?? event.upc ?? item.upc ?? ""),
+        providerId: asNumber(
+          saved.providerId ?? providerId,
+          item.providerId,
+        ),
+        profitMargin: providerUsesProfitMargin(providerId)
+          ? asNumber(event?.profitMargin, item.profitMargin ?? 0)
+          : item.profitMargin,
+        caracteristicas: saved.caracteristicas ?? caracteristicas,
+        licenseType: productIsLicense
+          ? (saved.licenseType ?? licenseFields.licenseType)
+          : item.licenseType,
+        warrantyMode: saved.warrantyMode ?? item.warrantyMode,
+        warrantyMonths:
+          saved.warrantyMonths != null
+            ? asNumber(saved.warrantyMonths, item.warrantyMonths)
+            : item.warrantyMonths,
+        ...(nextUrls ? { image_url: nextUrls } : {}),
+      }));
 
       setDataModal({
         isOpen: true,
@@ -448,12 +478,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           {...register("name", {
             required: "Se requiere nombre",
             value: dataProductProp?.name,
-            onChange(event) {
-              updateCurrentProduct((item) => ({
-                ...item,
-                name: event.target.value,
-              }));
-            },
           })}
           required
         />
@@ -464,12 +488,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           type="text"
           {...register("description", {
             value: dataProductProp?.description,
-            onChange(event) {
-              updateCurrentProduct((item) => ({
-                ...item,
-                description: event.target.value,
-              }));
-            },
           })}
         />
       </div>
@@ -494,13 +512,8 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                     (c: any) => c.idCategorie == field.value,
                   ) || null
                 }
-                onChange={(event, newValue) => {
-                  const id = newValue ? newValue.idCategorie : null;
-                  field.onChange(id);
-                  updateCurrentProduct((item) => ({
-                    ...item,
-                    categoryId: id,
-                  }));
+                onChange={(_event, newValue) => {
+                  field.onChange(newValue ? newValue.idCategorie : null);
                 }}
                 getOptionLabel={(option) =>
                   `${option.name} ${option.description ?? ""}`
@@ -569,13 +582,8 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 value={
                   dataMarca?.find((c: any) => c.idMarca == field.value) || null
                 }
-                onChange={(event, newValue) => {
-                  const id = newValue ? newValue.idMarca : null;
-                  field.onChange(id);
-                  updateCurrentProduct((item) => ({
-                    ...item,
-                    marcaId: id,
-                  }));
+                onChange={(_event, newValue) => {
+                  field.onChange(newValue ? newValue.idMarca : null);
                 }}
                 getOptionLabel={(option) => option.name || ""}
                 renderInput={(params) => (
@@ -596,12 +604,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           variant="outlined"
           {...register("stock", {
             value: dataProductProp?.stock || 0,
-            onChange(event) {
-              updateCurrentProduct((item) => ({
-                ...item,
-                stock: event.target.value,
-              }));
-            },
           })}
           required
         />
@@ -615,12 +617,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           }}
           {...register("price", {
             value: dataProductProp?.price,
-            onChange(event) {
-              updateCurrentProduct((item) => ({
-                ...item,
-                price: event.target.value,
-              }));
-            },
           })}
         />
       </div>
@@ -633,12 +629,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
         fullWidth
         {...register("sku", {
           value: dataProductProp?.sku,
-          onChange(event) {
-            updateCurrentProduct((item) => ({
-              ...item,
-              sku: event.target.value,
-            }));
-          },
         })}
       />
 
@@ -688,12 +678,6 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           variant="outlined"
           {...register("upc", {
             value: dataProductProp?.upc,
-            onChange(event) {
-              updateCurrentProduct((item) => ({
-                ...item,
-                upc: event.target.value,
-              }));
-            },
           })}
         />
 
@@ -715,13 +699,8 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                     (p: any) => p.idProvider == field.value,
                   ) || null
                 }
-                onChange={(event, newValue) => {
-                  const id = newValue ? newValue.idProvider : null;
-                  field.onChange(id);
-                  updateCurrentProduct((item) => ({
-                    ...item,
-                    providerId: Number(id),
-                  }));
+                onChange={(_event, newValue) => {
+                  field.onChange(newValue ? newValue.idProvider : null);
                 }}
                 getOptionLabel={(option) => `${option.companyName}`}
                 renderInput={(params) => (
@@ -736,7 +715,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
           />
         </FormControl>
 
-        {providerUsesProfitMargin(dataProductProp?.providerId) && (
+        {providerUsesProfitMargin(draftProviderId) && (
           <TextField
             style={{ flex: 1 }}
             label="Margen de Utilidad"
@@ -744,41 +723,16 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             variant="outlined"
             {...register("profitMargin", {
               value: dataProductProp?.profitMargin,
-              onChange(event) {
-                updateCurrentProduct((item) => ({
-                  ...item,
-                  profitMargin: event.target.value,
-                }));
-              },
             })}
           />
         )}
       </div>
 
       <CatalogWarrantyFields
-        providerId={dataProductProp?.providerId}
+        providerId={draftProviderId}
         isPC={productIsPc}
         value={warrantyState}
-        onChange={(next) => {
-          setWarrantyState(next);
-          const amount = Number(next.amount);
-          const monthsFromUi =
-            next.choice === "months" && Number.isFinite(amount) && amount > 0
-              ? Math.round(amount)
-              : next.choice === "years" && Number.isFinite(amount) && amount > 0
-                ? Math.round(amount) * 12
-                : null;
-          updateCurrentProduct((item) => ({
-            ...item,
-            warrantyMode:
-              next.choice === "none" || next.choice === "service_center"
-                ? next.choice
-                : next.choice
-                  ? "months"
-                  : null,
-            warrantyMonths: monthsFromUi,
-          }));
-        }}
+        onChange={setWarrantyState}
       />
 
       {productIsLicense && (
