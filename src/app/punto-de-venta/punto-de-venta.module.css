@@ -3365,6 +3365,8 @@
   font-size: 13px;
   color: #374151;
   line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .detailCancelBox {
