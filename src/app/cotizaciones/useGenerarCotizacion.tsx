@@ -60,6 +60,12 @@ export type AdminQuoteDraft = {
   customerPhone: string;
   includeAssembly: boolean;
   lines: QuoteDraftLine[];
+  importedQuotes: LocalImportedQuote[];
+};
+
+type LocalImportedQuote = {
+  quoteNumber: string;
+  productIds: number[];
 };
 
 const emptyDraft = (): AdminQuoteDraft => ({
@@ -69,6 +75,7 @@ const emptyDraft = (): AdminQuoteDraft => ({
   customerPhone: "",
   includeAssembly: false,
   lines: [],
+  importedQuotes: [],
 });
 
 function draftHasContent(draft: AdminQuoteDraft): boolean {
@@ -126,6 +133,32 @@ function normalizeDraftLine(raw: unknown): QuoteDraftLine | null {
   };
 }
 
+function normalizeImportedQuotes(raw: unknown): LocalImportedQuote[] {
+  if (!Array.isArray(raw)) return [];
+  const next: LocalImportedQuote[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const quoteNumber = String(record.quoteNumber || "")
+      .trim()
+      .replace(/^#/, "")
+      .toUpperCase();
+    if (!quoteNumber || seen.has(quoteNumber)) continue;
+    const productIds = [
+      ...new Set(
+        (Array.isArray(record.productIds) ? record.productIds : [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isSafeInteger(id) && id > 0),
+      ),
+    ];
+    if (productIds.length === 0) continue;
+    seen.add(quoteNumber);
+    next.push({ quoteNumber, productIds });
+  }
+  return next.slice(0, 20);
+}
+
 export function readAdminQuoteDraft(): AdminQuoteDraft | null {
   if (typeof window === "undefined") return null;
   try {
@@ -150,6 +183,7 @@ export function readAdminQuoteDraft(): AdminQuoteDraft | null {
       customerPhone: String(parsed.customerPhone || "").replace(/\D/g, "").slice(0, 10),
       includeAssembly: parsed.includeAssembly === true,
       lines,
+      importedQuotes: normalizeImportedQuotes(parsed.importedQuotes),
     };
   } catch {
     return null;
@@ -195,6 +229,7 @@ type CartPayload = {
     totalPages: number;
   };
   totalAmount: number;
+  importedQuotes: string[];
 };
 
 function cartPageFromLocation(): number {
@@ -260,6 +295,11 @@ function asCartPayload(raw: unknown): CartPayload | null {
     data: body.data,
     pagination: body.pagination,
     totalAmount: Number(body.totalAmount) || 0,
+    importedQuotes: Array.isArray(body.importedQuotes)
+      ? body.importedQuotes
+          .map((quote) => String(quote || "").trim())
+          .filter(Boolean)
+      : [],
   };
 }
 
@@ -296,6 +336,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   const usesServerCart = useRef(true);
   const legacyLines = useRef<QuoteDraftLine[]>([]);
   const allLines = useRef<QuoteDraftLine[]>([]);
+  const localImports = useRef<LocalImportedQuote[]>([]);
   const cartPageRef = useRef(cartPageFromLocation());
   const loadSequence = useRef(0);
   const qtyTimers = useRef(new Map<number, number>());
@@ -318,8 +359,10 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   const [generating, setGenerating] = useState<QuoteDetailLevel | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [importedQuotes, setImportedQuotes] = useState<string[]>([]);
   const [importNumber, setImportNumber] = useState("");
   const [importing, setImporting] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const searchSequence = useRef(0);
   const runLock = useRef(false);
   linesRef.current = lines;
@@ -339,6 +382,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       setCartTotalCount(payload.pagination.total);
       setCartTotalPages(payload.pagination.totalPages);
       if (pendingQty.current.size === 0) setCartAmount(payload.totalAmount);
+      setImportedQuotes(payload.importedQuotes);
       setQueryParams({
         cartPage: payload.pagination.page <= 1 ? null : payload.pagination.page,
       });
@@ -366,7 +410,18 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     (source: QuoteDraftLine[], page: number) => {
       usesServerCart.current = false;
       allLines.current = source;
-      patchAdminQuoteDraft({ lines: source });
+      const ids = new Set(source.map((line) => line.idProduct));
+      localImports.current = localImports.current
+        .map((quote) => ({
+          ...quote,
+          productIds: quote.productIds.filter((id) => ids.has(id)),
+        }))
+        .filter((quote) => quote.productIds.length > 0);
+      setImportedQuotes(localImports.current.map((quote) => quote.quoteNumber));
+      patchAdminQuoteDraft({
+        lines: source,
+        importedQuotes: localImports.current,
+      });
       const local = sliceLocalCart(source, page);
       setLines(local.data);
       cartPageRef.current = local.pagination.page;
@@ -385,6 +440,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   useEffect(() => {
     const draft = readAdminQuoteDraft();
     legacyLines.current = draft?.lines ?? [];
+    localImports.current = draft?.importedQuotes ?? [];
     if (draft) {
       setCustomerName(draft.customerName);
       setCustomerLada(draft.customerLada);
@@ -436,12 +492,12 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           if (!replaced) throw new Error("cart");
           payload = replaced;
           legacyLines.current = [];
-          patchAdminQuoteDraft({ lines: [] });
+          patchAdminQuoteDraft({ lines: [], importedQuotes: [] });
         }
         if (cancelled || sequence !== loadSequence.current) return;
         usesServerCart.current = true;
         legacyLines.current = [];
-        patchAdminQuoteDraft({ lines: [] });
+        patchAdminQuoteDraft({ lines: [], importedQuotes: [] });
         applyCart(payload);
       } catch {
         if (cancelled || sequence !== loadSequence.current) return;
@@ -465,9 +521,9 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       return;
     }
 
+    setSearching(true);
     const sequence = ++searchSequence.current;
     const timer = window.setTimeout(async () => {
-      setSearching(true);
       try {
         const response = await requestGet(
           `/cotizaciones/admin/products/search?q=${encodeURIComponent(term)}`,
@@ -677,15 +733,44 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         ...line,
         quantity: quantityOrOne(line.quantity),
       }));
+      const folio = String(imported.quoteNumber || quoteNumber)
+        .trim()
+        .replace(/^#/, "")
+        .toUpperCase();
       if (!usesServerCart.current) {
-        showLocalCart(ready, 1);
+        const merged = [...allLines.current];
+        let page = cartPageRef.current;
+        for (const line of ready) {
+          const index = merged.findIndex((item) => item.idProduct === line.idProduct);
+          const add = quantityOrOne(line.quantity);
+          if (index >= 0) {
+            const existing = merged[index];
+            if (!existing) continue;
+            const base = existing.quantity === "" ? 0 : existing.quantity;
+            merged[index] = {
+              ...existing,
+              quantity: Math.min(999, base + add),
+            };
+            continue;
+          }
+          if (merged.length >= 100) {
+            throw new Error("full");
+          }
+          merged.push(line);
+          page = Math.floor((merged.length - 1) / CART_PAGE_SIZE) + 1;
+        }
+        localImports.current = [
+          ...localImports.current.filter((quote) => quote.quoteNumber !== folio),
+          { quoteNumber: folio, productIds: ready.map((line) => line.idProduct) },
+        ];
+        showLocalCart(merged, page);
       } else {
-        const replaced = await requestPost(
-          { lines: ready, page: 1 },
-          "/cotizaciones/admin/cart/replace",
+        const merged = await requestPost(
+          { lines: ready, quoteNumber: folio },
+          "/cotizaciones/admin/cart/merge",
           { silent: true },
         );
-        const payload = asCartPayload(replaced.data);
+        const payload = asCartPayload(merged.data);
         if (!payload) throw new Error("cart");
         applyCart(payload);
       }
@@ -703,7 +788,6 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       setCustomerPhone(digits);
       setPhoneError("");
       setIncludeAssembly(imported.includeAssembly === true);
-      const folio = imported.quoteNumber || quoteNumber;
       try {
         await requestPost(
           {},
@@ -722,17 +806,175 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       const missing = Number(imported.missing) || 0;
       setNotice(
         missing > 0
-          ? `Cotización ${folio} importada. ${missing} producto(s) ya no están en el catálogo; puedes quitarlos o seguir editando el resto.`
-          : `Cotización ${folio} importada. Ya puedes editar cantidades, quitar o agregar productos.`,
+          ? `Cotización ${folio} importada. Sus productos se sumaron al carrito. ${missing} ya no están en el catálogo.`
+          : `Cotización ${folio} importada. Sus productos se sumaron a los que ya tenías.`,
       );
     } catch (requestError) {
-      setError(
-        errorText(requestError, "No se pudo importar la cotización."),
-      );
+        setError(
+          errorText(
+            requestError,
+            requestError instanceof Error && requestError.message === "full"
+              ? "El carrito admite como máximo 100 productos."
+              : "No se pudo importar la cotización.",
+          ),
+        );
     } finally {
       setImporting(false);
     }
   }, [applyCart, importNumber, requestGet, requestPost, showLocalCart]);
+
+  const performUnlink = useCallback(
+    async (quoteNumber: string) => {
+      const response = await requestPost(
+        { page: cartPageRef.current },
+        `/cotizaciones/admin/import/${encodeURIComponent(quoteNumber)}/unlink`,
+        { silent: true },
+      );
+      const body = response.data as {
+        removed?: number;
+        productIds?: number[];
+        quoteNumber?: string;
+      };
+      const productIds = new Set(
+        (Array.isArray(body.productIds) ? body.productIds : [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isSafeInteger(id) && id > 0),
+      );
+      let removed = Number(body.removed) || 0;
+      if (!usesServerCart.current) {
+        const before = allLines.current.length;
+        const next = allLines.current.filter(
+          (line) => !productIds.has(line.idProduct),
+        );
+        removed = before - next.length;
+        const folioKey = String(body.quoteNumber || quoteNumber)
+          .trim()
+          .replace(/^#/, "")
+          .toUpperCase();
+        localImports.current = localImports.current.filter(
+          (quote) => quote.quoteNumber !== folioKey,
+        );
+        showLocalCart(next, cartPageRef.current);
+      } else {
+        const payload = asCartPayload(response.data);
+        if (!payload) throw new Error("cart");
+        applyCart(payload);
+      }
+      return {
+        removed,
+        folio: body.quoteNumber || quoteNumber,
+      };
+    },
+    [applyCart, requestPost, showLocalCart],
+  );
+
+  const startUnlink = useCallback(() => {
+    setUnlinking(true);
+    setError("");
+    setNotice("");
+    for (const [idProduct, timer] of qtyTimers.current) {
+      window.clearTimeout(timer);
+      qtyTimers.current.delete(idProduct);
+      qtyEpoch.current.set(idProduct, (qtyEpoch.current.get(idProduct) ?? 0) + 1);
+    }
+    pendingQty.current.clear();
+  }, []);
+
+  const confirmUnlinkQuote = useCallback(
+    (rawNumber: string) => {
+      const quoteNumber = String(rawNumber || "")
+        .trim()
+        .replace(/^#/, "");
+      if (!quoteNumber || importing || unlinking) return;
+      const closeModal = () =>
+        setDataModal((previous) => ({ ...previous, isOpen: false }));
+      setDataModal({
+        isOpen: true,
+        type: "warning",
+        title: "Desvincular cotización",
+        content: `Se quitarán del carrito los productos de la cotización ${quoteNumber}. Los que agregaste aparte se quedan.`,
+        showActions: true,
+        confirmLabel: "Sí, desvincular",
+        cancelLabel: "Cancelar",
+        onClose: closeModal,
+        onConfirm: () => {
+          closeModal();
+          startUnlink();
+          void performUnlink(quoteNumber)
+            .then(({ removed, folio }) => {
+              setNotice(
+                removed > 0
+                  ? removed === 1
+                    ? `Se quitó 1 producto de la cotización ${folio}.`
+                    : `Se quitaron ${removed} productos de la cotización ${folio}.`
+                  : `La cotización ${folio} quedó desvinculada. No había productos suyos en el carrito.`,
+              );
+            })
+            .catch((requestError) => {
+              setError(
+                errorText(requestError, "No se pudo desvincular la cotización."),
+              );
+            })
+            .finally(() => setUnlinking(false));
+        },
+      });
+    },
+    [importing, performUnlink, setDataModal, startUnlink, unlinking],
+  );
+
+  const confirmUnlinkAll = useCallback(() => {
+    const numbers = importedQuotes
+      .map((quote) => quote.trim().replace(/^#/, ""))
+      .filter(Boolean);
+    if (numbers.length === 0 || importing || unlinking) return;
+    const closeModal = () =>
+      setDataModal((previous) => ({ ...previous, isOpen: false }));
+    setDataModal({
+      isOpen: true,
+      type: "warning",
+      title: "Desvincular todas",
+      content:
+        "Se quitarán del carrito los productos de todas las cotizaciones importadas. Los que agregaste aparte se quedan.",
+      showActions: true,
+      confirmLabel: "Sí, desvincular todas",
+      cancelLabel: "Cancelar",
+      onClose: closeModal,
+      onConfirm: () => {
+        closeModal();
+        startUnlink();
+        void (async () => {
+          let removed = 0;
+          for (const quoteNumber of numbers) {
+            const result = await performUnlink(quoteNumber);
+            removed += result.removed;
+          }
+          setNotice(
+            removed === 0
+              ? `Se desvincularon ${numbers.length} cotizaciones. No había productos suyos en el carrito.`
+              : removed === 1
+                ? `Se desvincularon ${numbers.length} cotizaciones y se quitó 1 producto del carrito.`
+                : `Se desvincularon ${numbers.length} cotizaciones y se quitaron ${removed} productos del carrito.`,
+          );
+        })()
+          .catch((requestError) => {
+            setError(
+              errorText(
+                requestError,
+                "No se pudieron desvincular todas las cotizaciones.",
+              ),
+            );
+          })
+          .finally(() => setUnlinking(false));
+      },
+    });
+  }, [
+    importedQuotes,
+    importing,
+    performUnlink,
+    setDataModal,
+    startUnlink,
+    unlinking,
+  ]);
 
   const confirmClearCart = useCallback(() => {
     if (cartTotalCount === 0) return;
@@ -881,8 +1123,10 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           }
         } else {
           allLines.current = [];
+          localImports.current = [];
         }
         setLines([]);
+        setImportedQuotes([]);
         setCartTotalCount(0);
         setCartTotalPages(0);
         setCartAmount(0);
@@ -1091,12 +1335,16 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     generating,
     error,
     notice,
+    importedQuotes,
     dismissError: () => setError(""),
     dismissNotice: () => setNotice(""),
     importNumber,
     setImportNumber,
     importing,
     importQuote,
+    unlinking,
+    confirmUnlinkQuote,
+    confirmUnlinkAll,
     total: money(cartAmount),
     addProduct,
     setQuantity,

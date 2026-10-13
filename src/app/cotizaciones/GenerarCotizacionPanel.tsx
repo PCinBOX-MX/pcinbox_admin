@@ -1,8 +1,9 @@
 "use client";
 
 import { Alert, CircularProgress, InputAdornment, TextField } from "@mui/material";
-import { FileText, Search, Trash2, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { FileText, Search, Trash2, Wrench, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import { adminFieldSx } from "../theme/adminFieldSx";
 import styles from "./generar.module.css";
@@ -68,6 +69,15 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
       </div>
     ) : null;
   const alertRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const [suggestionsHidden, setSuggestionsHidden] = useState(false);
+  const [suggestionBox, setSuggestionBox] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
   const importFailed = /cotizaci/i.test(quote.error);
 
   useEffect(() => {
@@ -75,14 +85,60 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
     alertRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [quote.error]);
 
+  useEffect(() => {
+    setSuggestionsHidden(false);
+  }, [quote.query]);
+
+  const suggestionsOpen =
+    quote.query.trim().length >= 2 && !suggestionsHidden;
+
+  useEffect(() => {
+    if (!suggestionsOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (searchRef.current?.contains(target)) return;
+      if (resultsRef.current?.contains(target)) return;
+      setSuggestionsHidden(true);
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [suggestionsOpen]);
+
+  useLayoutEffect(() => {
+    if (!suggestionsOpen) {
+      setSuggestionBox(null);
+      return;
+    }
+    const placeSuggestions = () => {
+      const node = searchRef.current;
+      if (!node) return;
+      const rect = node.getBoundingClientRect();
+      const available = window.innerHeight - rect.bottom - 16;
+      const maxHeight = Math.min(420, Math.max(available, 120));
+      setSuggestionBox({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+        maxHeight,
+      });
+    };
+    placeSuggestions();
+    window.addEventListener("resize", placeSuggestions);
+    window.addEventListener("scroll", placeSuggestions, true);
+    return () => {
+      window.removeEventListener("resize", placeSuggestions);
+      window.removeEventListener("scroll", placeSuggestions, true);
+    };
+  }, [suggestionsOpen]);
+
   return (
     <div className={styles.panel} data-testid="generar-cotizacion-panel">
       <div className={styles.lead}>
-        <p>
-          Arma los productos y elige cómo saldrá el PDF. Datos completos
-          incluye imagen, descripción, características y precios. Ocultar
-          datos deja solo el nombre de cada producto y el total final.
-        </p>
+        <div>
+          <h2>Nueva cotización</h2>
+          <p>Arma el carrito y elige si el PDF lleva el detalle o solo nombres y total.</p>
+        </div>
         <button
           type="button"
           className="admin-btn-ghost"
@@ -102,6 +158,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
         </div>
       ) : null}
 
+      <div className={styles.clientCard}>
       <div className={styles.grid}>
         <TextField
           size="small"
@@ -161,15 +218,23 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
       </div>
 
       <label className={styles.assembly}>
-        <input
-          type="checkbox"
-          checked={quote.includeAssembly}
-          onChange={(event) => quote.setIncludeAssembly(event.target.checked)}
-          data-testid="quote-assembly"
-        />
-        Incluir servicio de ensamble
+        <span className={styles.assemblyIcon} aria-hidden="true">
+          <Wrench size={16} strokeWidth={2.25} />
+        </span>
+        <span className={styles.assemblyText}>Incluir servicio de ensamble</span>
+        <span className={styles.assemblyControl}>
+          <input
+            type="checkbox"
+            checked={quote.includeAssembly}
+            onChange={(event) => quote.setIncludeAssembly(event.target.checked)}
+            data-testid="quote-assembly"
+          />
+          <span className={styles.assemblyMark} aria-hidden="true" />
+        </span>
       </label>
+      </div>
 
+      <div className={styles.tools}>
       <div className={styles.importBox}>
         <p className={styles.importTitle}>Importar cotización</p>
         <div className={styles.importRow}>
@@ -179,7 +244,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             label="Número de cotización"
             placeholder="COT-... o 13 dígitos"
             value={quote.importNumber}
-            disabled={busy || quote.importing}
+            disabled={busy || quote.importing || quote.unlinking}
             error={importFailed}
             onChange={(event) => quote.setImportNumber(event.target.value)}
             onKeyDown={(event) => {
@@ -210,7 +275,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           <button
             type="button"
             className={`admin-btn-primary ${styles.importButton}`}
-            disabled={busy || quote.importing || !quote.importNumber.trim()}
+            disabled={busy || quote.importing || quote.unlinking || !quote.importNumber.trim()}
             onClick={() => void quote.importQuote()}
             data-testid="quote-import"
           >
@@ -221,13 +286,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           </button>
         </div>
       </div>
-      {quote.notice ? (
-        <Alert severity="success" onClose={quote.dismissNotice}>
-          {quote.notice}
-        </Alert>
-      ) : null}
-
-      <div className={styles.searchBox}>
+      <div className={styles.searchBox} ref={searchRef}>
         <p className={styles.searchTitle}>Buscar producto</p>
         <TextField
           size="small"
@@ -235,6 +294,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           label="Buscar producto por nombre, SKU o UPC"
           value={quote.query}
           onChange={(event) => quote.setQuery(event.target.value)}
+          onFocus={() => setSuggestionsHidden(false)}
           sx={adminFieldSx}
           slotProps={{
             input: {
@@ -260,8 +320,40 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           }}
           inputProps={{ "data-testid": "quote-product-search" }}
         />
-        {quote.results.length > 0 ? (
-          <div className={styles.results} data-testid="quote-search-results">
+        {suggestionsOpen &&
+        suggestionBox &&
+        !quote.searching &&
+        !quote.error &&
+        quote.results.length === 0
+          ? createPortal(
+              <div
+                ref={resultsRef}
+                className={styles.results}
+                style={{
+                  top: suggestionBox.top,
+                  left: suggestionBox.left,
+                  width: suggestionBox.width,
+                }}
+                data-testid="quote-search-empty"
+              >
+                <p className={styles.emptyResults}>Sin coincidencias disponibles.</p>
+              </div>,
+              document.body,
+            )
+          : null}
+        {quote.results.length > 0 && suggestionsOpen && suggestionBox
+          ? createPortal(
+          <div
+            ref={resultsRef}
+            className={styles.results}
+            style={{
+              top: suggestionBox.top,
+              left: suggestionBox.left,
+              width: suggestionBox.width,
+              maxHeight: suggestionBox.maxHeight,
+            }}
+            data-testid="quote-search-results"
+          >
             {quote.results.map((product) => (
               <button
                 key={product.idProduct}
@@ -330,8 +422,65 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                 </div>
               </button>
             ))}
-          </div>
+          </div>,
+          document.body,
         ) : null}
+      </div>
+      </div>
+      {quote.notice ? (
+        <Alert severity="success" onClose={quote.dismissNotice}>
+          {quote.notice}
+        </Alert>
+      ) : null}
+      {quote.importedQuotes.length > 0 ? (
+        <div className={styles.importBanner} role="status">
+          <Alert severity="info">
+            <div className={styles.importBannerBody}>
+              <p>
+                {quote.importedQuotes.length === 1
+                  ? "Hay una cotización importada en este carrito."
+                  : `Hay ${quote.importedQuotes.length} cotizaciones importadas en este carrito.`}
+              </p>
+              <ul className={styles.importLinks}>
+                {quote.importedQuotes.map((folio) => (
+                  <li key={folio}>
+                    <button
+                      type="button"
+                      className={styles.importLink}
+                      disabled={busy || quote.importing || quote.unlinking}
+                      onClick={() => quote.confirmUnlinkQuote(folio)}
+                    >
+                      Desvincular {folio}
+                    </button>
+                  </li>
+                ))}
+                {quote.importedQuotes.length > 1 ? (
+                  <li>
+                    <button
+                      type="button"
+                      className={`${styles.importLink} ${styles.importLinkAll}`}
+                      disabled={busy || quote.importing || quote.unlinking}
+                      onClick={quote.confirmUnlinkAll}
+                    >
+                      Desvincular todas
+                    </button>
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          </Alert>
+        </div>
+      ) : null}
+
+      <div className={styles.sectionHead}>
+        <h3>Productos</h3>
+        <span>
+          {quote.cartReady
+            ? quote.cartTotalCount === 1
+              ? "1 en el carrito"
+              : `${quote.cartTotalCount} en el carrito`
+            : "Cargando"}
+        </span>
       </div>
 
       {!quote.cartReady ? (
@@ -361,53 +510,48 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                   />
                 </span>
                 <div className={styles.cartBody}>
-                  <div className={styles.cartHead}>
-                    <strong>{line.name}</strong>
-                    <button
-                      type="button"
-                      className={styles.remove}
-                      aria-label={`Quitar ${line.name}`}
-                      onClick={() => quote.removeLine(line.idProduct)}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                  <strong title={line.name}>{line.name}</strong>
+                  <div className={styles.cartCodes}>
+                    <span>{line.sku ? `SKU ${line.sku}` : "Sin SKU"}</span>
+                    {line.upc ? <span>{`UPC ${line.upc}`}</span> : null}
                   </div>
-                  <p className={styles.cartSku}>
-                    {line.sku ? `SKU ${line.sku}` : "Sin SKU"}
-                    {line.upc ? ` · UPC ${line.upc}` : ""}
-                  </p>
-                  <div className={styles.cartMeta}>
-                    <label className={styles.cartField}>
-                      <span>Cantidad</span>
-                      <TextField
-                        size="small"
-                        type="number"
-                        value={line.quantity}
-                        className={styles.qty}
-                        onChange={(event) => {
-                          const raw = event.target.value;
-                          quote.setQuantity(
-                            line.idProduct,
-                            raw.trim() === "" ? "" : Number(raw),
-                          );
-                        }}
-                        sx={adminFieldSx}
-                        inputProps={{
-                          min: 1,
-                          max: 999,
-                          "data-testid": `quote-qty-${line.idProduct}`,
-                        }}
-                      />
-                    </label>
-                    <div className={styles.cartField}>
-                      <span>Precio</span>
-                      <strong>{currencyFormatter.format(unit)}</strong>
-                    </div>
-                    <div className={`${styles.cartField} ${styles.cartImport}`}>
-                      <span>Importe</span>
-                      <strong>{currencyFormatter.format(unit * quantity)}</strong>
-                    </div>
+                </div>
+                <div className={styles.cartMeta}>
+                  <label className={styles.qtyBox}>
+                    <span>Cant.</span>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={line.quantity}
+                      className={styles.qty}
+                      onChange={(event) => {
+                        const raw = event.target.value;
+                        quote.setQuantity(
+                          line.idProduct,
+                          raw.trim() === "" ? "" : Number(raw),
+                        );
+                      }}
+                      sx={adminFieldSx}
+                      inputProps={{
+                        min: 1,
+                        max: 999,
+                        "aria-label": `Cantidad de ${line.name}`,
+                        "data-testid": `quote-qty-${line.idProduct}`,
+                      }}
+                    />
+                  </label>
+                  <div className={styles.priceStack}>
+                    <span>{currencyFormatter.format(unit)} c/u</span>
+                    <strong>{currencyFormatter.format(unit * quantity)}</strong>
                   </div>
+                  <button
+                    type="button"
+                    className={styles.remove}
+                    aria-label={`Quitar ${line.name}`}
+                    onClick={() => quote.removeLine(line.idProduct)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </li>
             );
