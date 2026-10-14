@@ -2876,6 +2876,7 @@ export default function usePos() {
           discountPct?: number;
           branchId?: number | null;
           serviceIntake?: PosServiceIntake | null;
+          serials?: string[];
           inactive?: boolean;
           name: string;
         }
@@ -2893,6 +2894,11 @@ export default function usePos() {
             ? roundMoney(Number(product.unitPrice))
             : catalogPrice;
         const discountPct = roundMoney(Number(product.discountPct) || 0);
+        const importedSerials = (product.serials || [])
+          .map((serial) => String(serial || "").trim())
+          .filter(Boolean)
+          .slice(0, quantity);
+        while (importedSerials.length < quantity) importedSerials.push("");
 
         if (product.isManual) {
           const manualKind = product.manualKind === "service" ? "service" : "product";
@@ -2913,12 +2919,13 @@ export default function usePos() {
             warrantyMonths: product.warrantyMonths ?? null,
             warrantyMode: product.warrantyMode || "none",
             warrantyUnit: "months",
-            serials: Array(quantity).fill(""),
+            serials: importedSerials,
             isManual: true,
             manualKind,
             serviceIntake:
               manualKind === "service" ? product.serviceIntake || null : null,
             providerId: null,
+            folioPriceLocked: true,
           });
           continue;
         }
@@ -2941,6 +2948,9 @@ export default function usePos() {
         const stockCap = stocks.length
           ? branchMeta?.stock ?? 0
           : Number(product.stockGlobal) || 0;
+        const fixedWarranty =
+          Number(product.providerId) === 2 ||
+          (Number(product.providerId) === 1 && Boolean(product.isPC));
 
         nextCart.push({
           key: `p-${catalogProductId}-b-${branchIdLine ?? "g"}-folio-${nextCart.length}`,
@@ -2966,18 +2976,19 @@ export default function usePos() {
           imageUrl: firstImage(product.image_url),
           requiresSerial: Boolean(product.requiresSerial),
           warrantyMonths:
-            Number(product.providerId) === 2 ||
-            (Number(product.providerId) === 1 && Boolean(product.isPC))
-              ? 12
-              : product.warrantyMonths ?? null,
-          warrantyMode:
-            Number(product.providerId) === 2 ||
-            (Number(product.providerId) === 1 && Boolean(product.isPC))
+            product.warrantyMonths != null
+              ? product.warrantyMonths
+              : fixedWarranty
+                ? 12
+                : null,
+          warrantyMode: product.warrantyMode
+            ? product.warrantyMode
+            : fixedWarranty
               ? "months"
-              : product.warrantyMode ?? null,
+              : null,
           warrantyUnit: "months",
           isPC: Boolean(product.isPC),
-          serials: Array(quantity).fill(""),
+          serials: importedSerials,
           isManual: false,
           providerId: product.providerId ?? null,
           folioPriceLocked: true,
@@ -3068,7 +3079,7 @@ export default function usePos() {
           : "Folio listo para capturar series",
         message: unidentified.length
           ? `Se cargó el folio ${folioLabel}, pero no se pudieron identificar: ${unidentified.join(", ")}. Quita el folio, impórtalo de nuevo y, si se repite, reporta a soporte el folio y esos nombres. En las líneas que sí entraron, captura la serie. El stock no se vuelve a descontar.`
-          : `Se cargó el folio ${folioLabel} con sus productos, cliente y ${importedPayments.length} forma(s) de pago. Captura el número de serie de cada producto que lo pida${serialLines ? ` (${serialLines} producto(s))` : ""}. El stock no se vuelve a descontar. Si recargas o cambias de página, esta venta se conserva en este navegador.`,
+          : `Se cargó el folio ${folioLabel} con sus productos, cliente, garantías y ${importedPayments.length} forma(s) de pago. Las series que ya tenía la venta vienen escritas${serialLines ? ` (${serialLines} producto(s) piden serie)` : ""}. El stock no se vuelve a descontar. Si recargas o cambias de página, esta venta se conserva en este navegador.`,
       });
     },
     [showSaleFeedback],
