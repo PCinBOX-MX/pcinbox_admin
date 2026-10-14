@@ -2453,8 +2453,8 @@ export default function PuntoDeVentaPage() {
                             )}
                           </strong>
                         </div>
-                        {line.isManual && line.productId === 0 ? null : (
                         <div className={styles.serialBlock}>
+                          {line.manualKind === "service" ? null : (
                           <div className={styles.serialHead}>
                             <span>
                               {line.requiresSerial
@@ -2479,11 +2479,12 @@ export default function PuntoDeVentaPage() {
                               </button>
                             ) : null}
                           </div>
+                          )}
                           {posWarrantySelectable({
                             providerId: line.providerId,
                             isPC: line.isPC,
                             isManual: line.isManual,
-                          }) ? (
+                          }) && !(line.folioPriceLocked && line.warrantyMode) ? (
                             <div
                               style={{
                                 display: "grid",
@@ -2567,8 +2568,9 @@ export default function PuntoDeVentaPage() {
                                 />
                               ) : null}
                             </div>
-                          ) : line.warrantyMonths != null &&
-                            Number(line.warrantyMonths) > 0 ? (
+                          ) : line.warrantyMode ||
+                            (line.warrantyMonths != null &&
+                              Number(line.warrantyMonths) > 0) ? (
                             <p
                               className={styles.hitMeta}
                               style={{ marginBottom: 8 }}
@@ -2580,7 +2582,9 @@ export default function PuntoDeVentaPage() {
                               )}
                             </p>
                           ) : null}
-                          {Array.from({ length: line.quantity }).map((_, i) => (
+                          {line.manualKind === "service"
+                            ? null
+                            : Array.from({ length: line.quantity }).map((_, i) => (
                             <TextField
                               key={`${line.key}-sn-${i}`}
                               size="small"
@@ -2599,7 +2603,6 @@ export default function PuntoDeVentaPage() {
                             />
                           ))}
                         </div>
-                        )}
                       </div>
                     );
                           })}
