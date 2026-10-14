@@ -1317,6 +1317,111 @@ export default function PuntoDeVentaPage() {
               </div>
               <div className={styles.posPanelBody}>
                 <div className={styles.catalogTools}>
+                <div className={`${styles.quoteBox} ${styles.folioBox}`}>
+                  <div className={styles.manualHead}>
+                    <strong>Folio POS</strong>
+                    <span>
+                      Venta de este punto de venta. Carga productos, cliente y
+                      pagos para capturar las series. El stock no se vuelve a
+                      descontar.
+                    </span>
+                  </div>
+                  {pos.salePageAlert ? (
+                    <div
+                      className={`${styles.quotePageAlert} ${
+                        pos.salePageAlert.type === "error"
+                          ? styles.quotePageAlertError
+                          : pos.salePageAlert.type === "warning"
+                            ? styles.quotePageAlertWarning
+                            : styles.quotePageAlertSuccess
+                      }`}
+                      role="alert"
+                    >
+                      <div className={styles.quoteAlertContent}>
+                        <strong>{pos.salePageAlert.title}</strong>
+                        <p>{pos.salePageAlert.message}</p>
+                        {pos.salePageAlert.sections?.length ? (
+                          <div className={styles.quoteAlertScroll}>
+                            {pos.salePageAlert.sections.map((section) => (
+                              <div
+                                key={section.title}
+                                className={styles.quoteAlertSection}
+                              >
+                                <span className={styles.quoteAlertSectionTitle}>
+                                  {section.title} ({section.items.length})
+                                </span>
+                                <ul className={styles.quoteAlertList}>
+                                  {section.items.map((item, idx) => (
+                                    <li key={`${section.title}-${idx}`}>
+                                      {item}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.quoteAlertClose}
+                        aria-label="Cerrar aviso"
+                        onClick={pos.dismissSalePageAlert}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className={styles.quoteRow}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Folio"
+                      value={pos.saleInput}
+                      onChange={(e) =>
+                        pos.setSaleInput(
+                          e.target.value.replace(/[^0-9#PVpv-]/g, "").slice(0, 32),
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void pos.loadPosFolio();
+                        }
+                      }}
+                      sx={fieldSx}
+                      placeholder="Ej. 3414"
+                    />
+                    <button
+                      type="button"
+                      className={`${styles.primaryBtn} ${styles.quoteLoadBtn}`}
+                      disabled={pos.saleLoading}
+                      onClick={() => void pos.loadPosFolio()}
+                    >
+                      {pos.saleLoading ? "Cargando…" : "Importar folio"}
+                    </button>
+                  </div>
+                  {pos.linkedPosFolio ? (
+                    <div className={styles.quoteLinked}>
+                      <span>
+                        Folio vinculado:{" "}
+                        <strong>{pos.linkedPosFolio}</strong>
+                        <span className={styles.quoteLinkedHint}>
+                          {" "}
+                          Captura el número de serie de cada producto. El resto
+                          ya viene de la venta.
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className={styles.linkBtn}
+                        onClick={pos.clearLinkedPosFolio}
+                      >
+                        Quitar folio
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <div className={styles.quoteBox}>
                   <div className={styles.manualHead}>
                     <strong>Cotización</strong>
@@ -2238,7 +2343,9 @@ export default function PuntoDeVentaPage() {
                                 <span className={styles.cartUnitPriceHint}>
                                   {line.quotePriceLocked
                                     ? "precio de cotización"
-                                    : "por unidad"}
+                                    : line.folioPriceLocked
+                                      ? "precio del folio"
+                                      : "por unidad"}
                                 </span>
                               </div>
                             )}
@@ -2346,6 +2453,7 @@ export default function PuntoDeVentaPage() {
                             )}
                           </strong>
                         </div>
+                        {line.isManual && line.productId === 0 ? null : (
                         <div className={styles.serialBlock}>
                           <div className={styles.serialHead}>
                             <span>
@@ -2491,6 +2599,7 @@ export default function PuntoDeVentaPage() {
                             />
                           ))}
                         </div>
+                        )}
                       </div>
                     );
                           })}
