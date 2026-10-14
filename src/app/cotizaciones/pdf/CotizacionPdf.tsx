@@ -77,7 +77,7 @@ const buildClientBlock = (
   const lines = [userName, userPhone]
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter(Boolean);
-  return lines.length > 0 ? lines.join("\n") : "Venta público general";
+  return lines.join("\n");
 };
 
 /** Precios machine-readable en Keywords del PDF (el POS los lee de aquí). */

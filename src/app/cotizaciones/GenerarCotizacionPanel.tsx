@@ -141,12 +141,12 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
         </div>
         <button
           type="button"
-          className="admin-btn-ghost"
+          className={styles.closeForm}
           onClick={onClose}
           disabled={busy}
         >
           <X size={16} />
-          Cancelar
+          Cerrar formulario
         </button>
       </div>
 
@@ -167,6 +167,22 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           value={quote.customerName}
           onChange={(event) => quote.setCustomerName(event.target.value)}
           sx={adminFieldSx}
+          slotProps={{
+            input: {
+              endAdornment: quote.customerName ? (
+                <button
+                  type="button"
+                  className={styles.clearSearch}
+                  aria-label="Borrar nombre del cliente"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => quote.setCustomerName("")}
+                  data-testid="quote-customer-name-clear"
+                >
+                  <X size={16} />
+                </button>
+              ) : null,
+            },
+          }}
           inputProps={{ "data-testid": "quote-customer-name", maxLength: 120 }}
         />
         <TextField
@@ -207,6 +223,18 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                   </select>
                 </InputAdornment>
               ),
+              endAdornment: quote.customerPhone ? (
+                <button
+                  type="button"
+                  className={styles.clearSearch}
+                  aria-label="Borrar teléfono"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => quote.setCustomerPhone("")}
+                  data-testid="quote-customer-phone-clear"
+                >
+                  <X size={16} />
+                </button>
+              ) : null,
             },
           }}
           inputProps={{
@@ -434,41 +462,44 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
       ) : null}
       {quote.importedQuotes.length > 0 ? (
         <div className={styles.importBanner} role="status">
-          <Alert severity="info">
-            <div className={styles.importBannerBody}>
-              <p>
+          <div className={styles.importBannerHead}>
+            <span className={styles.importBannerIcon} aria-hidden="true">
+              <FileText size={16} />
+            </span>
+            <div>
+              <strong>
                 {quote.importedQuotes.length === 1
-                  ? "Hay una cotización importada en este carrito."
-                  : `Hay ${quote.importedQuotes.length} cotizaciones importadas en este carrito.`}
-              </p>
-              <ul className={styles.importLinks}>
-                {quote.importedQuotes.map((folio) => (
-                  <li key={folio}>
-                    <button
-                      type="button"
-                      className={styles.importLink}
-                      disabled={busy || quote.importing || quote.unlinking}
-                      onClick={() => quote.confirmUnlinkQuote(folio)}
-                    >
-                      Desvincular {folio}
-                    </button>
-                  </li>
-                ))}
-                {quote.importedQuotes.length > 1 ? (
-                  <li>
-                    <button
-                      type="button"
-                      className={`${styles.importLink} ${styles.importLinkAll}`}
-                      disabled={busy || quote.importing || quote.unlinking}
-                      onClick={quote.confirmUnlinkAll}
-                    >
-                      Desvincular todas
-                    </button>
-                  </li>
-                ) : null}
-              </ul>
+                  ? "Cotización importada"
+                  : `${quote.importedQuotes.length} cotizaciones importadas`}
+              </strong>
+              <p>Sus productos están en este carrito.</p>
             </div>
-          </Alert>
+          </div>
+          <ul className={styles.importLinks}>
+            {quote.importedQuotes.map((folio) => (
+              <li key={folio}>
+                <span>{folio}</span>
+                <button
+                  type="button"
+                  className={styles.importLink}
+                  disabled={busy || quote.importing || quote.unlinking}
+                  onClick={() => quote.confirmUnlinkQuote(folio)}
+                >
+                  Desvincular
+                </button>
+              </li>
+            ))}
+          </ul>
+          {quote.importedQuotes.length > 1 ? (
+            <button
+              type="button"
+              className={styles.importLinkAll}
+              disabled={busy || quote.importing || quote.unlinking}
+              onClick={quote.confirmUnlinkAll}
+            >
+              Desvincular todas
+            </button>
+          ) : null}
         </div>
       ) : null}
 

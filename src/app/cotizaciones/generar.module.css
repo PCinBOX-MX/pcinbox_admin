@@ -26,6 +26,30 @@
   width: fit-content;
 }
 
+.closeForm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+}
+
+.closeForm:hover:not(:disabled) {
+  background: #1e293b;
+}
+
+.closeForm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .lead p {
   max-width: 560px;
   margin: 4px 0 0;
@@ -41,10 +65,12 @@
   flex-direction: column;
   gap: 16px;
   padding: 22px 24px;
-  border: 1px solid #b7c0cc;
-  border-radius: 16px;
-  background: #f3f5f8;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e7edf4;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 14px 34px rgba(15, 23, 42, 0.06);
 }
 
 .searchBox {
@@ -76,7 +102,7 @@
   background: transparent;
   color: #1f2937;
   font: inherit;
-  font-weight: 700;
+  font-weight: 400;
   outline: none;
   cursor: pointer;
 }
@@ -207,7 +233,7 @@
 .importBox :global(.MuiOutlinedInput-input),
 .searchBox :global(.MuiOutlinedInput-input) {
   color: #0f172a;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .clientCard :global(.MuiOutlinedInput-root),
@@ -249,71 +275,116 @@
 }
 
 .importBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
   position: sticky;
   top: 8px;
   z-index: 3;
-}
-
-.importBanner :global(.MuiAlert-root) {
-  align-items: center;
-  border: 1px solid #93c5fd;
-  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e7edf4;
+  border-radius: 16px;
   background: #fff;
-  color: #1e3a8a;
-  font-size: 0.92rem;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 28px rgba(15, 23, 42, 0.06);
 }
 
-.importBanner :global(.MuiAlert-icon) {
+.importBannerHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.importBannerIcon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 12px;
+  background: #eef3fb;
   color: #1d4ed8;
 }
 
-.importBanner :global(.MuiAlert-message) {
-  width: 100%;
-  padding: 4px 0;
+.importBannerHead strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
-.importBannerBody p {
-  margin: 0;
+.importBannerHead p {
+  margin: 2px 0 0;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 500;
 }
 
 .importLinks {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  margin: 8px 0 0;
+  gap: 8px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.importLink {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #1d4ed8;
-  font: inherit;
+.importLinks li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+}
+
+.importLinks li span {
+  color: #0f172a;
+  font-size: 0.84rem;
   font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.importLink,
+.importLinkAll {
+  border: 0;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.importLink:hover:not(:disabled) {
-  color: #1e3a8a;
+.importLink {
+  padding: 6px 10px;
+  background: #fff;
+  color: #1e293b;
+  box-shadow: inset 0 0 0 1px #cbd5e1;
 }
 
-.importLink:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.importLink:hover:not(:disabled) {
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .importLinkAll {
-  color: #9f1239;
+  padding: 8px 12px;
+  background: #fff1f2;
+  color: #be123c;
 }
 
 .importLinkAll:hover:not(:disabled) {
-  color: #881337;
+  background: #ffe4e6;
+}
+
+.importLink:disabled,
+.importLinkAll:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .importRow {
@@ -805,10 +876,12 @@
   gap: 16px;
   margin-top: 4px;
   padding: 18px 22px;
-  border: 1px solid #b7c0cc;
-  border-radius: 16px;
-  background: #f3f5f8;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e7edf4;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 14px 34px rgba(15, 23, 42, 0.06);
 }
 
 .actions {
