@@ -198,6 +198,8 @@ export type PosCartLine = {
    * useQuotePrice para validar contra linesJson.
    */
   quotePriceLocked?: boolean;
+  /** Precio fijado desde un folio POS importado. */
+  folioPriceLocked?: boolean;
   /** Precio de catálogo al importar (para restaurar si se quita el vínculo). */
   catalogUnitPrice?: number;
 };

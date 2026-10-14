@@ -140,6 +140,9 @@ type PosDraftV2 = {
   requiredFactura: boolean;
   quoteInput: string;
   linkedQuoteNumber: string | null;
+  saleInput: string;
+  linkedPosFolio: string | null;
+  customerUserId: number | null;
   manualCapture: PosManualCapture | null;
   cashForms: PosCashFormsDraft;
   serialForms: PosSerialFormsDraft;
@@ -289,6 +292,9 @@ function draftHasContent(draft: PosDraftV2): boolean {
     draft.requiredFactura ||
     Boolean(draft.linkedQuoteNumber) ||
     Boolean(draft.quoteInput.trim()) ||
+    Boolean(draft.linkedPosFolio) ||
+    Boolean(draft.saleInput?.trim()) ||
+    Boolean(draft.customerUserId) ||
     hasManual ||
     hasCashForms ||
     hasSerialForms ||
@@ -348,6 +354,16 @@ function readPosDraft(): PosDraftV2 | null {
           requiredFactura: Boolean(parsed.requiredFactura),
           quoteInput: String(parsed.quoteInput || ""),
           linkedQuoteNumber: parsed.linkedQuoteNumber || null,
+          saleInput: String(parsed.saleInput || ""),
+          linkedPosFolio: parsed.linkedPosFolio
+            ? String(parsed.linkedPosFolio)
+            : null,
+          customerUserId:
+            parsed.customerUserId != null &&
+            Number.isSafeInteger(Number(parsed.customerUserId)) &&
+            Number(parsed.customerUserId) > 0
+              ? Number(parsed.customerUserId)
+              : null,
           manualCapture: normalizeManualCapture(parsed.manualCapture),
           cashForms: normalizeCashForms(parsed.cashForms),
           serialForms: normalizeSerialForms(parsed.serialForms),
@@ -405,6 +421,9 @@ function readPosDraft(): PosDraftV2 | null {
       requiredFactura: Boolean(legacy.requiredFactura),
       quoteInput: String(legacy.quoteInput || ""),
       linkedQuoteNumber: legacy.linkedQuoteNumber || null,
+      saleInput: "",
+      linkedPosFolio: null,
+      customerUserId: null,
       manualCapture: null,
       cashForms: { ...EMPTY_CASH_FORMS },
       serialForms: { ...EMPTY_SERIAL_FORMS },
@@ -512,6 +531,23 @@ function isValidPhoneDigits(phone: string): boolean {
 
 function roundMoney(n: number) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function splitImportedPhone(rawPhone: string): { lada: string; digits: string } | null {
+  const raw = String(rawPhone || "").trim();
+  if (!raw) return null;
+  const plusMatch = raw.match(/^(\+\d{1,3})\s*(\d{7,15})$/);
+  if (
+    plusMatch &&
+    (POS_PHONE_LADAS as readonly string[]).includes(plusMatch[1])
+  ) {
+    return { lada: plusMatch[1], digits: plusMatch[2].slice(-10) };
+  }
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 10) {
+    return { lada: "+52", digits: digits.slice(-10) };
+  }
+  return null;
 }
 
 function lineTotal(unitPrice: number, quantity: number, discountPct: number) {
@@ -660,6 +696,16 @@ export default function usePos() {
   );
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quotePageAlert, setQuotePageAlert] = useState<{
+    type: "error" | "warning" | "success";
+    title: string;
+    message: string;
+    sections?: Array<{ title: string; items: string[] }>;
+  } | null>(null);
+  const [saleInput, setSaleInput] = useState("");
+  const [linkedPosFolio, setLinkedPosFolio] = useState<string | null>(null);
+  const [customerUserId, setCustomerUserId] = useState<number | null>(null);
+  const [saleLoading, setSaleLoading] = useState(false);
+  const [salePageAlert, setSalePageAlert] = useState<{
     type: "error" | "warning" | "success";
     title: string;
     message: string;
@@ -846,6 +892,9 @@ export default function usePos() {
       setRequiredFactura(Boolean(draft.requiredFactura));
       setQuoteInput(draft.quoteInput || "");
       setLinkedQuoteNumber(draft.linkedQuoteNumber || null);
+      setSaleInput(draft.saleInput || "");
+      setLinkedPosFolio(draft.linkedPosFolio || null);
+      setCustomerUserId(draft.customerUserId || null);
       setManualCapture(draft.manualCapture);
       setSearch(draft.search || "");
       setCartSearch(draft.cartSearch || "");
@@ -900,6 +949,9 @@ export default function usePos() {
       requiredFactura,
       quoteInput,
       linkedQuoteNumber,
+      saleInput,
+      linkedPosFolio,
+      customerUserId,
       manualCapture,
       cashForms: {
         openingFloat,
@@ -937,6 +989,9 @@ export default function usePos() {
     requiredFactura,
     quoteInput,
     linkedQuoteNumber,
+    saleInput,
+    linkedPosFolio,
+    customerUserId,
     manualCapture,
     openingFloat,
     closingCounted,
@@ -1616,6 +1671,7 @@ export default function usePos() {
             update.price != null ? Number(update.price) : undefined;
 
           const quantity =
+            !line.folioPriceLocked &&
             Number(line.providerId) === 1 &&
             stockBranch > 0 &&
             line.quantity > stockBranch
@@ -1625,7 +1681,7 @@ export default function usePos() {
           return {
             ...line,
             unitPrice:
-              line.quotePriceLocked
+              line.quotePriceLocked || line.folioPriceLocked
                 ? line.unitPrice
                 : priceRaw != null && Number.isFinite(priceRaw)
                   ? roundMoney(priceRaw)
@@ -1647,6 +1703,19 @@ export default function usePos() {
 
   const addProduct = useCallback(
     (product: PosProductHit, chosenBranchId?: number | null) => {
+      if (linkedPosFolio) {
+        setDataModal({
+          isOpen: true,
+          title: "Folio vinculado",
+          content: `Esta venta ya trae los productos del folio ${linkedPosFolio}. No se pueden agregar más desde el catálogo. Captura las series y cobra. Si necesitas armar otra venta, pulsa «Quitar folio»: se borra lo importado.`,
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+
       const tracksStock = true;
 
       // Validación interna: no se puede forzar agregar sin stock (UI deshabilitada ≠ bypass).
@@ -1802,7 +1871,7 @@ export default function usePos() {
       setHits([]);
       searchRef.current?.focus();
     },
-    [setDataModal],
+    [linkedPosFolio, setDataModal],
   );
 
   const addManualLine = useCallback(
@@ -1819,6 +1888,19 @@ export default function usePos() {
       manualKind?: "product" | "service";
       serviceIntake?: PosServiceIntake | null;
     }) => {
+      if (linkedPosFolio) {
+        setDataModal({
+          isOpen: true,
+          title: "Folio vinculado",
+          content: `Esta venta ya trae los productos del folio ${linkedPosFolio}. No se puede agregar un producto o servicio sin catálogo. Captura las series y cobra. Si necesitas armar otra venta, pulsa «Quitar folio»: se borra lo importado.`,
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return false;
+      }
+
       const manualKind =
         input.manualKind === "service" ? "service" : "product";
       const name = String(input.name || "").trim();
@@ -2037,7 +2119,7 @@ export default function usePos() {
       ]);
       return true;
     },
-    [setDataModal],
+    [linkedPosFolio, setDataModal],
   );
 
   const updateLine = useCallback(
@@ -2057,6 +2139,7 @@ export default function usePos() {
           }
           if (
             !next.isManual &&
+            !next.folioPriceLocked &&
             Number(next.providerId) === 1 &&
             next.stockBranch > 0 &&
             next.quantity > next.stockBranch
@@ -2122,6 +2205,10 @@ export default function usePos() {
     setQuoteInput("");
     setLinkedQuoteNumber(null);
     setQuotePageAlert(null);
+    setSaleInput("");
+    setLinkedPosFolio(null);
+    setCustomerUserId(null);
+    setSalePageAlert(null);
     setManualCapture(null);
     chargeIdempotencyKeyRef.current = null;
     // Solo limpia la venta en curso; conserva pestaña, caja, series y última venta.
@@ -2141,6 +2228,9 @@ export default function usePos() {
       requiredFactura: false,
       quoteInput: "",
       linkedQuoteNumber: null,
+      saleInput: "",
+      linkedPosFolio: null,
+      customerUserId: null,
       manualCapture: null,
       cashForms: {
         openingFloat,
@@ -2621,6 +2711,19 @@ export default function usePos() {
       return;
     }
 
+    if (linkedPosFolio) {
+      setDataModal({
+        isOpen: true,
+        title: "Hay un folio POS vinculado",
+        content: `Esta venta ya tiene cargado el folio ${linkedPosFolio}. No se puede agregar una cotización encima. Si quieres usar una cotización, pulsa «Quitar folio»: se borran los productos, el cliente y los pagos de esa importación. Luego carga la cotización.`,
+        type: "warning",
+        showActions: true,
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+      });
+      return;
+    }
+
     if (linkedQuoteNumber) {
       const sameQuote = linkedQuoteNumber === raw;
       showQuoteFeedback({
@@ -2703,6 +2806,7 @@ export default function usePos() {
   }, [
     cart.length,
     linkedQuoteNumber,
+    linkedPosFolio,
     openQuotePriceModal,
     quoteInput,
     requestGet,
@@ -2731,6 +2835,356 @@ export default function usePos() {
 
   const dismissQuotePageAlert = useCallback(() => {
     setQuotePageAlert(null);
+  }, []);
+
+  const showSaleFeedback = useCallback(
+    (opts: {
+      type: "error" | "warning" | "success";
+      title: string;
+      message: string;
+      sections?: Array<{ title: string; items: string[] }>;
+    }) => {
+      setSalePageAlert({
+        type: opts.type,
+        title: opts.title,
+        message: opts.message,
+        sections: opts.sections?.filter((s) => s.items.length > 0),
+      });
+    },
+    [],
+  );
+
+  const applyPosFolioToCart = useCallback(
+    (payload: {
+      folio: string;
+      notes?: string | null;
+      requiredFactura?: boolean;
+      customerName?: string | null;
+      customerPhone?: string | null;
+      customerUserId?: number | null;
+      payments?: Array<{
+        method?: string;
+        amount?: number;
+        reference?: string;
+      }>;
+      items: Array<
+        PosProductHit & {
+          isManual?: boolean;
+          manualKind?: "product" | "service";
+          quantity: number;
+          unitPrice?: number | null;
+          discountPct?: number;
+          branchId?: number | null;
+          serviceIntake?: PosServiceIntake | null;
+          inactive?: boolean;
+          name: string;
+        }
+      >;
+    }) => {
+      const folioLabel = formatPosFolio(payload.folio);
+      const nextCart: PosCartLine[] = [];
+      const unidentified: string[] = [];
+
+      for (const product of payload.items) {
+        const quantity = Math.max(1, Math.round(Number(product.quantity) || 1));
+        const catalogPrice = roundMoney(Number(product.price) || 0);
+        const unitPrice =
+          product.unitPrice != null && Number.isFinite(Number(product.unitPrice))
+            ? roundMoney(Number(product.unitPrice))
+            : catalogPrice;
+        const discountPct = roundMoney(Number(product.discountPct) || 0);
+
+        if (product.isManual) {
+          const manualKind = product.manualKind === "service" ? "service" : "product";
+          nextCart.push({
+            key: `m-folio-${folioLabel}-${nextCart.length}`,
+            productId: 0,
+            name: product.name,
+            sku: null,
+            upc: manualKind === "service" ? null : product.upc,
+            unitPrice,
+            quantity,
+            discountPct,
+            branchId: null,
+            branchLabel: null,
+            stockBranch: 0,
+            stocksByBranch: [],
+            requiresSerial: false,
+            warrantyMonths: product.warrantyMonths ?? null,
+            warrantyMode: product.warrantyMode || "none",
+            warrantyUnit: "months",
+            serials: Array(quantity).fill(""),
+            isManual: true,
+            manualKind,
+            serviceIntake:
+              manualKind === "service" ? product.serviceIntake || null : null,
+            providerId: null,
+          });
+          continue;
+        }
+
+        const stocks = product.stocksByBranch || [];
+        const catalogProductId = Number(
+          product.idProduct ??
+            (product as { productId?: number }).productId,
+        );
+        if (!Number.isSafeInteger(catalogProductId) || catalogProductId <= 0) {
+          unidentified.push(product.name || "Producto sin nombre");
+          continue;
+        }
+        const branchIdLine =
+          product.branchId ??
+          product.suggestedBranchId ??
+          stocks[0]?.branchId ??
+          null;
+        const branchMeta = stocks.find((st) => st.branchId === branchIdLine);
+        const stockCap = stocks.length
+          ? branchMeta?.stock ?? 0
+          : Number(product.stockGlobal) || 0;
+
+        nextCart.push({
+          key: `p-${catalogProductId}-b-${branchIdLine ?? "g"}-folio-${nextCart.length}`,
+          productId: catalogProductId,
+          name: product.name,
+          sku: product.sku,
+          upc: product.upc,
+          unitPrice,
+          quantity,
+          discountPct,
+          branchId: branchIdLine,
+          branchLabel: branchMeta
+            ? formatPosBranchUiLabel({
+                name: branchMeta.name,
+                label: branchMeta.label,
+                city: branchMeta.city,
+              })
+            : Number(product.providerId) === 1
+              ? "PCinBOX-León"
+              : null,
+          stockBranch: stockCap,
+          stocksByBranch: stocks,
+          imageUrl: firstImage(product.image_url),
+          requiresSerial: Boolean(product.requiresSerial),
+          warrantyMonths:
+            Number(product.providerId) === 2 ||
+            (Number(product.providerId) === 1 && Boolean(product.isPC))
+              ? 12
+              : product.warrantyMonths ?? null,
+          warrantyMode:
+            Number(product.providerId) === 2 ||
+            (Number(product.providerId) === 1 && Boolean(product.isPC))
+              ? "months"
+              : product.warrantyMode ?? null,
+          warrantyUnit: "months",
+          isPC: Boolean(product.isPC),
+          serials: Array(quantity).fill(""),
+          isManual: false,
+          providerId: product.providerId ?? null,
+          folioPriceLocked: true,
+          catalogUnitPrice: catalogPrice,
+        });
+      }
+
+      if (nextCart.length === 0) {
+        showSaleFeedback({
+          type: "warning",
+          title: "El folio no dejó productos en el carrito",
+          message: unidentified.length
+            ? `El folio ${folioLabel} tiene líneas sin identificador de producto (${unidentified.join(", ")}). Pulsa «Quitar folio» e impórtalo otra vez. Si vuelve a pasar, reporta a soporte el folio ${folioLabel} y esos nombres.`
+            : `La venta ${folioLabel} no tiene productos para cargar. Revisa el número en Historial del POS. Si la venta sí tiene productos y no aparecen, reporta a soporte el folio y la hora.`,
+        });
+        return;
+      }
+
+      const allowedMethods: PosPaymentMethod[] = [
+        "efectivo_sucursal",
+        "tarjeta_credito_sucursal",
+        "tarjeta_debito_sucursal",
+        "transferencia_bancaria",
+        "otro",
+      ];
+      const importedPayments = (payload.payments || [])
+        .map((payment, index) => {
+          const rawMethod = String(payment.method || "otro");
+          const method = (
+            rawMethod === "tarjeta_sucursal"
+              ? "tarjeta_credito_sucursal"
+              : rawMethod === "openpay_link"
+                ? "otro"
+                : rawMethod
+          ) as PosPaymentMethod;
+          const safeMethod = allowedMethods.includes(method) ? method : "otro";
+          const amount = roundMoney(Number(payment.amount) || 0);
+          const reference = String(payment.reference || "").trim();
+          const referenceText = (
+            rawMethod === "openpay_link" && !reference.toLowerCase().includes("openpay")
+              ? `OpenPay${reference ? ` · ${reference}` : ""}`
+              : reference
+          ).slice(0, 255);
+          return {
+            id: `pay-folio-${folioLabel}-${index}`,
+            method: safeMethod,
+            amount: amount > 0 ? amount : null,
+            reference:
+              safeMethod === "otro" && referenceText.length < 2
+                ? `Folio ${folioLabel}`
+                : referenceText,
+          };
+        })
+        .filter((payment) => payment.amount != null && payment.amount > 0);
+
+      setCart(nextCart);
+      setLinkedPosFolio(folioLabel);
+      setSaleInput(folioLabel);
+      setLinkedQuoteNumber(null);
+      setQuoteInput("");
+      setQuotePageAlert(null);
+      setCustomerUserId(
+        payload.customerUserId && payload.customerUserId > 0
+          ? payload.customerUserId
+          : null,
+      );
+      setCustomerName(payload.customerName || "");
+      setGuestEmail("");
+      const phone = splitImportedPhone(String(payload.customerPhone || ""));
+      if (phone) {
+        setPhoneLada(phone.lada);
+        setGuestPhone(phone.digits);
+      } else {
+        setPhoneLada("+52");
+        setGuestPhone("");
+      }
+      setRequiredFactura(Boolean(payload.requiredFactura));
+      setNotes(String(payload.notes || ""));
+      setPayments(importedPayments);
+
+      const serialLines = nextCart.filter(
+        (line) => line.requiresSerial && !line.isManual,
+      ).length;
+      showSaleFeedback({
+        type: unidentified.length ? "warning" : "success",
+        title: unidentified.length
+          ? "Folio cargado con líneas omitidas"
+          : "Folio listo para capturar series",
+        message: unidentified.length
+          ? `Se cargó el folio ${folioLabel}, pero no se pudieron identificar: ${unidentified.join(", ")}. Quita el folio, impórtalo de nuevo y, si se repite, reporta a soporte el folio y esos nombres. En las líneas que sí entraron, captura la serie. El stock no se vuelve a descontar.`
+          : `Se cargó el folio ${folioLabel} con sus productos, cliente y ${importedPayments.length} forma(s) de pago. Captura el número de serie de cada producto que lo pida${serialLines ? ` (${serialLines} producto(s))` : ""}. El stock no se vuelve a descontar. Si recargas o cambias de página, esta venta se conserva en este navegador.`,
+      });
+    },
+    [showSaleFeedback],
+  );
+
+  const loadPosFolio = useCallback(async () => {
+    const raw = saleInput.trim().replace(/^#/, "").replace(/^PV-/i, "");
+    if (!raw) {
+      showSaleFeedback({
+        type: "warning",
+        title: "Falta el folio",
+        message:
+          "Escribe el número de la venta hecha en este POS, por ejemplo 3414, y pulsa Importar folio. No uses el número de un pedido de la tienda en línea.",
+      });
+      return;
+    }
+    const folioLabel = formatPosFolio(raw);
+    if (linkedPosFolio && linkedPosFolio !== folioLabel) {
+      setDataModal({
+        isOpen: true,
+        title: "Ya hay un folio en esta venta",
+        content: `Esta venta ya tiene el folio ${linkedPosFolio}. Captura las series y cobra, o pulsa «Quitar folio» para borrarla e importar otro. Al quitarlo se eliminan los productos, el cliente y los pagos de esa importación.`,
+        type: "warning",
+        showActions: true,
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+      });
+      return;
+    }
+    if (linkedPosFolio === folioLabel) {
+      setDataModal({
+        isOpen: true,
+        title: "Este folio ya está cargado",
+        content: `El folio ${folioLabel} ya está en el carrito. Captura las series que falten y cobra. Si quieres volver a cargarlo desde cero, pulsa «Quitar folio» y luego impórtalo otra vez.`,
+        type: "warning",
+        showActions: true,
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+      });
+      return;
+    }
+
+    const runFetch = async () => {
+      setSaleLoading(true);
+      setSalePageAlert(null);
+      try {
+        const res = await requestGet(
+          `/pos/sales/folio/${encodeURIComponent(raw)}`,
+          { silent: true },
+        );
+        const data = res?.data?.data;
+        if (!data?.folio || !Array.isArray(data.items)) {
+          showSaleFeedback({
+            type: "error",
+            title: "No se pudo leer el folio",
+            message:
+              res?.data?.message ||
+              `La respuesta del folio ${folioLabel} llegó incompleta. Vuelve a importarlo. Si se repite, reporta a soporte el folio y la hora.`,
+          });
+          return;
+        }
+        applyPosFolioToCart(data);
+      } catch (e: any) {
+        const status = Number(e?.response?.status);
+        const apiMessage = String(e?.response?.data?.message || "").trim();
+        showSaleFeedback({
+          type: "error",
+          title:
+            status === 404
+              ? "No hay una venta POS con ese folio"
+              : "No se pudo consultar el folio",
+          message:
+            apiMessage ||
+            (status === 404
+              ? `No encontramos el folio ${folioLabel} en las ventas de este punto de venta. Revisa el número en Historial. No uses un pedido de la tienda en línea. Si el folio sí existe y no carga, reporta a soporte el folio y la hora.`
+              : `No se pudo consultar el folio ${folioLabel}. Espera un momento y vuelve a intentar. Si se repite, reporta a soporte el folio y la hora.`),
+        });
+      } finally {
+        setSaleLoading(false);
+      }
+    };
+
+    if (linkedQuoteNumber || cart.length > 0) {
+      setDataModal({
+        isOpen: true,
+        title: "Vacía la venta antes de importar el folio",
+        content: linkedQuoteNumber
+          ? `Hay una cotización vinculada (${linkedQuoteNumber}) y productos en el carrito. Un folio no se mezcla con eso. Desvincula la cotización y pulsa «Vaciar carrito». Después importa el folio.`
+          : "Ya hay productos en el carrito. Un folio no se mezcla con productos del catálogo ni con captura sin catálogo. Pulsa «Vaciar carrito» y luego importa el folio.",
+        type: "warning",
+        showActions: true,
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+      });
+      return;
+    }
+
+    await runFetch();
+  }, [
+    applyPosFolioToCart,
+    cart.length,
+    linkedQuoteNumber,
+    linkedPosFolio,
+    requestGet,
+    saleInput,
+    setDataModal,
+    showSaleFeedback,
+  ]);
+
+
+  const clearLinkedPosFolio = useCallback(() => {
+    clearCart();
+  }, [clearCart]);
+
+  const dismissSalePageAlert = useCallback(() => {
+    setSalePageAlert(null);
   }, []);
 
   const addPayment = useCallback(
@@ -2792,8 +3246,9 @@ export default function usePos() {
         {
           idempotencyKey,
           branchId,
-          customerUserId: null,
+          customerUserId,
           customerName: customerName.trim() || null,
+          sourceFolio: linkedPosFolio,
           customerEmail: guestEmail.trim() || null,
           customerPhone: fullPhone,
           notes: notes || null,
@@ -2824,8 +3279,10 @@ export default function usePos() {
             branchId: l.branchId,
             quantity: l.quantity,
             unitPrice: l.unitPrice,
-            discountPct: 0,
+            discountPct: l.discountPct || 0,
             useQuotePrice: Boolean(l.quotePriceLocked) && Boolean(linkedQuoteNumber),
+            useSourcePrice:
+              Boolean(l.folioPriceLocked) && linkedPosFolio != null,
             serials: l.serials.map((s) => s.trim()).filter(Boolean),
           })),
           payments: payments.map((p) => ({
@@ -2889,6 +3346,8 @@ export default function usePos() {
     notes,
     requiredFactura,
     linkedQuoteNumber,
+    linkedPosFolio,
+    customerUserId,
     charging,
     requestPost,
     clearCart,
@@ -4801,6 +5260,14 @@ export default function usePos() {
     clearLinkedQuote,
     quotePageAlert,
     dismissQuotePageAlert,
+    saleInput,
+    setSaleInput,
+    linkedPosFolio,
+    saleLoading,
+    loadPosFolio,
+    clearLinkedPosFolio,
+    salePageAlert,
+    dismissSalePageAlert,
     totals,
     paidSum,
     remaining,
