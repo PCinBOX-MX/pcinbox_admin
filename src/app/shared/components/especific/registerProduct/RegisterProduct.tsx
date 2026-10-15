@@ -526,6 +526,7 @@ const RegisterProduct = () => {
 
   return (
     <form
+      noValidate
       onSubmit={handleSubmit}
       className="admin-form-shell"
       data-testid="form-register-product"
@@ -615,6 +616,7 @@ const RegisterProduct = () => {
               <Autocomplete
                 fullWidth
                 disabled={typeProduct === "license"}
+                slotProps={{ popper: { sx: { zIndex: 11000 } } }}
                 options={(dataCategoria || []).filter((c: any) => ALLOWED_CATEGORIES.includes(c.name?.trim().toUpperCase()))}
                 getOptionLabel={(option: any) =>
                   `${option.name} ${
@@ -640,7 +642,8 @@ const RegisterProduct = () => {
                     label="Categoria"
                     name="categoria"
                     placeholder="Buscar categoría"
-                    required
+                    InputLabelProps={{ ...params.InputLabelProps, required: true }}
+                    inputProps={{ ...params.inputProps, required: false }}
                   />
                 )}
               />
@@ -653,6 +656,7 @@ const RegisterProduct = () => {
             <FormControl fullWidth>
               <Autocomplete
                 fullWidth
+                slotProps={{ popper: { sx: { zIndex: 11000 } } }}
                 options={dataMarca || []}
                 getOptionLabel={(option: any) => option.name || ""}
                 value={
@@ -673,7 +677,8 @@ const RegisterProduct = () => {
                     label="Marca"
                     name="marca"
                     placeholder="Buscar marca"
-                    required
+                    InputLabelProps={{ ...params.InputLabelProps, required: true }}
+                    inputProps={{ ...params.inputProps, required: false }}
                   />
                 )}
               />
@@ -866,6 +871,7 @@ const RegisterProduct = () => {
                   <Autocomplete
                     fullWidth
                     disabled={typeProduct === "license"}
+                    slotProps={{ popper: { sx: { zIndex: 11000 } } }}
                     data-testid="register-provider"
                     options={
                       dataProveedores.data && dataProveedores.data.length > 0
@@ -1166,6 +1172,7 @@ const RegisterProduct = () => {
                 render={({ field }) => (
                   <Autocomplete
                     fullWidth
+                    slotProps={{ popper: { sx: { zIndex: 11000 } } }}
                     options={
                       dataProveedores.data && dataProveedores.data.length > 0
                         ? dataProveedores.data
@@ -1215,6 +1222,7 @@ const RegisterProduct = () => {
                 render={({ field }) => (
                   <Autocomplete
                     fullWidth
+                    slotProps={{ popper: { sx: { zIndex: 11000 } } }}
                     options={[...PC_TIPO_OPTIONS]}
                     value={
                       PC_TIPO_OPTIONS.find((p) => p.tipo == field.value) || null
@@ -1230,7 +1238,8 @@ const RegisterProduct = () => {
                         {...params}
                         label="Tipo de PC"
                         placeholder="Buscar Tipo de PC"
-                        required
+                        InputLabelProps={{ ...params.InputLabelProps, required: true }}
+                        inputProps={{ ...params.inputProps, required: false }}
                       />
                     )}
                   />
