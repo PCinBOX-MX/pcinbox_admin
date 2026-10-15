@@ -33,14 +33,7 @@ const RegisterFormProovedor = () => {
         gap: 2,
       }}
     >
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: 2,
-          width: "100%",
-        }}
-      >
+      <Box className="admin-modal-form-grid">
         {/* Campo requerido */}
         <TextField
           label="Nombre"
@@ -89,6 +82,12 @@ const RegisterFormProovedor = () => {
         type="submit"
         variant="contained"
         color="primary"
+        sx={{
+          width: { xs: "100%", sm: "auto" },
+          alignSelf: { xs: "stretch", sm: "flex-start" },
+          mt: 0.5,
+          minWidth: { sm: 160 },
+        }}
       >
         {registerProveedores.loading ? (
           <MdAutorenew size={20} className="admin-m-auto the-spinner" />

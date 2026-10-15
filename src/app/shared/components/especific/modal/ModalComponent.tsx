@@ -224,6 +224,16 @@ const ModalComponent = ({
         <Box
           ref={boxRef}
           onClick={(e) => e.stopPropagation()}
+          style={
+            maxWidth
+              ? ({
+                  "--admin-modal-size": maxWidth,
+                  width: maxWidth,
+                  maxWidth,
+                  minWidth: 0,
+                } as React.CSSProperties)
+              : undefined
+          }
           sx={{
             width: "fit-content",
             minWidth: "min(90vw, 360px)",
@@ -239,7 +249,7 @@ const ModalComponent = ({
             paddingBottom: "20px",
             position: "relative",
           }}
-          className="admin-modal-box animate-in fade-in zoom-in-95 duration-200"
+          className={`admin-modal-box animate-in fade-in zoom-in-95 duration-200${maxWidth ? " admin-modal-box--sized" : ""}`}
         >
           <div
             style={{
@@ -299,7 +309,6 @@ const ModalComponent = ({
               minHeight: 0,
               overflowX: "hidden",
               overflowY: "auto",
-              padding: "0 28px 16px",
               margin: 0,
             }}
           >

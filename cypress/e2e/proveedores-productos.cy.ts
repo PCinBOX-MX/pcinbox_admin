@@ -205,7 +205,7 @@ describe("Proveedores product flows (errores deliberados)", () => {
     cy.get('[data-testid="form-register-product"]', { timeout: 30000 }).should(
       "exist",
     );
-    cy.get('[data-testid="select-tipo-producto"]').select("pcgamer");
+    cy.get('[data-testid="tipo-producto-pcgamer"]').click({ force: true });
     cy.get('[data-testid="form-register-product"] input[name="name"]').type(
       "PC Test",
       { force: true },
@@ -253,7 +253,7 @@ describe("Proveedores product flows (errores deliberados)", () => {
     cy.get('[data-testid="form-register-product"]', { timeout: 20000 }).should(
       "exist",
     );
-    cy.get('[data-testid="select-tipo-producto"]').select("license");
+    cy.get('[data-testid="tipo-producto-license"]').click({ force: true });
     cy.get('[data-testid="license-fields"]').scrollIntoView().should("exist");
     cy.get('[data-testid="license-type"]').should("exist");
     cy.get('[data-testid="license-edition"]').should("exist");

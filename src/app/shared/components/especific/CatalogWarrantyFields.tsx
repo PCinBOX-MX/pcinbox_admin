@@ -59,9 +59,7 @@ export default function CatalogWarrantyFields({
         display: "grid",
         gridTemplateColumns: dense
           ? "1fr"
-          : value.choice === "months" || value.choice === "years"
-            ? "1fr 1fr"
-            : "1fr",
+          : "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
         gap: 12,
         width: "100%",
       }}

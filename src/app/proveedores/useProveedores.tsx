@@ -7,7 +7,9 @@ import { ProductsI } from "../interfaces/products/products.interface";
 import { useTheContext } from "../hooks/global.hook";
 import { useQueryParams } from "../hooks/useQueryParams";
 import RegisterFormProovedor from "../shared/components/especific/proveedores/register/RegisterFormProveedor";
-import RegisterProduct from "../shared/components/especific/registerProduct/RegisterProduct";
+import RegisterProduct, {
+  PRODUCT_MODAL_CHOOSER_WIDTH,
+} from "../shared/components/especific/registerProduct/RegisterProduct";
 import { productsMatchForMerge } from "../utils/productIdentity.utils";
 import dynamic from "next/dynamic";
 import { useRequestSequence } from "../hooks/useRequestSequence";
@@ -161,6 +163,7 @@ const useProveedores = () => {
       content: <RegisterFormProovedor />,
       title: "Registro de proveedor",
       type: "info",
+      maxWidth: "min(calc(100vw - 24px), 840px)",
       onConfirm: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));
       },
@@ -261,7 +264,7 @@ const useProveedores = () => {
       content: <RegisterProduct />,
       title: "Agregar producto",
       type: "info",
-
+      maxWidth: PRODUCT_MODAL_CHOOSER_WIDTH,
       showActions: false,
       onClose: () => {
         setDataModal((prev) => ({ ...prev, isOpen: false }));

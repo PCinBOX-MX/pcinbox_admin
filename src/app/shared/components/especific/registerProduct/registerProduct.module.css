@@ -6,7 +6,7 @@
 
 .fieldLabel {
   display: block;
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.5rem;
   padding: 0;
   font-size: 0.875rem;
   font-weight: 600;
@@ -34,6 +34,132 @@
 .fieldSelect:focus {
   border-color: var(--admin-primary, #bb3d4b);
   box-shadow: 0 0 0 3px rgba(187, 61, 75, 0.15);
+}
+
+.typeList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.typeOption {
+  appearance: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  text-align: left;
+  border: 1.5px solid #d5dbe6;
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.typeMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.typeCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.typeOption[data-tone="component"] {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.05);
+}
+.typeOption[data-tone="component"] .typeMark {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(37, 99, 235, 0.08);
+}
+.typeOption[data-tone="component"]:hover {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+}
+.typeOption[data-tone="pc"] {
+  border-color: rgba(187, 61, 75, 0.4);
+  background: rgba(187, 61, 75, 0.05);
+}
+.typeOption[data-tone="pc"] .typeMark {
+  color: #bb3d4b;
+  border-color: rgba(187, 61, 75, 0.28);
+  background: rgba(187, 61, 75, 0.08);
+}
+.typeOption[data-tone="pc"]:hover {
+  border-color: #bb3d4b;
+  background: rgba(187, 61, 75, 0.05);
+}
+.typeOption[data-tone="license"] {
+  border-color: rgba(217, 119, 6, 0.45);
+  background: rgba(245, 158, 11, 0.08);
+}
+.typeOption[data-tone="license"] .typeMark {
+  color: #b45309;
+  border-color: rgba(180, 83, 9, 0.28);
+  background: rgba(245, 158, 11, 0.12);
+}
+.typeOption[data-tone="license"]:hover {
+  border-color: #d97706;
+  background: rgba(245, 158, 11, 0.07);
+}
+
+.typeOptionSelected[data-tone="component"] {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.06);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+.typeOptionSelected[data-tone="pc"] {
+  border-color: #bb3d4b;
+  background: rgba(187, 61, 75, 0.06);
+  box-shadow: 0 0 0 3px rgba(187, 61, 75, 0.14);
+}
+.typeOptionSelected[data-tone="license"] {
+  border-color: #d97706;
+  background: rgba(245, 158, 11, 0.08);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.16);
+}
+
+.typeOptionTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.typeOptionHint {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #6b7280;
+}
+
+@media (min-width: 900px) {
+  .typeListExpanded {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .submitBtn {

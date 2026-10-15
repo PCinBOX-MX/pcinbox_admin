@@ -10,6 +10,7 @@ import {
 import ProveedoresUtils from "@/app/services/utils/proveedores.utils";
 import { useTheContext } from "@/app/hooks/global.hook";
 import { MdAdd, MdRemove } from "react-icons/md";
+import { Cpu, KeyRound, Monitor } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import rpStyles from "./registerProduct.module.css";
 import {
@@ -34,6 +35,33 @@ import {
   CatalogWarrantyState,
   validateCatalogWarranty,
 } from "@/app/shared/utils/catalogWarranty";
+
+export const PRODUCT_MODAL_CHOOSER_WIDTH = "min(calc(100vw - 24px), 480px)";
+export const PRODUCT_MODAL_FORM_WIDTH = "min(calc(100vw - 24px), 1120px)";
+
+const PRODUCT_TYPE_OPTIONS = [
+  {
+    value: "component",
+    tone: "component",
+    title: "Componente",
+    hint: "Procesadores, memorias, gabinetes y el resto del catálogo",
+    Icon: Cpu,
+  },
+  {
+    value: "pcgamer",
+    tone: "pc",
+    title: "PC Gamers y Workstation",
+    hint: "Equipos armados",
+    Icon: Monitor,
+  },
+  {
+    value: "license",
+    tone: "license",
+    title: "Licencias",
+    hint: "Windows, antivirus y paquetería Office",
+    Icon: KeyRound,
+  },
+] as const;
 
 const ALLOWED_CATEGORIES = [
   "ALMACENAMIENTO",
@@ -108,14 +136,14 @@ const RegisterProduct = () => {
     clave: "",
     marca: 0,
     categoria: 0,
-    stock: 0,
+    stock: "",
     sku: "",
-    price: 0,
+    price: "",
     image_url: [],
     providerId: 1,
     caracteristicas: "",
-    originPrice: 0,
-    profitMargin: 0,
+    originPrice: "",
+    profitMargin: "",
     branchStocks: [],
   });
 
@@ -133,9 +161,9 @@ const RegisterProduct = () => {
   }>({
     name: "",
     description: "",
-    stock: 0,
+    stock: "",
     sku: "",
-    price: 0,
+    price: "",
     image_url: [],
     caracteristicas: [],
     upc: "",
@@ -465,6 +493,16 @@ const RegisterProduct = () => {
   }, [files]);
 
   useEffect(() => {
+    setDataModal((prev) => {
+      const maxWidth = typeProduct
+        ? PRODUCT_MODAL_FORM_WIDTH
+        : PRODUCT_MODAL_CHOOSER_WIDTH;
+      if (prev.maxWidth === maxWidth) return prev;
+      return { ...prev, maxWidth };
+    });
+  }, [typeProduct, setDataModal]);
+
+  useEffect(() => {
     resetMediaState();
     setSelectedPcTipo(null);
     setPcGamerCaracteristicasText("");
@@ -491,7 +529,7 @@ const RegisterProduct = () => {
       onSubmit={handleSubmit}
       className="admin-form-shell"
       data-testid="form-register-product"
-      style={{ display: "flex", flexDirection: "column", gap: "16px", background: "#ffffff", padding: "16px 20px", borderRadius: "16px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)", width: "100%" }}
+      style={{ display: "flex", flexDirection: "column", gap: "16px", background: "transparent", padding: 0, borderRadius: 0, boxShadow: "none", width: "100%" }}
     >
       <style>{`
         form.admin-form-shell .MuiFormControl-root,
@@ -500,36 +538,50 @@ const RegisterProduct = () => {
         }
       `}</style>
       <div className={rpStyles.fieldGroup}>
-        <label htmlFor="select-tipo-producto" className={rpStyles.fieldLabel}>
+        <p className={rpStyles.fieldLabel}>
           Tipo de producto{" "}
           <span className={rpStyles.required} aria-hidden="true">*</span>
-        </label>
-        <select
-          id="select-tipo-producto"
-          name="type-product"
+        </p>
+        <div
+          className={`${rpStyles.typeList} ${
+            typeProduct ? rpStyles.typeListExpanded : ""
+          }`}
+          role="group"
+          aria-label="Tipo de producto"
           data-testid="select-tipo-producto"
-          required
-          value={typeProduct}
-          onChange={(event) => setTypeProduct(event.target.value)}
-          className={rpStyles.fieldSelect}
         >
-          <option value="" disabled>
-            Selecciona una opción
-          </option>
-          <option value="component">Componente</option>
-          <option value="pcgamer">
-            PC Gamers y Workstation
-          </option>
-          <option value="license">
-            Licencias (Windows, Antivirus y Paquetería Office)
-          </option>
-        </select>
+        {PRODUCT_TYPE_OPTIONS.map((option) => {
+          const selected = typeProduct === option.value;
+          const Icon = option.Icon;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              data-tone={option.tone}
+              data-testid={`tipo-producto-${option.value}`}
+              aria-pressed={selected}
+              className={`${rpStyles.typeOption} ${
+                selected ? rpStyles.typeOptionSelected : ""
+              }`}
+              onClick={() => setTypeProduct(option.value)}
+            >
+              <span className={rpStyles.typeMark} aria-hidden="true">
+                <Icon size={18} strokeWidth={2.2} />
+              </span>
+              <span className={rpStyles.typeCopy}>
+                <span className={rpStyles.typeOptionTitle}>{option.title}</span>
+                <span className={rpStyles.typeOptionHint}>{option.hint}</span>
+              </span>
+            </button>
+          );
+        })}
+        </div>
       </div>
 
       {typeProduct === "component" || typeProduct === "license" ? (
         <>
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
+            className="admin-modal-form-grid"
           >
             <TextField
               label="Nombre"
@@ -596,7 +648,7 @@ const RegisterProduct = () => {
           </div>
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
+            className="admin-modal-form-grid"
           >
             <FormControl fullWidth>
               <Autocomplete
@@ -742,7 +794,15 @@ const RegisterProduct = () => {
                   type="number"
                   variant="outlined"
                   disabled
-                  value={calculateFinalPrice(Number(dataNewComponent?.originPrice ?? 0), Number(dataNewComponent?.profitMargin ?? 0))}
+                  value={
+                    dataNewComponent.originPrice === "" &&
+                    dataNewComponent.profitMargin === ""
+                      ? ""
+                      : calculateFinalPrice(
+                          Number(dataNewComponent.originPrice || 0),
+                          Number(dataNewComponent.profitMargin || 0),
+                        )
+                  }
                 />
               </>
             )}
@@ -780,7 +840,7 @@ const RegisterProduct = () => {
           />
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
+            className="admin-modal-form-grid"
           >
             <TextField
               required
@@ -873,15 +933,7 @@ const RegisterProduct = () => {
             />
           </div>
           {typeProduct === "license" && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: "12px",
-                width: "100%",
-              }}
-              data-testid="license-fields"
-            >
+            <div className="admin-modal-form-grid" data-testid="license-fields">
               <TextField
                 select
                 label="Bloque de licencia"
@@ -997,7 +1049,7 @@ const RegisterProduct = () => {
       ) : typeProduct == "pcgamer" ? (
         <>
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
+            className="admin-modal-form-grid"
           >
             <TextField
               label="Nombre"
@@ -1047,7 +1099,7 @@ const RegisterProduct = () => {
               type="number"
               variant="outlined"
               name="price"
-              value={dataNewPcGamer.price === 0 ? "" : dataNewPcGamer.price}
+              value={dataNewPcGamer.price}
               onChange={(event) =>
                   setDataNewPcGamer((prev) => ({
                     ...prev,
@@ -1091,7 +1143,7 @@ const RegisterProduct = () => {
           />
 
           <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", width: "100%" }}
+            className="admin-modal-form-grid"
           >
             <TextField
               label="UPC"
@@ -1222,8 +1274,8 @@ const RegisterProduct = () => {
             background: "#ffffff",
             paddingBottom: "28px",
             marginBottom: "-24px",
-            marginLeft: "-8px",
-            marginRight: "-8px",
+            marginLeft: 0,
+            marginRight: 0,
             paddingLeft: "8px",
             paddingRight: "8px",
             zIndex: 20,
@@ -1235,6 +1287,7 @@ const RegisterProduct = () => {
             disabled={loadinNewProduct}
             type="submit"
             data-testid="register-submit"
+            className="admin-modal-submit"
             style={{
               padding: "12px 28px",
               backgroundColor: "#bb3d4b",
