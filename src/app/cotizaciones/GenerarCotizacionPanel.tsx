@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, CircularProgress, InputAdornment, TextField } from "@mui/material";
-import { FileText, Search, Trash2, Wrench, X } from "lucide-react";
+import { FileText, Search, Trash2, Warehouse, Wrench, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
@@ -545,6 +545,28 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                   <div className={styles.cartCodes}>
                     <span>{line.sku ? `SKU ${line.sku}` : "Sin SKU"}</span>
                     {line.upc ? <span>{`UPC ${line.upc}`}</span> : null}
+                  </div>
+                  <div className={styles.cartStock}>
+                    <div className={styles.cartStockCell}>
+                      <strong>{Number(line.stock) || 0}</strong>
+                      <span className={styles.cartStockName}>
+                        <Warehouse size={13} />
+                        Total
+                      </span>
+                    </div>
+                    {(line.stocksByBranch ?? []).map((branch) => (
+                      <div
+                        key={branch.branchId}
+                        className={
+                          branch.stock > 0
+                            ? `${styles.cartStockCell} ${styles.cartStockIn}`
+                            : styles.cartStockCell
+                        }
+                      >
+                        <strong>{branch.stock}</strong>
+                        <span title={branch.label}>{branch.label}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
                 <div className={styles.cartMeta}>
