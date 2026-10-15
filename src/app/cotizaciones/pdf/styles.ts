@@ -1,0 +1,581 @@
+import { StyleSheet } from "@react-pdf/renderer";
+// ─── PALETA & TOKENS ────────────────────────────────────────────────────────
+const C = {
+  black: "#0d0d0d",
+  gray900: "#1a1a1a",
+  gray700: "#444444",
+  gray500: "#777777",
+  gray200: "#e4e4e4",
+  gray100: "#f4f4f4",
+  accent: "#0047cc",
+  danger: "#c0392b",
+  white: "#ffffff",
+};
+
+export const styles = StyleSheet.create({
+  // PAGE
+  page: {
+    fontFamily: "Helvetica",
+    fontSize: 10,
+    color: C.gray900,
+    // Espacio para header/footer fijos sin dejar banda vacía grande.
+    paddingTop: 96,
+    paddingBottom: 112,
+    paddingHorizontal: 48,
+    backgroundColor: C.white,
+  },
+
+  // ── HEADER ──────────────────────────────────────────────────────────────
+  header: {
+    position: "absolute",
+    top: 36,
+    left: 48,
+    right: 48,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray200,
+    marginBottom: 0,
+  },
+  logoWrap: {
+    width: 120,
+  },
+  logo: {
+    width: 120,
+    objectFit: "contain",
+  },
+  headerRight: {
+    alignItems: "flex-end",
+  },
+  titleLabel: {
+    fontSize: 20,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  headerDate: {
+    fontSize: 9,
+    color: C.gray500,
+    marginTop: 4,
+  },
+
+  // ── META ROW ────────────────────────────────────────────────────────────
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  metaBlock: {
+    flexDirection: "column",
+    width: "30%", // Para que se ajusten y no se empalmen
+  },
+  metaBlockClient: {
+    flexDirection: "column",
+    width: "40%", // Un poco más de espacio para el nombre del cliente
+  },
+  metaLabel: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray500,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  metaValue: {
+    fontSize: 10,
+    color: C.gray900,
+    fontFamily: "Helvetica-Bold",
+  },
+  metaValueNormal: {
+    fontSize: 10,
+    color: C.gray700,
+  },
+
+  // ── DIVIDER ─────────────────────────────────────────────────────────────
+  divider: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray200,
+    marginBottom: 10,
+  },
+
+  // ── TABLE (anchos fijos iguales en header y filas) ─────────────────────
+  // Content ~516pt (LETTER 612 - padding 48*2). Grid: 72+44+flex+88+88.
+  tableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.gray100,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: 3,
+    marginBottom: 2,
+  },
+  // Columnas del encabezado (sin minHeight de filas → evita textos chuecos).
+  thColImg: {
+    width: 72,
+    paddingRight: 6,
+    justifyContent: "center",
+    alignItems: "flex-start",
+  },
+  thColQty: {
+    width: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  thColDesc: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    paddingRight: 10,
+    justifyContent: "center",
+  },
+  thColUnit: {
+    width: 88,
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  thColTotal: {
+    width: 88,
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  tableRow: {
+    flexDirection: "row",
+    // Arriba: la imagen 56×56 no se comprime aunque el texto sea más alto.
+    alignItems: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray100,
+    // Reserva al menos el alto de la imagen (+ padding).
+    minHeight: 72,
+  },
+  colImg: {
+    width: 72,
+    minHeight: 56,
+    paddingRight: 6,
+    paddingTop: 0,
+    justifyContent: "flex-start",
+    alignItems: "center",
+  },
+  colQty: {
+    width: 44,
+    minHeight: 56,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  colDesc: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    paddingRight: 10,
+    justifyContent: "flex-start",
+  },
+  colUnit: {
+    width: 88,
+    minHeight: 56,
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  colTotal: {
+    width: 88,
+    minHeight: 56,
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  thText: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray500,
+    textTransform: "uppercase",
+  },
+  thTextCenter: {
+    textAlign: "center",
+    width: "100%",
+  },
+  thTextRight: {
+    textAlign: "right",
+    width: "100%",
+  },
+  /** Lienzo fijo: la imagen nunca se recorta ni se encoge en el PDF. */
+  productImageFrame: {
+    width: 56,
+    height: 56,
+    minWidth: 56,
+    minHeight: 56,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  productImage: {
+    width: 56,
+    height: 56,
+    maxWidth: 56,
+    maxHeight: 56,
+    objectFit: "contain",
+  },
+  tdQtyText: {
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    textAlign: "center",
+  },
+  tdQtyBadge: {
+    minWidth: 26,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 3,
+    backgroundColor: C.gray100,
+    borderWidth: 1,
+    borderColor: C.gray200,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tdUnitText: {
+    fontSize: 10,
+    color: C.gray700,
+    textAlign: "right",
+    width: "100%",
+  },
+  tdTotalText: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    textAlign: "right",
+    width: "100%",
+  },
+  productName: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    marginBottom: 2,
+  },
+  productDesc: {
+    fontSize: 8,
+    color: C.gray500,
+    lineHeight: 1.35,
+    marginBottom: 2,
+  },
+  productProp: {
+    fontSize: 8,
+    color: C.gray500,
+  },
+  productPropBold: {
+    fontFamily: "Helvetica-Bold",
+    color: C.gray700,
+  },
+  hiddenRow: {
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray100,
+  },
+  hiddenLine: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  hiddenName: {
+    flexGrow: 1,
+    flexShrink: 1,
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    paddingRight: 8,
+  },
+  hiddenQtyBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+    borderRadius: 3,
+    backgroundColor: C.accent,
+  },
+  hiddenQty: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 11,
+    color: C.white,
+  },
+
+  // ── TOTALS ──────────────────────────────────────────────────────────────
+  totalsSection: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: C.gray200,
+    width: "100%",
+  },
+  totalsHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    width: "100%",
+  },
+  totalsProductCount: {
+    fontSize: 11,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    width: "48%",
+    paddingRight: 8,
+  },
+  totalsAmounts: {
+    width: "48%",
+    alignItems: "flex-end",
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1.5,
+    borderTopColor: C.black,
+    width: "100%",
+  },
+  totalLabel: {
+    fontSize: 11,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    marginRight: 12,
+  },
+  totalValue: {
+    fontSize: 16,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    minWidth: 80,
+    textAlign: "right",
+  },
+  totalRowMuted: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: 4,
+    width: "100%",
+  },
+  totalLabelMuted: {
+    fontSize: 9,
+    fontFamily: "Helvetica",
+    color: C.gray700,
+    marginRight: 12,
+  },
+  totalValueMuted: {
+    fontSize: 11,
+    fontFamily: "Helvetica",
+    color: C.gray900,
+    minWidth: 80,
+    textAlign: "right",
+  },
+  ivaNote: {
+    fontSize: 8,
+    color: C.gray500,
+    marginTop: 4,
+    textAlign: "right",
+    width: "100%",
+  },
+  deliveryBox: {
+    marginTop: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: C.gray200,
+    backgroundColor: "#fafafa",
+    width: "100%",
+  },
+  deliverySection: {
+    marginTop: 12,
+    width: "100%",
+  },
+  deliveryTitle: {
+    fontSize: 11,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    marginBottom: 8,
+    letterSpacing: 0.3,
+    paddingBottom: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray200,
+  },
+  deliveryCard: {
+    marginBottom: 8,
+    padding: 8,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.gray200,
+    borderRadius: 3,
+    width: "100%",
+  },
+  deliveryCardLast: {
+    marginBottom: 0,
+  },
+  deliveryCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray200,
+    width: "100%",
+  },
+  deliveryGroup: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray900,
+    maxWidth: "70%",
+    paddingRight: 8,
+  },
+  deliveryLogoBadge: {
+    width: 64,
+    height: 24,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  deliveryLogo: {
+    width: 56,
+    height: 22,
+    objectFit: "contain",
+  },
+  deliveryMethodChip: {
+    alignSelf: "flex-start",
+    backgroundColor: "#f3f4f6",
+    borderWidth: 1,
+    borderColor: C.gray200,
+    borderRadius: 2,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    marginBottom: 8,
+  },
+  deliveryMethodChipText: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray700,
+  },
+  deliveryDetails: {
+    marginTop: 2,
+    width: "100%",
+  },
+  deliveryDetailBlock: {
+    marginTop: 6,
+    width: "100%",
+  },
+  deliveryDetailLabel: {
+    fontSize: 8,
+    color: C.gray500,
+    marginBottom: 2,
+  },
+  deliveryDetailValue: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray900,
+  },
+  deliveryAddressBox: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: C.gray200,
+    width: "100%",
+  },
+  deliveryAddressLabel: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray500,
+    marginBottom: 3,
+    letterSpacing: 0.4,
+  },
+  deliveryAddressText: {
+    fontSize: 8,
+    color: C.gray700,
+    lineHeight: 1.45,
+  },
+
+  // ── CALLOUT BOXES ───────────────────────────────────────────────────────
+  noteBox: {
+    marginTop: 12,
+    flexDirection: "row",
+    backgroundColor: "#eef3ff",
+    borderLeftWidth: 3,
+    borderLeftColor: C.accent,
+    padding: 10,
+    borderRadius: 2,
+  },
+  noteText: {
+    fontSize: 8,
+    color: C.gray700,
+    lineHeight: 1.5,
+    flex: 1,
+  },
+  validityBox: {
+    marginTop: 8,
+    flexDirection: "row",
+    backgroundColor: "#fff5f5",
+    borderLeftWidth: 3,
+    borderLeftColor: C.danger,
+    padding: 10,
+    borderRadius: 2,
+  },
+  validityText: {
+    fontSize: 8,
+    color: C.danger,
+    fontFamily: "Helvetica-Bold",
+    lineHeight: 1.5,
+    flex: 1,
+  },
+
+  // ── FOOTER ──────────────────────────────────────────────────────────────
+  footer: {
+    marginTop: 28,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: C.gray200,
+  },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  footerCol: {
+    flexDirection: "column",
+    flex: 1,
+    paddingRight: 16,
+  },
+  footerColLast: {
+    flexDirection: "column",
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  footerLabel: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray500,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 3,
+  },
+  footerValue: {
+    fontSize: 9,
+    color: C.gray700,
+    lineHeight: 1.5,
+  },
+  footerEmail: {
+    fontSize: 9,
+    color: C.accent,
+    textDecoration: "underline",
+  },
+  companyName: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    marginBottom: 4,
+  },
+  paymentNote: {
+    marginTop: 6,
+    fontSize: 8,
+    color: C.gray700,
+    lineHeight: 1.5,
+  },
+  bottomFooter: {
+    position: "absolute",
+    bottom: 48,
+    left: 48,
+    right: 48,
+    backgroundColor: C.white,
+  },
+});

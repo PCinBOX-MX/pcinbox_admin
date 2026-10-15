@@ -207,6 +207,20 @@ describe("Administración de cotizaciones", () => {
     cy.contains("La cotización solicitada ya no existe").should("be.visible");
   });
 
+  it("abre el generador con datos completos y ocultar datos", () => {
+    cy.intercept("GET", "**/cotizaciones/admin?*", listResponse()).as(
+      "listQuotes",
+    );
+    visitAs();
+    cy.wait("@listQuotes");
+    cy.get('[data-testid="open-generar-cotizacion"]').click();
+    cy.get('[data-testid="generar-cotizacion-panel"]').should("be.visible");
+    cy.get('[data-testid="quote-full-data"]').should("be.disabled");
+    cy.get('[data-testid="quote-hidden-data"]').should("be.disabled");
+    cy.contains("Ocultar datos").should("be.visible");
+    cy.contains("Datos completos").should("be.visible");
+  });
+
   it("muestra tarjetas móviles y oculta el módulo a soporte", () => {
     cy.intercept("GET", "**/cotizaciones/admin?*", listResponse());
     cy.viewport("iphone-x");
