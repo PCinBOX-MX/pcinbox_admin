@@ -8,6 +8,8 @@ import { saveQuerySession } from "../utils/querySession";
 import { parsePageParam, readWindowSearchParam } from "../utils/adminPagination";
 import { useTheContext } from "../hooks/global.hook";
 import UtilsService from "../services/utils";
+import { normalizeCronStockPayload } from "../utils/cronStockLiveSync";
+import { patchQuoteLiveLines } from "./quoteCronSync";
 import CotizacionPdf, {
   QuoteDetailLevel,
   QuotePdfLine,
@@ -329,7 +331,7 @@ function limitMessage(resetAt?: string): string {
 export default function useGenerarCotizacion(onCreated: () => void) {
   const { requestGet, requestPost, requestDelete } = UtilsService();
   const { setQueryParams } = useQueryParams();
-  const { setDataModal } = useTheContext();
+  const { setDataModal, socketCron, socketCronReady } = useTheContext();
   const [hydratedDraft, setHydratedDraft] = useState(false);
   const [cartReady, setCartReady] = useState(false);
   const skipPersist = useRef(false);
@@ -343,6 +345,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   const qtyEpoch = useRef(new Map<number, number>());
   const pendingQty = useRef(new Map<number, number | "">());
   const linesRef = useRef<QuoteDraftLine[]>([]);
+  const cartCountRef = useRef(0);
   const [customerName, setCustomerName] = useState("");
   const [customerLada, setCustomerLada] = useState("+52");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -366,6 +369,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   const searchSequence = useRef(0);
   const runLock = useRef(false);
   linesRef.current = lines;
+  cartCountRef.current = cartTotalCount;
 
   const applyCart = useCallback(
     (payload: CartPayload) => {
@@ -406,6 +410,37 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     [requestGet],
   );
 
+  const loadPreviewLines = useCallback(async (): Promise<QuotePdfLine[]> => {
+    const toPdf = (line: QuoteDraftLine): QuotePdfLine => {
+      const pending = pendingQty.current.get(line.idProduct);
+      const visible = linesRef.current.find(
+        (item) => item.idProduct === line.idProduct,
+      );
+      const quantity =
+        pending !== undefined
+          ? pending
+          : visible
+            ? visible.quantity
+            : line.quantity;
+      return {
+        idProduct: line.idProduct,
+        name: line.name,
+        description: line.description,
+        caracteristicas: line.caracteristicas,
+        price: Number(line.price) || 0,
+        quantity: quantityOrOne(quantity),
+        imageUrl: line.image_url,
+        upc: line.upc,
+      };
+    };
+
+    if (!usesServerCart.current) {
+      return allLines.current.map(toPdf);
+    }
+    const payload = await readCart(1, true);
+    return payload.data.map((line) => toPdf(mapCartLine(line)));
+  }, [readCart]);
+
   const showLocalCart = useCallback(
     (source: QuoteDraftLine[], page: number) => {
       usesServerCart.current = false;
@@ -436,6 +471,46 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     },
     [setQueryParams],
   );
+
+  useEffect(() => {
+    const cronSocket = socketCron?.current;
+    if (!cronSocket || !socketCronReady) return;
+
+    const onCronUpdate = (payload: unknown) => {
+      const updates = normalizeCronStockPayload(payload);
+      if (updates.length === 0) return;
+
+      setResults((current) => patchQuoteLiveLines(current, updates) ?? current);
+
+      if (!usesServerCart.current) {
+        const next = patchQuoteLiveLines(allLines.current, updates);
+        if (next) showLocalCart(next, cartPageRef.current);
+        return;
+      }
+      if (cartCountRef.current === 0) return;
+
+      const visible = patchQuoteLiveLines(linesRef.current, updates);
+      if (visible) setLines(visible);
+
+      void requestPost(
+        { updates, page: cartPageRef.current },
+        "/cotizaciones/admin/cart/live",
+        { silent: true },
+      )
+        .then((response) => {
+          const body = response.data as { changed?: boolean };
+          if (body?.changed === false) return;
+          const payload = asCartPayload(response.data);
+          if (payload) applyCart(payload);
+        })
+        .catch(() => undefined);
+    };
+
+    cronSocket.on("updatedStockCron", onCronUpdate);
+    return () => {
+      cronSocket.off("updatedStockCron", onCronUpdate);
+    };
+  }, [applyCart, requestPost, showLocalCart, socketCron, socketCronReady]);
 
   useEffect(() => {
     const draft = readAdminQuoteDraft();
@@ -1347,6 +1422,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     confirmUnlinkAll,
     total: money(cartAmount),
     addProduct,
+    loadPreviewLines,
     setQuantity,
     removeLine,
     confirmClearCart,

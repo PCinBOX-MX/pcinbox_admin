@@ -7,9 +7,11 @@ import { createPortal } from "react-dom";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import { adminFieldSx } from "../theme/adminFieldSx";
 import styles from "./generar.module.css";
+import QuotePdfPreview from "./QuotePdfPreview";
 import useGenerarCotizacion, {
   QUOTE_LADA_OPTIONS,
 } from "./useGenerarCotizacion";
+import { QuoteDetailLevel } from "./pdf/CotizacionPdf";
 
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -71,6 +73,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
   const alertRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const [previewLevel, setPreviewLevel] = useState<QuoteDetailLevel>("full");
   const [suggestionsHidden, setSuggestionsHidden] = useState(false);
   const [suggestionBox, setSuggestionBox] = useState<{
     top: number;
@@ -137,7 +140,10 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
       <div className={styles.lead}>
         <div>
           <h2>Nueva cotización</h2>
-          <p>Arma el carrito y elige si el PDF lleva el detalle o solo nombres y total.</p>
+          <p>
+            Arma el carrito y, cuando quieras, genera la vista previa. El
+            archivo se guarda hasta que eliges un botón.
+          </p>
         </div>
         <button
           type="button"
@@ -150,6 +156,8 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
         </button>
       </div>
 
+      <div className={styles.quoteWorkspace}>
+      <div className={styles.quoteForm}>
       {quote.error ? (
         <div ref={alertRef} className={styles.formAlert} role="alert">
           <Alert severity="error" onClose={quote.dismissError}>
@@ -620,8 +628,8 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             Total {currencyFormatter.format(quote.total)}
           </div>
           <p className={styles.hint}>
-            El listado de arriba es para armar la cotización. El PDF cambia
-            según el botón que uses.
+            La vista previa sale con su botón. El archivo se guarda con el
+            botón que elijas.
           </p>
         </div>
         <div className={styles.actions}>
@@ -664,6 +672,21 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             Ocultar datos
           </button>
         </div>
+      </div>
+      </div>
+      <QuotePdfPreview
+        hasLines={quote.cartReady && quote.cartTotalCount > 0}
+        detailLevel={previewLevel}
+        onDetailLevel={setPreviewLevel}
+        loadLines={quote.loadPreviewLines}
+        userName={quote.customerName.trim().slice(0, 120)}
+        userPhone={
+          quote.customerPhone.replace(/\D/g, "").length === 10
+            ? `${quote.customerLada} ${quote.customerPhone.replace(/\D/g, "")}`
+            : ""
+        }
+        includeAssembly={quote.includeAssembly}
+      />
       </div>
     </div>
   );
