@@ -24,6 +24,10 @@ function displayText(value: unknown) {
   return String(value).trim();
 }
 
+function isPresent<T>(value: T | null | undefined | false): value is T {
+  return value != null && value !== false;
+}
+
 const PAYMENT_LABELS: Record<string, string> = {
   tarjeta_de_credito: "Tarjeta de crédito",
   tarjeta_de_debito: "Tarjeta de débito",
@@ -285,7 +289,7 @@ function BillingRecord({
           hint: catalogHint(TAX_REGIMEN_LABELS, regimen.value),
         }
       : null,
-  ].filter(Boolean);
+  ].filter(isPresent);
 
   const contactTiles = [
     email
@@ -318,7 +322,7 @@ function BillingRecord({
           wide: false,
         }
       : null,
-  ].filter(Boolean);
+  ].filter(isPresent);
 
   return (
     <article className="admin-billing-card">
