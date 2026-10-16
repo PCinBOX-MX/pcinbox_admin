@@ -86,10 +86,12 @@ const GridVentasInvitados = ({ rows }: { rows?: any }) => {
                   isOpen: true,
                   type: "info",
                   title: "Datos del cliente",
-
+                  maxWidth: "min(96vw, 920px)",
+                  headerLayout: "inline",
                   ...modalCloseOnly,
+                  showCancel: false,
                   content: (
-                    <CustomerDetailsContent data={params.value?.[0]} />
+                    <CustomerDetailsContent data={params.value} />
                   ),
                   onClose: () => {
                     setDataModal((prev) => ({ ...prev, isOpen: false }));

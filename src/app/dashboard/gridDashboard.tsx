@@ -123,8 +123,10 @@ const GridDashboard = ({
                     isOpen: true,
                     type: "info",
                     title: "Datos de facturación",
-
+                    maxWidth: "min(94vw, 640px)",
+                    headerLayout: "inline",
                     ...modalCloseOnly,
+                    showCancel: false,
                     content: (
                       <BillingDetailsContent billing={params.row.billing} />
                     ),
@@ -184,8 +186,10 @@ const GridDashboard = ({
                   isOpen: true,
                   type: "info",
                   title: "Datos del cliente",
-
+                  maxWidth: "min(96vw, 920px)",
+                  headerLayout: "inline",
                   ...modalCloseOnly,
+                  showCancel: false,
                   content: <CustomerDetailsContent data={params.value} />,
                   onClose: () => {
                     setDataModal((prev) => ({ ...prev, isOpen: false }));

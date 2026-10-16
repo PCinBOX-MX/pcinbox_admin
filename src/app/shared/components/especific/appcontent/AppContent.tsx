@@ -322,6 +322,8 @@ export default function AppContent({
           type={dataModal.type}
           children={dataModal.children}
           showActions={dataModal.showActions}
+          showCancel={dataModal.showCancel}
+          headerLayout={dataModal.headerLayout}
           maxWidth={dataModal.maxWidth}
           loading={dataModal.loading}
           confirmLabel={dataModal.confirmLabel}

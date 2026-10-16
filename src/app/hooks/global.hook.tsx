@@ -34,6 +34,8 @@ interface ModalData {
   onConfirm: () => void;
   children?: any;
   showActions: boolean;
+  showCancel?: boolean;
+  headerLayout?: "center" | "inline";
   confirmLabel?: string;
   cancelLabel?: string;
   maxWidth?: string;

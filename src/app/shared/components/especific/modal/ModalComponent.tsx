@@ -16,6 +16,8 @@ const ModalComponent = ({
   children,
   onConfirm,
   showActions,
+  showCancel = true,
+  headerLayout = "center",
   maxWidth,
   loading = false,
   confirmLabel = "Aceptar",
@@ -29,6 +31,8 @@ const ModalComponent = ({
   children: React.ReactNode;
   onConfirm: () => void;
   showActions: boolean;
+  showCancel?: boolean;
+  headerLayout?: "center" | "inline";
   maxWidth?: string;
   loading?: boolean;
   confirmLabel?: string;
@@ -182,6 +186,7 @@ const ModalComponent = ({
   const config = getTypeConfig();
   const IconComponent = config.icon;
   const showActionBar = showActions || loading;
+  const inlineHeader = headerLayout === "inline";
   const confirmButtonLabel = loading
     ? "Procesando…"
     : confirmLabel || "Aceptar";
@@ -230,13 +235,13 @@ const ModalComponent = ({
                   "--admin-modal-size": maxWidth,
                   width: maxWidth,
                   maxWidth,
-                  minWidth: 0,
+                  minWidth: maxWidth,
                 } as React.CSSProperties)
               : undefined
           }
           sx={{
-            width: "fit-content",
-            minWidth: "min(90vw, 360px)",
+            width: maxWidth || "fit-content",
+            minWidth: maxWidth || "min(90vw, 360px)",
             maxWidth: maxWidth || "min(90vw, 440px)",
             maxHeight: "90vh",
             overflow: "hidden",
@@ -265,40 +270,81 @@ const ModalComponent = ({
               flexShrink: 0,
             }}
           />
-          {/* Cabecera con boton cerrar */}
-        <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "12px 16px 0 0" }}>
-          <button
-            onClick={handleClose}
-            disabled={loading}
-            className="admin-modal-close"
-            aria-label="Cerrar modal"
-          >
-            <X size={20} strokeWidth={2.5} />
-          </button>
-        </div>
-
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, padding: "0 24px 8px 24px", textAlign: "center" }}>
-            <div 
-              className={`admin-modal-icon ${config.bgColor} ${config.iconColor}`}
-            >
-              <IconComponent size={34} strokeWidth={2} />
-            </div>
-            
-            <Typography
-              id="modal-modal-title"
-              variant="h6"
-              component="h2"
-              sx={{
-                color: type === 'error' ? '#ef4444' : '#1f2937',
-                fontWeight: "700",
-                fontSize: "1.25rem",
-                lineHeight: "1.75rem",
-                marginBottom: "8px"
+          {inlineHeader ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                flexShrink: 0,
+                padding: "16px 16px 14px 24px",
               }}
             >
-              {title}
-            </Typography>
-          </div>
+              <div
+                className={`admin-modal-icon ${config.bgColor} ${config.iconColor}`}
+                style={{ width: 44, height: 44, borderRadius: 14, marginBottom: 0, flexShrink: 0 }}
+              >
+                <IconComponent size={22} strokeWidth={2} />
+              </div>
+              <Typography
+                id="modal-modal-title"
+                variant="h6"
+                component="h2"
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  color: type === "error" ? "#ef4444" : "#1f2937",
+                  fontWeight: "700",
+                  fontSize: "1.15rem",
+                  lineHeight: 1.3,
+                  marginBottom: 0,
+                  textAlign: "left",
+                }}
+              >
+                {title}
+              </Typography>
+              <button
+                onClick={handleClose}
+                disabled={loading}
+                className="admin-modal-close"
+                aria-label="Cerrar modal"
+              >
+                <X size={20} strokeWidth={2.5} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", justifyContent: "flex-end", flexShrink: 0, padding: "12px 16px 0 0" }}>
+                <button
+                  onClick={handleClose}
+                  disabled={loading}
+                  className="admin-modal-close"
+                  aria-label="Cerrar modal"
+                >
+                  <X size={20} strokeWidth={2.5} />
+                </button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, padding: "0 24px 8px 24px", textAlign: "center" }}>
+                <div className={`admin-modal-icon ${config.bgColor} ${config.iconColor}`}>
+                  <IconComponent size={34} strokeWidth={2} />
+                </div>
+                <Typography
+                  id="modal-modal-title"
+                  variant="h6"
+                  component="h2"
+                  sx={{
+                    color: type === "error" ? "#ef4444" : "#1f2937",
+                    fontWeight: "700",
+                    fontSize: "1.25rem",
+                    lineHeight: "1.75rem",
+                    marginBottom: "8px",
+                  }}
+                >
+                  {title}
+                </Typography>
+              </div>
+            </>
+          )}
 
           {/* Contenido: unico contenedor con scroll */}
           <div
@@ -341,13 +387,15 @@ const ModalComponent = ({
           {/* Botones de Accion */}
           {showActionBar && (
             <div className="admin-modal-actions">
-              <button
-                disabled={loading}
-                className="admin-modal-btn-cancel"
-                onClick={handleClose}
-              >
-                {cancelLabel || "Cancelar"}
-              </button>
+              {showCancel ? (
+                <button
+                  disabled={loading}
+                  className="admin-modal-btn-cancel"
+                  onClick={handleClose}
+                >
+                  {cancelLabel || "Cancelar"}
+                </button>
+              ) : null}
               <button
                 disabled={loading}
                 className={`admin-modal-btn-confirm${loading ? " is-loading" : ""}`}
