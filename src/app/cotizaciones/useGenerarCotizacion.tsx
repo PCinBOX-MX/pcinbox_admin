@@ -1150,13 +1150,34 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           "/cotizaciones/admin/cart/merge",
           { silent: true },
         );
-        const known = new Set([
-          ...addedOrder.current,
-          ...orderedLines.current.map((line) => line.idProduct),
-        ]);
-        pendingPins.current = ready
-          .map((line) => line.idProduct)
-          .filter((id) => !known.has(id));
+        const cartWasEmpty = cartCountRef.current === 0;
+        const base =
+          addedOrder.current.length > 0
+            ? addedOrder.current.slice()
+            : orderedLines.current.length > 0 &&
+                orderedLines.current.length === cartCountRef.current
+              ? orderedLines.current.map((line) => line.idProduct)
+              : [];
+        if (base.length > 0 || cartWasEmpty) {
+          const seen = new Set(base);
+          const nextOrder = [...base];
+          for (const line of ready) {
+            if (seen.has(line.idProduct)) continue;
+            seen.add(line.idProduct);
+            nextOrder.push(line.idProduct);
+          }
+          addedOrder.current = nextOrder;
+          persistAddedOrder(nextOrder);
+          pendingPins.current = [];
+        } else {
+          const known = new Set([
+            ...addedOrder.current,
+            ...orderedLines.current.map((line) => line.idProduct),
+          ]);
+          pendingPins.current = ready
+            .map((line) => line.idProduct)
+            .filter((id) => !known.has(id));
+        }
         let payload = asCartPayload(merged.data);
         if (!payload) throw new Error("cart");
         if (!cartIsComplete(payload)) payload = await readCart(1, true);
