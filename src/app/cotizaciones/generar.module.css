@@ -828,18 +828,74 @@
   list-style: none;
 }
 
+.orderHint {
+  margin: -4px 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .cartCard {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-columns: 28px 64px minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
-  padding: 12px 14px 12px 12px;
+  padding: 12px 14px 12px 8px;
   border: 1px solid #e7edf4;
   border-radius: 18px;
   background: #fff;
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.04),
     0 14px 34px rgba(15, 23, 42, 0.06);
+}
+
+.dragHandle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 48px;
+  border-radius: 10px;
+  color: #94a3b8;
+  cursor: grab;
+}
+
+.dragHandle:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.cartCardDragging {
+  opacity: 0.55;
+}
+
+.cartCardOver {
+  border-color: #2563eb;
+  box-shadow:
+    0 0 0 2px rgba(37, 99, 235, 0.16),
+    0 14px 34px rgba(15, 23, 42, 0.06);
+}
+
+.pageDrop {
+  display: grid;
+  place-items: center;
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1px dashed #93c5fd;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pageDropOver {
+  border-color: #2563eb;
+  background: #dbeafe;
 }
 
 .cartCard:hover {
@@ -1245,11 +1301,15 @@
   }
 
   .cartCard {
-    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-columns: 28px 64px minmax(0, 1fr);
     grid-template-areas:
-      "thumb body"
-      "meta meta";
+      "handle thumb body"
+      "meta meta meta";
     row-gap: 10px;
+  }
+
+  .dragHandle {
+    grid-area: handle;
   }
 
   .cartThumb {

@@ -54,6 +54,7 @@ export const QUOTE_LADA_OPTIONS = [
 ] as const;
 
 const DRAFT_KEY = "pcinbox-admin-quote-draft-v1";
+const ADDED_ORDER_KEY = "pcinbox-admin-quote-added-order";
 
 export type AdminQuoteDraft = {
   open: boolean;
@@ -289,6 +290,66 @@ function sliceLocalCart(lines: QuoteDraftLine[], page: number) {
   };
 }
 
+function readStoredAddedOrder(): number[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(ADDED_ORDER_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((id) => Number(id))
+      .filter((id) => Number.isSafeInteger(id) && id > 0);
+  } catch {
+    return [];
+  }
+}
+
+function persistAddedOrder(ids: number[]) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(ADDED_ORDER_KEY, JSON.stringify(ids));
+}
+
+function clearStoredAddedOrder() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(ADDED_ORDER_KEY);
+}
+
+/** El primero que se agregó queda arriba; los siguientes, debajo. */
+function sortByAddedOrder<T extends { idProduct: number }>(
+  lines: T[],
+  order: number[],
+): T[] {
+  if (order.length === 0) return lines;
+  const rank = new Map(order.map((id, index) => [id, index]));
+  return [...lines].sort((left, right) => {
+    const leftRank = rank.get(left.idProduct);
+    const rightRank = rank.get(right.idProduct);
+    if (leftRank == null && rightRank == null) return 0;
+    if (leftRank == null) return 1;
+    if (rightRank == null) return -1;
+    return leftRank - rightRank;
+  });
+}
+
+function reconcileAddedOrder(
+  order: number[],
+  serverIds: number[],
+  pinIds: number[] = [],
+): number[] {
+  const present = new Set(serverIds);
+  const known = new Set(order);
+  const newPins = pinIds.filter((id) => present.has(id) && !known.has(id));
+  const newPinSet = new Set(newPins);
+  const kept = order.filter((id) => present.has(id));
+  const keptSet = new Set(kept);
+  const missing = serverIds.filter((id) => !keptSet.has(id) && !newPinSet.has(id));
+  return [...kept, ...missing, ...newPins];
+}
+
+function cartIsComplete(payload: CartPayload): boolean {
+  const total = Number(payload.pagination?.total) || 0;
+  return payload.data.length >= total;
+}
+
 function asCartPayload(raw: unknown): CartPayload | null {
   if (!raw || typeof raw !== "object") return null;
   const body = raw as Partial<CartPayload>;
@@ -346,6 +407,9 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   const pendingQty = useRef(new Map<number, number | "">());
   const linesRef = useRef<QuoteDraftLine[]>([]);
   const cartCountRef = useRef(0);
+  const addedOrder = useRef<number[]>([]);
+  const orderedLines = useRef<QuoteDraftLine[]>([]);
+  const pendingPins = useRef<number[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerLada, setCustomerLada] = useState("+52");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -371,28 +435,134 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   linesRef.current = lines;
   cartCountRef.current = cartTotalCount;
 
+  const overlayPending = useCallback((pageLines: QuoteDraftLine[]) => {
+    if (pendingQty.current.size === 0) return pageLines;
+    return pageLines.map((line) => {
+      const pending = pendingQty.current.get(line.idProduct);
+      return pending === undefined ? line : { ...line, quantity: pending };
+    });
+  }, []);
+
+  const paintOrdered = useCallback(
+    (
+      lines: QuoteDraftLine[],
+      page: number,
+      meta: {
+        totalAmount: number;
+        importedQuotes: string[];
+        total: number;
+      },
+    ) => {
+      const ordered = sortByAddedOrder(lines, addedOrder.current);
+      orderedLines.current = ordered;
+      const local = sliceLocalCart(ordered, page);
+      const visible = overlayPending(local.data);
+      setLines(visible);
+      cartPageRef.current = local.pagination.page;
+      setCartPage(local.pagination.page);
+      setCartTotalCount(meta.total);
+      setCartTotalPages(local.pagination.totalPages);
+      if (pendingQty.current.size === 0) setCartAmount(meta.totalAmount);
+      setImportedQuotes(meta.importedQuotes);
+      setQueryParams({
+        cartPage: local.pagination.page <= 1 ? null : local.pagination.page,
+      });
+      rememberCartPage(local.pagination.page);
+    },
+    [overlayPending, setQueryParams],
+  );
+
   const applyCart = useCallback(
     (payload: CartPayload) => {
-      const pageLines = payload.data.map((line) => mapCartLine(line));
-      setLines((current) =>
-        pageLines.map((line) => {
-          if (!pendingQty.current.has(line.idProduct)) return line;
-          const local = current.find((item) => item.idProduct === line.idProduct);
-          return local ? { ...line, quantity: local.quantity } : line;
-        }),
+      const incoming = payload.data.map((line) => mapCartLine(line));
+      const serverIds = incoming.map((line) => line.idProduct);
+      if (!cartIsComplete(payload)) {
+        if (
+          orderedLines.current.length > 0 &&
+          orderedLines.current.length === payload.pagination.total
+        ) {
+          const byId = new Map(incoming.map((line) => [line.idProduct, line]));
+          const merged = orderedLines.current.map((line) => {
+            const next = byId.get(line.idProduct);
+            if (!next) return line;
+            const pending = pendingQty.current.get(line.idProduct);
+            return {
+              ...line,
+              ...next,
+              quantity: pending === undefined ? next.quantity : pending,
+            };
+          });
+          paintOrdered(merged, cartPageRef.current, {
+            totalAmount: payload.totalAmount,
+            importedQuotes: payload.importedQuotes,
+            total: payload.pagination.total,
+          });
+          return;
+        }
+        const known = new Set(addedOrder.current);
+        const pinsOnPage = pendingPins.current.filter((id) =>
+          serverIds.includes(id),
+        );
+        pendingPins.current = pendingPins.current.filter(
+          (id) => !serverIds.includes(id),
+        );
+        for (const id of serverIds) {
+          if (!known.has(id) && !pinsOnPage.includes(id)) {
+            addedOrder.current.push(id);
+            known.add(id);
+          }
+        }
+        for (const id of pinsOnPage) {
+          if (!addedOrder.current.includes(id)) addedOrder.current.push(id);
+        }
+        persistAddedOrder(addedOrder.current);
+        setLines(overlayPending(sortByAddedOrder(incoming, addedOrder.current)));
+        cartPageRef.current = payload.pagination.page;
+        setCartPage(payload.pagination.page);
+        setCartTotalCount(payload.pagination.total);
+        setCartTotalPages(payload.pagination.totalPages);
+        if (pendingQty.current.size === 0) setCartAmount(payload.totalAmount);
+        setImportedQuotes(payload.importedQuotes);
+        setQueryParams({
+          cartPage:
+            payload.pagination.page <= 1 ? null : payload.pagination.page,
+        });
+        rememberCartPage(payload.pagination.page);
+        return;
+      }
+
+      const pins = pendingPins.current;
+      pendingPins.current = [];
+      const previous = addedOrder.current.slice();
+      const newPins = pins.filter(
+        (id) => serverIds.includes(id) && !previous.includes(id),
       );
-      cartPageRef.current = payload.pagination.page;
-      setCartPage(payload.pagination.page);
-      setCartTotalCount(payload.pagination.total);
-      setCartTotalPages(payload.pagination.totalPages);
-      if (pendingQty.current.size === 0) setCartAmount(payload.totalAmount);
-      setImportedQuotes(payload.importedQuotes);
-      setQueryParams({
-        cartPage: payload.pagination.page <= 1 ? null : payload.pagination.page,
+      const nextOrder = reconcileAddedOrder(
+        addedOrder.current,
+        serverIds,
+        newPins,
+      );
+      addedOrder.current = nextOrder;
+      persistAddedOrder(nextOrder);
+      const lastPin = [...newPins]
+        .reverse()
+        .find((id) => serverIds.includes(id));
+      const orderedPreview = sortByAddedOrder(incoming, nextOrder);
+      const placed =
+        lastPin == null
+          ? -1
+          : orderedPreview.findIndex((line) => line.idProduct === lastPin);
+      const page =
+        placed >= 0
+          ? Math.floor(placed / CART_PAGE_SIZE) + 1
+          : cartPageRef.current;
+      paintOrdered(incoming, page, {
+        totalAmount: payload.totalAmount,
+        importedQuotes: payload.importedQuotes,
+        total: payload.pagination.total,
       });
-      rememberCartPage(payload.pagination.page);
     },
-    [setQueryParams],
+    [overlayPending, paintOrdered, setQueryParams],
   );
 
   const readCart = useCallback(
@@ -435,16 +605,28 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     };
 
     if (!usesServerCart.current) {
-      return allLines.current.map(toPdf);
+      return sortByAddedOrder(allLines.current, addedOrder.current).map(toPdf);
     }
     const payload = await readCart(1, true);
-    return payload.data.map((line) => toPdf(mapCartLine(line)));
+    const lines = payload.data.map((line) => mapCartLine(line));
+    if (cartIsComplete(payload)) {
+      const nextOrder = reconcileAddedOrder(
+        addedOrder.current,
+        lines.map((line) => line.idProduct),
+      );
+      addedOrder.current = nextOrder;
+      persistAddedOrder(nextOrder);
+    }
+    return sortByAddedOrder(lines, addedOrder.current).map(toPdf);
   }, [readCart]);
 
   const showLocalCart = useCallback(
     (source: QuoteDraftLine[], page: number) => {
       usesServerCart.current = false;
       allLines.current = source;
+      addedOrder.current = source.map((line) => line.idProduct);
+      orderedLines.current = source;
+      persistAddedOrder(addedOrder.current);
       const ids = new Set(source.map((line) => line.idProduct));
       localImports.current = localImports.current
         .map((quote) => ({
@@ -513,6 +695,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   }, [applyCart, requestPost, showLocalCart, socketCron, socketCronReady]);
 
   useEffect(() => {
+    addedOrder.current = readStoredAddedOrder();
     const draft = readAdminQuoteDraft();
     legacyLines.current = draft?.lines ?? [];
     localImports.current = draft?.importedQuotes ?? [];
@@ -551,7 +734,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
 
     const load = async () => {
       try {
-        let payload = await readCart(page);
+        let payload = await readCart(1, true);
         const legacy = legacyLines.current;
         if (
           payload.pagination.total === 0 &&
@@ -565,7 +748,12 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           );
           const replaced = asCartPayload(response.data);
           if (!replaced) throw new Error("cart");
-          payload = replaced;
+          payload = cartIsComplete(replaced)
+            ? replaced
+            : await readCart(1, true);
+          pendingPins.current = legacy
+            .map((line) => line.idProduct)
+            .filter((id) => !addedOrder.current.includes(id));
           legacyLines.current = [];
           patchAdminQuoteDraft({ lines: [], importedQuotes: [] });
         }
@@ -650,19 +838,27 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         return;
       }
       try {
+        const alreadyThere =
+          addedOrder.current.includes(product.idProduct) ||
+          orderedLines.current.some((line) => line.idProduct === product.idProduct);
+        if (!alreadyThere) pendingPins.current = [product.idProduct];
         const response = await requestPost(
           product,
           "/cotizaciones/admin/cart/lines",
           { silent: true },
         );
-        const payload = asCartPayload(response.data);
+        let payload = asCartPayload(response.data);
         if (!payload) throw new Error("cart");
+        if (!cartIsComplete(payload)) payload = await readCart(1, true);
         applyCart(payload);
       } catch (requestError) {
+        pendingPins.current = pendingPins.current.filter(
+          (id) => id !== product.idProduct,
+        );
         setError(errorText(requestError, "No se pudo agregar el producto."));
       }
     },
-    [applyCart, requestPost, showLocalCart],
+    [applyCart, readCart, requestPost, showLocalCart],
   );
 
   const setQuantity = useCallback(
@@ -681,6 +877,9 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         current.map((line) =>
           line.idProduct === idProduct ? { ...line, quantity: next } : line,
         ),
+      );
+      orderedLines.current = orderedLines.current.map((line) =>
+        line.idProduct === idProduct ? { ...line, quantity: next } : line,
       );
       if (!usesServerCart.current) {
         const nextLines = allLines.current.map((line) =>
@@ -724,6 +923,93 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     [applyCart, requestPost, showLocalCart],
   );
 
+  const lineOrderSource = useCallback(() => {
+    if (!usesServerCart.current) return allLines.current;
+    if (orderedLines.current.length > 0) return orderedLines.current;
+    return linesRef.current;
+  }, []);
+
+  const commitLineOrder = useCallback(
+    (next: number[], page: number) => {
+      addedOrder.current = next;
+      persistAddedOrder(next);
+      const sorted = sortByAddedOrder(lineOrderSource(), next);
+      if (!usesServerCart.current) {
+        showLocalCart(sorted, page);
+        return;
+      }
+      if (
+        orderedLines.current.length > 0 &&
+        orderedLines.current.length === cartCountRef.current
+      ) {
+        orderedLines.current = sorted;
+        const local = sliceLocalCart(sorted, page);
+        setLines(overlayPending(local.data));
+        cartPageRef.current = local.pagination.page;
+        setCartPage(local.pagination.page);
+        setCartTotalPages(local.pagination.totalPages);
+        setQueryParams({
+          cartPage: local.pagination.page <= 1 ? null : local.pagination.page,
+        });
+        rememberCartPage(local.pagination.page);
+        return;
+      }
+      setLines(overlayPending(sorted));
+    },
+    [lineOrderSource, overlayPending, setQueryParams, showLocalCart],
+  );
+
+  const orderWithLines = useCallback(
+    (fromId: number) => {
+      const next = addedOrder.current.slice();
+      for (const line of lineOrderSource()) {
+        if (!next.includes(line.idProduct)) next.push(line.idProduct);
+      }
+      if (!next.includes(fromId)) return null;
+      return next;
+    },
+    [lineOrderSource],
+  );
+
+  const reorderLine = useCallback(
+    (fromId: number, toId: number) => {
+      if (fromId === toId) return;
+      const next = orderWithLines(fromId);
+      if (!next) return;
+      const from = next.indexOf(fromId);
+      const to = next.indexOf(toId);
+      if (from < 0 || to < 0) return;
+      const [moved] = next.splice(from, 1);
+      if (moved == null) return;
+      next.splice(to, 0, moved);
+      const page = Math.floor(to / CART_PAGE_SIZE) + 1;
+      commitLineOrder(next, page);
+    },
+    [commitLineOrder, orderWithLines],
+  );
+
+  const moveLineToNeighborPage = useCallback(
+    (fromId: number, direction: "previous" | "next") => {
+      const next = orderWithLines(fromId);
+      if (!next) return;
+      const pageCount = Math.max(1, Math.ceil(next.length / CART_PAGE_SIZE));
+      const page = cartPageRef.current;
+      if (direction === "previous" && page <= 1) return;
+      if (direction === "next" && page >= pageCount) return;
+      const from = next.indexOf(fromId);
+      if (from < 0) return;
+      const pageStart = (page - 1) * CART_PAGE_SIZE;
+      const indexAfterRemoval =
+        direction === "previous" ? pageStart - 1 : pageStart + CART_PAGE_SIZE;
+      const [moved] = next.splice(from, 1);
+      if (moved == null) return;
+      const index = Math.max(0, Math.min(indexAfterRemoval, next.length));
+      next.splice(index, 0, moved);
+      commitLineOrder(next, direction === "previous" ? page - 1 : page + 1);
+    },
+    [commitLineOrder, orderWithLines],
+  );
+
   const removeLine = useCallback(
     (idProduct: number) => {
       if (!usesServerCart.current) {
@@ -737,15 +1023,17 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         `/cotizaciones/admin/cart/lines/${idProduct}?page=${cartPageRef.current}`,
         { silent: true },
       )
-        .then((response) => {
-          const payload = asCartPayload(response.data);
-          if (payload) applyCart(payload);
+        .then(async (response) => {
+          let payload = asCartPayload(response.data);
+          if (!payload) return;
+          if (!cartIsComplete(payload)) payload = await readCart(1, true);
+          applyCart(payload);
         })
         .catch((requestError) => {
           setError(errorText(requestError, "No se pudo quitar el producto."));
         });
     },
-    [applyCart, requestDelete, showLocalCart],
+    [applyCart, readCart, requestDelete, showLocalCart],
   );
 
   const goToCartPage = useCallback(
@@ -759,6 +1047,23 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         showLocalCart(allLines.current, safePage);
         return;
       }
+      if (
+        orderedLines.current.length > 0 &&
+        orderedLines.current.length === cartCountRef.current
+      ) {
+        const local = sliceLocalCart(orderedLines.current, safePage);
+        setLines(overlayPending(local.data));
+        cartPageRef.current = local.pagination.page;
+        setCartPage(local.pagination.page);
+        setCartTotalPages(local.pagination.totalPages);
+        if (local.pagination.page !== safePage) {
+          setQueryParams({
+            cartPage: local.pagination.page <= 1 ? null : local.pagination.page,
+          });
+          rememberCartPage(local.pagination.page);
+        }
+        return;
+      }
       const sequence = ++loadSequence.current;
       void readCart(safePage)
         .then((payload) => {
@@ -770,7 +1075,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           setError(errorText(requestError, "No se pudo cambiar de página."));
         });
     },
-    [applyCart, readCart, setQueryParams, showLocalCart],
+    [applyCart, overlayPending, readCart, setQueryParams, showLocalCart],
   );
 
   const importQuote = useCallback(async () => {
@@ -845,8 +1150,16 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           "/cotizaciones/admin/cart/merge",
           { silent: true },
         );
-        const payload = asCartPayload(merged.data);
+        const known = new Set([
+          ...addedOrder.current,
+          ...orderedLines.current.map((line) => line.idProduct),
+        ]);
+        pendingPins.current = ready
+          .map((line) => line.idProduct)
+          .filter((id) => !known.has(id));
+        let payload = asCartPayload(merged.data);
         if (!payload) throw new Error("cart");
+        if (!cartIsComplete(payload)) payload = await readCart(1, true);
         applyCart(payload);
       }
       const phone = String(imported.customerPhone || "").trim();
@@ -885,6 +1198,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           : `Cotización ${folio} importada. Sus productos se sumaron a los que ya tenías.`,
       );
     } catch (requestError) {
+        pendingPins.current = [];
         setError(
           errorText(
             requestError,
@@ -896,7 +1210,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     } finally {
       setImporting(false);
     }
-  }, [applyCart, importNumber, requestGet, requestPost, showLocalCart]);
+  }, [applyCart, importNumber, readCart, requestGet, requestPost, showLocalCart]);
 
   const performUnlink = useCallback(
     async (quoteNumber: string) => {
@@ -931,8 +1245,9 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         );
         showLocalCart(next, cartPageRef.current);
       } else {
-        const payload = asCartPayload(response.data);
+        let payload = asCartPayload(response.data);
         if (!payload) throw new Error("cart");
+        if (!cartIsComplete(payload)) payload = await readCart(1, true);
         applyCart(payload);
       }
       return {
@@ -940,7 +1255,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         folio: body.quoteNumber || quoteNumber,
       };
     },
-    [applyCart, requestPost, showLocalCart],
+    [applyCart, readCart, requestPost, showLocalCart],
   );
 
   const startUnlink = useCallback(() => {
@@ -1067,6 +1382,10 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       onClose: closeModal,
       onConfirm: () => {
         closeModal();
+        addedOrder.current = [];
+        orderedLines.current = [];
+        pendingPins.current = [];
+        clearStoredAddedOrder();
         if (!usesServerCart.current) {
           showLocalCart([], 1);
           return;
@@ -1200,6 +1519,10 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           allLines.current = [];
           localImports.current = [];
         }
+        addedOrder.current = [];
+        orderedLines.current = [];
+        pendingPins.current = [];
+        clearStoredAddedOrder();
         setLines([]);
         setImportedQuotes([]);
         setCartTotalCount(0);
@@ -1290,7 +1613,16 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           }
           const payload = await readCart(1, true);
           const source = payload.data.map((line) => mapCartLine(line));
-          readyLines = source.map((line) => ({
+          if (cartIsComplete(payload)) {
+            const nextOrder = reconcileAddedOrder(
+              addedOrder.current,
+              source.map((line) => line.idProduct),
+            );
+            addedOrder.current = nextOrder;
+            persistAddedOrder(nextOrder);
+          }
+          const orderedSource = sortByAddedOrder(source, addedOrder.current);
+          readyLines = orderedSource.map((line) => ({
             ...line,
             quantity: quantityOrOne(line.quantity),
           }));
@@ -1304,7 +1636,12 @@ export default function useGenerarCotizacion(onCreated: () => void) {
                 )
               ).data,
             );
-            if (replaced) applyCart(replaced);
+            if (replaced) {
+              const full = cartIsComplete(replaced)
+                ? replaced
+                : await readCart(1, true);
+              applyCart(full);
+            }
           }
         } else {
           readyLines = allLines.current.map((line) => ({
@@ -1424,6 +1761,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     addProduct,
     loadPreviewLines,
     setQuantity,
+    reorderLine,
+    moveLineToNeighborPage,
     removeLine,
     confirmClearCart,
     generate,

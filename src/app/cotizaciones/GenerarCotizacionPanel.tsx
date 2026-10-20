@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, CircularProgress, InputAdornment, TextField } from "@mui/material";
-import { FileText, Search, Trash2, Warehouse, Wrench, X } from "lucide-react";
+import { FileText, GripVertical, Search, Trash2, Warehouse, Wrench, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
@@ -74,6 +74,10 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
   const searchRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const [previewLevel, setPreviewLevel] = useState<QuoteDetailLevel>("full");
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | "previous" | "next" | null>(
+    null,
+  );
   const [suggestionsHidden, setSuggestionsHidden] = useState(false);
   const [suggestionBox, setSuggestionBox] = useState<{
     top: number;
@@ -521,6 +525,13 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             : "Cargando"}
         </span>
       </div>
+      {quote.cartReady && quote.cartTotalCount > 1 ? (
+        <p className={styles.orderHint}>
+          Arrastra los puntos para acomodar los productos. Si hay más páginas,
+          suéltalo en la franja de la página anterior o siguiente. Ese orden es
+          el del PDF.
+        </p>
+      ) : null}
 
       {!quote.cartReady ? (
         <div className={styles.empty}>Cargando carrito...</div>
@@ -530,15 +541,92 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
         <div className={styles.cartBlock}>
           {cartPager}
           <ul className={styles.cartList}>
+          {draggingId != null && quote.cartPage > 1 ? (
+            <li
+              className={
+                dragOverId === "previous"
+                  ? `${styles.pageDrop} ${styles.pageDropOver}`
+                  : styles.pageDrop
+              }
+              onDragOver={(event) => {
+                if (busy) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                if (dragOverId !== "previous") setDragOverId("previous");
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const from = Number(event.dataTransfer.getData("text/plain"));
+                if (Number.isInteger(from) && from > 0) {
+                  quote.moveLineToNeighborPage(from, "previous");
+                }
+                setDraggingId(null);
+                setDragOverId(null);
+              }}
+            >
+              Soltar para mover a la página anterior
+            </li>
+          ) : null}
           {quote.lines.map((line) => {
             const unit = Number(line.price) || 0;
             const quantity = line.quantity === "" ? 0 : line.quantity;
             return (
               <li
                 key={line.idProduct}
-                className={styles.cartCard}
+                className={[
+                  styles.cartCard,
+                  draggingId === line.idProduct ? styles.cartCardDragging : "",
+                  dragOverId === line.idProduct && draggingId !== line.idProduct
+                    ? styles.cartCardOver
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 data-testid={`quote-line-${line.idProduct}`}
+                onDragOver={(event) => {
+                  if (busy) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  if (dragOverId !== line.idProduct) setDragOverId(line.idProduct);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const from = Number(event.dataTransfer.getData("text/plain"));
+                  if (Number.isInteger(from) && from > 0) {
+                    quote.reorderLine(from, line.idProduct);
+                  }
+                  setDraggingId(null);
+                  setDragOverId(null);
+                }}
               >
+                <div
+                  role="button"
+                  tabIndex={0}
+                  draggable={!busy}
+                  className={styles.dragHandle}
+                  aria-label={`Mover ${line.name}`}
+                  title="Arrastra para cambiar el orden"
+                  data-testid={`quote-drag-${line.idProduct}`}
+                  onDragStart={(event) => {
+                    if (busy) {
+                      event.preventDefault();
+                      return;
+                    }
+                    const card = event.currentTarget.closest("li");
+                    if (card instanceof HTMLElement) {
+                      event.dataTransfer.setDragImage(card, 28, 28);
+                    }
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", String(line.idProduct));
+                    setDraggingId(line.idProduct);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingId(null);
+                    setDragOverId(null);
+                  }}
+                >
+                  <GripVertical size={18} />
+                </div>
                 <span className={styles.cartThumb}>
                   <img
                     src={resolveProductImage(line.image_url)}
@@ -617,6 +705,32 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
               </li>
             );
           })}
+          {draggingId != null && quote.cartPage < quote.cartTotalPages ? (
+            <li
+              className={
+                dragOverId === "next"
+                  ? `${styles.pageDrop} ${styles.pageDropOver}`
+                  : styles.pageDrop
+              }
+              onDragOver={(event) => {
+                if (busy) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                if (dragOverId !== "next") setDragOverId("next");
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const from = Number(event.dataTransfer.getData("text/plain"));
+                if (Number.isInteger(from) && from > 0) {
+                  quote.moveLineToNeighborPage(from, "next");
+                }
+                setDraggingId(null);
+                setDragOverId(null);
+              }}
+            >
+              Soltar para mover a la página siguiente
+            </li>
+          ) : null}
           </ul>
           {cartPager}
         </div>
