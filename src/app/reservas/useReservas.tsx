@@ -32,6 +32,7 @@ export interface Reservation {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  userId?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -105,7 +106,7 @@ const CancelModalContent = ({
 
 const useReservas = () => {
   const { requestGet, requestPost } = UtilsService();
-  const { setDataModal, socketServer } = useTheContext();
+  const { setDataModal, socketServer, socketServerReady } = useTheContext();
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [totalReservations, setTotalReservations] = useState(0);
@@ -232,6 +233,22 @@ const useReservas = () => {
   };
 
   const isMountedRef = useRef(false);
+  const fetchReservationsRef = useRef(fetchReservations);
+  fetchReservationsRef.current = fetchReservations;
+
+  useEffect(() => {
+    const socket = socketServer.current;
+    if (!socket || !socketServerReady) return;
+
+    const refresh = () => {
+      void fetchReservationsRef.current();
+    };
+    socket.on("reservationStatusUpdated", refresh);
+    return () => {
+      socket.off("reservationStatusUpdated", refresh);
+    };
+  }, [socketServer, socketServerReady]);
+
   // Ejecutar carga al cambiar dependencias de filtro estables
   useEffect(() => {
     fetchReservations();

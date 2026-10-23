@@ -17,6 +17,7 @@ import {
   PosSale,
   PosServiceIntake,
   POS_PHONE_LADAS,
+  POS_PHYSICAL_CONDITION_PRESETS,
   SELLER_MAX_DISCOUNT_PCT,
   canCancelPosSale,
   isPosProductOutOfStock,
@@ -142,6 +143,8 @@ type PosDraftV2 = {
   linkedQuoteNumber: string | null;
   saleInput: string;
   linkedPosFolio: string | null;
+  reservationInput: string;
+  linkedReservationRef: string | null;
   customerUserId: number | null;
   manualCapture: PosManualCapture | null;
   cashForms: PosCashFormsDraft;
@@ -294,6 +297,8 @@ function draftHasContent(draft: PosDraftV2): boolean {
     Boolean(draft.quoteInput.trim()) ||
     Boolean(draft.linkedPosFolio) ||
     Boolean(draft.saleInput?.trim()) ||
+    Boolean(draft.linkedReservationRef) ||
+    Boolean(draft.reservationInput?.trim()) ||
     Boolean(draft.customerUserId) ||
     hasManual ||
     hasCashForms ||
@@ -357,6 +362,10 @@ function readPosDraft(): PosDraftV2 | null {
           saleInput: String(parsed.saleInput || ""),
           linkedPosFolio: parsed.linkedPosFolio
             ? String(parsed.linkedPosFolio)
+            : null,
+          reservationInput: String(parsed.reservationInput || ""),
+          linkedReservationRef: parsed.linkedReservationRef
+            ? String(parsed.linkedReservationRef)
             : null,
           customerUserId:
             parsed.customerUserId != null &&
@@ -423,6 +432,8 @@ function readPosDraft(): PosDraftV2 | null {
       linkedQuoteNumber: legacy.linkedQuoteNumber || null,
       saleInput: "",
       linkedPosFolio: null,
+      reservationInput: "",
+      linkedReservationRef: null,
       customerUserId: null,
       manualCapture: null,
       cashForms: { ...EMPTY_CASH_FORMS },
@@ -547,6 +558,23 @@ function splitImportedPhone(rawPhone: string): { lada: string; digits: string } 
   if (digits.length >= 10) {
     return { lada: "+52", digits: digits.slice(-10) };
   }
+  return null;
+}
+
+const RESERVATION_FOLIO_PATTERN = /^PCX-\d{3,6}-(PC|LP)$/i;
+const QUOTE_IMPORT_PATTERN = /^(?:\d{13}|COT-[A-Z0-9-]{8,55})$/i;
+const POS_SALE_FOLIO_PATTERN = /^(?:PV-)?\d{1,12}$/i;
+
+type PosImportKind = "reservation" | "quote" | "sale";
+
+function detectPosImportKind(raw: string): PosImportKind | null {
+  const value = String(raw || "")
+    .trim()
+    .replace(/^#/, "");
+  if (!value) return null;
+  if (RESERVATION_FOLIO_PATTERN.test(value)) return "reservation";
+  if (QUOTE_IMPORT_PATTERN.test(value)) return "quote";
+  if (POS_SALE_FOLIO_PATTERN.test(value)) return "sale";
   return null;
 }
 
@@ -703,6 +731,21 @@ export default function usePos() {
   } | null>(null);
   const [saleInput, setSaleInput] = useState("");
   const [linkedPosFolio, setLinkedPosFolio] = useState<string | null>(null);
+  const [reservationInput, setReservationInput] = useState("");
+  const [linkedReservationRef, setLinkedReservationRef] = useState<string | null>(
+    null,
+  );
+  const [reservationLoading, setReservationLoading] = useState(false);
+  const [reservationPageAlert, setReservationPageAlert] = useState<{
+    type: "error" | "warning" | "success";
+    title: string;
+    message: string;
+  } | null>(null);
+  const [importPageAlert, setImportPageAlert] = useState<{
+    type: "error" | "warning" | "success";
+    title: string;
+    message: string;
+  } | null>(null);
   const [customerUserId, setCustomerUserId] = useState<number | null>(null);
   const [saleLoading, setSaleLoading] = useState(false);
   const [salePageAlert, setSalePageAlert] = useState<{
@@ -894,6 +937,8 @@ export default function usePos() {
       setLinkedQuoteNumber(draft.linkedQuoteNumber || null);
       setSaleInput(draft.saleInput || "");
       setLinkedPosFolio(draft.linkedPosFolio || null);
+      setReservationInput(draft.reservationInput || "");
+      setLinkedReservationRef(draft.linkedReservationRef || null);
       setCustomerUserId(draft.customerUserId || null);
       setManualCapture(draft.manualCapture);
       setSearch(draft.search || "");
@@ -951,6 +996,8 @@ export default function usePos() {
       linkedQuoteNumber,
       saleInput,
       linkedPosFolio,
+      reservationInput,
+      linkedReservationRef,
       customerUserId,
       manualCapture,
       cashForms: {
@@ -991,6 +1038,8 @@ export default function usePos() {
     linkedQuoteNumber,
     saleInput,
     linkedPosFolio,
+    reservationInput,
+    linkedReservationRef,
     customerUserId,
     manualCapture,
     openingFloat,
@@ -2207,6 +2256,9 @@ export default function usePos() {
     setQuotePageAlert(null);
     setSaleInput("");
     setLinkedPosFolio(null);
+    setReservationInput("");
+    setLinkedReservationRef(null);
+    setReservationPageAlert(null);
     setCustomerUserId(null);
     setSalePageAlert(null);
     setManualCapture(null);
@@ -2230,6 +2282,8 @@ export default function usePos() {
       linkedQuoteNumber: null,
       saleInput: "",
       linkedPosFolio: null,
+      reservationInput: "",
+      linkedReservationRef: null,
       customerUserId: null,
       manualCapture: null,
       cashForms: {
@@ -2700,8 +2754,11 @@ export default function usePos() {
     [applyQuoteToCart, setDataModal],
   );
 
-  const loadQuote = useCallback(async () => {
-    const raw = quoteInput.trim().replace(/^#/, "").toUpperCase();
+  const loadQuote = useCallback(async (rawOverride?: string) => {
+    const raw = String(rawOverride ?? quoteInput)
+      .trim()
+      .replace(/^#/, "")
+      .toUpperCase();
     if (!raw) {
       showQuoteFeedback({
         type: "warning",
@@ -2711,11 +2768,15 @@ export default function usePos() {
       return;
     }
 
-    if (linkedPosFolio) {
+    if (linkedPosFolio || linkedReservationRef) {
       setDataModal({
         isOpen: true,
-        title: "Hay un folio POS vinculado",
-        content: `Esta venta ya tiene cargado el folio ${linkedPosFolio}. No se puede agregar una cotización encima. Si quieres usar una cotización, pulsa «Quitar folio»: se borran los productos, el cliente y los pagos de esa importación. Luego carga la cotización.`,
+        title: linkedReservationRef
+          ? "Hay una reserva vinculada"
+          : "Hay un folio POS vinculado",
+        content: linkedReservationRef
+          ? `Esta venta ya tiene la reserva ${linkedReservationRef}. No se puede cargar una cotización encima. Pulsa «Quitar reserva» y luego importa la cotización.`
+          : `Esta venta ya tiene cargado el folio ${linkedPosFolio}. No se puede agregar una cotización encima. Si quieres usar una cotización, pulsa «Quitar folio»: se borran los productos, el cliente y los pagos de esa importación. Luego carga la cotización.`,
         type: "warning",
         showActions: true,
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
@@ -2807,6 +2868,7 @@ export default function usePos() {
     cart.length,
     linkedQuoteNumber,
     linkedPosFolio,
+    linkedReservationRef,
     openQuotePriceModal,
     quoteInput,
     requestGet,
@@ -3048,6 +3110,9 @@ export default function usePos() {
       setLinkedPosFolio(folioLabel);
       setSaleInput(folioLabel);
       setLinkedQuoteNumber(null);
+      setLinkedReservationRef(null);
+      setReservationInput("");
+      setReservationPageAlert(null);
       setQuoteInput("");
       setQuotePageAlert(null);
       setCustomerUserId(
@@ -3085,8 +3150,297 @@ export default function usePos() {
     [showSaleFeedback],
   );
 
-  const loadPosFolio = useCallback(async () => {
-    const raw = saleInput.trim().replace(/^#/, "").replace(/^PV-/i, "");
+  const applyReservationToCart = useCallback(
+    (payload: {
+      reference: string;
+      service: string;
+      deviceType: string;
+      brand: string;
+      model?: string;
+      description: string;
+      date?: string;
+      time?: string;
+      status?: string;
+      cancelReason?: string;
+      contactName?: string;
+      contactEmail?: string;
+      contactPhone?: string;
+      customerUserId?: number | null;
+      hasSession?: boolean;
+      appointmentPassed?: boolean;
+    }) => {
+      const reference = String(payload.reference || "").trim().toUpperCase();
+      const status = String(payload.status || "").toLowerCase();
+      if (status === "cancelled") {
+        const reason = String(payload.cancelReason || "").trim();
+        const byClient = reason === "Cancelada por el cliente";
+        setReservationPageAlert({
+          type: "error",
+          title: "Reserva cancelada",
+          message: byClient
+            ? `La reserva ${reference} fue cancelada por el cliente. No se importa al punto de venta.`
+            : reason
+              ? `La reserva ${reference} fue cancelada: ${reason}. No se importa al punto de venta.`
+              : `La reserva ${reference} está cancelada. No se importa al punto de venta.`,
+        });
+        return;
+      }
+      const deviceLabel =
+        String(payload.deviceType || "").toUpperCase() === "PC"
+          ? "PC de escritorio"
+          : String(payload.deviceType || "Equipo").trim() || "Equipo";
+      const equipmentDescription = [deviceLabel, payload.brand, payload.model]
+        .map((part) => String(part || "").trim())
+        .filter(Boolean)
+        .join(" ");
+      const sessionLabel = payload.hasSession
+        ? "Cliente con sesión iniciada"
+        : "Reserva sin iniciar sesión";
+      const serviceName = String(payload.service || "Servicio").trim();
+      const failure = String(payload.description || "").trim();
+
+      const line: PosCartLine = {
+        key: `m-reserva-${reference}`,
+        productId: 0,
+        name: serviceName,
+        sku: null,
+        upc: null,
+        unitPrice: 0,
+        quantity: 1,
+        discountPct: 0,
+        branchId: null,
+        branchLabel: "Servicio adicional",
+        stockBranch: 999999,
+        stocksByBranch: [],
+        requiresSerial: false,
+        warrantyMonths: null,
+        warrantyMode: "none",
+        warrantyUnit: null,
+        serials: [""],
+        isManual: true,
+        manualKind: "service",
+        serviceIntake: {
+          serviceType: serviceName,
+          equipment: [
+            {
+              quantity: 1,
+              description: equipmentDescription || deviceLabel,
+              serialNumber: "",
+              physicalCondition: POS_PHYSICAL_CONDITION_PRESETS[0],
+            },
+          ],
+          failureOrRequestedService: failure || serviceName,
+          technicalObservationsOnReceipt: "",
+        },
+        providerId: null,
+      };
+
+      setCart([line]);
+      setLinkedReservationRef(reference);
+      setReservationInput(reference);
+      setLinkedPosFolio(null);
+      setSaleInput("");
+      setSalePageAlert(null);
+      setLinkedQuoteNumber(null);
+      setQuoteInput("");
+      setQuotePageAlert(null);
+      setCustomerUserId(
+        payload.customerUserId && payload.customerUserId > 0
+          ? payload.customerUserId
+          : null,
+      );
+      setCustomerName(String(payload.contactName || ""));
+      setGuestEmail(String(payload.contactEmail || ""));
+      const phone = splitImportedPhone(String(payload.contactPhone || ""));
+      if (phone) {
+        setPhoneLada(phone.lada);
+        setGuestPhone(phone.digits);
+      } else {
+        setPhoneLada("+52");
+        setGuestPhone("");
+      }
+      setNotes("");
+      setPayments([]);
+      setTab("cobrar");
+
+      const inProcess = status === "in_process";
+      const completed = status === "completed";
+      const appointmentPassed = Boolean(payload.appointmentPassed);
+      const phoneMissing =
+        Boolean(String(payload.contactPhone || "").trim()) && !phone;
+      setReservationPageAlert({
+        type:
+          completed || inProcess || appointmentPassed || phoneMissing
+            ? "warning"
+            : "success",
+        title: completed
+          ? "Reserva completada cargada"
+          : inProcess
+            ? "Reserva en proceso"
+            : appointmentPassed
+              ? "La cita de esta reserva ya pasó"
+              : "Reserva lista en el punto de venta",
+        message: [
+          `Se cargó ${reference} (${sessionLabel.toLowerCase()}): ${payload.contactName || "cliente"}, ${equipmentDescription || deviceLabel}, servicio «${serviceName}» y la falla descrita.`,
+          completed ? "La cita ya estaba completada." : "",
+          inProcess ? "La cita ya estaba en proceso." : "",
+          appointmentPassed
+            ? "La fecha de la cita ya pasó. Confirma con el cliente antes de cobrar."
+            : "",
+          phoneMissing
+            ? "El teléfono de la reserva no se pudo leer. Escríbelo si lo necesitas."
+            : "",
+          "Captura el precio del servicio antes de cobrar.",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      });
+    },
+    [setTab],
+  );
+
+  const loadReservationFolio = useCallback(
+    async (rawOverride?: string) => {
+      const raw = String(rawOverride ?? reservationInput)
+        .trim()
+        .replace(/^#/, "")
+        .toUpperCase();
+      if (!raw) {
+        setReservationPageAlert({
+          type: "warning",
+          title: "Falta el folio de la reserva",
+          message:
+            "Escribe el folio de la cita, por ejemplo PCX-4821-LP, y pulsa Importar reserva.",
+        });
+        return;
+      }
+      if (!RESERVATION_FOLIO_PATTERN.test(raw)) {
+        setReservationPageAlert({
+          type: "warning",
+          title: "Folio de reserva inválido",
+          message:
+            "El folio de una cita se ve así: PCX-4821-LP o PCX-4821-PC. El número de una venta de este POS se importa en Folio POS.",
+        });
+        return;
+      }
+      if (linkedReservationRef && linkedReservationRef !== raw) {
+        setDataModal({
+          isOpen: true,
+          title: "Ya hay una reserva en esta venta",
+          content: `Esta venta ya tiene la reserva ${linkedReservationRef}. Pulsa «Quitar reserva» para borrarla e importar ${raw}.`,
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+      if (linkedReservationRef === raw) {
+        if (rawOverride) return;
+        setReservationPageAlert({
+          type: "warning",
+          title: "Esta reserva ya está cargada",
+          message: `El folio ${raw} ya está en el punto de venta. Captura el precio del servicio y cobra, o pulsa «Quitar reserva» para volver a importarla.`,
+        });
+        return;
+      }
+      if (linkedPosFolio || linkedQuoteNumber || cart.length > 0) {
+        setDataModal({
+          isOpen: true,
+          title: "Vacía la venta antes de importar la reserva",
+          content: linkedPosFolio
+            ? `Hay un folio POS vinculado (${linkedPosFolio}). Quita ese folio y luego importa la reserva.`
+            : linkedQuoteNumber
+              ? `Hay una cotización vinculada (${linkedQuoteNumber}). Desvinculala y vacía el carrito. Después importa la reserva.`
+              : "Ya hay productos en el carrito. Una reserva no se mezcla con otra venta. Pulsa «Vaciar carrito» y luego importa el folio.",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+
+      setReservationLoading(true);
+      setReservationPageAlert(null);
+      try {
+        const res = await requestGet(
+          `/pos/reservations/${encodeURIComponent(raw)}`,
+          { silent: true },
+        );
+        const data = res?.data?.data;
+        if (!data?.reference) {
+          setReservationPageAlert({
+            type: "error",
+            title: "No se pudo leer la reserva",
+            message:
+              res?.data?.message ||
+              `La respuesta del folio ${raw} llegó incompleta. Vuelve a importarlo.`,
+          });
+          return;
+        }
+        applyReservationToCart(data);
+      } catch (e: any) {
+        const status = Number(e?.response?.status);
+        const code = String(e?.response?.data?.code || "");
+        const apiMessage = String(e?.response?.data?.message || "").trim();
+        const titleByCode: Record<string, string> = {
+          RESERVATION_CANCELLED: "Reserva cancelada",
+          RESERVATION_COMPLETED: "Reserva ya completada",
+          RESERVATION_ALREADY_SOLD: "Esta reserva ya se cobró",
+          RESERVATION_INCOMPLETE: "Reserva incompleta",
+          RESERVATION_FOLIO_INVALID: "Folio de reserva inválido",
+        };
+        setReservationPageAlert({
+          type: "error",
+          title:
+            titleByCode[code] ||
+            (status === 404
+              ? "No hay una reserva con ese folio"
+              : "No se pudo consultar la reserva"),
+          message:
+            apiMessage ||
+            `No se pudo consultar el folio ${raw}. Espera un momento y vuelve a intentar.`,
+        });
+      } finally {
+        setReservationLoading(false);
+      }
+    },
+    [
+      applyReservationToCart,
+      cart.length,
+      linkedPosFolio,
+      linkedQuoteNumber,
+      linkedReservationRef,
+      requestGet,
+      reservationInput,
+      setDataModal,
+    ],
+  );
+
+  const reservationAutoRef = useRef(false);
+  useEffect(() => {
+    if (!draftReady || reservationAutoRef.current) return;
+    const fromUrl = String(searchParams.get("reserva") || "").trim();
+    if (!fromUrl) return;
+    reservationAutoRef.current = true;
+    setReservationInput(fromUrl.toUpperCase());
+    void loadReservationFolio(fromUrl);
+  }, [draftReady, loadReservationFolio, searchParams]);
+
+  const clearLinkedReservation = useCallback(() => {
+    clearCart();
+  }, [clearCart]);
+
+  const dismissReservationPageAlert = useCallback(() => {
+    setReservationPageAlert(null);
+  }, []);
+
+  const loadPosFolio = useCallback(async (rawOverride?: string) => {
+    const raw = String(rawOverride ?? saleInput)
+      .trim()
+      .replace(/^#/, "")
+      .replace(/^PV-/i, "");
     if (!raw) {
       showSaleFeedback({
         type: "warning",
@@ -3162,11 +3516,13 @@ export default function usePos() {
       }
     };
 
-    if (linkedQuoteNumber || cart.length > 0) {
+    if (linkedQuoteNumber || linkedReservationRef || cart.length > 0) {
       setDataModal({
         isOpen: true,
         title: "Vacía la venta antes de importar el folio",
-        content: linkedQuoteNumber
+        content: linkedReservationRef
+          ? `Hay una reserva vinculada (${linkedReservationRef}). Quita la reserva y luego importa el folio POS.`
+          : linkedQuoteNumber
           ? `Hay una cotización vinculada (${linkedQuoteNumber}) y productos en el carrito. Un folio no se mezcla con eso. Desvincula la cotización y pulsa «Vaciar carrito». Después importa el folio.`
           : "Ya hay productos en el carrito. Un folio no se mezcla con productos del catálogo ni con captura sin catálogo. Pulsa «Vaciar carrito» y luego importa el folio.",
         type: "warning",
@@ -3182,6 +3538,7 @@ export default function usePos() {
     applyPosFolioToCart,
     cart.length,
     linkedQuoteNumber,
+    linkedReservationRef,
     linkedPosFolio,
     requestGet,
     saleInput,
@@ -3189,6 +3546,51 @@ export default function usePos() {
     showSaleFeedback,
   ]);
 
+  const loadDetectedImport = useCallback(
+    async (rawOverride?: string) => {
+      const raw = String(rawOverride || "").trim();
+      const kind = detectPosImportKind(raw);
+      setImportPageAlert(null);
+      if (!raw) {
+        setImportPageAlert({
+          type: "warning",
+          title: "Falta el código",
+          message:
+            "Escribe una cotización (13 dígitos o COT-…), un folio de venta de este POS (por ejemplo 3414) o una reserva (PCX-4821-LP).",
+        });
+        return;
+      }
+      if (!kind) {
+        setImportPageAlert({
+          type: "warning",
+          title: "Código no reconocido",
+          message:
+            "Escribe una cotización (13 dígitos o COT-…), un folio de venta de este POS (por ejemplo 3414) o una reserva (PCX-4821-LP).",
+        });
+        return;
+      }
+      setQuotePageAlert(null);
+      setSalePageAlert(null);
+      setReservationPageAlert(null);
+      if (kind === "reservation") {
+        setReservationInput(raw.toUpperCase());
+        await loadReservationFolio(raw);
+        return;
+      }
+      if (kind === "quote") {
+        setQuoteInput(raw.toUpperCase());
+        await loadQuote(raw);
+        return;
+      }
+      setSaleInput(raw);
+      await loadPosFolio(raw);
+    },
+    [loadPosFolio, loadQuote, loadReservationFolio],
+  );
+
+  const dismissImportPageAlert = useCallback(() => {
+    setImportPageAlert(null);
+  }, []);
 
   const clearLinkedPosFolio = useCallback(() => {
     clearCart();
@@ -3265,6 +3667,7 @@ export default function usePos() {
           notes: notes || null,
           requiredFactura: requiredFactura ? 1 : 0,
           quoteNumber: linkedQuoteNumber || null,
+          reservationReference: linkedReservationRef || null,
           items: cart.map((l) => ({
             productId: l.isManual ? "manual" : l.productId,
             manual: Boolean(l.isManual),
@@ -3357,6 +3760,7 @@ export default function usePos() {
     notes,
     requiredFactura,
     linkedQuoteNumber,
+    linkedReservationRef,
     linkedPosFolio,
     customerUserId,
     charging,
@@ -5279,6 +5683,17 @@ export default function usePos() {
     clearLinkedPosFolio,
     salePageAlert,
     dismissSalePageAlert,
+    reservationInput,
+    setReservationInput,
+    linkedReservationRef,
+    reservationLoading,
+    loadReservationFolio,
+    clearLinkedReservation,
+    reservationPageAlert,
+    dismissReservationPageAlert,
+    importPageAlert,
+    dismissImportPageAlert,
+    loadDetectedImport,
     totals,
     paidSum,
     remaining,
