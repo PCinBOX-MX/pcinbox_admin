@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import useReservas, { Reservation } from "./useReservas";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
@@ -31,11 +32,16 @@ import {
   Clock,
   FileText,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import styles from "./reservas.module.css";
 import { adminFieldSx } from "../theme/adminFieldSx";
 
+const hasReservationSession = (res: Reservation) =>
+  res.userId != null && Number(res.userId) > 0;
+
 const ReservasAdminPage = () => {
+  const router = useRouter();
   const {
     reservations,
     totalReservations,
@@ -335,7 +341,20 @@ const ReservasAdminPage = () => {
                     {reservations.map((res) => (
                       <tr key={res.reference}>
                         <td>
-                          <span className={styles.folio}>{res.reference}</span>
+                          <div className={styles.cellStack}>
+                            <span className={styles.folio}>{res.reference}</span>
+                            <span
+                              className={`${styles.sessionBadge} ${
+                                hasReservationSession(res)
+                                  ? styles.sessionOn
+                                  : styles.sessionOff
+                              }`}
+                            >
+                              {hasReservationSession(res)
+                                ? "Con sesión"
+                                : "Sin sesión"}
+                            </span>
+                          </div>
                         </td>
                         <td>
                           <div className={styles.cellStack}>
@@ -427,6 +446,19 @@ const ReservasAdminPage = () => {
                               <Eye size={18} />
                             </IconButton>
                           </Tooltip>
+                          <Tooltip title="Importar folio al punto de venta" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                router.push(
+                                  `/punto-de-venta?tab=cobrar&reserva=${encodeURIComponent(res.reference)}`,
+                                )
+                              }
+                              className={styles.detailBtn}
+                            >
+                              <Download size={18} />
+                            </IconButton>
+                          </Tooltip>
                         </td>
                       </tr>
                     ))}
@@ -491,6 +523,14 @@ const ReservasAdminPage = () => {
                     <div>
                       <span className={styles.fieldLabel}>Teléfono</span>
                       <span className={styles.fieldValueBold}>{selectedRes.contactPhone}</span>
+                    </div>
+                    <div>
+                      <span className={styles.fieldLabel}>Origen</span>
+                      <span className={styles.fieldValueBold}>
+                        {hasReservationSession(selectedRes)
+                          ? "Cliente con sesión iniciada"
+                          : "Reserva sin iniciar sesión"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -579,6 +619,17 @@ const ReservasAdminPage = () => {
             </div>
 
             <div className={styles.modalFooter}>
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/punto-de-venta?tab=cobrar&reserva=${encodeURIComponent(selectedRes.reference)}`,
+                  )
+                }
+                className="admin-btn-secondary"
+              >
+                Importar al POS
+              </button>
               <button
                 type="button"
                 onClick={handleCloseModal}

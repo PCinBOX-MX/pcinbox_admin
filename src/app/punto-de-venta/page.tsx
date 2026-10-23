@@ -672,6 +672,10 @@ export default function PuntoDeVentaPage() {
   const cartListRef = useRef<HTMLDivElement>(null);
   const posTopSentinelRef = useRef<HTMLDivElement>(null);
   const [posTopStuck, setPosTopStuck] = useState(false);
+  const [importTab, setImportTab] = useState<
+    "quote" | "sale" | "reservation"
+  >("quote");
+  const importTabChosenRef = useRef(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualKind, setManualKind] = useState<"product" | "service">(
     "product",
@@ -823,6 +827,27 @@ export default function PuntoDeVentaPage() {
     io.observe(sentinel);
     return () => io.disconnect();
   }, [clientReady]);
+
+  useEffect(() => {
+    if (!pos.draftReady || importTabChosenRef.current) return;
+    importTabChosenRef.current = true;
+    const reservaFromUrl =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("reserva")
+        : "";
+    if (reservaFromUrl || pos.linkedReservationRef) {
+      setImportTab("reservation");
+    } else if (pos.linkedPosFolio) {
+      setImportTab("sale");
+    } else if (pos.linkedQuoteNumber) {
+      setImportTab("quote");
+    }
+  }, [
+    pos.draftReady,
+    pos.linkedPosFolio,
+    pos.linkedQuoteNumber,
+    pos.linkedReservationRef,
+  ]);
 
   const resetManualForm = () => {
     setManualKind("product");
@@ -1317,6 +1342,148 @@ export default function PuntoDeVentaPage() {
               </div>
               <div className={styles.posPanelBody}>
                 <div className={styles.catalogTools}>
+                <div
+                  className={styles.importTabToggle}
+                  role="tablist"
+                  aria-label="Qué importar"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={importTab === "quote"}
+                    className={`${styles.importTabBtn} ${
+                      importTab === "quote" ? styles.importTabBtnActive : ""
+                    }`}
+                    onClick={() => setImportTab("quote")}
+                  >
+                    Cotización
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={importTab === "sale"}
+                    className={`${styles.importTabBtn} ${
+                      importTab === "sale" ? styles.importTabBtnActive : ""
+                    }`}
+                    onClick={() => setImportTab("sale")}
+                  >
+                    Folio POS
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={importTab === "reservation"}
+                    className={`${styles.importTabBtn} ${
+                      importTab === "reservation"
+                        ? styles.importTabBtnActive
+                        : ""
+                    }`}
+                    onClick={() => setImportTab("reservation")}
+                  >
+                    Reserva
+                  </button>
+                </div>
+                {importTab === "quote" ? (
+                <div className={styles.quoteBox}>
+                  <div className={styles.manualHead}>
+                    <strong>Cotización</strong>
+                    <span>Vigencia 5 días. Carga productos al carrito.</span>
+                  </div>
+                  {pos.quotePageAlert ? (
+                    <div
+                      className={`${styles.quotePageAlert} ${
+                        pos.quotePageAlert.type === "error"
+                          ? styles.quotePageAlertError
+                          : pos.quotePageAlert.type === "warning"
+                            ? styles.quotePageAlertWarning
+                            : styles.quotePageAlertSuccess
+                      }`}
+                      role="alert"
+                    >
+                      <div className={styles.quoteAlertContent}>
+                        <strong>{pos.quotePageAlert.title}</strong>
+                        <p>{pos.quotePageAlert.message}</p>
+                        {pos.quotePageAlert.sections?.length ? (
+                          <div className={styles.quoteAlertScroll}>
+                            {pos.quotePageAlert.sections.map((section) => (
+                              <div
+                                key={section.title}
+                                className={styles.quoteAlertSection}
+                              >
+                                <span className={styles.quoteAlertSectionTitle}>
+                                  {section.title} ({section.items.length})
+                                </span>
+                                <ul className={styles.quoteAlertList}>
+                                  {section.items.map((item, idx) => (
+                                    <li key={`${section.title}-${idx}`}>
+                                      {item}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.quoteAlertClose}
+                        aria-label="Cerrar aviso"
+                        onClick={pos.dismissQuotePageAlert}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className={styles.quoteRow}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Número de cotización"
+                      value={pos.quoteInput}
+                      onChange={(e) => pos.setQuoteInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void pos.loadQuote();
+                        }
+                      }}
+                      sx={fieldSx}
+                      placeholder="Ej. 1726060800000"
+                    />
+                    <button
+                      type="button"
+                      className={`${styles.primaryBtn} ${styles.quoteLoadBtn}`}
+                      disabled={pos.quoteLoading}
+                      onClick={() => void pos.loadQuote()}
+                    >
+                      {pos.quoteLoading ? "Cargando…" : "Cargar cotización"}
+                    </button>
+                  </div>
+                  {pos.linkedQuoteNumber ? (
+                    <div className={styles.quoteLinked}>
+                      <span>
+                        Cotización vinculada:{" "}
+                        <strong>{pos.linkedQuoteNumber}</strong>
+                        <span className={styles.quoteLinkedHint}>
+                          {" "}
+                          (puedes agregar más del catálogo o sin catálogo; no
+                          otra cotización ni reimportar esta. Al desvincular
+                          podrás cargar otra)
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className={styles.linkBtn}
+                        onClick={pos.clearLinkedQuote}
+                      >
+                        Desvincular cotización
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                ) : null}
+                {importTab === "sale" ? (
                 <div className={`${styles.quoteBox} ${styles.folioBox}`}>
                   <div className={styles.manualHead}>
                     <strong>Folio POS</strong>
@@ -1422,52 +1589,37 @@ export default function PuntoDeVentaPage() {
                     </div>
                   ) : null}
                 </div>
-                <div className={styles.quoteBox}>
+                ) : null}
+                {importTab === "reservation" ? (
+                <div className={`${styles.quoteBox} ${styles.folioBox}`}>
                   <div className={styles.manualHead}>
-                    <strong>Cotización</strong>
-                    <span>Vigencia 5 días. Carga productos al carrito.</span>
+                    <strong>Folio de reserva</strong>
+                    <span>
+                      Cita hecha en la tienda, con sesión o sin ella. Carga
+                      cliente, equipo, servicio y la falla. El precio lo capturas
+                      aquí antes de cobrar.
+                    </span>
                   </div>
-                  {pos.quotePageAlert ? (
+                  {pos.reservationPageAlert ? (
                     <div
                       className={`${styles.quotePageAlert} ${
-                        pos.quotePageAlert.type === "error"
+                        pos.reservationPageAlert.type === "error"
                           ? styles.quotePageAlertError
-                          : pos.quotePageAlert.type === "warning"
+                          : pos.reservationPageAlert.type === "warning"
                             ? styles.quotePageAlertWarning
                             : styles.quotePageAlertSuccess
                       }`}
                       role="alert"
                     >
                       <div className={styles.quoteAlertContent}>
-                        <strong>{pos.quotePageAlert.title}</strong>
-                        <p>{pos.quotePageAlert.message}</p>
-                        {pos.quotePageAlert.sections?.length ? (
-                          <div className={styles.quoteAlertScroll}>
-                            {pos.quotePageAlert.sections.map((section) => (
-                              <div
-                                key={section.title}
-                                className={styles.quoteAlertSection}
-                              >
-                                <span className={styles.quoteAlertSectionTitle}>
-                                  {section.title} ({section.items.length})
-                                </span>
-                                <ul className={styles.quoteAlertList}>
-                                  {section.items.map((item, idx) => (
-                                    <li key={`${section.title}-${idx}`}>
-                                      {item}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
+                        <strong>{pos.reservationPageAlert.title}</strong>
+                        <p>{pos.reservationPageAlert.message}</p>
                       </div>
                       <button
                         type="button"
                         className={styles.quoteAlertClose}
                         aria-label="Cerrar aviso"
-                        onClick={pos.dismissQuotePageAlert}
+                        onClick={pos.dismissReservationPageAlert}
                       >
                         <X size={16} />
                       </button>
@@ -1477,49 +1629,56 @@ export default function PuntoDeVentaPage() {
                     <TextField
                       fullWidth
                       size="small"
-                      label="Número de cotización"
-                      value={pos.quoteInput}
-                      onChange={(e) => pos.setQuoteInput(e.target.value)}
+                      label="Folio de reserva"
+                      value={pos.reservationInput}
+                      onChange={(e) =>
+                        pos.setReservationInput(
+                          e.target.value
+                            .toUpperCase()
+                            .replace(/[^A-Z0-9-]/g, "")
+                            .slice(0, 16),
+                        )
+                      }
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          void pos.loadQuote();
+                          void pos.loadReservationFolio();
                         }
                       }}
                       sx={fieldSx}
-                      placeholder="Ej. 1726060800000"
+                      placeholder="Ej. PCX-4821-LP"
                     />
                     <button
                       type="button"
                       className={`${styles.primaryBtn} ${styles.quoteLoadBtn}`}
-                      disabled={pos.quoteLoading}
-                      onClick={() => void pos.loadQuote()}
+                      disabled={pos.reservationLoading}
+                      onClick={() => void pos.loadReservationFolio()}
                     >
-                      {pos.quoteLoading ? "Cargando…" : "Cargar cotización"}
+                      {pos.reservationLoading ? "Cargando…" : "Importar reserva"}
                     </button>
                   </div>
-                  {pos.linkedQuoteNumber ? (
+                  {pos.linkedReservationRef ? (
                     <div className={styles.quoteLinked}>
                       <span>
-                        Cotización vinculada:{" "}
-                        <strong>{pos.linkedQuoteNumber}</strong>
+                        Reserva vinculada:{" "}
+                        <strong>{pos.linkedReservationRef}</strong>
                         <span className={styles.quoteLinkedHint}>
                           {" "}
-                          (puedes agregar más del catálogo o sin catálogo; no
-                          otra cotización ni reimportar esta. Al desvincular
-                          podrás cargar otra)
+                          Cliente, equipo y servicio ya están en la venta.
+                          Captura el precio.
                         </span>
                       </span>
                       <button
                         type="button"
                         className={styles.linkBtn}
-                        onClick={pos.clearLinkedQuote}
+                        onClick={pos.clearLinkedReservation}
                       >
-                        Desvincular cotización
+                        Quitar reserva
                       </button>
                     </div>
                   ) : null}
                 </div>
+                ) : null}
                 {manualOpen ? (
                   <div className={styles.manualBox}>
                     <div className={styles.manualHead}>
