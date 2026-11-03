@@ -7,8 +7,16 @@ import ProveedoresUtils from "../services/utils/proveedores.utils";
 const ENV_LABEL = process.env.NEXT_PUBLIC_NODE_ENV?.trim();
 const ENV = ENV_LABEL === "local" || ENV_LABEL === "qa" ? "local" : "prod";
 const IMAGEKIT_BASE = `https://ik.imagekit.io/pcinboxkit/${ENV}`;
-export const STORE_URL =
-  ENV_LABEL === "local" ? "http://localhost:3000" : "https://www.pcinbox.com.mx";
+/**
+ * QA arranca con NEXT_PUBLIC_NODE_ENV=local igual que en desarrollo, así que la tienda se elige
+ * por el dominio del admin. Solo se llama en el navegador (las URLs se arman después de cargar versiones).
+ */
+export function storeUrl() {
+  const host = typeof window === "undefined" ? "" : window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return "http://localhost:3000";
+  if (host.includes("qa")) return "https://client-qa.pcinbox.com.mx";
+  return "https://www.pcinbox.com.mx";
+}
 
 export type BannerVersions = Record<string, string>;
 export type PcLevel = "entrada" | "intermedia" | "profesional";
@@ -64,21 +72,21 @@ export const PC_LEVELS: {
     name: "PC Gamer de entrada",
     range: "Hasta $15,999",
     tone: "#0ea5e9",
-    fallback: `${STORE_URL}/PC_Gamer_de_Entrada.png`,
+    fallback: "/PC_Gamer_de_Entrada.png",
   },
   {
     id: "intermedia",
     name: "PC Gamer intermedia",
     range: "$16,000 a $39,999",
     tone: "#8b5cf6",
-    fallback: `${STORE_URL}/PC_Gamer_Intermedia.png`,
+    fallback: "/PC_Gamer_Intermedia.png",
   },
   {
     id: "profesional",
     name: "PC Gamer profesional",
     range: "Desde $40,000",
     tone: "#f59e0b",
-    fallback: `${STORE_URL}/PC_Gamer_Profesional.png`,
+    fallback: "/PC_Gamer_Profesional.png",
   },
 ];
 
@@ -90,7 +98,7 @@ export const bannerKey = {
   armaTuPcExt: "promo:armaTuPc:ext",
 };
 
-export const ARMA_TU_PC_FALLBACK = `${STORE_URL}/arma-tu-pc-gamer.gif`;
+const ARMA_TU_PC_FALLBACK = "/arma-tu-pc-gamer.gif";
 
 function withVersion(url: string, version: string | undefined) {
   return version ? `${url}?v=${encodeURIComponent(version)}` : url;
@@ -121,7 +129,7 @@ export function categoryBannerUrl(banner: CategoryBanner, versions: BannerVersio
 /** Si el nivel nunca se subió a ImageKit, la tienda usa su imagen incluida. */
 export function pcLevelBannerUrl(level: (typeof PC_LEVELS)[number], versions: BannerVersions) {
   const version = versions[bannerKey.nivel(level.id)];
-  if (!version) return level.fallback;
+  if (!version) return `${storeUrl()}${level.fallback}`;
   return withVersion(`${IMAGEKIT_BASE}/niveles-pc-gamer/${level.id}.png`, version);
 }
 
@@ -129,7 +137,7 @@ export function pcLevelBannerUrl(level: (typeof PC_LEVELS)[number], versions: Ba
 export function armaTuPcBannerUrl(versions: BannerVersions) {
   const version = versions[bannerKey.armaTuPc];
   const ext = versions[bannerKey.armaTuPcExt];
-  if (!version || (ext !== "gif" && ext !== "png")) return ARMA_TU_PC_FALLBACK;
+  if (!version || (ext !== "gif" && ext !== "png")) return `${storeUrl()}${ARMA_TU_PC_FALLBACK}`;
   return withVersion(`${IMAGEKIT_BASE}/arma-tu-pc/arma-tu-pc-gamer.${ext}`, version);
 }
 
