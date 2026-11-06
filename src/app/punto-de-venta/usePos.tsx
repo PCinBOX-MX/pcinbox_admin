@@ -38,6 +38,17 @@ import {
   type QuoteUnavailableItem,
   type QuoteUnavailableResolved,
 } from "./quoteUnavailable";
+import { CartRevalidationBody } from "./CartRevalidationBody";
+import {
+  applyCartChanges,
+  cartRevalidationIds,
+  defaultUnavailableActions,
+  findCartChanges,
+  hasCartChanges,
+  type CartChanges,
+  type CartUnavailableActions,
+  type PosProductState,
+} from "./cartRevalidation";
 import {
   loadQzSettings,
   saveQzSettings,
@@ -1083,6 +1094,29 @@ function planQuoteImport(
 }
 
 /** Línea manual del carrito para un producto inactivo / sin stock que el admin activó. */
+/** Cambia si cambia algo que el cajero ve en el modal de precios de la cotización. */
+function quoteFreshnessKey(
+  payload: QuoteImportPayload,
+  cart: PosCartLine[],
+): string {
+  const plan = planQuoteImport(payload, cart, {});
+  return JSON.stringify({
+    items: (payload.items || []).map((it) => [
+      it.idProduct,
+      roundMoney(Number(it.price) || 0),
+      it.quoteUnitPrice ?? null,
+    ]),
+    unavailable: plan.unavailable.map((u) => [
+      u.key,
+      u.reason,
+      u.reasonDetail,
+      u.catalogPrice,
+      u.quoteUnitPrice,
+    ]),
+    adjusted: plan.adjustedStock,
+  });
+}
+
 function unavailableToCartLine(
   resolved: QuoteUnavailableResolved,
   key: string,
@@ -2326,23 +2360,36 @@ export default function usePos() {
 
           const quantity =
             !line.folioPriceLocked &&
-            Number(line.providerId) === 1 &&
             stockBranch > 0 &&
             line.quantity > stockBranch
               ? stockBranch
               : line.quantity;
+          const nextPrice =
+            priceRaw != null && Number.isFinite(priceRaw)
+              ? roundMoney(priceRaw)
+              : null;
 
           return {
             ...line,
             unitPrice:
-              line.quotePriceLocked || line.folioPriceLocked
+              line.quotePriceLocked || line.folioPriceLocked || nextPrice == null
                 ? line.unitPrice
-                : priceRaw != null && Number.isFinite(priceRaw)
-                  ? roundMoney(priceRaw)
-                  : line.unitPrice,
+                : nextPrice,
+            catalogUnitPrice:
+              line.quotePriceLocked && nextPrice != null
+                ? nextPrice
+                : line.catalogUnitPrice,
+            catalogInactive:
+              update.active == null
+                ? line.catalogInactive
+                : Number(update.active) !== 1,
             stocksByBranch,
             stockBranch,
             quantity,
+            serials:
+              quantity < line.serials.length
+                ? line.serials.slice(0, quantity)
+                : line.serials,
           };
         });
         return changed ? next : prev;
@@ -2794,7 +2841,6 @@ export default function usePos() {
           if (
             !next.isManual &&
             !next.folioPriceLocked &&
-            Number(next.providerId) === 1 &&
             next.stockBranch > 0 &&
             next.quantity > next.stockBranch
           ) {
@@ -3149,8 +3195,35 @@ export default function usePos() {
     [applyQuoteCustomer, cart, showQuoteFeedback],
   );
 
+  const latestCartRef = useRef(cart);
+  const applyQuoteToCartRef = useRef(applyQuoteToCart);
+  useEffect(() => {
+    latestCartRef.current = cart;
+    applyQuoteToCartRef.current = applyQuoteToCart;
+  }, [cart, applyQuoteToCart]);
+  const openQuotePriceModalRef = useRef<
+    (data: QuoteImportPayload, notice?: string) => void
+  >(() => {});
+
+  const fetchFreshQuote = useCallback(
+    async (quoteNumber: string): Promise<QuoteImportPayload | null> => {
+      try {
+        const res = await requestGetRef.current(
+          `/pos/quotes/${encodeURIComponent(quoteNumber)}`,
+          { silent: true },
+        );
+        const fresh = res?.data?.data;
+        return fresh?.quoteNumber && Array.isArray(fresh.items) ? fresh : null;
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
+
   const openQuotePriceModal = useCallback(
-    (data: QuoteImportPayload) => {
+    (data: QuoteImportPayload, notice?: string) => {
+      const cart = latestCartRef.current;
       const unavailable = planQuoteImport(data, cart, {}).unavailable;
       const noStockIds = new Set(
         unavailable
@@ -3171,10 +3244,13 @@ export default function usePos() {
         }));
 
       if (priceItems.length === 0 && unavailable.length === 0) {
-        applyQuoteToCart(data, {});
+        if (notice) setDataModal((p) => ({ ...p, isOpen: false, loading: false }));
+        applyQuoteToCartRef.current(data, {});
         return;
       }
 
+      const openedKey = quoteFreshnessKey(data, cart);
+      const bodyKey = Date.now();
       const stateRef: { current: QuoteImportPriceState } = {
         current: {
           choices: defaultQuotePriceChoices(priceItems),
@@ -3186,9 +3262,11 @@ export default function usePos() {
       };
       const renderBody = (errors: string[] = []) => (
         <QuoteImportPriceBody
+          key={bodyKey}
           items={priceItems}
           unavailable={unavailable}
           errors={errors}
+          notice={notice}
           onChange={onStateChange}
         />
       );
@@ -3212,13 +3290,33 @@ export default function usePos() {
             setDataModal((p) => ({ ...p, content: renderBody(errors) }));
             return;
           }
-          setDataModal((p) => ({ ...p, isOpen: false }));
-          applyQuoteToCart(data, stateRef.current.choices, lines, unavailable);
+          setDataModal((p) => ({ ...p, loading: true }));
+          const fresh = await fetchFreshQuote(data.quoteNumber);
+          if (
+            fresh &&
+            quoteFreshnessKey(fresh, latestCartRef.current) !== openedKey
+          ) {
+            openQuotePriceModalRef.current(
+              fresh,
+              "Mientras revisabas cambiaron precios, existencias o productos activos de esta cotización. Ya ves los datos actualizados: revisa tus elecciones y vuelve a pulsar «Importar».",
+            );
+            return;
+          }
+          setDataModal((p) => ({ ...p, isOpen: false, loading: false }));
+          applyQuoteToCartRef.current(
+            fresh ?? data,
+            stateRef.current.choices,
+            lines,
+            unavailable,
+          );
         },
       });
     },
-    [applyQuoteToCart, cart, setDataModal],
+    [fetchFreshQuote, setDataModal],
   );
+  useEffect(() => {
+    openQuotePriceModalRef.current = openQuotePriceModal;
+  }, [openQuotePriceModal]);
 
   const loadQuote = useCallback(async (rawOverride?: string) => {
     const raw = String(rawOverride ?? quoteInput)
@@ -4263,6 +4361,46 @@ export default function usePos() {
     setDataModal,
   ]);
 
+  const openCartChangesModal = useCallback(
+    (changes: CartChanges) => {
+      const actionsRef: { current: CartUnavailableActions } = {
+        current: defaultUnavailableActions(changes.unavailable),
+      };
+      const onActions = (next: CartUnavailableActions) => {
+        actionsRef.current = next;
+      };
+      const paymentsTotal = roundMoney(
+        payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+      );
+      setDataModal({
+        isOpen: true,
+        title: "Cambios antes de cobrar",
+        type: "warning",
+        showActions: true,
+        confirmLabel: "Actualizar carrito",
+        cancelLabel: "Cancelar",
+        maxWidth: "760px",
+        content: (
+          <CartRevalidationBody
+            cart={cart}
+            changes={changes}
+            paymentsTotal={paymentsTotal}
+            onChange={onActions}
+          />
+        ),
+        onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+        onConfirm: async () => {
+          const stamp = Date.now();
+          setCart((prev) =>
+            applyCartChanges(prev, changes, actionsRef.current, stamp),
+          );
+          setDataModal((p) => ({ ...p, isOpen: false }));
+        },
+      });
+    },
+    [cart, payments, setDataModal],
+  );
+
   const charge = useCallback(async () => {
     if (chargeLockRef.current || chargeConfirmOpenRef.current || charging) return;
 
@@ -4577,6 +4715,29 @@ export default function usePos() {
     }
 
     chargeConfirmOpenRef.current = true;
+
+    const revalidateIds = cartRevalidationIds(cart);
+    if (revalidateIds.length > 0) {
+      let states: PosProductState[] | null = null;
+      try {
+        const res = await requestGetRef.current(
+          `/pos/products/state?ids=${revalidateIds.join(",")}`,
+          { silent: true },
+        );
+        states = Array.isArray(res?.data?.data) ? res.data.data : null;
+      } catch {
+        // Sin respuesta se sigue: el servidor rechaza cualquier diferencia al cobrar.
+        states = null;
+      }
+      if (states) {
+        const changes = findCartChanges(cart, states);
+        if (hasCartChanges(changes)) {
+          chargeConfirmOpenRef.current = false;
+          openCartChangesModal(changes);
+          return;
+        }
+      }
+    }
 
     let costs = unitCosts;
     const missingCostIds = [
@@ -5022,6 +5183,7 @@ export default function usePos() {
     executeCharge,
     unitCosts,
     fetchUnitCosts,
+    openCartChangesModal,
   ]);
 
   const loadHistory = useCallback(

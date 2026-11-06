@@ -2295,9 +2295,7 @@ export default function PuntoDeVentaPage() {
                           {multiBranch ? (
                             <div className={styles.hitBranchRow}>
                               {stocks.map((st) => {
-                                const tracksStock =
-                                  Number(hit.providerId) === 1;
-                                const empty = tracksStock && st.stock <= 0;
+                                const empty = st.stock <= 0;
                                 return (
                                   <button
                                     key={st.branchId}
@@ -2446,6 +2444,14 @@ export default function PuntoDeVentaPage() {
                                     : "Sin catálogo"}
                                 </span>
                               ) : null}
+                              {!line.isManual && line.catalogInactive ? (
+                                <span
+                                  className={`${styles.manualBadge} ${styles.inactiveBadge}`}
+                                  title="Se desactivó en el catálogo. Al cobrar podrás quitarlo o agregarlo como captura manual."
+                                >
+                                  Inactivo en catálogo
+                                </span>
+                              ) : null}
                             </div>
                             <div className={styles.hitMeta}>
                               {[
@@ -2568,8 +2574,7 @@ export default function PuntoDeVentaPage() {
                                 key={st.branchId}
                                 value={st.branchId}
                                 disabled={
-                                  Number(line.providerId) === 1 &&
-                                  st.stock <= 0
+                                  st.stock <= 0 && st.branchId !== line.branchId
                                 }
                               >
                                 {formatPosBranchUiLabel({
