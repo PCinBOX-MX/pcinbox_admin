@@ -90,8 +90,9 @@
 .posPage > .posTopSticky {
   position: sticky;
   top: 56px;
-  /* Por encima del buscador/dropdown del cobro (z-index 2–5) y del header admin (30) */
-  z-index: 50;
+  /* Encima del buscador/dropdown del cobro (z-index 2–5) y debajo del menú
+     lateral móvil (overlay 35, sidebar 40, botón 50). */
+  z-index: 30;
   margin: 0 -16px;
   padding: 4px 16px 6px;
   background: #ffffff;
@@ -4695,92 +4696,109 @@
   .posPage > .posTopSticky {
     top: 52px;
     margin: 0 -12px;
-    padding: 0 8px 2px;
+    padding: 0 12px 6px;
   }
 
   .posPage > .posTopStickyStuck {
     box-shadow:
-      0 -28px 0 0 #ffffff,
-      0 4px 10px rgba(15, 23, 42, 0.07);
+      0 -52px 0 0 #ffffff,
+      0 6px 16px rgba(15, 23, 42, 0.08);
   }
 
+  /* Dos filas: pestañas arriba, estado de caja y acciones abajo */
   .posTop {
     flex-direction: column;
     align-items: stretch;
-    gap: 2px;
-    padding: 2px 3px;
-    border-radius: 8px;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 12px;
   }
 
   .posTabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding: 1px;
-    gap: 0;
-    border-radius: 6px;
+    box-sizing: border-box;
+    padding: 3px;
+    gap: 2px;
+    border-radius: 9px;
   }
 
   .posTab {
-    flex: 1 0 auto;
-    min-height: 26px;
-    height: 26px;
-    padding: 0 8px;
-    font-size: 11px;
-    gap: 0;
-    border-radius: 5px;
+    justify-content: center;
+    min-width: 0;
+    min-height: 32px;
+    height: 32px;
+    padding: 0 6px;
+    font-size: 12px;
+    gap: 5px;
+    border-radius: 7px;
     line-height: 1;
-  }
-
-  .posTabIcon {
-    display: none;
+    white-space: nowrap;
   }
 
   .branchPicker {
-    justify-content: flex-start;
+    flex: 0 0 auto;
     width: 100%;
-    gap: 3px;
+    justify-content: stretch;
+    gap: 6px;
     min-height: 0;
   }
 
   .headerActions {
-    gap: 3px;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
     align-items: center;
     min-height: 0;
   }
 
   .posTop .cashStatusPill {
-    padding: 0 7px;
-    font-size: 9.5px;
-    min-height: 26px;
-    height: 26px;
+    margin-right: auto;
+    padding: 0 10px;
+    font-size: 11px;
+    min-height: 30px;
+    height: 30px;
     line-height: 1;
   }
 
   .posTop .secondaryBtn {
-    padding: 0 8px;
-    font-size: 10.5px;
-    border-radius: 6px;
-    min-height: 26px;
-    height: 26px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    border-radius: 8px;
+    min-height: 30px;
+    height: 30px;
     line-height: 1;
   }
 
   .posTop .drawerBtn {
-    padding: 0 8px;
-    font-size: 10.5px;
-    border-radius: 6px;
-    gap: 4px;
-    min-height: 26px;
-    height: 26px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    border-radius: 8px;
+    gap: 5px;
+    min-height: 30px;
+    height: 30px;
     line-height: 1;
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset;
   }
 
   .posTop .drawerBtn svg,
   .posTop .secondaryBtn svg {
-    width: 12px;
-    height: 12px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
+/* Con menú hamburguesa (fijo arriba a la izquierda): la barra queda debajo */
+@media (max-width: 1024px) {
+  .posPage > .posTopSticky {
+    top: 66px;
+  }
+
+  .posPage > .posTopStickyStuck {
+    box-shadow:
+      0 -66px 0 0 #ffffff,
+      0 6px 16px rgba(15, 23, 42, 0.08);
   }
 }
 
@@ -4862,54 +4880,20 @@
     padding: 14px 18px;
   }
 
-  .headerActions {
-    width: 100%;
-  }
-
-  .headerActions .secondaryBtn {
-    flex: 1 1 auto;
-  }
-
-  .posPage > .posTopSticky {
-    padding: 0 6px 1px;
-  }
-
-  .posTop {
-    gap: 2px;
-    padding: 2px;
-    border-radius: 7px;
-  }
-
-  .posTab {
-    padding: 0 6px;
-    font-size: 10.5px;
-    min-height: 24px;
-    height: 24px;
-  }
-
-  .posTabIcon {
+  .posTop .hideOnSmall {
     display: none;
   }
 
-  .posTop .drawerBtn,
-  .posTop .secondaryBtn {
-    padding: 0 6px;
-    font-size: 10px;
-    min-height: 24px;
-    height: 24px;
-  }
-
+  /* Estado de caja + acciones repartidos; bajan de renglón solo si no caben */
   .posTop .cashStatusPill {
-    padding: 0 6px;
-    font-size: 9px;
-    min-height: 24px;
-    height: 24px;
+    flex: 0 0 auto;
+    margin-right: 0;
   }
 
-  .posTop .drawerBtn svg,
-  .posTop .secondaryBtn svg {
-    width: 11px;
-    height: 11px;
+  .posTop .headerActions .secondaryBtn,
+  .posTop .headerActions .drawerBtn {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 
   .scrollPanel,
@@ -4945,5 +4929,16 @@
   .hitBranchRow {
     padding: 0 10px 10px;
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .posTabIcon,
+  .posTop .headerActions svg {
+    display: none;
+  }
+
+  .posTab {
+    font-size: 11.5px;
   }
 }

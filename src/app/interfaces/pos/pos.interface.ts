@@ -194,6 +194,11 @@ export type PosCartLine = {
   /** Proveedor del catálogo; solo providerId=1 descuenta stock. */
   providerId?: number | null;
   /**
+   * Línea manual que viene de un producto de catálogo (prov. 2/3) agregado
+   * «de todos modos»: de aquí salen inversión y margen internos.
+   */
+  costSourceProductId?: number | null;
+  /**
    * Precio fijado desde cotización: no lo pisa el cron y al cobrar se envía
    * useQuotePrice para validar contra linesJson.
    */
@@ -273,9 +278,32 @@ export function settlePosPayments(
   };
 }
 
+/**
+ * Resumen interno de inversión (solo proveedores 2/3).
+ * Nunca imprimir en ticket ni en la hoja de garantía.
+ */
+export type PosCostSummary = {
+  lines: number;
+  units: number;
+  /** Σ (products_providers.price + 16% IVA) × cantidad */
+  investment: number;
+  /** Ganancia real aprox.: totalCost − investment (puede ser negativa). */
+  profitMargin: number;
+  /** Σ importe cobrado (precio cotización/manual con descuento) de esas líneas */
+  totalCost: number;
+};
+
+export type PosUnitCost = {
+  productId: number;
+  costUnit: number;
+  profitMarginUnit: number;
+  catalogPriceUnit: number;
+};
+
 export type PosSale = {
   idPosSale: number;
   folio: string;
+  costSummary?: PosCostSummary | null;
   branchId: number;
   branchName: string | null;
   branchCity: string | null;
@@ -328,6 +356,9 @@ export type PosSale = {
     }>;
     /** Intake de taller (servicios POS). */
     serviceIntake?: PosServiceIntake | null;
+    costUnit?: number | null;
+    profitMarginUnit?: number | null;
+    catalogPriceUnit?: number | null;
   }>;
   payments: Array<{
     idPosPayment: number;

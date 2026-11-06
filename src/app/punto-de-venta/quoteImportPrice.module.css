@@ -120,8 +120,6 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: min(52vh, 460px);
-  overflow: auto;
   padding: 2px 2px 4px;
   margin: 0 -2px;
 }
@@ -242,9 +240,353 @@
   color: #a8a29e;
 }
 
+.summaryChipMuted {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.bannerError {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 600;
+  display: grid;
+  gap: 4px;
+}
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.sectionTitle {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #44403c;
+}
+
+.sectionCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f5f5f4;
+  color: #44403c;
+  font-size: 11px;
+}
+
+.sectionCountWarn {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.sectionHint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #78716c;
+}
+
+.cardUnavailable {
+  border-style: dashed;
+  background: #fafaf9;
+}
+
+.cardUnavailableOn {
+  border-style: solid;
+  border-color: #fdba74;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.unavHead {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid #e7e5e4;
+}
+
+.unavInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.reasonBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.reasonInactive {
+  background: #e7e5e4;
+  color: #292524;
+}
+
+.reasonNoStock {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.pricePeek {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12.5px;
+  color: #78716c;
+  font-variant-numeric: tabular-nums;
+}
+
+.pricePeek strong {
+  color: #1c1917;
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f5f5f4;
+  cursor: pointer;
+}
+
+.switchRowOn {
+  background: #fff7ed;
+}
+
+.switchRowDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.switchText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 650;
+  color: #1c1917;
+}
+
+.switchText small {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #78716c;
+}
+
+.switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+  z-index: 1;
+}
+
+.switchTrack {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #d6d3d1;
+  transition: background 0.15s ease;
+  pointer-events: none;
+}
+
+.switchTrack::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.switch input:checked + .switchTrack {
+  background: #ea580c;
+}
+
+.switch input:checked + .switchTrack::after {
+  transform: translateX(18px);
+}
+
+.switch input:focus-visible + .switchTrack {
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.3);
+}
+
+.unavBody {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.warrantyBox {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px dashed #fdba74;
+  background: #fff7ed;
+  display: grid;
+  gap: 10px;
+}
+
+.unavBody .warrantyBox {
+  margin-top: 0;
+}
+
+.warrantyBoxError {
+  border-style: solid;
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.warrantyBoxError .warrantyHint {
+  color: #b91c1c;
+}
+
+.warrantyHint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9a3412;
+}
+
+/* Subió = el precio actual es mayor al cotizado; bajó = menor. */
+.delta {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.deltaUp {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.deltaDown {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.deltaArrow {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.deltaText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.deltaText strong {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.deltaText span {
+  opacity: 0.85;
+}
+
+.deltaSummary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.deltaStat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e7e5e4;
+  background: #fafaf9;
+  color: #44403c;
+}
+
+.deltaStatUp {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.deltaStatDown {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.deltaStatLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.deltaStatValue {
+  font-size: 17px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.deltaSummaryFoot {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  color: #78716c;
+}
+
 @media (max-width: 640px) {
   .bulkBar,
-  .optionGrid {
+  .optionGrid,
+  .deltaSummary {
     grid-template-columns: 1fr;
   }
 }

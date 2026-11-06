@@ -71,6 +71,7 @@ import {
   validateCatalogWarranty,
 } from "../shared/utils/catalogWarranty";
 import { PROVIDER_PCINBOX } from "../constants/providers.constants";
+import PosCostSummary from "./PosCostSummary";
 
 import styles from "./punto-de-venta.module.css";
 
@@ -1153,7 +1154,10 @@ export default function PuntoDeVentaPage() {
                 onClick={() => void pos.testQzDrawer()}
               >
                 <Banknote size={14} />
-                Abrir cajón de dinero
+                <span>
+                  Abrir cajón
+                  <span className={styles.hideOnSmall}> de dinero</span>
+                </span>
               </button>
             </div>
           </div>
@@ -2833,6 +2837,11 @@ export default function PuntoDeVentaPage() {
                       <span>Total</span>
                       <span>{money(pos.totals.total)}</span>
                     </div>
+                    <PosCostSummary
+                      compact
+                      summary={pos.cartCostSummary.summary}
+                      missingCount={pos.cartCostSummary.missing}
+                    />
                   </div>
 
                   <div className={styles.checkoutZone}>
@@ -3734,21 +3743,6 @@ export default function PuntoDeVentaPage() {
                         <small>Envía ESC/POS al cobrar si QZ está activo.</small>
                       </span>
                     </label>
-                    <label className={styles.cashHwCheck}>
-                      <input
-                        type="checkbox"
-                        checked={pos.qzSettings.openDrawerOnCash}
-                        onChange={(e) =>
-                          pos.updateQzSettings({
-                            openDrawerOnCash: e.target.checked,
-                          })
-                        }
-                      />
-                      <span>
-                        Abrir cajón en cobros con efectivo
-                        <small>Solo cuando hay pago en efectivo.</small>
-                      </span>
-                    </label>
                   </div>
                 </div>
               </div>
@@ -4434,6 +4428,8 @@ export default function PuntoDeVentaPage() {
                   </div>
                 </div>
               </div>
+
+              <PosCostSummary summary={pos.detailSale.costSummary} />
 
               <div className={styles.detailGrid}>
                 <div className={styles.detailTile}>
