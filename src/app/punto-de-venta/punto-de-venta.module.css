@@ -787,6 +787,12 @@
   border-color: #bfdbfe;
 }
 
+.inactiveBadge {
+  color: #292524;
+  background: #e7e5e4;
+  border-color: #d6d3d1;
+}
+
 .serviceIntakeBlock {
   display: flex;
   flex-direction: column;

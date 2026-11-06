@@ -207,6 +207,8 @@ export type PosCartLine = {
   folioPriceLocked?: boolean;
   /** Precio de catálogo al importar (para restaurar si se quita el vínculo). */
   catalogUnitPrice?: number;
+  /** El socket avisó que el producto se desactivó en el catálogo. */
+  catalogInactive?: boolean;
 };
 
 export type PosProductSerial = {

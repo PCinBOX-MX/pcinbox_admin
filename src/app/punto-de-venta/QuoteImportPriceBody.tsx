@@ -182,6 +182,7 @@ export function QuoteImportPriceBody({
   items,
   unavailable = [],
   errors = [],
+  notice,
   onChange,
 }: {
   items: QuoteImportPriceItem[];
@@ -189,6 +190,8 @@ export function QuoteImportPriceBody({
   unavailable?: QuoteUnavailableItem[];
   /** Errores al confirmar (p. ej. falta garantía); resalta las tarjetas afectadas. */
   errors?: string[];
+  /** Aviso arriba del modal (p. ej. los datos cambiaron mientras estaba abierto). */
+  notice?: string;
   onChange: (state: QuoteImportPriceState) => void;
 }) {
   const [choices, setChoices] = useState<ChoicesMap>(() =>
@@ -349,6 +352,11 @@ export function QuoteImportPriceBody({
 
   return (
     <div ref={rootRef} className={styles.root}>
+      {notice ? (
+        <div className={styles.banner} role="status">
+          {notice}
+        </div>
+      ) : null}
       <p className={styles.lead}>
         Elige el precio con el que cada producto entra al carrito. Puedes
         aplicar uno a todos o decidir producto por producto.
