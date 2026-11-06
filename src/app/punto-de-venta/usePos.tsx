@@ -10,6 +10,8 @@ import {
   PosCartLine,
   PosCashPaymentSummary,
   PosCashSession,
+  PosCostSummary,
+  PosUnitCost,
   PosPaymentLine,
   PosPaymentMethod,
   PosProductHit,
@@ -27,8 +29,15 @@ import { formatMoney, formatPosFolio, replaceTicketHtmlDate } from "./posFormat"
 import {
   QuoteImportPriceBody,
   defaultQuotePriceChoices,
+  type QuoteImportPriceState,
   type QuotePriceChoice,
 } from "./QuoteImportPriceBody";
+import {
+  defaultUnavailableState,
+  resolveQuoteUnavailable,
+  type QuoteUnavailableItem,
+  type QuoteUnavailableResolved,
+} from "./quoteUnavailable";
 import {
   loadQzSettings,
   saveQzSettings,
@@ -65,6 +74,53 @@ const CART_SEARCH_DEBOUNCE_MS = 350;
 const CART_PAGE_SIZE = 3;
 
 type PosTab = "cobrar" | "historial" | "caja" | "garantias";
+
+/** TechSmart (2) y DicoTech (3): tienen costo de proveedor + margen. */
+const POS_COST_PROVIDER_IDS = new Set([2, 3]);
+
+type QuoteCustomer = {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+};
+
+type QuoteInactiveProduct = {
+  idProduct: number;
+  name: string;
+  sku?: string | null;
+  upc?: string | null;
+  price?: number | null;
+  quantity?: number | null;
+  quoteUnitPrice?: number | null;
+  providerId?: number | null;
+  isPC?: boolean | null;
+  warrantyMonths?: number | null;
+  warrantyMode?: string | null;
+  image_url?: unknown;
+};
+
+function quoteNumberOrNull(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Misma garantía que una línea de catálogo: 12 meses fijos en proveedor 2 y PCs PCinBOX. */
+function quoteForceWarranty(product: {
+  providerId?: number | null;
+  isPC?: boolean | null;
+  warrantyMonths?: number | null;
+  warrantyMode?: string | null;
+}): { warrantyMonths: number | null; warrantyMode: string | null } {
+  const fixed12 =
+    Number(product.providerId) === 2 ||
+    (Number(product.providerId) === 1 && Boolean(product.isPC));
+  if (fixed12) return { warrantyMonths: 12, warrantyMode: "months" };
+  return {
+    warrantyMonths: product.warrantyMonths ?? null,
+    warrantyMode: product.warrantyMode ?? null,
+  };
+}
 
 const POS_TABS = new Set<PosTab>(["cobrar", "historial", "caja", "garantias"]);
 
@@ -582,6 +638,188 @@ function lineTotal(unitPrice: number, quantity: number, discountPct: number) {
   return roundMoney(unitPrice * quantity * (1 - discountPct / 100));
 }
 
+type PosBelowCostLine = {
+  key: string;
+  name: string;
+  sku: string | null;
+  imageUrl: string | null;
+  isManual: boolean;
+  discountPct: number;
+  quantity: number;
+  chargedUnit: number;
+  costUnit: number;
+  loss: number;
+};
+
+const POS_FALLBACK_IMG =
+  "https://ik.imagekit.io/pcinboxkit/logos/logo.png?updatedAt=1759534318587";
+
+function costWarningThumb(url: string | null | undefined, size: number) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url || POS_FALLBACK_IMG}
+      alt=""
+      loading="lazy"
+      onError={(e) => {
+        if (e.currentTarget.src !== POS_FALLBACK_IMG) {
+          e.currentTarget.src = POS_FALLBACK_IMG;
+        }
+      }}
+      style={{
+        width: size,
+        height: size,
+        flexShrink: 0,
+        objectFit: "contain",
+        borderRadius: 10,
+        background: "#fff",
+        border: "1px solid #e7e5e4",
+        padding: 4,
+        boxSizing: "border-box",
+      }}
+    />
+  );
+}
+
+const COST_STAT_TONES = {
+  neutral: { bg: "#f5f5f4", border: "#e7e5e4", label: "#78716c", value: "#1c1917" },
+  cost: { bg: "#eff6ff", border: "#bfdbfe", label: "#1d4ed8", value: "#1e3a8a" },
+  loss: { bg: "#fee2e2", border: "#fca5a5", label: "#b91c1c", value: "#991b1b" },
+} as const;
+
+function costWarningStat(
+  label: string,
+  value: string,
+  tone: keyof typeof COST_STAT_TONES,
+  hint?: string,
+) {
+  const t = COST_STAT_TONES[tone];
+  const wide = tone === "loss";
+  return (
+    <div
+      style={{
+        borderRadius: 10,
+        border: `1px solid ${t.border}`,
+        background: t.bg,
+        padding: "6px 10px",
+        minWidth: 0,
+        gridColumn: wide ? "1 / -1" : undefined,
+        display: wide ? "flex" : "block",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        flexWrap: "wrap",
+      }}
+    >
+      <div>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            color: t.label,
+          }}
+        >
+          {label}
+        </div>
+        {hint ? (
+          <div style={{ fontSize: 11, fontWeight: 600, color: t.label }}>
+            {hint}
+          </div>
+        ) : null}
+      </div>
+      <div
+        style={{
+          fontSize: wide ? 17 : 14,
+          fontWeight: 800,
+          color: t.value,
+          fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function costWarningTag(text: string, color: string, bg: string) {
+  return (
+    <span
+      style={{
+        fontSize: 10.5,
+        fontWeight: 700,
+        color,
+        background: bg,
+        borderRadius: 999,
+        padding: "2px 8px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function visibleSku(value?: string | null): string | null {
+  const v = String(value || "").trim();
+  if (!v || v === "__POS_MANUAL__" || v === "__POS_SERVICE__") return null;
+  if (/^manual$/i.test(v)) return null;
+  return v;
+}
+
+/**
+ * Revisa las líneas de prov. 2/3 contra su costo con IVA: `below` son las
+ * cobradas por debajo del costo y `unverified` las que aún no tienen costo.
+ */
+function checkCartAgainstCost(
+  cart: PosCartLine[],
+  costs: Record<number, PosUnitCost>,
+): { below: PosBelowCostLine[]; unverified: PosCartLine[] } {
+  const below: PosBelowCostLine[] = [];
+  const unverified: PosCartLine[] = [];
+  for (const line of cart) {
+    const sourceId = costSourceIdOf(line);
+    if (sourceId == null) continue;
+    const qty = Math.max(0, Number(line.quantity) || 0);
+    if (qty <= 0) continue;
+    const cost = costs[sourceId];
+    if (!cost) {
+      unverified.push(line);
+      continue;
+    }
+    const charged = lineTotal(line.unitPrice, qty, line.discountPct || 0);
+    const investment = roundMoney(cost.costUnit * qty);
+    if (charged >= investment) continue;
+    below.push({
+      key: line.key,
+      name: line.name,
+      sku: visibleSku(line.sku),
+      imageUrl: line.imageUrl ?? null,
+      isManual: Boolean(line.isManual),
+      discountPct: Number(line.discountPct) || 0,
+      quantity: qty,
+      chargedUnit: roundMoney(charged / qty),
+      costUnit: cost.costUnit,
+      loss: roundMoney(investment - charged),
+    });
+  }
+  return { below, unverified };
+}
+
+/** Producto (prov. 2/3) del que salen inversión y margen de la línea, o null. */
+function costSourceIdOf(line: PosCartLine): number | null {
+  if (line.isManual) {
+    return line.manualKind !== "service" && line.costSourceProductId
+      ? line.costSourceProductId
+      : null;
+  }
+  return line.productId > 0 && POS_COST_PROVIDER_IDS.has(Number(line.providerId))
+    ? line.productId
+    : null;
+}
+
 function firstImage(imageUrl: unknown): string | null {
   if (!imageUrl) return null;
   if (typeof imageUrl === "string") {
@@ -602,6 +840,283 @@ function firstImage(imageUrl: unknown): string | null {
     if (values[0]) return String(values[0]);
   }
   return null;
+}
+
+type QuoteImportItem = PosProductHit & {
+  quantity: number;
+  quoteStoreId: number | null;
+  quoteUnitPrice?: number | null;
+};
+
+type QuoteImportPayload = {
+  quoteNumber: string;
+  items: QuoteImportItem[];
+  missingProductIds?: string[];
+  inactiveProducts?: QuoteInactiveProduct[];
+  expired?: boolean;
+  customer?: QuoteCustomer;
+};
+
+/**
+ * Fusiona la cotización con el carrito sin efectos: devuelve el carrito resultante
+ * y los productos que no entran (inactivos / sin stock) para decidirlos en el modal.
+ */
+function planQuoteImport(
+  payload: QuoteImportPayload,
+  cart: PosCartLine[],
+  priceChoices: Record<number, QuotePriceChoice>,
+) {
+  const nextCart: PosCartLine[] = cart.map((line) => ({
+    ...line,
+    serials: [...(line.serials || [])],
+    stocksByBranch: line.stocksByBranch
+      ? line.stocksByBranch.map((s) => ({ ...s }))
+      : line.stocksByBranch,
+  }));
+  const adjustedStock: string[] = [];
+  const otherWarnings: string[] = [];
+  const unavailable: QuoteUnavailableItem[] = [];
+  let importedUnits = 0;
+  let touchedLines = 0;
+
+  for (const inactive of payload.inactiveProducts || []) {
+    unavailable.push({
+      key: `inactive-${inactive.idProduct}`,
+      idProduct: inactive.idProduct,
+      name: inactive.name || `Producto #${inactive.idProduct}`,
+      sku: inactive.sku ?? null,
+      upc: inactive.upc ?? null,
+      quantity: Math.max(1, Math.round(Number(inactive.quantity) || 1)),
+      quoteUnitPrice: quoteNumberOrNull(inactive.quoteUnitPrice),
+      catalogPrice: roundMoney(Number(inactive.price) || 0),
+      reason: "inactive",
+      reasonDetail: null,
+      providerId: Number(inactive.providerId) || null,
+      imageUrl: firstImage(inactive.image_url),
+      ...quoteForceWarranty(inactive),
+    });
+  }
+
+  const pushNoStock = (
+    product: QuoteImportItem,
+    quantity: number,
+    reasonDetail: string,
+  ) => {
+    unavailable.push({
+      key: `nostock-${product.idProduct}-${unavailable.length}`,
+      idProduct: product.idProduct,
+      name: product.name,
+      sku: product.sku ?? null,
+      upc: product.upc ?? null,
+      quantity: Math.max(1, quantity),
+      quoteUnitPrice: quoteNumberOrNull(product.quoteUnitPrice),
+      catalogPrice: roundMoney(Number(product.price) || 0),
+      reason: "noStock",
+      reasonDetail,
+      providerId: Number(product.providerId) || null,
+      imageUrl: firstImage(product.image_url),
+      ...quoteForceWarranty(product),
+    });
+  };
+
+  if (payload.missingProductIds?.length) {
+    otherWarnings.push(
+      `${payload.missingProductIds.length} producto(s) ya no existen en catálogo`,
+    );
+  }
+
+  for (const product of payload.items) {
+    const stocks = product.stocksByBranch || [];
+    const needsBranch = stocks.length > 0;
+    const branchIdLine: number | null =
+      product.suggestedBranchId ??
+      stocks.find((st) => st.stock > 0)?.branchId ??
+      stocks[0]?.branchId ??
+      null;
+
+    const qtyWanted = Math.max(1, Math.round(Number(product.quantity) || 1));
+    let quantity = qtyWanted;
+
+    if (needsBranch) {
+      if (branchIdLine == null) {
+        otherWarnings.push(
+          `«${product.name}» requiere elegir bodega (sin sugerencia)`,
+        );
+        continue;
+      }
+      const stockRow = stocks.find((st) => st.branchId === branchIdLine);
+      const stockCap = stockRow?.stock ?? 0;
+      if (stockCap <= 0) {
+        const branchName = stockRow
+          ? formatPosBranchUiLabel({
+              name: stockRow.name,
+              label: stockRow.label,
+              city: stockRow.city,
+            })
+          : null;
+        pushNoStock(
+          product,
+          qtyWanted,
+          stocks.every((st) => st.stock <= 0)
+            ? "Sin stock en ninguna bodega"
+            : branchName
+              ? `Sin stock en ${branchName}`
+              : "Sin stock en la bodega",
+        );
+        continue;
+      }
+      if (quantity > stockCap) {
+        adjustedStock.push(
+          `${product.name}: cotizado ${qtyWanted} → disponible ${stockCap}`,
+        );
+        quantity = stockCap;
+      }
+    } else if (product.stockGlobal <= 0) {
+      pushNoStock(product, qtyWanted, "Sin existencia global");
+      continue;
+    } else if (quantity > product.stockGlobal) {
+      adjustedStock.push(
+        `${product.name}: cotizado ${qtyWanted} → disponible ${product.stockGlobal}`,
+      );
+      quantity = product.stockGlobal;
+    }
+
+    const branchMeta = stocks.find((st) => st.branchId === branchIdLine);
+    const stockCap = needsBranch ? branchMeta?.stock ?? 0 : product.stockGlobal;
+    const lineKey = `p-${product.idProduct}-b-${branchIdLine ?? "g"}`;
+
+    const catalogPrice = roundMoney(Number(product.price) || 0);
+    const quotePriceRaw = product.quoteUnitPrice;
+    const quotePrice =
+      quotePriceRaw != null && Number.isFinite(Number(quotePriceRaw))
+        ? roundMoney(Number(quotePriceRaw))
+        : null;
+    const choice = priceChoices[product.idProduct] || "current";
+    const useQuote = choice === "quote" && quotePrice != null;
+    const unitPrice = useQuote ? quotePrice : catalogPrice;
+    const quotePriceLocked =
+      useQuote && Math.abs(unitPrice - catalogPrice) > 0.009;
+
+    const existing = nextCart.find((l) => l.key === lineKey);
+    if (existing) {
+      // Línea ya en carrito: sumar cantidad y respetar precio/flags existentes.
+      const before = existing.quantity;
+      const desired = before + quantity;
+      const merged = Math.min(stockCap, desired);
+      if (merged < desired) {
+        adjustedStock.push(
+          `${product.name}: en carrito ${before} + cotizado ${quantity} → se limitó a stock ${stockCap}`,
+        );
+      }
+      const added = merged - before;
+      if (added > 0) {
+        importedUnits += added;
+        touchedLines += 1;
+      } else if (quantity > 0 && added === 0) {
+        pushNoStock(
+          product,
+          quantity,
+          `Ya tienes ${before} en el carrito y no hay más stock`,
+        );
+      }
+      existing.quantity = merged;
+      existing.serials = Array(merged).fill("");
+      existing.stockBranch = stockCap;
+      existing.stocksByBranch = stocks;
+      // No pisar unitPrice / quotePriceLocked / catalogUnitPrice.
+      continue;
+    }
+
+    nextCart.push({
+      key: lineKey,
+      productId: product.idProduct,
+      name: product.name,
+      sku: product.sku,
+      upc: product.upc,
+      unitPrice,
+      quantity,
+      discountPct: 0,
+      branchId: branchIdLine,
+      branchLabel: branchMeta
+        ? formatPosBranchUiLabel({
+            name: branchMeta.name,
+            label: branchMeta.label,
+            city: branchMeta.city,
+          })
+        : Number(product.providerId) === 1
+          ? "PCinBOX-León"
+          : null,
+      stockBranch: stockCap,
+      stocksByBranch: stocks,
+      imageUrl: firstImage(product.image_url),
+      requiresSerial: Boolean(product.requiresSerial),
+      warrantyMonths:
+        Number(product.providerId) === 2 ||
+        (Number(product.providerId) === 1 && Boolean(product.isPC))
+          ? 12
+          : product.warrantyMonths ?? null,
+      warrantyMode:
+        Number(product.providerId) === 2 ||
+        (Number(product.providerId) === 1 && Boolean(product.isPC))
+          ? "months"
+          : product.warrantyMode ?? null,
+      warrantyUnit: "months" as const,
+      isPC: Boolean(product.isPC),
+      serials: Array(quantity).fill(""),
+      isManual: false,
+      providerId: product.providerId ?? null,
+      quotePriceLocked,
+      catalogUnitPrice: catalogPrice,
+    });
+    importedUnits += quantity;
+    touchedLines += 1;
+  }
+
+  return {
+    nextCart,
+    unavailable,
+    adjustedStock,
+    otherWarnings,
+    importedUnits,
+    touchedLines,
+  };
+}
+
+/** Línea manual del carrito para un producto inactivo / sin stock que el admin activó. */
+function unavailableToCartLine(
+  resolved: QuoteUnavailableResolved,
+  key: string,
+): PosCartLine {
+  const { item, unitPrice, warrantyMode, warrantyMonths, warrantyUnit } = resolved;
+  return {
+    key,
+    productId: 0,
+    name: item.name,
+    sku: item.sku,
+    upc: item.upc,
+    unitPrice: roundMoney(unitPrice),
+    quantity: item.quantity,
+    discountPct: 0,
+    branchId: null,
+    branchLabel:
+      item.reason === "inactive"
+        ? "Captura manual (inactivo)"
+        : "Captura manual (sin stock)",
+    stockBranch: 999999,
+    stocksByBranch: [],
+    imageUrl: item.imageUrl,
+    requiresSerial: false,
+    warrantyMode,
+    warrantyMonths: warrantyMode === "months" ? warrantyMonths : null,
+    warrantyUnit,
+    serials: Array(item.quantity).fill(""),
+    isManual: true,
+    manualKind: "product",
+    serviceIntake: null,
+    costSourceProductId: POS_COST_PROVIDER_IDS.has(Number(item.providerId))
+      ? item.idProduct
+      : null,
+  };
 }
 
 export default function usePos() {
@@ -813,6 +1328,7 @@ export default function usePos() {
   const searchRef = useRef<HTMLInputElement | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chargeLockRef = useRef(false);
+  const testQzDrawerRef = useRef<() => Promise<void>>(async () => undefined);
   const chargeIdempotencyKeyRef = useRef<string | null>(null);
   const chargeConfirmOpenRef = useRef(false);
   const draftSnapshotRef = useRef<PosDraftV2 | null>(null);
@@ -866,6 +1382,95 @@ export default function usePos() {
       servicesItems,
     };
   }, [cart]);
+
+  const [unitCosts, setUnitCosts] = useState<Record<number, PosUnitCost>>({});
+  const [costRetryTick, setCostRetryTick] = useState(0);
+  const requestedCostIdsRef = useRef<Set<number>>(new Set());
+  const requestGetRef = useRef(requestGet);
+  requestGetRef.current = requestGet;
+
+  /** Pide costos al servidor y los guarda; lanza si la petición falla. */
+  const fetchUnitCosts = useCallback(async (ids: number[]) => {
+    const res = await requestGetRef.current(
+      `/pos/products/costs?ids=${ids.join(",")}`,
+      { silent: true },
+    );
+    const rows: PosUnitCost[] = res?.data?.data || [];
+    const fetched: Record<number, PosUnitCost> = {};
+    for (const row of rows) fetched[Number(row.productId)] = row;
+    setUnitCosts((prev) => ({ ...prev, ...fetched }));
+    return fetched;
+  }, []);
+
+  const costProductIdsKey = useMemo(
+    () =>
+      [
+        ...new Set(
+          cart
+            .map(costSourceIdOf)
+            .filter((id): id is number => id != null),
+        ),
+      ]
+        .sort((a, b) => a - b)
+        .join(","),
+    [cart],
+  );
+
+  useEffect(() => {
+    if (!costProductIdsKey) return;
+    const pending = costProductIdsKey
+      .split(",")
+      .map(Number)
+      .filter((id) => !requestedCostIdsRef.current.has(id));
+    if (pending.length === 0) return;
+    pending.forEach((id) => requestedCostIdsRef.current.add(id));
+    // Sin cancelar al limpiar: los IDs ya quedaron marcados como pedidos y
+    // descartar la respuesta los dejaría sin costo para siempre.
+    void (async () => {
+      try {
+        await fetchUnitCosts(pending);
+      } catch {
+        pending.forEach((id) => requestedCostIdsRef.current.delete(id));
+        window.setTimeout(() => setCostRetryTick((n) => n + 1), 4000);
+      }
+    })();
+  }, [costProductIdsKey, costRetryTick, fetchUnitCosts]);
+
+  /** Resumen interno del carrito (proveedores 2/3). Nunca va al ticket. */
+  const cartCostSummary = useMemo(() => {
+    let lines = 0;
+    let units = 0;
+    let investment = 0;
+    let totalCost = 0;
+    let missing = 0;
+    for (const line of cart) {
+      const sourceId = costSourceIdOf(line);
+      if (sourceId == null) continue;
+      const cost = unitCosts[sourceId];
+      if (!cost) {
+        missing += 1;
+        continue;
+      }
+      const qty = Math.max(0, Number(line.quantity) || 0);
+      lines += 1;
+      units += qty;
+      investment += cost.costUnit * qty;
+      totalCost += lineTotal(line.unitPrice, qty, line.discountPct || 0);
+    }
+    const roundedInvestment = roundMoney(investment);
+    const roundedTotal = roundMoney(totalCost);
+    const summary: PosCostSummary | null =
+      lines > 0
+        ? {
+            lines,
+            units,
+            investment: roundedInvestment,
+            profitMargin: roundMoney(roundedTotal - roundedInvestment),
+            totalCost: roundedTotal,
+          }
+        : null;
+    return { summary, missing };
+  }, [cart, unitCosts]);
 
   const paidSum = useMemo(
     () => roundMoney(payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)),
@@ -2421,244 +3026,16 @@ export default function usePos() {
     [],
   );
 
-  const applyQuoteToCart = useCallback(
-    (
-      payload: {
-        quoteNumber: string;
-        items: Array<
-          PosProductHit & {
-            quantity: number;
-            quoteStoreId: number | null;
-            quoteUnitPrice?: number | null;
-          }
-        >;
-        missingProductIds?: string[];
-        inactiveProducts?: Array<{ idProduct: number; name: string }>;
-        expired?: boolean;
-        customer?: {
-          name?: string | null;
-          email?: string | null;
-          phone?: string | null;
-        };
-      },
-      priceChoices: Record<number, QuotePriceChoice> = {},
-    ) => {
-      // Fusionar: conservar lo ya capturado; la cotización suma líneas/cantidades.
-      const hadCart = cart.length > 0;
-      const nextCart: PosCartLine[] = cart.map((line) => ({
-        ...line,
-        serials: [...(line.serials || [])],
-        stocksByBranch: line.stocksByBranch
-          ? line.stocksByBranch.map((s) => ({ ...s }))
-          : line.stocksByBranch,
-      }));
-      const skippedInactive: string[] = [];
-      const skippedNoStock: string[] = [];
-      const adjustedStock: string[] = [];
-      const otherWarnings: string[] = [];
-      let importedUnits = 0;
-      let touchedLines = 0;
-
-      for (const inactive of payload.inactiveProducts || []) {
-        skippedInactive.push(
-          inactive.name || `Producto #${inactive.idProduct}`,
-        );
+  const applyQuoteCustomer = useCallback(
+    (customer?: QuoteCustomer) => {
+      if (customer?.name && !customerName.trim()) {
+        setCustomerName(customer.name);
       }
-
-      if (payload.missingProductIds?.length) {
-        otherWarnings.push(
-          `${payload.missingProductIds.length} producto(s) ya no existen en catálogo`,
-        );
+      if (customer?.email && !guestEmail.trim()) {
+        setGuestEmail(customer.email);
       }
-
-      for (const product of payload.items) {
-        const stocks = product.stocksByBranch || [];
-        const needsBranch = stocks.length > 0;
-        const tracksStock = true;
-        let branchIdLine: number | null =
-          product.suggestedBranchId ??
-          stocks.find((st) => st.stock > 0)?.branchId ??
-          stocks[0]?.branchId ??
-          null;
-
-        const qtyWanted = Math.max(1, Math.round(Number(product.quantity) || 1));
-        let quantity = qtyWanted;
-
-        if (needsBranch) {
-          if (branchIdLine == null) {
-            otherWarnings.push(
-              `«${product.name}» requiere elegir bodega (sin sugerencia)`,
-            );
-            continue;
-          }
-          if (tracksStock) {
-            const stockRow = stocks.find((st) => st.branchId === branchIdLine);
-            const stockCap = stockRow?.stock ?? 0;
-            if (stockCap <= 0) {
-              skippedNoStock.push(
-                `${product.name} (${stockRow?.label || "bodega"})`,
-              );
-              continue;
-            }
-            if (quantity > stockCap) {
-              adjustedStock.push(
-                `${product.name}: cotizado ${qtyWanted} → disponible ${stockCap}`,
-              );
-              quantity = stockCap;
-            }
-          }
-        } else if (tracksStock && product.stockGlobal <= 0) {
-          skippedNoStock.push(`${product.name} (existencia global)`);
-          continue;
-        } else if (tracksStock && quantity > product.stockGlobal) {
-          adjustedStock.push(
-            `${product.name}: cotizado ${qtyWanted} → disponible ${product.stockGlobal}`,
-          );
-          quantity = product.stockGlobal;
-        }
-
-        const branchMeta = stocks.find((st) => st.branchId === branchIdLine);
-        const stockCap = tracksStock
-          ? needsBranch
-            ? branchMeta?.stock ?? 0
-            : product.stockGlobal
-          : 999999;
-        const lineKey = `p-${product.idProduct}-b-${branchIdLine ?? "g"}`;
-
-        const catalogPrice = roundMoney(Number(product.price) || 0);
-        const quotePriceRaw = product.quoteUnitPrice;
-        const hasQuotePrice =
-          quotePriceRaw != null && Number.isFinite(Number(quotePriceRaw));
-        const quotePrice = hasQuotePrice
-          ? roundMoney(Number(quotePriceRaw))
-          : null;
-        const choice = priceChoices[product.idProduct] || "current";
-        const useQuote = choice === "quote" && quotePrice != null;
-        const unitPrice = useQuote ? quotePrice : catalogPrice;
-        const quotePriceLocked =
-          useQuote && Math.abs(unitPrice - catalogPrice) > 0.009;
-
-        const existing = nextCart.find((l) => l.key === lineKey);
-        if (existing) {
-          // Línea ya en carrito: sumar cantidad y respetar precio/flags existentes.
-          const before = existing.quantity;
-          const desired = before + quantity;
-          const merged = tracksStock ? Math.min(stockCap, desired) : desired;
-          if (tracksStock && merged < desired) {
-            adjustedStock.push(
-              `${product.name}: en carrito ${before} + cotizado ${quantity} → se limitó a stock ${stockCap}`,
-            );
-          }
-          const added = merged - before;
-          if (added > 0) {
-            importedUnits += added;
-            touchedLines += 1;
-          } else if (quantity > 0 && added === 0) {
-            skippedNoStock.push(
-              `${product.name}: ya tienes ${before} en carrito y no hay stock extra`,
-            );
-          }
-          existing.quantity = merged;
-          existing.serials = Array(merged).fill("");
-          existing.stockBranch = stockCap;
-          existing.stocksByBranch = stocks;
-          // No pisar unitPrice / quotePriceLocked / catalogUnitPrice.
-          continue;
-        }
-
-        nextCart.push({
-          key: lineKey,
-          productId: product.idProduct,
-          name: product.name,
-          sku: product.sku,
-          upc: product.upc,
-          unitPrice,
-          quantity,
-          discountPct: 0,
-          branchId: branchIdLine,
-          branchLabel: branchMeta
-            ? formatPosBranchUiLabel({
-                name: branchMeta.name,
-                label: branchMeta.label,
-                city: branchMeta.city,
-              })
-            : Number(product.providerId) === 1
-              ? "PCinBOX-León"
-              : null,
-          stockBranch: stockCap,
-          stocksByBranch: stocks,
-          imageUrl: firstImage(product.image_url),
-          requiresSerial: Boolean(product.requiresSerial),
-          warrantyMonths:
-            Number(product.providerId) === 2 ||
-            (Number(product.providerId) === 1 && Boolean(product.isPC))
-              ? 12
-              : product.warrantyMonths ?? null,
-          warrantyMode:
-            Number(product.providerId) === 2 ||
-            (Number(product.providerId) === 1 && Boolean(product.isPC))
-              ? "months"
-              : product.warrantyMode ?? null,
-          warrantyUnit: "months" as const,
-          isPC: Boolean(product.isPC),
-          serials: Array(quantity).fill(""),
-          isManual: false,
-          providerId: product.providerId ?? null,
-          quotePriceLocked,
-          catalogUnitPrice: catalogPrice,
-        });
-        importedUnits += quantity;
-        touchedLines += 1;
-      }
-
-      const sections = [
-        {
-          title: "Inactivos (no importados)",
-          items: skippedInactive,
-        },
-        {
-          title: "Sin stock (no importados)",
-          items: skippedNoStock,
-        },
-        {
-          title: "Cantidad ajustada por stock",
-          items: adjustedStock,
-        },
-        {
-          title: "Otros avisos",
-          items: otherWarnings,
-        },
-      ].filter((s) => s.items.length > 0);
-
-      const skippedCount =
-        skippedInactive.length +
-        skippedNoStock.length +
-        (payload.missingProductIds?.length || 0);
-
-      if (touchedLines === 0 && importedUnits === 0) {
-        showQuoteFeedback({
-          type: "warning",
-          title: "Nada importado de la cotización",
-          message: hadCart
-            ? "No se pudo agregar nada de la cotización al carrito (inactivos, sin stock o sin cupo extra). Se conservó lo que ya tenías."
-            : "Ningún producto de la cotización pudo importarse (inactivos, sin stock o fuera de catálogo).",
-          sections,
-        });
-        return;
-      }
-
-      setCart(nextCart);
-      setLinkedQuoteNumber(payload.quoteNumber);
-      setQuoteInput(payload.quoteNumber);
-
-      if (payload.customer?.name && !customerName.trim()) {
-        setCustomerName(payload.customer.name);
-      }
-      if (payload.customer?.email && !guestEmail.trim()) {
-        setGuestEmail(payload.customer.email);
-      }
-      if (payload.customer?.phone && !guestPhone.trim()) {
-        const rawPhone = String(payload.customer.phone).trim();
+      if (customer?.phone && !guestPhone.trim()) {
+        const rawPhone = String(customer.phone).trim();
         const plusMatch = rawPhone.match(/^(\+\d{1,3})\s*(\d{7,15})$/);
         if (plusMatch) {
           const lada = plusMatch[1];
@@ -2674,59 +3051,147 @@ export default function usePos() {
           }
         }
       }
+    },
+    [customerName, guestEmail, guestPhone],
+  );
 
-      const hasSkips = sections.length > 0;
+  const applyQuoteToCart = useCallback(
+    (
+      payload: QuoteImportPayload,
+      priceChoices: Record<number, QuotePriceChoice> = {},
+      extras: QuoteUnavailableResolved[] = [],
+      unavailable: QuoteUnavailableItem[] = [],
+    ) => {
+      // Fusionar: conservar lo ya capturado; la cotización suma líneas/cantidades.
+      const hadCart = cart.length > 0;
+      const plan = planQuoteImport(payload, cart, priceChoices);
+      const stamp = Date.now();
+      const extraLines = extras.map((line, idx) =>
+        unavailableToCartLine(
+          line,
+          `manual-quote-${line.item.idProduct}-${stamp}-${idx}`,
+        ),
+      );
+      const addedKeys = new Set(extras.map((line) => line.item.key));
+      const notAdded = unavailable.filter((it) => !addedKeys.has(it.key));
+      const extraUnits = extras.reduce((sum, line) => sum + line.item.quantity, 0);
+
+      const sections = [
+        {
+          title: "Agregados como captura manual (no descuentan inventario)",
+          items: extras.map(
+            ({ item }) =>
+              `${item.name} × ${item.quantity} (${
+                item.reason === "inactive" ? "inactivo" : "sin stock"
+              })`,
+          ),
+        },
+        {
+          title: "No agregados (inactivos o sin stock)",
+          items: notAdded.map(
+            (it) =>
+              `${it.name} — ${
+                it.reason === "inactive" ? "Inactivo" : it.reasonDetail || "Sin stock"
+              }`,
+          ),
+        },
+        {
+          title: "Cantidad ajustada por stock",
+          items: plan.adjustedStock,
+        },
+        {
+          title: "Otros avisos",
+          items: plan.otherWarnings,
+        },
+      ].filter((s) => s.items.length > 0);
+
+      const lines = plan.touchedLines + extraLines.length;
+      const units = plan.importedUnits + extraUnits;
+      const skippedCount =
+        notAdded.length + (payload.missingProductIds?.length || 0);
+
+      if (lines === 0) {
+        showQuoteFeedback({
+          type: "warning",
+          title: "Nada importado de la cotización",
+          message: hadCart
+            ? "No se agregó nada de la cotización al carrito (inactivos, sin stock o sin cupo extra). Se conservó lo que ya tenías."
+            : "Ningún producto de la cotización pudo importarse (inactivos, sin stock o fuera de catálogo).",
+          sections,
+        });
+        return;
+      }
+
+      setCart([...plan.nextCart, ...extraLines]);
+      setLinkedQuoteNumber(payload.quoteNumber);
+      setQuoteInput(payload.quoteNumber);
+      applyQuoteCustomer(payload.customer);
+
+      const hasSkips =
+        skippedCount > 0 ||
+        plan.adjustedStock.length > 0 ||
+        plan.otherWarnings.length > 0;
+      const verb = hadCart ? "Se fusionaron" : "Se importaron";
+      const manualNote = extraLines.length
+        ? ` ${extraLines.length} entraron como captura manual.`
+        : "";
       showQuoteFeedback({
         type: hasSkips ? "warning" : "success",
         title: hadCart
           ? "Cotización fusionada con el carrito"
           : "Cotización cargada",
         message: hasSkips
-          ? `${hadCart ? "Se fusionaron" : "Se importaron"} ${touchedLines} línea(s) de ${payload.quoteNumber} (+${importedUnits} uds.). ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${adjustedStock.length ? `; ${adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
-          : `${hadCart ? "Se fusionaron" : "Se importaron"} ${touchedLines} línea(s) de la cotización ${payload.quoteNumber} (+${importedUnits} uds.).`,
+          ? `${verb} ${lines} línea(s) de ${payload.quoteNumber} (+${units} uds.).${manualNote} ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${plan.adjustedStock.length ? `; ${plan.adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
+          : `${verb} ${lines} línea(s) de la cotización ${payload.quoteNumber} (+${units} uds.).${manualNote}`,
         sections,
       });
     },
-    [cart, customerName, guestEmail, guestPhone, showQuoteFeedback],
+    [applyQuoteCustomer, cart, showQuoteFeedback],
   );
 
   const openQuotePriceModal = useCallback(
-    (data: {
-      quoteNumber: string;
-      items: Array<
-        PosProductHit & {
-          quantity: number;
-          quoteStoreId: number | null;
-          quoteUnitPrice?: number | null;
-        }
-      >;
-      missingProductIds?: string[];
-      inactiveProducts?: Array<{ idProduct: number; name: string }>;
-      customer?: {
-        name?: string | null;
-        email?: string | null;
-        phone?: string | null;
-      };
-    }) => {
-      const priceItems = (data.items || []).map((it) => ({
-        idProduct: it.idProduct,
-        name: it.name,
-        quantity: Math.max(1, Math.round(Number(it.quantity) || 1)),
-        price: Number(it.price) || 0,
-        quoteUnitPrice:
-          it.quoteUnitPrice != null && Number.isFinite(Number(it.quoteUnitPrice))
-            ? Number(it.quoteUnitPrice)
-            : null,
-      }));
+    (data: QuoteImportPayload) => {
+      const unavailable = planQuoteImport(data, cart, {}).unavailable;
+      const noStockIds = new Set(
+        unavailable
+          .filter((it) => it.reason === "noStock")
+          .map((it) => it.idProduct),
+      );
+      const priceItems = (data.items || [])
+        .filter((it) => !noStockIds.has(it.idProduct))
+        .map((it) => ({
+          idProduct: it.idProduct,
+          name: it.name,
+          quantity: Math.max(1, Math.round(Number(it.quantity) || 1)),
+          price: Number(it.price) || 0,
+          quoteUnitPrice:
+            it.quoteUnitPrice != null && Number.isFinite(Number(it.quoteUnitPrice))
+              ? Number(it.quoteUnitPrice)
+              : null,
+        }));
 
-      if (priceItems.length === 0) {
+      if (priceItems.length === 0 && unavailable.length === 0) {
         applyQuoteToCart(data, {});
         return;
       }
 
-      const choicesRef = {
-        current: defaultQuotePriceChoices(priceItems),
+      const stateRef: { current: QuoteImportPriceState } = {
+        current: {
+          choices: defaultQuotePriceChoices(priceItems),
+          unavailable: defaultUnavailableState(unavailable),
+        },
       };
+      const onStateChange = (next: QuoteImportPriceState) => {
+        stateRef.current = next;
+      };
+      const renderBody = (errors: string[] = []) => (
+        <QuoteImportPriceBody
+          items={priceItems}
+          unavailable={unavailable}
+          errors={errors}
+          onChange={onStateChange}
+        />
+      );
 
       setDataModal({
         isOpen: true,
@@ -2736,22 +3201,23 @@ export default function usePos() {
         confirmLabel: "Importar",
         cancelLabel: "Cancelar",
         maxWidth: "820px",
-        content: (
-          <QuoteImportPriceBody
-            items={priceItems}
-            onChoicesChange={(choices) => {
-              choicesRef.current = choices;
-            }}
-          />
-        ),
+        content: renderBody(),
         onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
         onConfirm: async () => {
+          const { lines, errors } = resolveQuoteUnavailable(
+            unavailable,
+            stateRef.current.unavailable,
+          );
+          if (errors.length) {
+            setDataModal((p) => ({ ...p, content: renderBody(errors) }));
+            return;
+          }
           setDataModal((p) => ({ ...p, isOpen: false }));
-          applyQuoteToCart(data, choicesRef.current);
+          applyQuoteToCart(data, stateRef.current.choices, lines, unavailable);
         },
       });
     },
-    [applyQuoteToCart, setDataModal],
+    [applyQuoteToCart, cart, setDataModal],
   );
 
   const loadQuote = useCallback(async (rawOverride?: string) => {
@@ -3679,6 +4145,10 @@ export default function usePos() {
             name: l.isManual ? l.name : undefined,
             sku: l.isManual ? l.sku : undefined,
             upc: l.isManual ? l.upc : undefined,
+            sourceProductId:
+              l.isManual && l.costSourceProductId
+                ? l.costSourceProductId
+                : undefined,
             warrantyMonths: cartWarrantyToPayload(l).warrantyMonths,
             warrantyMode: cartWarrantyToPayload(l).warrantyMode,
             warrantyUnit: cartWarrantyToPayload(l).warrantyUnit,
@@ -3714,35 +4184,58 @@ export default function usePos() {
       if (usesCash) void loadCashStatus();
 
       const qz = loadQzSettings();
-      // Primero el ticket (despierta la térmica) y después el cajón.
-      // En paralelo, al encender la PC, el pulso corto se pierde.
+      // Con efectivo el cajón va primero: el cajero da cambio mientras imprime.
+      let drawerError: unknown = null;
+      if (usesCash) {
+        try {
+          await openCashDrawerQz();
+        } catch (err) {
+          drawerError = err;
+        }
+      }
+      let printError: unknown = null;
       if (sale && qz.autoPrintOnCharge) {
         try {
           await printPosTicketQz(sale, { openDrawer: false });
         } catch (err) {
-          setDataModal({
-            isOpen: true,
-            title: "No se pudo imprimir el ticket",
-            content:
-              qzErrorMessage(err) ||
-              "La venta quedó registrada, pero el ticket no se envió a la impresora. Puedes reimprimirlo desde la última venta o el historial.",
-            type: "error",
-            showActions: true,
-            onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
-            onConfirm: async () =>
-              setDataModal((p) => ({ ...p, isOpen: false })),
-          });
+          printError = err;
         }
       }
-      if (usesCash && qz.openDrawerOnCash) {
-        try {
-          await openCashDrawerQz();
-        } catch {
-          // La venta ya quedó. El cajón se puede abrir con el botón naranja.
-        }
+      if (drawerError) {
+        setDataModal({
+          isOpen: true,
+          title: "No se pudo abrir el cajón",
+          content:
+            `La venta quedó registrada. ${qzErrorMessage(drawerError)}` +
+            (printError
+              ? " Tampoco se imprimió el ticket; puedes reimprimirlo desde la última venta o el historial."
+              : ""),
+          type: "warning",
+          showActions: true,
+          confirmLabel: "Reintentar abrir cajón",
+          cancelLabel: "Cerrar",
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => {
+            setDataModal((p) => ({ ...p, isOpen: false }));
+            await testQzDrawerRef.current();
+          },
+        });
+      } else if (printError) {
+        setDataModal({
+          isOpen: true,
+          title: "No se pudo imprimir el ticket",
+          content:
+            qzErrorMessage(printError) ||
+            "La venta quedó registrada, pero el ticket no se envió a la impresora. Puedes reimprimirlo desde la última venta o el historial.",
+          type: "error",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () =>
+            setDataModal((p) => ({ ...p, isOpen: false })),
+        });
       }
       // Cobro OK: sin modal de éxito (el resumen queda en «Última venta»).
-      // Solo se avisa si falla la impresión automática arriba.
+      // Solo se avisa si fallan el cajón o la impresión automática.
     } catch {
       // error modal handled by UtilsService — conservar idempotencyKey para reintento
     } finally {
@@ -4084,13 +4577,38 @@ export default function usePos() {
     }
 
     chargeConfirmOpenRef.current = true;
+
+    let costs = unitCosts;
+    const missingCostIds = [
+      ...new Set(checkCartAgainstCost(cart, costs).unverified.map(costSourceIdOf)),
+    ].filter((id): id is number => id != null);
+    if (missingCostIds.length > 0) {
+      try {
+        costs = { ...costs, ...(await fetchUnitCosts(missingCostIds)) };
+      } catch {
+        // Se avisa en el modal como "no se pudo verificar".
+      }
+    }
+    const { below: belowCostLines, unverified: unverifiedCostLines } =
+      checkCartAgainstCost(cart, costs);
+    const belowCostLoss = roundMoney(
+      belowCostLines.reduce((s, r) => s + r.loss, 0),
+    );
+    const costWarning =
+      belowCostLines.length > 0 || unverifiedCostLines.length > 0;
+
     setDataModal({
       isOpen: true,
-      title: "Confirmar cobro",
+      title:
+        belowCostLines.length > 0
+          ? "Cobro debajo del costo"
+          : unverifiedCostLines.length > 0
+            ? "Costo sin verificar"
+            : "Confirmar cobro",
       type: "warning",
       showActions: true,
-      maxWidth: "420px",
-      confirmLabel: "Cobrar ahora",
+      maxWidth: costWarning ? "540px" : "420px",
+      confirmLabel: costWarning ? "Cobrar de todos modos" : "Cobrar ahora",
       cancelLabel: "Volver",
       content: (
         <div
@@ -4112,6 +4630,265 @@ export default function usePos() {
           >
             Revisa el total antes de registrar la venta.
           </p>
+          {belowCostLines.length > 0 ? (
+            <div
+              role="alert"
+              style={{
+                borderRadius: 14,
+                border: "1px solid #fecaca",
+                background: "#fef2f2",
+                padding: 12,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div
+                    style={{ fontSize: 14, fontWeight: 800, color: "#991b1b" }}
+                  >
+                    {belowCostLines.length === 1
+                      ? "1 producto debajo de su costo"
+                      : `${belowCostLines.length} productos debajo de su costo`}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "#b91c1c" }}>
+                    Costo = precio de proveedor + IVA (aproximado)
+                  </div>
+                </div>
+                <div
+                  style={{
+                    borderRadius: 12,
+                    background: "#b91c1c",
+                    color: "#fff",
+                    padding: "6px 12px",
+                    textAlign: "right",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      opacity: 0.85,
+                    }}
+                  >
+                    Pérdida total
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 800,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    ≈ {formatMoney(belowCostLoss)}
+                  </div>
+                </div>
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  padding: 0,
+                  listStyle: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  maxHeight: 300,
+                  overflowY: "auto",
+                }}
+              >
+                {belowCostLines.map((r) => {
+                  const pctBelow =
+                    r.costUnit > 0
+                      ? ((r.costUnit - r.chargedUnit) / r.costUnit) * 100
+                      : 0;
+                  return (
+                    <li
+                      key={r.key}
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        background: "#fff",
+                        border: "1px solid #fecaca",
+                        borderRadius: 12,
+                        padding: 10,
+                      }}
+                    >
+                      {costWarningThumb(r.imageUrl, 60)}
+                      <div
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        <div
+                          title={r.name}
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: "#1c1917",
+                            lineHeight: 1.3,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {r.name}
+                        </div>
+                        <div
+                          style={{ display: "flex", gap: 4, flexWrap: "wrap" }}
+                        >
+                          {r.sku
+                            ? costWarningTag(`SKU ${r.sku}`, "#57534e", "#f5f5f4")
+                            : null}
+                          {costWarningTag(
+                            `${r.quantity} ${r.quantity === 1 ? "pieza" : "piezas"}`,
+                            "#57534e",
+                            "#f5f5f4",
+                          )}
+                          {r.isManual
+                            ? costWarningTag("Precio manual", "#92400e", "#fef3c7")
+                            : null}
+                          {r.discountPct > 0
+                            ? costWarningTag(
+                                `Descuento ${r.discountPct}%`,
+                                "#6d28d9",
+                                "#ede9fe",
+                              )
+                            : null}
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                            gap: 6,
+                          }}
+                        >
+                          {costWarningStat(
+                            "Cobrado c/u",
+                            formatMoney(r.chargedUnit),
+                            "neutral",
+                          )}
+                          {costWarningStat(
+                            "Costo c/u aprox.",
+                            formatMoney(r.costUnit),
+                            "cost",
+                          )}
+                          {costWarningStat(
+                            r.quantity > 1
+                              ? `Pérdida aprox. (${r.quantity} piezas)`
+                              : "Pérdida aprox.",
+                            formatMoney(r.loss),
+                            "loss",
+                            `${pctBelow.toFixed(0)}% debajo del costo`,
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div style={{ fontSize: 12, color: "#991b1b" }}>
+                Revisa estos precios. Si es correcto, usa{" "}
+                <strong>Cobrar de todos modos</strong>.
+              </div>
+            </div>
+          ) : null}
+          {unverifiedCostLines.length > 0 ? (
+            <div
+              role="alert"
+              style={{
+                borderRadius: 14,
+                border: "1px solid #fde68a",
+                background: "#fffbeb",
+                color: "#92400e",
+                padding: "12px 14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                fontSize: 13,
+                lineHeight: 1.4,
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700 }}>
+                No se pudo verificar el costo de{" "}
+                {unverifiedCostLines.length === 1
+                  ? "1 producto"
+                  : `${unverifiedCostLines.length} productos`}
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  padding: 0,
+                  listStyle: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  maxHeight: 180,
+                  overflowY: "auto",
+                }}
+              >
+                {unverifiedCostLines.map((l) => (
+                  <li
+                    key={l.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "#fff",
+                      border: "1px solid #fde68a",
+                      borderRadius: 10,
+                      padding: 6,
+                    }}
+                  >
+                    {costWarningThumb(l.imageUrl, 36)}
+                    <span
+                      title={l.name}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontWeight: 600,
+                        color: "#78350f",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {l.name}
+                    </span>
+                    <strong
+                      style={{
+                        fontVariantNumeric: "tabular-nums",
+                        color: "#1c1917",
+                      }}
+                    >
+                      {formatMoney(
+                        lineTotal(l.unitPrice, l.quantity, l.discountPct || 0),
+                      )}
+                    </strong>
+                  </li>
+                ))}
+              </ul>
+              <div>
+                El servidor no respondió con su costo, así que no sabemos si se
+                cobran por debajo de él. Revisa el precio antes de continuar.
+              </div>
+            </div>
+          ) : null}
           <div
             style={{
               borderRadius: 14,
@@ -4243,6 +5020,8 @@ export default function usePos() {
     loadCashStatus,
     setDataModal,
     executeCharge,
+    unitCosts,
+    fetchUnitCosts,
   ]);
 
   const loadHistory = useCallback(
@@ -5393,6 +6172,7 @@ export default function usePos() {
       setQzBusy(false);
     }
   }, [setDataModal]);
+  testQzDrawerRef.current = testQzDrawer;
 
   // Nueva clave de cobro si cambia el contenido de la venta (conservar clave si falla el POST).
   useEffect(() => {
@@ -5695,6 +6475,7 @@ export default function usePos() {
     dismissImportPageAlert,
     loadDetectedImport,
     totals,
+    cartCostSummary,
     paidSum,
     remaining,
     changeDue,

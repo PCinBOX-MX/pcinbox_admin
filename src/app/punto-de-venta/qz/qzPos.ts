@@ -45,8 +45,6 @@ type QzApi = {
 let qzPromise: Promise<QzApi> | null = null;
 let securityConfigured = false;
 let logoBase64Cache: string | null | undefined;
-/** La térmica acaba de encender: el primer pulso corto se pierde hasta que hay un init. */
-let printerAwake = false;
 /** Un solo job a la vez. Dos raw en paralelo (cajón + ticket) se pisan en frío. */
 let printChain: Promise<unknown> = Promise.resolve();
 
@@ -265,8 +263,20 @@ export function printPosTicketQz(
       });
       await qz.print(config, job);
     }
-    printerAwake = true;
   });
+}
+
+async function kickDrawerUnlocked(
+  dialect: QzDrawerDialect,
+  printerName?: string,
+): Promise<void> {
+  // Si la térmica está en ahorro de energía el primer pulso se pierde:
+  // siempre init + pausa, y un segundo pulso (inofensivo si ya abrió).
+  await printRawUnlocked("\x1B\x40", printerName);
+  await delay(450);
+  await printRawUnlocked(drawerKickBytes(dialect), printerName);
+  await delay(250);
+  await printRawUnlocked(drawerKickBytes(dialect), printerName);
 }
 
 export function openCashDrawerQz(opts?: {
@@ -277,13 +287,19 @@ export function openCashDrawerQz(opts?: {
     const settings = loadQzSettings();
     const dialect = opts?.dialect || settings.drawerDialect;
     const printerName = opts?.printerName;
-    // En frío el primer pulso se pierde. Un init y una pausa dejan la térmica lista.
-    if (!printerAwake) {
-      await printRawUnlocked("\x1B\x40", printerName);
-      await delay(700);
+    requirePrinterName(printerName);
+    try {
+      await kickDrawerUnlocked(dialect, printerName);
+    } catch (err) {
+      if (err instanceof QzPdfPrinterError) throw err;
+      // Reintento con el websocket de QZ reabierto (suele cerrarse en reposo).
+      const qz = await getQz();
+      if (qz.websocket.isActive()) {
+        await qz.websocket.disconnect().catch(() => undefined);
+      }
+      await delay(300);
+      await kickDrawerUnlocked(dialect, printerName);
     }
-    await printRawUnlocked(drawerKickBytes(dialect), printerName);
-    printerAwake = true;
   });
 }
 

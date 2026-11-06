@@ -93,7 +93,7 @@ html[data-admin-sidebar="closed"]:has(aside:hover) .admin-layout {
 @media (max-width: 1024px) {
   html[data-admin-sidebar="closed"] .admin-layout,
   html[data-admin-sidebar="open"] .admin-layout {
-    padding-left: 0;
+    padding-left: 0 !important;
   }
 }
 
