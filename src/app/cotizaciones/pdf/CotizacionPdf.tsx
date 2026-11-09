@@ -18,6 +18,13 @@ export type QuotePdfLine = {
 
 const FALLBACK_PRODUCT_IMAGE = "/imagen-no-encontrada.png";
 
+const TRANSFER = {
+  bank: "BBVA",
+  holder: "Lizbeth Ordaz Camacho",
+  account: "0477163533",
+  clabe: "012225004771635337",
+};
+
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("es-MX", {
     style: "currency",
@@ -121,6 +128,8 @@ type CotizacionPdfProps = {
   userName?: string | null;
   userPhone?: string | null;
   includeAssemblyService?: boolean;
+  /** Muestra el recuadro de transferencia en el pie. */
+  includeTransferInfo?: boolean;
   detailLevel?: QuoteDetailLevel;
 };
 
@@ -130,6 +139,7 @@ const CotizacionPdf = ({
   userName,
   userPhone,
   includeAssemblyService,
+  includeTransferInfo = true,
   detailLevel = "full",
 }: CotizacionPdfProps) => {
   const now = new Date();
@@ -227,7 +237,12 @@ const CotizacionPdf = ({
         .filter(Boolean)
         .join("|")}
     >
-      <Page size="LETTER" style={styles.page}>
+      <Page
+        size="LETTER"
+        style={
+          includeTransferInfo ? [styles.page, styles.pageWithTransfer] : styles.page
+        }
+      >
         <View style={styles.header} fixed>
           <View style={styles.logoWrap}>
             <Image src="/logo.png" style={styles.logo} />
@@ -371,6 +386,38 @@ const CotizacionPdf = ({
         </View>
 
         <View style={styles.bottomFooter} fixed>
+          {includeTransferInfo ? (
+          <View style={styles.transferCard}>
+            <View style={styles.transferHead}>
+              <Text style={styles.transferTitle}>DATOS PARA TRANSFERENCIA</Text>
+              <Text style={styles.transferBadge}>PCINBOX · PAGO POR TRANSFERENCIA</Text>
+            </View>
+            <View style={styles.transferBody}>
+              <View style={styles.transferGrid}>
+                <View style={[styles.transferCell, styles.transferCellBank]}>
+                  <Text style={styles.transferLabel}>Banco</Text>
+                  <Text style={styles.transferValue}>{TRANSFER.bank}</Text>
+                </View>
+                <View style={[styles.transferCell, styles.transferCellHolder]}>
+                  <Text style={styles.transferLabel}>Titular</Text>
+                  <Text style={styles.transferValue}>{TRANSFER.holder}</Text>
+                </View>
+                <View style={[styles.transferCell, styles.transferCellAccount]}>
+                  <Text style={styles.transferLabel}>Número de cuenta</Text>
+                  <Text style={styles.transferNumber}>{TRANSFER.account}</Text>
+                </View>
+                <View style={[styles.transferCell, styles.transferCellClabe]}>
+                  <Text style={styles.transferLabel}>CLABE interbancaria</Text>
+                  <Text style={styles.transferNumber}>{TRANSFER.clabe}</Text>
+                </View>
+              </View>
+              <Text style={styles.transferNote}>
+                Pago anticipado requerido. Favor de enviar su comprobante de
+                transferencia para confirmar su pedido.
+              </Text>
+            </View>
+          </View>
+          ) : null}
           <View style={styles.footer}>
             <View style={styles.footerRow}>
               <View style={styles.footerCol}>
@@ -390,8 +437,14 @@ const CotizacionPdf = ({
               </View>
               <View style={styles.footerColLast}>
                 <Text style={styles.footerLabel}>CONDICIONES DE PAGO</Text>
-                <Text style={styles.footerValue}>
-                  Pago anticipado requerido
+                <Text
+                  style={styles.footerValue}
+                  hyphenationCallback={(word) => [word]}
+                >
+                  Pago anticipado requerido.
+                  {includeTransferInfo
+                    ? "\nFavor de enviar su comprobante de transferencia para confirmar su pedido."
+                    : ""}
                 </Text>
                 <Text style={[styles.footerValue, { marginTop: 4 }]}>
                   Garantía por defecto de fábrica

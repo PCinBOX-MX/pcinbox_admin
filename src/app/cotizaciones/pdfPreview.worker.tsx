@@ -11,6 +11,7 @@ type PreviewJob = {
   userName: string;
   userPhone: string;
   includeAssembly: boolean;
+  includeTransfer: boolean;
   products: QuotePdfLine[];
 };
 
@@ -25,6 +26,7 @@ scope.onmessage = (event: MessageEvent<PreviewJob>) => {
       userName={job.userName}
       userPhone={job.userPhone}
       includeAssemblyService={job.includeAssembly}
+      includeTransferInfo={job.includeTransfer !== false}
       detailLevel={job.detailLevel}
     />,
   )

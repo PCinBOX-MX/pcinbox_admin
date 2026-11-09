@@ -20,9 +20,12 @@ export const styles = StyleSheet.create({
     color: C.gray900,
     // Espacio para header/footer fijos sin dejar banda vacía grande.
     paddingTop: 96,
-    paddingBottom: 112,
+    paddingBottom: 168,
     paddingHorizontal: 48,
     backgroundColor: C.white,
+  },
+  pageWithTransfer: {
+    paddingBottom: 228,
   },
 
   // ── HEADER ──────────────────────────────────────────────────────────────
@@ -519,10 +522,104 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
 
+  // ── TRANSFERENCIA ───────────────────────────────────────────────────────
+  transferCard: {
+    borderWidth: 1,
+    borderColor: "#0b1f4d",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  transferHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#0b1f4d",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  transferTitle: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.white,
+    letterSpacing: 0.8,
+  },
+  transferBadge: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: "#c7d7ff",
+    letterSpacing: 0.4,
+  },
+  transferBody: {
+    backgroundColor: "#f4f7fb",
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingHorizontal: 8,
+  },
+  transferGrid: {
+    flexDirection: "row",
+  },
+  transferCell: {
+    flexDirection: "column",
+    backgroundColor: C.white,
+    borderWidth: 0.8,
+    borderColor: "#e2e8f0",
+    borderRadius: 3,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
+    marginRight: 6,
+  },
+  transferCellBank: {
+    width: 68,
+  },
+  transferCellHolder: {
+    flex: 1,
+  },
+  transferCellAccount: {
+    width: 108,
+    backgroundColor: "#fff7f7",
+    borderColor: "#fecaca",
+    marginRight: 6,
+  },
+  transferCellClabe: {
+    width: 142,
+    backgroundColor: "#fff7f7",
+    borderColor: "#fecaca",
+    marginRight: 0,
+  },
+  transferLabel: {
+    fontSize: 6,
+    fontFamily: "Helvetica-Bold",
+    color: "#94a3b8",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  transferValue: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    color: "#0f172a",
+  },
+  transferNumber: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: "#b91c1c",
+    letterSpacing: 0.2,
+  },
+  transferNote: {
+    marginTop: 6,
+    backgroundColor: "#e7eefc",
+    borderRadius: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#1e3a8a",
+  },
+
   // ── FOOTER ──────────────────────────────────────────────────────────────
   footer: {
-    marginTop: 28,
-    paddingTop: 16,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: C.gray200,
   },
@@ -538,8 +635,8 @@ export const styles = StyleSheet.create({
   },
   footerColLast: {
     flexDirection: "column",
-    flex: 1,
-    alignItems: "flex-end",
+    flex: 1.15,
+    alignItems: "flex-start",
   },
   footerLabel: {
     fontSize: 7,

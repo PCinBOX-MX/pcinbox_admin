@@ -62,6 +62,7 @@ export type AdminQuoteDraft = {
   customerLada: string;
   customerPhone: string;
   includeAssembly: boolean;
+  includeTransfer: boolean;
   lines: QuoteDraftLine[];
   importedQuotes: LocalImportedQuote[];
 };
@@ -77,6 +78,7 @@ const emptyDraft = (): AdminQuoteDraft => ({
   customerLada: "+52",
   customerPhone: "",
   includeAssembly: false,
+  includeTransfer: true,
   lines: [],
   importedQuotes: [],
 });
@@ -185,6 +187,7 @@ export function readAdminQuoteDraft(): AdminQuoteDraft | null {
       customerLada: lada,
       customerPhone: String(parsed.customerPhone || "").replace(/\D/g, "").slice(0, 10),
       includeAssembly: parsed.includeAssembly === true,
+      includeTransfer: parsed.includeTransfer !== false,
       lines,
       importedQuotes: normalizeImportedQuotes(parsed.importedQuotes),
     };
@@ -415,6 +418,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   const [customerPhone, setCustomerPhone] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [includeAssembly, setIncludeAssembly] = useState(false);
+  const [includeTransfer, setIncludeTransfer] = useState(true);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<QuoteCatalogProduct[]>([]);
   const [searching, setSearching] = useState(false);
@@ -704,6 +708,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       setCustomerLada(draft.customerLada);
       setCustomerPhone(draft.customerPhone);
       setIncludeAssembly(draft.includeAssembly);
+      setIncludeTransfer(draft.includeTransfer);
     }
     setHydratedDraft(true);
   }, []);
@@ -715,6 +720,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       customerLada,
       customerPhone,
       includeAssembly,
+      includeTransfer,
       ...(usesServerCart.current ? {} : { lines: allLines.current }),
     });
   }, [
@@ -723,6 +729,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     customerPhone,
     hydratedDraft,
     includeAssembly,
+    includeTransfer,
     cartReady,
   ]);
 
@@ -1465,6 +1472,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
             userName={name}
             userPhone={phone}
             includeAssemblyService={includeAssembly}
+            includeTransferInfo={includeTransfer}
             detailLevel={detailLevel}
           />,
         ).toBlob();
@@ -1572,7 +1580,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         setGenerating(null);
       }
     },
-    [includeAssembly, onCreated, requestDelete, requestPost, setDataModal, setQueryParams],
+    [includeAssembly, includeTransfer, onCreated, requestDelete, requestPost, setDataModal, setQueryParams],
   );
 
   const generate = useCallback(
@@ -1755,6 +1763,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     phoneError,
     includeAssembly,
     setIncludeAssembly,
+    includeTransfer,
+    setIncludeTransfer,
     query,
     setQuery,
     results,
