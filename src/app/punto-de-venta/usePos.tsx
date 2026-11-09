@@ -88,6 +88,13 @@ type PosTab = "cobrar" | "historial" | "caja" | "garantias";
 
 /** TechSmart (2) y DicoTech (3): tienen costo de proveedor + margen. */
 const POS_COST_PROVIDER_IDS = new Set([2, 3]);
+/** Comisión de pagos en línea sobre lo cobrado de esos proveedores. */
+const POS_ONLINE_PAYMENT_FEE_RATE = 0.03;
+
+function marginAfterOnlineFee(charged: number, investment: number): number {
+  const commission = roundMoney(charged * POS_ONLINE_PAYMENT_FEE_RATE);
+  return roundMoney(charged - commission - investment);
+}
 
 type QuoteCustomer = {
   name?: string | null;
@@ -802,7 +809,8 @@ function checkCartAgainstCost(
     }
     const charged = lineTotal(line.unitPrice, qty, line.discountPct || 0);
     const investment = roundMoney(cost.costUnit * qty);
-    if (charged >= investment) continue;
+    const net = marginAfterOnlineFee(charged, 0);
+    if (net >= investment) continue;
     below.push({
       key: line.key,
       name: line.name,
@@ -813,7 +821,7 @@ function checkCartAgainstCost(
       quantity: qty,
       chargedUnit: roundMoney(charged / qty),
       costUnit: cost.costUnit,
-      loss: roundMoney(investment - charged),
+      loss: roundMoney(investment - net),
     });
   }
   return { below, unverified };
@@ -1499,7 +1507,7 @@ export default function usePos() {
             lines,
             units,
             investment: roundedInvestment,
-            profitMargin: roundMoney(roundedTotal - roundedInvestment),
+            profitMargin: marginAfterOnlineFee(roundedTotal, roundedInvestment),
             totalCost: roundedTotal,
           }
         : null;
@@ -4822,7 +4830,7 @@ export default function usePos() {
                       : `${belowCostLines.length} productos debajo de su costo`}
                   </div>
                   <div style={{ fontSize: 11.5, color: "#b91c1c" }}>
-                    Costo = precio de proveedor + IVA (aproximado)
+                    Costo = precio de proveedor + IVA. La pérdida también resta 3% de comisión.
                   </div>
                 </div>
                 <div
@@ -4869,9 +4877,12 @@ export default function usePos() {
                 }}
               >
                 {belowCostLines.map((r) => {
+                  const netUnit = roundMoney(
+                    r.chargedUnit * (1 - POS_ONLINE_PAYMENT_FEE_RATE),
+                  );
                   const pctBelow =
                     r.costUnit > 0
-                      ? ((r.costUnit - r.chargedUnit) / r.costUnit) * 100
+                      ? ((r.costUnit - netUnit) / r.costUnit) * 100
                       : 0;
                   return (
                     <li

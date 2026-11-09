@@ -289,7 +289,7 @@ export type PosCostSummary = {
   units: number;
   /** Σ (products_providers.price + 16% IVA) × cantidad */
   investment: number;
-  /** Ganancia real aprox.: totalCost − investment (puede ser negativa). */
+  /** Cobrado − 3% de comisión de pago en línea − investment (puede ser negativa). */
   profitMargin: number;
   /** Σ importe cobrado (precio cotización/manual con descuento) de esas líneas */
   totalCost: number;

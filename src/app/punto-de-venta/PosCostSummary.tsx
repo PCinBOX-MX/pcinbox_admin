@@ -63,12 +63,12 @@ export default function PosCostSummary({
             </span>
             <strong
               className={styles.chipValue}
-              title="Aproximado: lo cobrado − costo de inversión"
+              title="Aproximado: lo cobrado − 3% de comisión − costo de inversión"
             >
               ≈ {formatMoney(summary.profitMargin)}
             </strong>
             <span className={styles.chipHint}>
-              Cobrado − inversión
+              Cobrado − 3% comisión − inversión
               {marginPct != null
                 ? ` · ${marginPct.toFixed(1)}% sobre inversión`
                 : ""}
