@@ -27,6 +27,18 @@ import {
 } from "../interfaces/pos/pos.interface";
 import { formatMoney, formatPosFolio, replaceTicketHtmlDate } from "./posFormat";
 import {
+  emptyPosDeliveryForm,
+  MAX_POS_DELIVERIES,
+  normalizePosDeliveryForm,
+  registeredPosDeliveries,
+  parsePosShippingCost,
+  readPosDeliveryAddresses,
+  toPosDeliveryAddress,
+  validatePosDeliveryForm,
+  type PosDeliveryErrors,
+  type PosDeliveryForm,
+} from "./posDelivery";
+import {
   QuoteImportPriceBody,
   defaultQuotePriceChoices,
   type QuoteImportPriceState,
@@ -213,6 +225,9 @@ type PosDraftV2 = {
   payments: PosPaymentLine[];
   notes: string;
   requiredFactura: boolean;
+  homeDelivery: boolean;
+  deliveryAddresses: PosDeliveryForm[];
+  deliveryEditor: { id: string | null; form: PosDeliveryForm } | null;
   quoteInput: string;
   linkedQuoteNumber: string | null;
   saleInput: string;
@@ -367,6 +382,7 @@ function draftHasContent(draft: PosDraftV2): boolean {
     draft.payments.length > 0 ||
     Boolean(draft.notes.trim()) ||
     draft.requiredFactura ||
+    draft.homeDelivery ||
     Boolean(draft.linkedQuoteNumber) ||
     Boolean(draft.quoteInput.trim()) ||
     Boolean(draft.linkedPosFolio) ||
@@ -410,6 +426,19 @@ function normalizeSerialForms(raw: unknown): PosSerialFormsDraft {
   };
 }
 
+function readDeliveryEditor(
+  raw: unknown,
+): { id: string | null; form: PosDeliveryForm } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as { id?: unknown; form?: unknown };
+  if (!row.form || typeof row.form !== "object") return null;
+  const id = String(row.id ?? "").trim();
+  return {
+    id: id || null,
+    form: normalizePosDeliveryForm(row.form),
+  };
+}
+
 function readPosDraft(): PosDraftV2 | null {
   if (typeof window === "undefined") return null;
   try {
@@ -431,6 +460,14 @@ function readPosDraft(): PosDraftV2 | null {
           payments: Array.isArray(parsed.payments) ? parsed.payments : [],
           notes: String(parsed.notes || ""),
           requiredFactura: Boolean(parsed.requiredFactura),
+          homeDelivery: Boolean(parsed.homeDelivery),
+          deliveryAddresses: registeredPosDeliveries(
+            (parsed as { deliveryAddresses?: unknown }).deliveryAddresses ??
+              (parsed as { deliveryAddress?: unknown }).deliveryAddress,
+          ),
+          deliveryEditor: readDeliveryEditor(
+            (parsed as { deliveryEditor?: unknown }).deliveryEditor,
+          ),
           quoteInput: String(parsed.quoteInput || ""),
           linkedQuoteNumber: parsed.linkedQuoteNumber || null,
           saleInput: String(parsed.saleInput || ""),
@@ -484,6 +521,9 @@ function readPosDraft(): PosDraftV2 | null {
       payments?: PosPaymentLine[];
       notes?: string;
       requiredFactura?: boolean;
+      homeDelivery?: boolean;
+      deliveryAddress?: PosDeliveryForm;
+      deliveryAddresses?: PosDeliveryForm[];
       quoteInput?: string;
       linkedQuoteNumber?: string | null;
     };
@@ -502,6 +542,11 @@ function readPosDraft(): PosDraftV2 | null {
       payments: Array.isArray(legacy.payments) ? legacy.payments : [],
       notes: String(legacy.notes || ""),
       requiredFactura: Boolean(legacy.requiredFactura),
+      homeDelivery: Boolean(legacy.homeDelivery),
+      deliveryAddresses: registeredPosDeliveries(
+        legacy.deliveryAddresses ?? legacy.deliveryAddress,
+      ),
+      deliveryEditor: null,
       quoteInput: String(legacy.quoteInput || ""),
       linkedQuoteNumber: legacy.linkedQuoteNumber || null,
       saleInput: "",
@@ -1275,6 +1320,15 @@ export default function usePos() {
   const [payments, setPayments] = useState<PosPaymentLine[]>([]);
   const [notes, setNotes] = useState("");
   const [requiredFactura, setRequiredFactura] = useState(false);
+  const [homeDelivery, setHomeDelivery] = useState(false);
+  const [deliveryAddresses, setDeliveryAddresses] = useState<PosDeliveryForm[]>(
+    [],
+  );
+  const [deliveryEditor, setDeliveryEditor] = useState<{
+    id: string | null;
+    form: PosDeliveryForm;
+  } | null>(null);
+  const [deliveryErrors, setDeliveryErrors] = useState<PosDeliveryErrors>({});
   const [quoteInput, setQuoteInput] = useState("");
   const [linkedQuoteNumber, setLinkedQuoteNumber] = useState<string | null>(
     null,
@@ -1416,14 +1470,24 @@ export default function usePos() {
         productsItems += qty;
       }
     }
+    if (homeDelivery) servicesItems += deliveryAddresses.length;
+    const shippingCost = homeDelivery
+      ? roundMoney(
+          deliveryAddresses.reduce(
+            (sum, form) => sum + (parsePosShippingCost(form.shippingCost) ?? 0),
+            0,
+          ),
+        )
+      : 0;
     return {
       subtotal,
       discountTotal,
-      total: roundMoney(subtotal - discountTotal),
+      shippingCost,
+      total: roundMoney(subtotal - discountTotal + shippingCost),
       productsItems,
       servicesItems,
     };
-  }, [cart]);
+  }, [cart, homeDelivery, deliveryAddresses]);
 
   const [unitCosts, setUnitCosts] = useState<Record<number, PosUnitCost>>({});
   const [costRetryTick, setCostRetryTick] = useState(0);
@@ -1580,6 +1644,10 @@ export default function usePos() {
       setPayments(Array.isArray(draft.payments) ? draft.payments : []);
       setNotes(draft.notes || "");
       setRequiredFactura(Boolean(draft.requiredFactura));
+      setHomeDelivery(Boolean(draft.homeDelivery));
+      setDeliveryAddresses(draft.deliveryAddresses);
+      setDeliveryEditor(draft.deliveryEditor);
+      setDeliveryErrors({});
       setQuoteInput(draft.quoteInput || "");
       setLinkedQuoteNumber(draft.linkedQuoteNumber || null);
       setSaleInput(draft.saleInput || "");
@@ -1639,6 +1707,9 @@ export default function usePos() {
       payments,
       notes,
       requiredFactura,
+      homeDelivery,
+      deliveryAddresses,
+      deliveryEditor,
       quoteInput,
       linkedQuoteNumber,
       saleInput,
@@ -1681,6 +1752,9 @@ export default function usePos() {
     payments,
     notes,
     requiredFactura,
+    homeDelivery,
+    deliveryAddresses,
+    deliveryEditor,
     quoteInput,
     linkedQuoteNumber,
     saleInput,
@@ -2910,6 +2984,10 @@ export default function usePos() {
     setGuestPhone("");
     setNotes("");
     setRequiredFactura(false);
+    setHomeDelivery(false);
+    setDeliveryAddresses([]);
+    setDeliveryEditor(null);
+    setDeliveryErrors({});
     setQuoteInput("");
     setLinkedQuoteNumber(null);
     setQuotePageAlert(null);
@@ -2937,6 +3015,9 @@ export default function usePos() {
       payments: [],
       notes: "",
       requiredFactura: false,
+      homeDelivery: false,
+      deliveryAddresses: [],
+      deliveryEditor: null,
       quoteInput: "",
       linkedQuoteNumber: null,
       saleInput: "",
@@ -3493,6 +3574,8 @@ export default function usePos() {
       folio: string;
       notes?: string | null;
       requiredFactura?: boolean;
+      deliveryAddress?: unknown;
+      deliveryAddresses?: unknown;
       customerName?: string | null;
       customerPhone?: string | null;
       customerUserId?: number | null;
@@ -3703,6 +3786,15 @@ export default function usePos() {
         setGuestPhone("");
       }
       setRequiredFactura(Boolean(payload.requiredFactura));
+      const importedDeliveries = readPosDeliveryAddresses(
+        payload.deliveryAddresses ?? payload.deliveryAddress,
+      );
+      setHomeDelivery(importedDeliveries.length > 0);
+      setDeliveryAddresses(
+        importedDeliveries.map((address) => normalizePosDeliveryForm(address)),
+      );
+      setDeliveryEditor(null);
+      setDeliveryErrors({});
       setNotes(String(payload.notes || ""));
       setPayments(importedPayments);
 
@@ -4238,6 +4330,9 @@ export default function usePos() {
           customerPhone: fullPhone,
           notes: notes || null,
           requiredFactura: requiredFactura ? 1 : 0,
+          deliveryAddresses: homeDelivery
+            ? deliveryAddresses.map((form) => toPosDeliveryAddress(form))
+            : null,
           quoteNumber: linkedQuoteNumber || null,
           reservationReference: linkedReservationRef || null,
           items: cart.map((l) => ({
@@ -4358,6 +4453,8 @@ export default function usePos() {
     phoneLada,
     notes,
     requiredFactura,
+    homeDelivery,
+    deliveryAddresses,
     linkedQuoteNumber,
     linkedReservationRef,
     linkedPosFolio,
@@ -4535,6 +4632,40 @@ export default function usePos() {
         onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
       });
       return;
+    }
+
+    if (homeDelivery) {
+      if (deliveryEditor) {
+        document
+          .getElementById("pos-delivery-form")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setDataModal({
+          isOpen: true,
+          title: "Domicilio sin registrar",
+          content:
+            "Pulsa Registrar domicilio para incluirlo en la venta, o Cancela si no vas a enviarlo.",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
+      if (deliveryAddresses.length === 0) {
+        document
+          .getElementById("pos-delivery-form")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setDataModal({
+          isOpen: true,
+          title: "Falta el domicilio",
+          content: "Registra al menos un domicilio antes de cobrar el envío.",
+          type: "warning",
+          showActions: true,
+          onClose: () => setDataModal((p) => ({ ...p, isOpen: false })),
+          onConfirm: async () => setDataModal((p) => ({ ...p, isOpen: false })),
+        });
+        return;
+      }
     }
 
     if (guestPhone.trim() && !isValidPhoneDigits(guestPhone)) {
@@ -5061,38 +5192,54 @@ export default function usePos() {
               </div>
             </div>
           ) : null}
-          <div
-            style={{
-              borderRadius: 14,
-              border: "1px solid rgba(187, 61, 75, 0.2)",
-              background:
-                "linear-gradient(165deg, rgba(187, 61, 75, 0.08) 0%, #fff 55%)",
-              padding: "14px 16px",
-            }}
-          >
+          {customerName.trim() || guestPhone.trim() ? (
             <div
               style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: "#a8a29e",
-                marginBottom: 4,
+                borderRadius: 14,
+                border: "1px solid rgba(187, 61, 75, 0.2)",
+                background:
+                  "linear-gradient(165deg, rgba(187, 61, 75, 0.08) 0%, #fff 55%)",
+                padding: "14px 16px",
               }}
             >
-              Cliente
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: "#a8a29e",
+                  marginBottom: 4,
+                }}
+              >
+                Cliente
+              </div>
+              {customerName.trim() ? (
+                <div
+                  style={{
+                    fontSize: 17,
+                    fontWeight: 700,
+                    color: "#1c1917",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {customerName.trim()}
+                </div>
+              ) : null}
+              {guestPhone.trim() ? (
+                <div
+                  style={{
+                    marginTop: customerName.trim() ? 2 : 0,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#44403c",
+                  }}
+                >
+                  {`${phoneLada} ${guestPhone.trim()}`.trim()}
+                </div>
+              ) : null}
             </div>
-            <div
-              style={{
-                fontSize: 17,
-                fontWeight: 700,
-                color: "#1c1917",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {customerName.trim()}
-            </div>
-          </div>
+          ) : null}
           <div
             style={{
               display: "grid",
@@ -5187,6 +5334,10 @@ export default function usePos() {
     totals.total,
     customerName,
     guestPhone,
+    phoneLada,
+    homeDelivery,
+    deliveryAddresses,
+    deliveryEditor,
     cashOpen,
     charging,
     loadCashStatus,
@@ -6360,6 +6511,8 @@ export default function usePos() {
     phoneLada,
     notes,
     requiredFactura,
+    homeDelivery,
+    deliveryAddresses,
     linkedQuoteNumber,
   ]);
 
@@ -6620,6 +6773,72 @@ export default function usePos() {
     setNotes,
     requiredFactura,
     setRequiredFactura,
+    homeDelivery,
+    setHomeDelivery: (enabled: boolean) => {
+      setHomeDelivery(enabled);
+      setDeliveryErrors({});
+      if (!enabled) {
+        setDeliveryEditor(null);
+        return;
+      }
+      if (deliveryAddresses.length === 0) {
+        setDeliveryEditor((current) => current ?? { id: null, form: emptyPosDeliveryForm() });
+      }
+    },
+    deliveryAddresses,
+    deliveryEditor,
+    startAddDelivery: () => {
+      if (deliveryAddresses.length >= MAX_POS_DELIVERIES || deliveryEditor) return;
+      setDeliveryEditor({ id: null, form: emptyPosDeliveryForm() });
+      setDeliveryErrors({});
+    },
+    startEditDelivery: (id: string) => {
+      const current = deliveryAddresses.find((item) => item.id === id);
+      if (!current) return;
+      setDeliveryEditor({ id, form: { ...current } });
+      setDeliveryErrors({});
+    },
+    changeDeliveryEditor: (next: PosDeliveryForm) => {
+      setDeliveryEditor((current) =>
+        current
+          ? { ...current, form: normalizePosDeliveryForm({ ...next, id: current.form.id }) }
+          : current,
+      );
+      setDeliveryErrors({});
+    },
+    cancelDeliveryEditor: () => {
+      setDeliveryEditor(null);
+      setDeliveryErrors({});
+    },
+    registerDelivery: () => {
+      if (!deliveryEditor) return;
+      const errors = validatePosDeliveryForm(deliveryEditor.form);
+      if (Object.keys(errors).length > 0) {
+        setDeliveryErrors(errors);
+        document
+          .getElementById("pos-delivery-form")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      const saved = normalizePosDeliveryForm(deliveryEditor.form);
+      setDeliveryAddresses((prev) => {
+        if (deliveryEditor.id) {
+          return prev.map((item) =>
+            item.id === deliveryEditor.id ? { ...saved, id: item.id } : item,
+          );
+        }
+        if (prev.length >= MAX_POS_DELIVERIES) return prev;
+        return [...prev, saved];
+      });
+      setDeliveryEditor(null);
+      setDeliveryErrors({});
+    },
+    removeDeliveryAddress: (id: string) => {
+      setDeliveryAddresses((prev) => prev.filter((item) => item.id !== id));
+      setDeliveryEditor((current) => (current?.id === id ? null : current));
+      setDeliveryErrors({});
+    },
+    deliveryErrors,
     quoteInput,
     setQuoteInput,
     linkedQuoteNumber,

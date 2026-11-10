@@ -6,8 +6,6 @@ import {
   CircularProgress,
   MenuItem,
   TextField,
-  type SxProps,
-  type Theme,
 } from "@mui/material";
 import {
   Banknote,
@@ -31,6 +29,9 @@ import {
   Clock3,
   ChevronRight,
   CircleDollarSign,
+  CreditCard,
+  Landmark,
+  Truck,
 } from "lucide-react";
 import AdminPageShell from "../shared/components/layout/AdminPageShell";
 import EmptyState from "../shared/components/common/emptyState/EmptyState";
@@ -58,8 +59,8 @@ import {
   formatPosFolio,
   formatPosSaleDateTime,
   formatQty,
-  moneyToWordsEsMx,
 } from "./posFormat";
+import PosNumberField from "./PosNumberField";
 import {
   posWarrantySelectable,
   warrantyCoverageLabel,
@@ -72,8 +73,36 @@ import {
 } from "../shared/utils/catalogWarranty";
 import { PROVIDER_PCINBOX } from "../constants/providers.constants";
 import PosCostSummary from "./PosCostSummary";
+import PosDeliveryAddress from "./PosDeliveryAddress";
+import { listSaleDeliveries } from "./posDelivery";
 
 import styles from "./punto-de-venta.module.css";
+
+function paymentDetailIcon(method: string) {
+  if (method === "efectivo_sucursal") return Banknote;
+  if (method.startsWith("tarjeta") || method === "openpay_link") return CreditCard;
+  if (method === "transferencia_bancaria") return Landmark;
+  return CircleDollarSign;
+}
+
+function paymentDetailNote(method: string, reference: string | null) {
+  const raw = String(reference || "").trim();
+  if (!raw) return "";
+  const source =
+    method === "otro"
+      ? raw.match(
+          /Recibido\s+[\d.]+(?:\s*·\s*Cambio\s+[\d.]+)?|Cambio\s+[\d.]+/i,
+        )?.[0] || ""
+      : raw;
+  if (!source) return "";
+  return source.replace(
+    /(Recibido|Cambio)\s+([\d.]+)/gi,
+    (_, label: string, amount: string) => {
+      const value = Number(amount);
+      return `${label} ${Number.isFinite(value) ? formatMoney(value) : amount}`;
+    },
+  );
+}
 
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
@@ -209,143 +238,6 @@ function clipText(value: unknown, max = 72): string {
   if (!t) return "";
   if (t.length <= max) return t;
   return `${t.slice(0, Math.max(1, max - 3)).trimEnd()}...`;
-}
-
-/** Campo numérico que permite vaciar al editar (sin atascarse en 0). */
-function formatPosNumberDisplay(
-  value: string | number,
-  integer: boolean,
-): string {
-  if (value === "" || value === null || value === undefined) return "";
-  const n = Number(value);
-  if (!Number.isFinite(n)) return String(value);
-  if (integer) return formatQty(n);
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-}
-
-/** Vista con miles mientras se escribe (draft ya sin comas). */
-function formatPosNumberDraft(draft: string, integer: boolean): string {
-  if (draft === "") return "";
-  if (integer) {
-    const digits = draft.replace(/\D/g, "");
-    if (!digits) return "";
-    return formatQty(Number(digits));
-  }
-  const cleaned = draft.replace(/,/g, "");
-  if (cleaned === ".") return "0.";
-  const match = cleaned.match(/^(\d*)(?:\.(\d*))?$/);
-  if (!match) return draft;
-  const intRaw = match[1] ?? "";
-  const hasDot = cleaned.includes(".");
-  const decRaw = match[2];
-  const intFmt =
-    intRaw === ""
-      ? hasDot
-        ? "0"
-        : ""
-      : Number(intRaw).toLocaleString("en-US");
-  if (!hasDot) return intFmt;
-  return `${intFmt}.${decRaw ?? ""}`;
-}
-
-function parsePosNumberInput(raw: string, integer: boolean): string {
-  let v = String(raw ?? "").trim();
-  if (!v) return "";
-  v = v.replace(/,/g, "");
-  if (!integer) {
-    // ya sin comas; punto decimal
-  }
-  return v;
-}
-
-function PosNumberField({
-  label,
-  value,
-  onCommit,
-  integer = false,
-  sx,
-  fullWidth,
-  className,
-  emptyAs = "",
-  moneyInWords,
-}: {
-  label: string;
-  value: string | number | null;
-  onCommit: (raw: string) => void;
-  integer?: boolean;
-  sx?: SxProps<Theme>;
-  fullWidth?: boolean;
-  className?: string;
-  /** Valor a confirmar si el campo queda vacío al salir. */
-  emptyAs?: string;
-  /** Mostrar monto en letras debajo (default: sí si no es entero). */
-  moneyInWords?: boolean;
-}) {
-  const committed =
-    value === null || value === undefined ? "" : String(value);
-  const [focused, setFocused] = useState(false);
-  const [draft, setDraft] = useState(committed);
-
-  useEffect(() => {
-    if (!focused) setDraft(committed);
-  }, [committed, focused]);
-
-  // Siempre con comas en UI; al API/estado van números sin formato.
-  const display = focused
-    ? formatPosNumberDraft(draft, integer)
-    : formatPosNumberDisplay(committed, integer);
-
-  const showWords = moneyInWords ?? !integer;
-  const liveRaw = focused ? draft : committed;
-  const liveNum = Number(String(liveRaw).replace(/,/g, ""));
-  const wordsLabel =
-    showWords && Number.isFinite(liveNum) && String(liveRaw).trim() !== ""
-      ? moneyToWordsEsMx(liveNum)
-      : "";
-
-  return (
-    <div className={`${styles.posNumberField}${className ? ` ${className}` : ""}`}>
-      <TextField
-        size="small"
-        label={label}
-        fullWidth={fullWidth ?? true}
-        value={display}
-        onFocus={() => {
-          setFocused(true);
-          setDraft(committed);
-        }}
-        onChange={(e) => {
-          let v = e.target.value.replace(/,/g, "");
-          if (integer) {
-            v = v.replace(/\D/g, "");
-          } else if (v !== "" && !/^\d*\.?\d*$/.test(v)) {
-            return;
-          }
-          setDraft(v);
-          if (v.trim() !== "" && v !== ".") onCommit(v);
-        }}
-        onBlur={() => {
-          setFocused(false);
-          const trimmed = parsePosNumberInput(draft, integer);
-          const raw = trimmed === "" || trimmed === "." ? emptyAs : trimmed;
-          onCommit(raw);
-        }}
-        sx={sx ?? fieldSx}
-        inputProps={{ inputMode: integer ? "numeric" : "decimal" }}
-      />
-      {showWords ? (
-        <p
-          className={`${styles.moneyWords}${wordsLabel ? "" : ` ${styles.moneyWordsEmpty}`}`}
-          aria-live="polite"
-        >
-          {wordsLabel || "—"}
-        </p>
-      ) : null}
-    </div>
-  );
 }
 
 type ManualEquipRow = {
@@ -2796,6 +2688,19 @@ export default function PuntoDeVentaPage() {
 
                 <div className={styles.cartFooterFixed}>
                 <div className={styles.cartCheckoutBlock}>
+                  <PosDeliveryAddress
+                    enabled={pos.homeDelivery}
+                    onEnabledChange={pos.setHomeDelivery}
+                    addresses={pos.deliveryAddresses}
+                    editor={pos.deliveryEditor}
+                    errors={pos.deliveryErrors}
+                    onStartAdd={pos.startAddDelivery}
+                    onStartEdit={pos.startEditDelivery}
+                    onRemove={pos.removeDeliveryAddress}
+                    onChangeEditor={pos.changeDeliveryEditor}
+                    onRegister={pos.registerDelivery}
+                    onCancelEditor={pos.cancelDeliveryEditor}
+                  />
                   <div className={styles.totalsBox}>
                     <div
                       className={styles.totalsSplitBox}
@@ -2814,6 +2719,12 @@ export default function PuntoDeVentaPage() {
                       <span>Subtotal</span>
                       <span>{money(pos.totals.subtotal)}</span>
                     </div>
+                    {pos.homeDelivery ? (
+                      <div className={styles.totalsRow}>
+                        <span>Envío</span>
+                        <span>{money(pos.totals.shippingCost)}</span>
+                      </div>
+                    ) : null}
                     <div className={styles.totalsRow}>
                       <span>Pagado</span>
                       <span>{money(pos.settlement.paidApplied)}</span>
@@ -4419,14 +4330,19 @@ export default function PuntoDeVentaPage() {
                   </button>
                 </div>
                 <div className={styles.detailHeroBottom}>
-                  <span
-                    className={`${styles.badge} ${statusBadge(pos.detailSale.status)}`}
-                  >
-                    {statusLabel(pos.detailSale.status)}
-                  </span>
-                  <FacturaFlag
-                    required={Number(pos.detailSale.requiredFactura) === 1}
-                  />
+                  <div className={styles.detailHeroFlags}>
+                    <span
+                      className={`${styles.badge} ${statusBadge(pos.detailSale.status)}`}
+                    >
+                      {statusLabel(pos.detailSale.status)}
+                    </span>
+                    <FacturaFlag
+                      required={Number(pos.detailSale.requiredFactura) === 1}
+                    />
+                    {listSaleDeliveries(pos.detailSale).length > 0 ? (
+                      <span className={styles.deliveryFlag}>Envío a domicilio</span>
+                    ) : null}
+                  </div>
                   <div className={styles.detailHeroTotal}>
                     <span>Total</span>
                     <strong>{money(pos.detailSale.total)}</strong>
@@ -4434,7 +4350,9 @@ export default function PuntoDeVentaPage() {
                 </div>
               </div>
 
-              <PosCostSummary summary={pos.detailSale.costSummary} />
+              <div className={styles.detailCost}>
+                <PosCostSummary compact summary={pos.detailSale.costSummary} />
+              </div>
 
               <div className={styles.detailGrid}>
                 <div className={styles.detailTile}>
@@ -4490,13 +4408,88 @@ export default function PuntoDeVentaPage() {
                     {pos.detailSale.items.length} producto
                     {pos.detailSale.items.length === 1 ? "" : "s"}
                   </strong>
-                  <span className={styles.detailTileSub}>
-                    Subtotal {money(pos.detailSale.subtotal)}
-                  </span>
+                  <div className={styles.detailMoneyStack}>
+                    <span className={styles.detailMoneyLine}>
+                      <span>Subtotal</span>
+                      <strong>{money(pos.detailSale.subtotal)}</strong>
+                    </span>
+                    {Number(pos.detailSale.discountTotal) > 0 ? (
+                      <span className={styles.detailMoneyLine}>
+                        <span>Descuento</span>
+                        <strong>−{money(pos.detailSale.discountTotal)}</strong>
+                      </span>
+                    ) : null}
+                    {listSaleDeliveries(pos.detailSale).some(
+                      (address) => Number(address.shippingCost) > 0,
+                    ) ? (
+                      <span className={styles.detailMoneyLine}>
+                        <span>Envío</span>
+                        <strong>
+                          {money(
+                            listSaleDeliveries(pos.detailSale).reduce(
+                              (sum, address) =>
+                                sum + Number(address.shippingCost || 0),
+                              0,
+                            ),
+                          )}
+                        </strong>
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
-              <section
+              {listSaleDeliveries(pos.detailSale).length > 0 ? (
+                <div className={styles.detailSection}>
+                  <div className={styles.detailSectionHead}>
+                    <h4>Envío a domicilio</h4>
+                    <span className={styles.detailSectionCount}>
+                      {listSaleDeliveries(pos.detailSale).length} envío
+                      {listSaleDeliveries(pos.detailSale).length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <div className={styles.detailDeliveries}>
+                    {listSaleDeliveries(pos.detailSale).map((address, index, list) => (
+                      <article
+                        className={styles.deliveryItem}
+                        key={`${address.postalCode}-${address.street}-${index}`}
+                      >
+                        <div className={styles.deliveryItemBody}>
+                          <span className={styles.deliveryItemMark} aria-hidden>
+                            <Truck size={20} />
+                          </span>
+                          <div className={styles.deliveryItemCopy}>
+                            <div className={styles.deliveryItemHead}>
+                              <span className={styles.deliveryItemKicker}>
+                                {list.length > 1
+                                  ? `Domicilio ${index + 1}`
+                                  : "Domicilio"}
+                              </span>
+                            </div>
+                            <strong className={styles.deliveryItemStreet}>
+                              {address.street} #{address.noExt}
+                              {address.noInt ? ` Int. ${address.noInt}` : ""}
+                            </strong>
+                            <p className={styles.deliveryItemPlace}>
+                              Col. {address.cologne}
+                              {" · "}
+                              CP {address.postalCode}
+                              {" · "}
+                              {address.city}, {address.state}
+                            </p>
+                          </div>
+                          <div className={styles.deliveryItemPrice}>
+                            <span>Envío</span>
+                            <strong>{money(address.shippingCost || 0)}</strong>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div
                 className={`${styles.detailSection} ${styles.detailProductsSection}`}
               >
                 <div className={styles.detailSectionHead}>
@@ -4642,46 +4635,45 @@ export default function PuntoDeVentaPage() {
                     );
                   })}
                 </div>
-              </section>
+              </div>
 
-              <section className={styles.detailSection}>
-                <h4>Pagos</h4>
-                <div className={styles.detailPayments}>
-                  {pos.detailSale.payments.map((p) => (
-                    <div key={p.idPosPayment} className={styles.detailPayment}>
-                      <span>
-                        {formatPosPaymentLabel(p.method, p.reference)}
-                        {p.reference && p.method !== "otro" ? (
-                          <em className={styles.detailTileSub}>
-                            {" "}
-                            · {p.reference}
-                          </em>
-                        ) : null}
-                        {p.method === "otro" && p.reference
-                          ? (() => {
-                              const meta = String(p.reference).match(
-                                /Recibido\s+[\d.]+(?:\s*·\s*Cambio\s+[\d.]+)?|Cambio\s+[\d.]+/i,
-                              );
-                              return meta ? (
-                                <em className={styles.detailTileSub}>
-                                  {" "}
-                                  · {meta[0]}
-                                </em>
-                              ) : null;
-                            })()
-                          : null}
-                      </span>
-                      <strong>{money(p.amount)}</strong>
-                    </div>
-                  ))}
+              <div className={styles.detailSection}>
+                <div className={styles.detailSectionHead}>
+                  <h4>Pagos</h4>
+                  <span className={styles.detailSectionCount}>
+                    {pos.detailSale.payments.length} pago
+                    {pos.detailSale.payments.length === 1 ? "" : "s"}
+                  </span>
                 </div>
-              </section>
+                <div className={styles.detailPayments}>
+                  {pos.detailSale.payments.map((p) => {
+                    const PaymentIcon = paymentDetailIcon(p.method);
+                    const note = paymentDetailNote(p.method, p.reference);
+                    return (
+                      <div key={p.idPosPayment} className={styles.detailPaymentCard}>
+                        <span className={styles.detailPaymentMark} aria-hidden>
+                          <PaymentIcon size={18} />
+                        </span>
+                        <div className={styles.detailPaymentCopy}>
+                          <strong>
+                            {formatPosPaymentLabel(p.method, p.reference)}
+                          </strong>
+                          {note ? <span>{note}</span> : null}
+                        </div>
+                        <strong className={styles.detailPaymentAmount}>
+                          {money(p.amount)}
+                        </strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
               {pos.detailSale.notes ? (
-                <section className={styles.detailSection}>
+                <div className={styles.detailSection}>
                   <h4>Notas</h4>
                   <p className={styles.detailNotes}>{pos.detailSale.notes}</p>
-                </section>
+                </div>
               ) : null}
 
               <div className={styles.drawerActions}>

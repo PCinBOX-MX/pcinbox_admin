@@ -17,6 +17,7 @@ type Props = {
   userPhone: string;
   includeAssembly: boolean;
   includeTransfer: boolean;
+  comments: string;
 };
 
 export default function QuotePdfPreview({
@@ -28,6 +29,7 @@ export default function QuotePdfPreview({
   userPhone,
   includeAssembly,
   includeTransfer,
+  comments,
 }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [phase, setPhase] = useState<"empty" | "loading" | "ready" | "error">(
@@ -68,6 +70,7 @@ export default function QuotePdfPreview({
       userPhone,
       includeAssembly,
       includeTransfer,
+      comments,
       products,
     };
     if (workerRef.current === undefined) {
@@ -89,6 +92,7 @@ export default function QuotePdfPreview({
           userPhone={snapshot.userPhone}
           includeAssemblyService={snapshot.includeAssembly}
           includeTransferInfo={snapshot.includeTransfer}
+          comments={snapshot.comments}
           detailLevel={snapshot.detailLevel}
         />,
       ).toBlob();
@@ -138,6 +142,7 @@ export default function QuotePdfPreview({
             userPhone={userPhone}
             includeAssemblyService={includeAssembly}
             includeTransferInfo={includeTransfer}
+            comments={comments}
             detailLevel={detailLevel}
           />,
         ).toBlob();

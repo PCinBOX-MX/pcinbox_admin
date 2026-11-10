@@ -219,6 +219,16 @@
   position: relative;
 }
 
+.quoteComments {
+  width: 100%;
+}
+
+.quoteComments textarea {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.45;
+}
+
 .tools {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.2fr);

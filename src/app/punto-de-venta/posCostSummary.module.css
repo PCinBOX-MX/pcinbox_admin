@@ -1,12 +1,12 @@
 .root {
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 10px;
+  margin-top: 12px;
+  padding: 14px 16px 12px;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .head {
@@ -42,10 +42,10 @@
 .chip {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
-  padding: 8px 9px;
-  border-radius: 9px;
+  padding: 12px 14px;
+  border-radius: 10px;
   border: 1px solid transparent;
   background: #fff;
 }
@@ -97,7 +97,9 @@
 
 .foot {
   margin: 0;
+  padding: 2px 2px 0;
   font-size: 11px;
+  line-height: 1.4;
   color: #64748b;
 }
 
@@ -114,10 +116,11 @@
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     "label value"
-    "hint value";
+    "hint hint";
   align-items: center;
-  column-gap: 10px;
-  padding: 6px 9px;
+  column-gap: 12px;
+  row-gap: 4px;
+  padding: 12px 14px;
 }
 
 .compact .chipLabel {
@@ -126,6 +129,8 @@
 
 .compact .chipValue {
   grid-area: value;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .compact .chipHint {

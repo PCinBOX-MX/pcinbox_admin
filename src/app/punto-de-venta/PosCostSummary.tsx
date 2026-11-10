@@ -27,8 +27,9 @@ export default function PosCostSummary({
       : null;
 
   return (
-    <section
+    <div
       className={`${styles.root} ${compact ? styles.compact : ""}`}
+      role="region"
       aria-label="Inversión y margen (uso interno)"
     >
       <header className={styles.head}>
@@ -95,6 +96,6 @@ export default function PosCostSummary({
           ? `${missingCount} sin costo registrado`
           : null}
       </p>
-    </section>
+    </div>
   );
 }

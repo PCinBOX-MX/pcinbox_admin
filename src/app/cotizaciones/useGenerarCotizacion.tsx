@@ -63,6 +63,8 @@ export type AdminQuoteDraft = {
   customerPhone: string;
   includeAssembly: boolean;
   includeTransfer: boolean;
+  showComments: boolean;
+  comments: string;
   lines: QuoteDraftLine[];
   importedQuotes: LocalImportedQuote[];
 };
@@ -79,6 +81,8 @@ const emptyDraft = (): AdminQuoteDraft => ({
   customerPhone: "",
   includeAssembly: false,
   includeTransfer: true,
+  showComments: false,
+  comments: "",
   lines: [],
   importedQuotes: [],
 });
@@ -88,6 +92,8 @@ function draftHasContent(draft: AdminQuoteDraft): boolean {
     draft.open ||
     Boolean(draft.customerName.trim()) ||
     Boolean(draft.customerPhone.trim()) ||
+    draft.showComments ||
+    Boolean(draft.comments.trim()) ||
     draft.includeAssembly ||
     draft.lines.length > 0
   );
@@ -188,6 +194,10 @@ export function readAdminQuoteDraft(): AdminQuoteDraft | null {
       customerPhone: String(parsed.customerPhone || "").replace(/\D/g, "").slice(0, 10),
       includeAssembly: parsed.includeAssembly === true,
       includeTransfer: parsed.includeTransfer !== false,
+      comments: String(parsed.comments || "").slice(0, 500),
+      showComments:
+        parsed.showComments === true ||
+        Boolean(String(parsed.comments || "").trim()),
       lines,
       importedQuotes: normalizeImportedQuotes(parsed.importedQuotes),
     };
@@ -419,6 +429,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   const [phoneError, setPhoneError] = useState("");
   const [includeAssembly, setIncludeAssembly] = useState(false);
   const [includeTransfer, setIncludeTransfer] = useState(true);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<QuoteCatalogProduct[]>([]);
   const [searching, setSearching] = useState(false);
@@ -709,6 +721,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       setCustomerPhone(draft.customerPhone);
       setIncludeAssembly(draft.includeAssembly);
       setIncludeTransfer(draft.includeTransfer);
+      setShowComments(draft.showComments === true);
+      setComments(draft.comments);
     }
     setHydratedDraft(true);
   }, []);
@@ -721,6 +735,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       customerPhone,
       includeAssembly,
       includeTransfer,
+      showComments,
+      comments,
       ...(usesServerCart.current ? {} : { lines: allLines.current }),
     });
   }, [
@@ -730,6 +746,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     hydratedDraft,
     includeAssembly,
     includeTransfer,
+    showComments,
+    comments,
     cartReady,
   ]);
 
@@ -1473,6 +1491,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
             userPhone={phone}
             includeAssemblyService={includeAssembly}
             includeTransferInfo={includeTransfer}
+            comments={showComments ? comments : ""}
             detailLevel={detailLevel}
           />,
         ).toBlob();
@@ -1580,7 +1599,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         setGenerating(null);
       }
     },
-    [includeAssembly, includeTransfer, onCreated, requestDelete, requestPost, setDataModal, setQueryParams],
+    [includeAssembly, includeTransfer, showComments, comments, onCreated, requestDelete, requestPost, setDataModal, setQueryParams],
   );
 
   const generate = useCallback(
@@ -1765,6 +1784,10 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     setIncludeAssembly,
     includeTransfer,
     setIncludeTransfer,
+    showComments: showComments === true,
+    setShowComments,
+    comments,
+    setComments: (value: string) => setComments(value.slice(0, 500)),
     query,
     setQuery,
     results,
