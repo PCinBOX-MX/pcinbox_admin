@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, CircularProgress, InputAdornment, TextField } from "@mui/material";
-import { FileText, GripVertical, Landmark, Search, Trash2, Warehouse, Wrench, X } from "lucide-react";
+import { FileText, GripVertical, Landmark, MessageSquare, Search, Trash2, Warehouse, Wrench, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
@@ -288,7 +288,43 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           <span className={styles.assemblyMark} aria-hidden="true" />
         </span>
       </label>
+      <label className={styles.assembly}>
+        <span className={styles.assemblyIcon} aria-hidden="true">
+          <MessageSquare size={16} strokeWidth={2.25} />
+        </span>
+        <span className={styles.assemblyText}>Comentarios adicionales</span>
+        <span className={styles.assemblyControl}>
+          <input
+            type="checkbox"
+            checked={quote.showComments === true}
+            onChange={(event) => quote.setShowComments(event.target.checked)}
+            data-testid="quote-comments-toggle"
+          />
+          <span className={styles.assemblyMark} aria-hidden="true" />
+        </span>
+      </label>
       </div>
+
+      {quote.showComments ? (
+      <TextField
+        className={styles.quoteComments}
+        size="small"
+        fullWidth
+        multiline
+        minRows={3}
+        maxRows={8}
+        label="Comentarios adicionales"
+        placeholder="Notas para el cliente (opcional)"
+        value={quote.comments ?? ""}
+        disabled={busy}
+        onChange={(event) => quote.setComments(event.target.value)}
+        sx={adminFieldSx}
+        inputProps={{
+          "data-testid": "quote-comments",
+          maxLength: 500,
+        }}
+      />
+      ) : null}
       </div>
 
       <div className={styles.tools}>
@@ -818,6 +854,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
         }
         includeAssembly={quote.includeAssembly}
         includeTransfer={quote.includeTransfer}
+        comments={quote.showComments ? quote.comments.trim() : ""}
       />
       </div>
     </div>

@@ -330,6 +330,30 @@ export type PosSale = {
   idLinkPago?: number | null;
   cashSessionId?: number | null;
   quoteNumber?: string | null;
+  /** Domicilios de la venta. El primero también queda en deliveryAddress. */
+  deliveryAddresses?: Array<{
+    street: string;
+    noExt: string;
+    noInt: string | null;
+    postalCode: string;
+    cologne: string;
+    city: string;
+    state: string;
+    country: string;
+    shippingCost: number;
+  }> | null;
+  /** Primer domicilio. Las ventas anteriores solo traen este campo. */
+  deliveryAddress?: {
+    street: string;
+    noExt: string;
+    noInt: string | null;
+    postalCode: string;
+    cologne: string;
+    city: string;
+    state: string;
+    country: string;
+    shippingCost: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
   items: Array<{

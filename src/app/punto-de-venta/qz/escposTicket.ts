@@ -1,4 +1,5 @@
 import { formatPosFolio, formatPosTicketDate } from "../posFormat";
+import { listSaleDeliveries } from "../posDelivery";
 import type { PosSale } from "../../interfaces/pos/pos.interface";
 import { formatPosPaymentLabel } from "../../interfaces/pos/pos.interface";
 import {
@@ -418,6 +419,12 @@ export function buildEscPosTicket(
   }
 
   parts.push("-".repeat(width) + LF);
+  for (const stop of listSaleDeliveries(sale)) {
+    parts.push(
+      line(width, "Envio:", money(Number(stop.shippingCost) || 0)) + LF,
+    );
+    parts.push(line(width, "CP:", thermalText(stop.postalCode || "")) + LF);
+  }
   parts.push(line(width, "Total:", money(sale.total)) + LF);
   parts.push(line(width, "Pago:", money(pago || sale.total)) + LF);
   parts.push(line(width, "Cambio:", money(cambio)) + LF);

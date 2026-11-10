@@ -505,6 +505,27 @@ export const styles = StyleSheet.create({
     lineHeight: 1.5,
     flex: 1,
   },
+  commentsBox: {
+    marginTop: 12,
+    backgroundColor: "#f7f7f7",
+    borderLeftWidth: 3,
+    borderLeftColor: C.gray700,
+    padding: 10,
+    borderRadius: 2,
+  },
+  commentsTitle: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray900,
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  commentsText: {
+    fontSize: 9,
+    color: C.gray900,
+    lineHeight: 1.45,
+  },
   validityBox: {
     marginTop: 8,
     flexDirection: "row",

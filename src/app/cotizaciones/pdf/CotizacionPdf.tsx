@@ -130,6 +130,7 @@ type CotizacionPdfProps = {
   includeAssemblyService?: boolean;
   /** Muestra el recuadro de transferencia en el pie. */
   includeTransferInfo?: boolean;
+  comments?: string | null;
   detailLevel?: QuoteDetailLevel;
 };
 
@@ -140,6 +141,7 @@ const CotizacionPdf = ({
   userPhone,
   includeAssemblyService,
   includeTransferInfo = true,
+  comments,
   detailLevel = "full",
 }: CotizacionPdfProps) => {
   const now = new Date();
@@ -159,6 +161,7 @@ const CotizacionPdf = ({
   }, 0);
 
   const linesKeywords = buildQuoteLinesKeywords(products);
+  const commentText = String(comments || "").trim().slice(0, 500);
 
   const renderFullRow = (product: QuotePdfLine) => {
     let foundUpc = String(product.upc || "");
@@ -345,6 +348,13 @@ const CotizacionPdf = ({
             </View>
           </View>
         </View>
+
+        {commentText ? (
+          <View style={styles.commentsBox}>
+            <Text style={styles.commentsTitle}>Comentarios</Text>
+            <Text style={styles.commentsText}>{commentText}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.noteBox} wrap={false} minPresenceAhead={48}>
           <Text style={styles.noteText}>

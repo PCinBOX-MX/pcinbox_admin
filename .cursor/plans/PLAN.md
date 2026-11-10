@@ -1,22 +1,17 @@
-# Plan: Cajón no abre al Cobrar (solo botón naranja)
+# Plan: montos grandes en el detalle
 
 ## Objetivo
-Que al cobrar con método **Efectivo en caja** el cajón se abra en automático, con el mismo comando raw que ya funciona en el botón naranja «Abrir cajón de dinero».
-
-## Causa probable
-En `executeCharge`, si «Imprimir ticket al cobrar» está activo, el kick del cajón solo va **embebido al final del ticket ESC/POS (después del corte)**. En muchas térmicas ese byte se pierde. El botón naranja llama `openCashDrawerQz()` en un job raw aparte y sí abre.
+En el detalle de la venta, un importe largo no debe partir las tarjetas. El resumen de inversión y cada domicilio conservan su estructura cuando el monto o la dirección son largos.
 
 ## Archivos a tocar
-- `src/app/punto-de-venta/usePos.tsx` — flujo post-cobro
-- `src/app/punto-de-venta/page.tsx` — texto de ayuda (opcional, aclarar job aparte)
-- `src/app/punto-de-venta/qz/escposTicket.ts` — kick **antes** del corte por si algún reprint usa `openDrawer`
+- `src/app/punto-de-venta/page.tsx` — resumen compacto y dirección en una sola lectura
+- `src/app/punto-de-venta/punto-de-venta.module.css` — el monto del domicilio en su propia fila
 
 ## Pasos
-1. En cobro con efectivo + `openDrawerOnCash`: siempre `openCashDrawerQz()` aparte (como el botón naranja).
-2. Al imprimir ticket en cobro: `openDrawer: false` (evitar doble pulse).
-3. En `buildEscPosTicket`: poner drawer kick antes del cut.
-4. Ajustar copy de hardware si hace falta.
+1. En el detalle, usar el resumen de inversión en filas: texto a la izquierda y monto a la derecha.
+2. En cada domicilio del detalle, dejar la dirección a todo el ancho y el costo de envío abajo, de lado a lado.
+3. Escribir colonia, CP y ciudad como una sola línea, para que los puntos no queden sueltos.
 
 ## Fuera de alcance
-- Cambiar dialéctica Epson/Star, certificados QZ, UI de métodos de pago.
-- Backend `/pos/sales`.
+- No cambia las tarjetas de domicilio del cobro.
+- No cambia el ticket ni los datos guardados.
