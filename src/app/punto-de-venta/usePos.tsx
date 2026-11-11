@@ -912,9 +912,37 @@ type QuoteImportItem = PosProductHit & {
   quoteUnitPrice?: number | null;
 };
 
+type QuoteManualImport = {
+  name: string;
+  upc?: string | null;
+  quantity: number;
+  unitPrice: number;
+};
+
+type QuoteAssemblyImport = {
+  unitPrice: number;
+  quantity: number;
+};
+
+type QuoteDeliveryImport = {
+  street: string;
+  noExt: string;
+  noInt?: string | null;
+  postalCode: string;
+  cologne: string;
+  city: string;
+  state: string;
+  country?: string;
+  shippingCost: number;
+};
+
 type QuoteImportPayload = {
   quoteNumber: string;
   items: QuoteImportItem[];
+  manualItems?: QuoteManualImport[];
+  assembly?: QuoteAssemblyImport | null;
+  deliveries?: QuoteDeliveryImport[];
+  equipmentCount?: number;
   missingProductIds?: string[];
   inactiveProducts?: QuoteInactiveProduct[];
   expired?: boolean;
@@ -1158,6 +1186,22 @@ function quoteFreshnessKey(
       it.idProduct,
       roundMoney(Number(it.price) || 0),
       it.quoteUnitPrice ?? null,
+      it.quantity,
+    ]),
+    manual: (payload.manualItems || []).map((it) => [
+      it.name,
+      it.quantity,
+      it.unitPrice,
+      it.upc || null,
+    ]),
+    assembly: payload.assembly
+      ? [payload.assembly.unitPrice, payload.assembly.quantity]
+      : null,
+    equipos: payload.equipmentCount || 1,
+    deliveries: (payload.deliveries || []).map((row) => [
+      row.postalCode,
+      row.shippingCost,
+      row.street,
     ]),
     unavailable: plan.unavailable.map((u) => [
       u.key,
@@ -1203,6 +1247,42 @@ function unavailableToCartLine(
     costSourceProductId: POS_COST_PROVIDER_IDS.has(Number(item.providerId))
       ? item.idProduct
       : null,
+  };
+}
+
+/** Producto sin catálogo o ensamble, con el precio ya fijado por la cotización. */
+function quotedCaptureLine(input: {
+  key: string;
+  name: string;
+  upc: string | null;
+  quantity: number;
+  unitPrice: number;
+  branchLabel: string;
+}): PosCartLine {
+  const quantity = Math.max(1, Math.round(input.quantity));
+  return {
+    key: input.key,
+    productId: 0,
+    name: input.name,
+    sku: null,
+    upc: input.upc,
+    unitPrice: roundMoney(input.unitPrice),
+    quantity,
+    discountPct: 0,
+    branchId: null,
+    branchLabel: input.branchLabel,
+    stockBranch: 999999,
+    stocksByBranch: [],
+    imageUrl: null,
+    requiresSerial: false,
+    warrantyMode: "none",
+    warrantyMonths: null,
+    warrantyUnit: null,
+    serials: Array(quantity).fill(""),
+    isManual: true,
+    manualKind: "product",
+    serviceIntake: null,
+    quotePriceLocked: true,
   };
 }
 
@@ -2910,12 +2990,13 @@ export default function usePos() {
       setCart((prev) =>
         prev.map((l) => {
           if (l.key !== lineKey) return l;
-          const safePatch = l.isManual
-            ? patch
-            : (() => {
-                const { unitPrice: _ignoredPrice, ...rest } = patch;
-                return rest;
-              })();
+          const safePatch =
+            l.isManual && !l.quotePriceLocked
+              ? patch
+              : (() => {
+                  const { unitPrice: _ignoredPrice, ...rest } = patch;
+                  return rest;
+                })();
           const next = { ...l, ...safePatch };
           if (!Number.isFinite(next.quantity) || next.quantity < 1) {
             next.quantity = 1;
@@ -3210,6 +3291,37 @@ export default function usePos() {
       const addedKeys = new Set(extras.map((line) => line.item.key));
       const notAdded = unavailable.filter((it) => !addedKeys.has(it.key));
       const extraUnits = extras.reduce((sum, line) => sum + line.item.quantity, 0);
+      const quotedLines = (payload.manualItems || []).map((item, index) =>
+        quotedCaptureLine({
+          key: `quote-manual-${stamp}-${index}`,
+          name: item.name,
+          upc: item.upc || null,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          branchLabel: "Captura manual",
+        }),
+      );
+      const equipos = Math.min(
+        999,
+        Math.max(1, Math.round(Number(payload.equipmentCount) || 1)),
+      );
+      if (payload.assembly && payload.assembly.unitPrice > 0) {
+        const assemblyQty = Math.max(
+          equipos,
+          Math.round(Number(payload.assembly.quantity) || 1),
+        );
+        quotedLines.push(
+          quotedCaptureLine({
+            key: `quote-assembly-${stamp}`,
+            name: "Servicio de ensamble",
+            upc: null,
+            quantity: assemblyQty,
+            unitPrice: payload.assembly.unitPrice,
+            branchLabel: "Servicio de ensamble",
+          }),
+        );
+      }
+      const quotedUnits = quotedLines.reduce((sum, line) => sum + line.quantity, 0);
 
       const sections = [
         {
@@ -3240,10 +3352,23 @@ export default function usePos() {
         },
       ].filter((s) => s.items.length > 0);
 
-      const lines = plan.touchedLines + extraLines.length;
-      const units = plan.importedUnits + extraUnits;
+      const lines = plan.touchedLines + extraLines.length + quotedLines.length;
+      const units = plan.importedUnits + extraUnits + quotedUnits;
       const skippedCount =
         notAdded.length + (payload.missingProductIds?.length || 0);
+
+      const incomingDeliveries = payload.deliveries || [];
+      if (
+        incomingDeliveries.length > 0 &&
+        deliveryAddresses.length + incomingDeliveries.length > MAX_POS_DELIVERIES
+      ) {
+        showQuoteFeedback({
+          type: "warning",
+          title: "No caben los envíos",
+          message: `Esta cotización trae ${incomingDeliveries.length} domicilio(s) y el punto de venta ya tiene ${deliveryAddresses.length}. El máximo es ${MAX_POS_DELIVERIES}. Quita domicilios y vuelve a importar, para que el total coincida.`,
+        });
+        return;
+      }
 
       if (lines === 0) {
         showQuoteFeedback({
@@ -3257,7 +3382,22 @@ export default function usePos() {
         return;
       }
 
-      setCart([...plan.nextCart, ...extraLines]);
+      setCart([...plan.nextCart, ...extraLines, ...quotedLines]);
+      if (incomingDeliveries.length > 0) {
+        const forms = incomingDeliveries.map((row) =>
+          normalizePosDeliveryForm({
+            ...row,
+            noInt: row.noInt || "",
+            shippingCost: String(row.shippingCost),
+          }),
+        );
+        setHomeDelivery(true);
+        setDeliveryAddresses((prev) =>
+          prev.length + forms.length > MAX_POS_DELIVERIES ? prev : [...prev, ...forms],
+        );
+        setDeliveryEditor(null);
+        setDeliveryErrors({});
+      }
       setLinkedQuoteNumber(payload.quoteNumber);
       setQuoteInput(payload.quoteNumber);
       applyQuoteCustomer(payload.customer);
@@ -3267,21 +3407,35 @@ export default function usePos() {
         plan.adjustedStock.length > 0 ||
         plan.otherWarnings.length > 0;
       const verb = hadCart ? "Se fusionaron" : "Se importaron";
-      const manualNote = extraLines.length
-        ? ` ${extraLines.length} entraron como captura manual.`
-        : "";
+      const manualNote = [
+        extraLines.length
+          ? `${extraLines.length} entraron como captura manual`
+          : "",
+        quotedLines.length
+          ? `${quotedLines.length} de la cotización (sin catálogo o ensamble)`
+          : "",
+        (payload.equipmentCount || 1) > 1
+          ? `cantidades de ${payload.equipmentCount} equipos`
+          : "",
+        incomingDeliveries.length
+          ? `${incomingDeliveries.length} envío(s) con su costo`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(". ");
+      const manualSuffix = manualNote ? ` ${manualNote}.` : "";
       showQuoteFeedback({
         type: hasSkips ? "warning" : "success",
         title: hadCart
           ? "Cotización fusionada con el carrito"
           : "Cotización cargada",
         message: hasSkips
-          ? `${verb} ${lines} línea(s) de ${payload.quoteNumber} (+${units} uds.).${manualNote} ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${plan.adjustedStock.length ? `; ${plan.adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
-          : `${verb} ${lines} línea(s) de la cotización ${payload.quoteNumber} (+${units} uds.).${manualNote}`,
+          ? `${verb} ${lines} línea(s) de ${payload.quoteNumber} (+${units} uds.).${manualSuffix} ${skippedCount > 0 ? `${skippedCount} no importado(s)` : "Hay avisos"}${plan.adjustedStock.length ? `; ${plan.adjustedStock.length} con cantidad ajustada` : ""}. Detalle abajo:`
+          : `${verb} ${lines} línea(s) de la cotización ${payload.quoteNumber} (+${units} uds.).${manualSuffix}`,
         sections,
       });
     },
-    [applyQuoteCustomer, cart, showQuoteFeedback],
+    [applyQuoteCustomer, cart, deliveryAddresses.length, showQuoteFeedback],
   );
 
   const latestCartRef = useRef(cart);
@@ -3461,6 +3615,18 @@ export default function usePos() {
           { silent: true },
         );
         const data = res?.data?.data;
+        const incoming = Array.isArray(data?.deliveries) ? data.deliveries.length : 0;
+        if (
+          incoming > 0 &&
+          deliveryAddresses.length + incoming > MAX_POS_DELIVERIES
+        ) {
+          showQuoteFeedback({
+            type: "warning",
+            title: "No caben los envíos",
+            message: `Esta cotización trae ${incoming} domicilio(s) y el punto de venta ya tiene ${deliveryAddresses.length}. El máximo es ${MAX_POS_DELIVERIES}. Quita domicilios y vuelve a importar, para que el total coincida.`,
+          });
+          return;
+        }
         if (!data?.quoteNumber || !Array.isArray(data.items)) {
           showQuoteFeedback({
             type: "error",
@@ -3527,6 +3693,7 @@ export default function usePos() {
     requestGet,
     setDataModal,
     showQuoteFeedback,
+    deliveryAddresses.length,
   ]);
 
   const clearLinkedQuote = useCallback(() => {
