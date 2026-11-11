@@ -39,6 +39,8 @@ type Props = {
   onChangeEditor: (next: PosDeliveryForm) => void;
   onRegister: () => void;
   onCancelEditor: () => void;
+  idleHint?: string;
+  activeHint?: string;
 };
 
 const fieldSx = {
@@ -441,6 +443,8 @@ export default function PosDeliveryAddress({
   onChangeEditor,
   onRegister,
   onCancelEditor,
+  idleHint = "Actívalo solo si esta venta se envía a domicilio",
+  activeHint = "Registra cada domicilio. Cuenta como un servicio.",
 }: Props) {
   const atLimit = addresses.length >= MAX_POS_DELIVERIES;
   const adding = editor != null && editor.id == null;
@@ -463,9 +467,7 @@ export default function PosDeliveryAddress({
             Envío a domicilio
           </span>
           <span className={styles.deliveryCheckHint}>
-            {enabled
-              ? "Registra cada domicilio. Cuenta como un servicio."
-              : "Actívalo solo si esta venta se envía a domicilio"}
+            {enabled ? activeHint : idleHint}
           </span>
         </span>
       </label>
