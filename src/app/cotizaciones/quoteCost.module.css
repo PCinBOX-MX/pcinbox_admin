@@ -1,0 +1,10 @@
+.panel {
+  min-width: 0;
+}
+
+.note {
+  margin: 8px 2px 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
