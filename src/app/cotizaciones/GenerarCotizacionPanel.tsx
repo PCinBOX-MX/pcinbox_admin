@@ -1,17 +1,21 @@
 "use client";
 
 import { Alert, CircularProgress, InputAdornment, TextField } from "@mui/material";
-import { FileText, GripVertical, Landmark, MessageSquare, Search, Trash2, Warehouse, Wrench, X } from "lucide-react";
+import { FileText, GripVertical, ImagePlus, Landmark, MessageSquare, Search, Trash2, Warehouse, Wrench, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ModernPagination from "../shared/components/common/paginator/ModernPagination";
 import { adminFieldSx } from "../theme/adminFieldSx";
 import styles from "./generar.module.css";
 import QuotePdfPreview from "./QuotePdfPreview";
+import { QuoteLiveCost } from "./QuoteCostPanel";
+import PosNumberField from "../punto-de-venta/PosNumberField";
+import PosDeliveryAddress from "../punto-de-venta/PosDeliveryAddress";
 import useGenerarCotizacion, {
   QUOTE_LADA_OPTIONS,
 } from "./useGenerarCotizacion";
 import { QuoteDetailLevel } from "./pdf/CotizacionPdf";
+import { MANUAL_PRODUCT_IMAGE } from "./pdf/manualProductImage";
 
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -20,14 +24,57 @@ const currencyFormatter = new Intl.NumberFormat("es-MX", {
 
 const FALLBACK_PRODUCT_IMAGE = "/imagen-no-encontrada.png";
 
-function resolveProductImage(imageUrl: unknown): string {
-  if (!imageUrl) return FALLBACK_PRODUCT_IMAGE;
+function readManualImage(file: File): Promise<string> {
+  if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
+    return Promise.reject(new Error("Usa una imagen JPG, PNG o WEBP."));
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    return Promise.reject(new Error("La imagen debe pesar menos de 8 MB."));
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    reader.onload = () => {
+      const source = new Image();
+      source.onload = () => {
+        const max = 440;
+        const longest = Math.max(source.width, source.height) || 1;
+        const scale = Math.min(1, max / longest);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(source.width * scale));
+        canvas.height = Math.max(1, Math.round(source.height * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("No se pudo preparar la imagen."));
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        if (dataUrl.length > 700_000) {
+          reject(new Error("La imagen sigue siendo muy pesada. Prueba con otra."));
+          return;
+        }
+        resolve(dataUrl);
+      };
+      source.onerror = () => reject(new Error("La imagen no es válida."));
+      source.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function resolveProductImage(imageUrl: unknown, manual = false): string {
+  if (!imageUrl) return manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
   if (typeof imageUrl === "string") {
     const value = imageUrl.trim();
-    if (!value) return FALLBACK_PRODUCT_IMAGE;
+    if (!value || value.includes("producto-sin-foto")) {
+      return manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
+    }
     if (value.startsWith("[") || value.startsWith("{")) {
       try {
-        return resolveProductImage(JSON.parse(value));
+        return resolveProductImage(JSON.parse(value), manual);
       } catch {
         return value;
       }
@@ -36,15 +83,15 @@ function resolveProductImage(imageUrl: unknown): string {
   }
   if (Array.isArray(imageUrl)) {
     const first = imageUrl.find((item) => typeof item === "string" && item.trim());
-    return first ? String(first) : FALLBACK_PRODUCT_IMAGE;
+    return first ? String(first) : manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
   }
   if (typeof imageUrl === "object") {
     const first = Object.values(imageUrl as Record<string, unknown>).find(
       (item) => typeof item === "string" && item.trim(),
     );
-    return first ? String(first) : FALLBACK_PRODUCT_IMAGE;
+    return first ? String(first) : manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
   }
-  return FALLBACK_PRODUCT_IMAGE;
+  return manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
 }
 
 type Props = {
@@ -70,6 +117,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
         />
       </div>
     ) : null;
+
   const alertRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -79,6 +127,24 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
     null,
   );
   const [suggestionsHidden, setSuggestionsHidden] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [equipmentDraft, setEquipmentDraft] = useState("1");
+  const equipmentFocused = useRef(false);
+
+  useEffect(() => {
+    if (!equipmentFocused.current) {
+      setEquipmentDraft(String(quote.equipmentCount));
+    }
+  }, [quote.equipmentCount]);
+  const [manualName, setManualName] = useState("");
+  const [manualPrice, setManualPrice] = useState("");
+  const [manualQty, setManualQty] = useState("1");
+  const [manualUpc, setManualUpc] = useState("");
+  const [manualNotes, setManualNotes] = useState("");
+  const [manualImage, setManualImage] = useState("");
+  const [manualImageError, setManualImageError] = useState("");
+  const [manualSaving, setManualSaving] = useState(false);
+  const manualFileRef = useRef<HTMLInputElement>(null);
   const [suggestionBox, setSuggestionBox] = useState<{
     top: number;
     left: number;
@@ -138,6 +204,14 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
       window.removeEventListener("scroll", placeSuggestions, true);
     };
   }, [suggestionsOpen]);
+
+  const costRevision = [
+    quote.cartTotalCount,
+    quote.total,
+    quote.lines
+      .map((line) => `${line.idProduct}:${line.quantity}:${line.price}`)
+      .join(","),
+  ].join("|");
 
   return (
     <div className={styles.panel} data-testid="generar-cotizacion-panel">
@@ -303,7 +377,51 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           <span className={styles.assemblyMark} aria-hidden="true" />
         </span>
       </label>
+      <label className={styles.equipmentChip}>
+        <span>Cantidad de equipos</span>
+        <input
+          value={equipmentDraft}
+          disabled={busy}
+          inputMode="numeric"
+          aria-label="Cantidad de equipos"
+          title="Si son varios equipos iguales, el PDF multiplica el total."
+          data-testid="quote-equipment-count"
+          onFocus={() => {
+            equipmentFocused.current = true;
+          }}
+          onChange={(event) => {
+            const digits = event.target.value.replace(/\D/g, "").slice(0, 3);
+            setEquipmentDraft(digits);
+            if (digits !== "") quote.setEquipmentCount(Number(digits));
+          }}
+          onBlur={() => {
+            equipmentFocused.current = false;
+            const parsed = Number(equipmentDraft);
+            const next =
+              equipmentDraft === "" || !Number.isInteger(parsed) || parsed < 1
+                ? 1
+                : Math.min(999, parsed);
+            setEquipmentDraft(String(next));
+            quote.setEquipmentCount(next);
+          }}
+        />
+      </label>
       </div>
+
+      {quote.includeAssembly ? (
+        <div className={styles.assemblyPrice}>
+          <PosNumberField
+            label="Precio del ensamble"
+            value={quote.assemblyPrice}
+            moneyInWords
+            sx={adminFieldSx}
+            onCommit={quote.setAssemblyPrice}
+          />
+          <p className={styles.manualHint}>
+            Opcional. Si lo dejas vacío, el PDF solo indica que el ensamble va incluido.
+          </p>
+        </div>
+      ) : null}
 
       {quote.showComments ? (
       <TextField
@@ -325,6 +443,25 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
         }}
       />
       ) : null}
+
+      <div className={styles.deliverySlot}>
+        <PosDeliveryAddress
+          enabled={quote.homeDelivery === true}
+          onEnabledChange={quote.setHomeDelivery}
+          addresses={quote.deliveryAddresses}
+          editor={quote.deliveryEditor}
+          errors={quote.deliveryErrors}
+          onStartAdd={quote.startAddDelivery}
+          onStartEdit={quote.startEditDelivery}
+          onRemove={quote.removeDeliveryAddress}
+          onChangeEditor={quote.changeDeliveryEditor}
+          onRegister={quote.registerDelivery}
+          onCancelEditor={quote.cancelDeliveryEditor}
+          idleHint="Actívalo si la cotización incluye envío a domicilio."
+          activeHint="Cada domicilio tiene su costo y se suma una vez al total."
+        />
+      </div>
+
       </div>
 
       <div className={styles.tools}>
@@ -520,6 +657,211 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
         ) : null}
       </div>
       </div>
+
+      <div className={styles.manualBox}>
+        <button
+          type="button"
+          className={styles.manualToggle}
+          aria-expanded={manualOpen}
+          onClick={() => setManualOpen((open) => !open)}
+          data-testid="quote-manual-toggle"
+        >
+          <ImagePlus size={18} />
+          {manualOpen ? "Cerrar producto sin catálogo" : "Agregar producto sin catálogo"}
+        </button>
+        {manualOpen ? (
+          <form
+            className={styles.manualCard}
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (manualSaving || busy) return;
+              const price = Number(String(manualPrice).replace(/,/g, ""));
+              const quantity = Number(manualQty);
+              setManualSaving(true);
+              void quote
+                .addManualProduct({
+                  name: manualName,
+                  price,
+                  quantity,
+                  upc: manualUpc,
+                  notes: manualNotes,
+                  image: manualImage,
+                })
+                .then((added) => {
+                  if (!added) return;
+                  setManualName("");
+                  setManualPrice("");
+                  setManualQty("1");
+                  setManualUpc("");
+                  setManualNotes("");
+                  setManualImage("");
+                  setManualImageError("");
+                  if (manualFileRef.current) manualFileRef.current.value = "";
+                  setManualOpen(false);
+                })
+                .finally(() => setManualSaving(false));
+            }}
+          >
+            <div className={styles.manualHead}>
+              <div>
+                <strong>Nuevo producto</strong>
+                <p>Se imprime en el PDF igual que uno del catálogo.</p>
+              </div>
+            </div>
+            <div className={styles.manualBody}>
+              <div className={styles.manualPhoto}>
+                <input
+                  ref={manualFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  hidden
+                  data-testid="quote-manual-image"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (!file) return;
+                    setManualImageError("");
+                    void readManualImage(file)
+                      .then((dataUrl) => {
+                        setManualImage(dataUrl);
+                        setManualImageError("");
+                      })
+                      .catch((error: unknown) => {
+                        setManualImageError(
+                          error instanceof Error
+                            ? error.message
+                            : "No se pudo usar esa imagen.",
+                        );
+                      });
+                  }}
+                />
+                <button
+                  type="button"
+                  className={styles.manualPhotoButton}
+                  disabled={busy || manualSaving}
+                  onClick={() => manualFileRef.current?.click()}
+                >
+                  <img
+                    src={manualImage || MANUAL_PRODUCT_IMAGE}
+                    alt={manualImage ? "Imagen del producto" : "Sin imagen"}
+                  />
+                  <span>{manualImage ? "Cambiar imagen" : "Subir imagen"}</span>
+                </button>
+                {manualImage ? (
+                  <button
+                    type="button"
+                    className={styles.manualPhotoClear}
+                    disabled={busy || manualSaving}
+                    onClick={() => {
+                      setManualImage("");
+                      setManualImageError("");
+                    }}
+                  >
+                    Quitar imagen
+                  </button>
+                ) : (
+                  <p className={styles.manualHint}>JPG, PNG o WEBP. Si no subes foto, se usa esta.</p>
+                )}
+                {manualImageError ? (
+                  <p className={styles.manualImageError}>{manualImageError}</p>
+                ) : null}
+              </div>
+              <div className={styles.manualFields}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="Nombre del producto"
+                  placeholder="Como debe aparecer en la cotización"
+                  value={manualName}
+                  disabled={busy || manualSaving}
+                  onChange={(event) => setManualName(event.target.value.slice(0, 180))}
+                  sx={adminFieldSx}
+                  inputProps={{ "data-testid": "quote-manual-name", maxLength: 180 }}
+                />
+                <div className={styles.manualGrid}>
+                  <PosNumberField
+                    label="Precio"
+                    value={manualPrice}
+                    moneyInWords
+                    sx={adminFieldSx}
+                    onCommit={(raw) => {
+                      const amount = Number(raw);
+                      if (raw !== "" && (!Number.isFinite(amount) || amount > 999999.99)) return;
+                      setManualPrice(raw);
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="Cantidad"
+                    placeholder="1"
+                    type="number"
+                    value={manualQty}
+                    disabled={busy || manualSaving}
+                    onChange={(event) =>
+                      setManualQty(event.target.value.replace(/\D/g, "").slice(0, 3))
+                    }
+                    sx={adminFieldSx}
+                    inputProps={{
+                      min: 1,
+                      max: 999,
+                      "data-testid": "quote-manual-qty",
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="UPC (opcional)"
+                    placeholder="Código de barras"
+                    value={manualUpc}
+                    disabled={busy || manualSaving}
+                    onChange={(event) =>
+                      setManualUpc(event.target.value.replace(/[^\dA-Za-z]/g, "").slice(0, 32))
+                    }
+                    sx={adminFieldSx}
+                    inputProps={{ "data-testid": "quote-manual-upc", maxLength: 32 }}
+                  />
+                </div>
+                <TextField
+                  className={styles.manualNotes}
+                  size="small"
+                  fullWidth
+                  label="Características"
+                  placeholder="Se imprimen debajo del nombre"
+                  multiline
+                  minRows={3}
+                  maxRows={6}
+                  value={manualNotes}
+                  disabled={busy || manualSaving}
+                  onChange={(event) => setManualNotes(event.target.value.slice(0, 500))}
+                  sx={adminFieldSx}
+                  inputProps={{
+                    "data-testid": "quote-manual-notes",
+                    maxLength: 500,
+                  }}
+                />
+              </div>
+            </div>
+            <div className={styles.manualActions}>
+              <button
+                type="submit"
+                className={`admin-btn-primary ${styles.manualSubmit}`}
+                disabled={
+                  busy ||
+                  manualSaving ||
+                  manualName.trim().length < 2 ||
+                  manualPrice === "" ||
+                  Number(manualQty) < 1
+                }
+                data-testid="quote-manual-add"
+              >
+                {manualSaving ? <CircularProgress size={16} color="inherit" /> : null}
+                Agregar al carrito
+              </button>
+            </div>
+          </form>
+        ) : null}
+      </div>
       {quote.notice ? (
         <Alert severity="success" onClose={quote.dismissNotice}>
           {quote.notice}
@@ -682,15 +1024,28 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                 </div>
                 <span className={styles.cartThumb}>
                   <img
-                    src={resolveProductImage(line.image_url)}
+                    src={resolveProductImage(line.image_url, line.manual === true)}
                     alt=""
                     onError={(event) => {
-                      event.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
+                      event.currentTarget.src = line.manual
+                        ? MANUAL_PRODUCT_IMAGE
+                        : FALLBACK_PRODUCT_IMAGE;
                     }}
                   />
                 </span>
                 <div className={styles.cartBody}>
                   <strong title={line.name}>{line.name}</strong>
+                  {line.manual ? (
+                    <>
+                      <span className={styles.manualBadge}>Sin catálogo</span>
+                      {line.upc ? (
+                        <div className={styles.cartCodes}>
+                          <span>{`UPC ${line.upc}`}</span>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
                   <div className={styles.cartCodes}>
                     <span>{line.sku ? `SKU ${line.sku}` : "Sin SKU"}</span>
                     {line.upc ? <span>{`UPC ${line.upc}`}</span> : null}
@@ -717,6 +1072,8 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                       </div>
                     ))}
                   </div>
+                    </>
+                  )}
                 </div>
                 <div className={styles.cartMeta}>
                   <label className={styles.qtyBox}>
@@ -790,10 +1147,77 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
       )}
 
       <div className={styles.footer}>
+        <div className={styles.footerRow}>
         <div>
-          <div className={styles.total}>
-            Total {currencyFormatter.format(quote.total)}
-          </div>
+          {(() => {
+            const equipos = Math.min(
+              999,
+              Math.max(1, Math.round(quote.equipmentCount) || 1),
+            );
+            const perPc = quote.total;
+            const productsAll = perPc * equipos;
+            const assemblyAll = quote.assemblyAmount * equipos;
+            const shippingAll = quote.shippingAmount;
+            const grand = productsAll + assemblyAll + shippingAll;
+            return (
+              <>
+                {equipos > 1 || quote.shippingLines.length > 0 ? (
+                  <div className={styles.totalBreakdown}>
+                    {equipos > 1 ? (
+                      <div className={styles.totalLine}>
+                        <div className={styles.totalLineCopy}>
+                          <span>Un equipo</span>
+                          <small>Total por PC</small>
+                        </div>
+                        <strong>{currencyFormatter.format(perPc)}</strong>
+                      </div>
+                    ) : null}
+                    {equipos > 1 ? (
+                      <div className={styles.totalLine}>
+                        <div className={styles.totalLineCopy}>
+                          <span>{equipos} equipos</span>
+                          <small>Total por PC × {equipos}</small>
+                        </div>
+                        <strong>{currencyFormatter.format(productsAll)}</strong>
+                      </div>
+                    ) : null}
+                    {quote.assemblyAmount > 0 ? (
+                      <div className={styles.totalLine}>
+                        <div className={styles.totalLineCopy}>
+                          <span>Ensamble</span>
+                          <small>
+                            {equipos > 1
+                              ? `${currencyFormatter.format(quote.assemblyAmount)} × ${equipos}`
+                              : "Un servicio"}
+                          </small>
+                        </div>
+                        <strong>{currencyFormatter.format(assemblyAll)}</strong>
+                      </div>
+                    ) : null}
+                    {quote.shippingLines.map((row, index) => (
+                      <div className={styles.shipLine} key={`${row.label}-${index}`}>
+                        <div className={styles.totalLineCopy}>
+                          <span>Envío {index + 1}</span>
+                          <div className={styles.shipPlaces}>
+                            {row.postalCode ? <em>CP {row.postalCode}</em> : null}
+                            {row.cologne ? <em>Col. {row.cologne}</em> : null}
+                            {row.city || row.state ? (
+                              <em>{[row.city, row.state].filter(Boolean).join(", ")}</em>
+                            ) : null}
+                          </div>
+                        </div>
+                        <strong>{currencyFormatter.format(row.shippingCost)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <div className={styles.total}>
+                  Total{" "}
+                  {currencyFormatter.format(grand)}
+                </div>
+              </>
+            );
+          })()}
           <p className={styles.hint}>
             La vista previa sale con su botón. El archivo se guarda con el
             botón que elijas.
@@ -839,6 +1263,12 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             Ocultar datos
           </button>
         </div>
+        </div>
+        <QuoteLiveCost
+          loadLines={quote.loadPreviewLines}
+          revision={costRevision}
+          equipmentCount={quote.equipmentCount}
+        />
       </div>
       </div>
       <QuotePdfPreview
@@ -853,8 +1283,11 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             : ""
         }
         includeAssembly={quote.includeAssembly}
+        assemblyPrice={quote.assemblyAmount}
         includeTransfer={quote.includeTransfer}
         comments={quote.showComments ? quote.comments.trim() : ""}
+        equipmentCount={quote.equipmentCount}
+        deliveries={quote.shippingLines}
       />
       </div>
     </div>
