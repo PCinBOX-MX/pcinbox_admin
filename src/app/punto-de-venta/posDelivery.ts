@@ -75,6 +75,27 @@ export function parsePosShippingCost(raw: unknown): number | null {
   return amount;
 }
 
+/** Lo que puede verse en una cotización: sin calle ni número. */
+export function quoteDeliveryHint(form: {
+  postalCode: string;
+  cologne: string;
+  city: string;
+  state: string;
+}): string {
+  const city = [form.city, form.state]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(", ");
+  return [
+    form.postalCode.trim() ? `CP ${form.postalCode.trim()}` : "",
+    form.cologne.trim() ? `Col. ${form.cologne.trim()}` : "",
+    city,
+  ]
+    .filter(Boolean)
+    .join(", ")
+    .slice(0, 80);
+}
+
 /** Acepta el borrador del formulario o la dirección ya guardada. */
 export function normalizePosDeliveryForm(raw: unknown): PosDeliveryForm {
   const base = emptyPosDeliveryForm();
