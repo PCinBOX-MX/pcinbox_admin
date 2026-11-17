@@ -12,7 +12,6 @@ import styles from "./generar.module.css";
 
 function withManualPlaceholder(products: QuotePdfLine[]): QuotePdfLine[] {
   return products.map((product) => {
-    if (product.manual !== true) return product;
     const value = Array.isArray(product.imageUrl)
       ? product.imageUrl[0]
       : product.imageUrl;
@@ -21,8 +20,14 @@ function withManualPlaceholder(products: QuotePdfLine[]): QuotePdfLine[] {
       !url ||
       url.includes("producto-sin-foto") ||
       url.includes("imagen-no-encontrada");
-    if (!missing) return product;
-    return { ...product, imageUrl: MANUAL_PRODUCT_IMAGE };
+    const isManual =
+      product.manual === true || url.includes("producto-sin-foto");
+    if (!isManual || !missing) return product;
+    return {
+      ...product,
+      manual: true,
+      imageUrl: MANUAL_PRODUCT_IMAGE,
+    };
   });
 }
 

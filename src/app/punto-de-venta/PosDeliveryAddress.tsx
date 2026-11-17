@@ -234,8 +234,11 @@ function DeliveryAddressFields({
             fullWidth
             label="Calle"
             value={value.street}
-            onChange={(event) => patch({ street: event.target.value })}
+            onChange={(event) =>
+              patch({ street: event.target.value.slice(0, 255) })
+            }
             error={Boolean(errors.street)}
+            inputProps={{ maxLength: 255 }}
             sx={fieldSx}
           />
           <FieldError message={errors.street} />

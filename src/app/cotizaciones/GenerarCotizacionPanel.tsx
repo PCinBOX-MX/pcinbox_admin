@@ -65,16 +65,14 @@ function readManualImage(file: File): Promise<string> {
   });
 }
 
-function resolveProductImage(imageUrl: unknown, manual = false): string {
-  if (!imageUrl) return manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
+function firstImageCandidate(imageUrl: unknown): string {
+  if (!imageUrl) return "";
   if (typeof imageUrl === "string") {
     const value = imageUrl.trim();
-    if (!value || value.includes("producto-sin-foto")) {
-      return manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
-    }
+    if (!value) return "";
     if (value.startsWith("[") || value.startsWith("{")) {
       try {
-        return resolveProductImage(JSON.parse(value), manual);
+        return firstImageCandidate(JSON.parse(value));
       } catch {
         return value;
       }
@@ -83,15 +81,34 @@ function resolveProductImage(imageUrl: unknown, manual = false): string {
   }
   if (Array.isArray(imageUrl)) {
     const first = imageUrl.find((item) => typeof item === "string" && item.trim());
-    return first ? String(first) : manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
+    return first ? String(first).trim() : "";
   }
   if (typeof imageUrl === "object") {
     const first = Object.values(imageUrl as Record<string, unknown>).find(
       (item) => typeof item === "string" && item.trim(),
     );
-    return first ? String(first) : manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
+    return first ? String(first).trim() : "";
   }
-  return manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
+  return "";
+}
+
+function isPlaceholderOrMissingImage(url: string): boolean {
+  return (
+    !url ||
+    url.includes("producto-sin-foto") ||
+    url.includes("imagen-no-encontrada")
+  );
+}
+
+/** Catálogo → 404. Sin catálogo / placeholder de PC → foto de PC embebida. */
+function resolveProductImage(imageUrl: unknown, manual = false): string {
+  const value = firstImageCandidate(imageUrl);
+  if (manual || value.includes("producto-sin-foto")) {
+    if (!value || isPlaceholderOrMissingImage(value)) return MANUAL_PRODUCT_IMAGE;
+    return value;
+  }
+  if (!value || isPlaceholderOrMissingImage(value)) return FALLBACK_PRODUCT_IMAGE;
+  return value;
 }
 
 type Props = {
@@ -281,10 +298,12 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           error={Boolean(quote.phoneError)}
           helperText={quote.phoneError || undefined}
           onChange={(event) => {
-            const value = event.target.value;
-            if (/^\d*$/.test(value) && value.length <= 10) {
-              quote.setCustomerPhone(value);
+            let digits = event.target.value.replace(/\D/g, "");
+            // Si pegan lada 52 + 10 dígitos, nos quedamos con el teléfono local.
+            if (digits.length >= 12 && digits.startsWith("52")) {
+              digits = digits.slice(2);
             }
+            quote.setCustomerPhone(digits.slice(0, 10));
           }}
           sx={adminFieldSx}
           slotProps={{
@@ -744,6 +763,10 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                   <img
                     src={manualImage || MANUAL_PRODUCT_IMAGE}
                     alt={manualImage ? "Imagen del producto" : "Sin imagen"}
+                    onError={(event) => {
+                      if (event.currentTarget.src.startsWith("data:image")) return;
+                      event.currentTarget.src = MANUAL_PRODUCT_IMAGE;
+                    }}
                   />
                   <span>{manualImage ? "Cambiar imagen" : "Subir imagen"}</span>
                 </button>
@@ -774,9 +797,16 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                   placeholder="Como debe aparecer en la cotización"
                   value={manualName}
                   disabled={busy || manualSaving}
-                  onChange={(event) => setManualName(event.target.value.slice(0, 180))}
+                  onChange={(event) =>
+                    setManualName(event.target.value.replace(/\s+/g, " ").slice(0, 180))
+                  }
                   sx={adminFieldSx}
                   inputProps={{ "data-testid": "quote-manual-name", maxLength: 180 }}
+                  helperText={
+                    manualName.length >= 180
+                      ? "Máximo 180 caracteres"
+                      : undefined
+                  }
                 />
                 <div className={styles.manualGrid}>
                   <PosNumberField
@@ -1024,12 +1054,30 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                 </div>
                 <span className={styles.cartThumb}>
                   <img
-                    src={resolveProductImage(line.image_url, line.manual === true)}
+                    src={resolveProductImage(
+                      line.image_url,
+                      line.manual === true ||
+                        firstImageCandidate(line.image_url).includes(
+                          "producto-sin-foto",
+                        ),
+                    )}
                     alt=""
                     onError={(event) => {
-                      event.currentTarget.src = line.manual
+                      const useManual =
+                        line.manual === true ||
+                        firstImageCandidate(line.image_url).includes(
+                          "producto-sin-foto",
+                        );
+                      const fallback = useManual
                         ? MANUAL_PRODUCT_IMAGE
                         : FALLBACK_PRODUCT_IMAGE;
+                      if (
+                        event.currentTarget.src.startsWith("data:image") ||
+                        event.currentTarget.getAttribute("src") === fallback
+                      ) {
+                        return;
+                      }
+                      event.currentTarget.src = fallback;
                     }}
                   />
                 </span>

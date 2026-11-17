@@ -942,6 +942,7 @@ type QuoteImportPayload = {
   manualItems?: QuoteManualImport[];
   assembly?: QuoteAssemblyImport | null;
   deliveries?: QuoteDeliveryImport[];
+  comments?: string;
   equipmentCount?: number;
   missingProductIds?: string[];
   inactiveProducts?: QuoteInactiveProduct[];
@@ -1203,6 +1204,7 @@ function quoteFreshnessKey(
       row.shippingCost,
       row.street,
     ]),
+    comments: String(payload.comments || "").trim().slice(0, 500),
     unavailable: plan.unavailable.map((u) => [
       u.key,
       u.reason,
@@ -3398,6 +3400,18 @@ export default function usePos() {
         setDeliveryEditor(null);
         setDeliveryErrors({});
       }
+      const quoteComments = String(payload.comments || "").trim().slice(0, 500);
+      let notesImported = false;
+      if (quoteComments) {
+        const current = String(notes || "").trim();
+        if (!current) {
+          setNotes(quoteComments.slice(0, 2000));
+          notesImported = true;
+        } else if (!current.includes(quoteComments)) {
+          setNotes(`${current}\n\n${quoteComments}`.slice(0, 2000));
+          notesImported = true;
+        }
+      }
       setLinkedQuoteNumber(payload.quoteNumber);
       setQuoteInput(payload.quoteNumber);
       applyQuoteCustomer(payload.customer);
@@ -3420,6 +3434,7 @@ export default function usePos() {
         incomingDeliveries.length
           ? `${incomingDeliveries.length} envío(s) con su costo`
           : "",
+        notesImported ? "comentarios en notas de venta" : "",
       ]
         .filter(Boolean)
         .join(". ");
@@ -3435,7 +3450,7 @@ export default function usePos() {
         sections,
       });
     },
-    [applyQuoteCustomer, cart, deliveryAddresses.length, showQuoteFeedback],
+    [applyQuoteCustomer, cart, deliveryAddresses.length, notes, showQuoteFeedback],
   );
 
   const latestCartRef = useRef(cart);

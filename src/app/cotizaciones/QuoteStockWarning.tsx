@@ -27,7 +27,17 @@ type LineRef = {
   name: string;
   sku?: string | null;
   quantity: number;
+  /** Captura sin catálogo: no entra al aviso de stock/activo. */
+  manual?: boolean;
+  image_url?: unknown;
 };
+
+function isManualQuoteLine(line: LineRef): boolean {
+  if (line.manual === true) return true;
+  const raw = Array.isArray(line.image_url) ? line.image_url[0] : line.image_url;
+  const url = typeof raw === "string" ? raw : "";
+  return url.includes("producto-sin-foto");
+}
 
 export function buildQuoteStockIncidents(
   lines: LineRef[],
@@ -39,6 +49,7 @@ export function buildQuoteStockIncidents(
   const incidents: QuoteStockIncident[] = [];
 
   for (const line of lines) {
+    if (isManualQuoteLine(line)) continue;
     const quantity = Math.max(1, Math.round(Number(line.quantity)) || 1);
     const current = byId.get(line.idProduct);
     const reasons: string[] = [];

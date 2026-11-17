@@ -336,11 +336,19 @@ export default function useCotizaciones(enabled = true) {
           onConfirm: closeModal,
         });
       } catch (requestError) {
+        const axiosError = requestError as AxiosError<{ message?: string }>;
+        const apiMessage = String(
+          axiosError.response?.data?.message || "",
+        ).trim();
+        const status = axiosError.response?.status;
         showErrorModal(
-          errorMessage(
-            requestError,
-            "No se pudo calcular la inversión de la cotización.",
-          ),
+          status === 404
+            ? apiMessage ||
+                "No se pudo abrir la inversión de esta cotización. Si el PDF sí abre, reinicia el API en la rama form-address para cargar la ruta nueva."
+            : errorMessage(
+                requestError,
+                "No se pudo calcular la inversión de la cotización.",
+              ),
         );
       } finally {
         setCostLoadingId(null);

@@ -55,10 +55,21 @@ const appendImageKitTransform = (url: string, transform: string) => {
 const firstImageUrl = (raw: unknown, manual = false): string => {
   const value = Array.isArray(raw) ? raw[0] : raw;
   const url = typeof value === "string" ? value.trim() : "";
+  if (url.startsWith("data:image")) return url;
   if (isMissingProductImage(url)) {
-    return manual ? MANUAL_PRODUCT_IMAGE : FALLBACK_PRODUCT_IMAGE;
+    // Sin foto o el placeholder de PC: nunca el 404 en productos sin catálogo.
+    if (manual || url.includes("producto-sin-foto")) {
+      return MANUAL_PRODUCT_IMAGE;
+    }
+    return FALLBACK_PRODUCT_IMAGE;
   }
-  if (!url.includes("ik.imagekit.io")) return url;
+  if (!url.includes("ik.imagekit.io")) {
+    // Rutas locales del admin no existen dentro del PDF: usar la foto embebida.
+    if (manual || url.includes("producto-sin-foto")) {
+      return MANUAL_PRODUCT_IMAGE;
+    }
+    return url;
+  }
 
   let withoutTr = url;
   try {

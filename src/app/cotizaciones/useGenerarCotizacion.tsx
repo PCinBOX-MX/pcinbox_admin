@@ -15,6 +15,7 @@ import CotizacionPdf, {
   QuotePdfDelivery,
   QuotePdfLine,
 } from "./pdf/CotizacionPdf";
+import { MANUAL_PRODUCT_IMAGE } from "./pdf/manualProductImage";
 import {
   emptyPosDeliveryForm,
   MAX_POS_DELIVERIES,
@@ -683,6 +684,16 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           : visible
             ? visible.quantity
             : line.quantity;
+      const imageRaw = Array.isArray(line.image_url)
+        ? line.image_url[0]
+        : line.image_url;
+      const imageUrl = typeof imageRaw === "string" ? imageRaw.trim() : "";
+      const manual =
+        line.manual === true || imageUrl.includes("producto-sin-foto");
+      const missing =
+        !imageUrl ||
+        imageUrl.includes("producto-sin-foto") ||
+        imageUrl.includes("imagen-no-encontrada");
       return {
         idProduct: line.idProduct,
         name: line.name,
@@ -690,9 +701,12 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         caracteristicas: line.caracteristicas,
         price: Number(line.price) || 0,
         quantity: quantityOrOne(quantity),
-        imageUrl: line.image_url,
+        imageUrl:
+          manual && missing
+            ? MANUAL_PRODUCT_IMAGE
+            : imageUrl || line.image_url,
         upc: line.upc,
-        manual: line.manual === true,
+        manual,
       };
     };
 
@@ -1026,7 +1040,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           ? [{ prop: "Características", value: notes }]
           : null,
         price,
-        image_url: image || null,
+        image_url: image || "/producto-sin-foto.jpg",
         upc: upc || null,
         sku: null,
         active: true,
@@ -1307,6 +1321,20 @@ export default function useGenerarCotizacion(onCreated: () => void) {
             customerName?: string;
             customerPhone?: string;
             includeAssembly?: boolean;
+            assemblyPrice?: number | null;
+            equipmentCount?: number;
+            deliveries?: Array<{
+              street?: string;
+              noExt?: string;
+              noInt?: string | null;
+              postalCode?: string;
+              cologne?: string;
+              city?: string;
+              state?: string;
+              country?: string;
+              shippingCost?: number;
+            }>;
+            comments?: string;
             missing?: number;
             lines?: QuoteDraftLine[];
           };
@@ -1316,10 +1344,31 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       if (!imported || source.length === 0) {
         throw new Error("empty");
       }
-      const ready = source.map((line) => ({
-        ...line,
-        quantity: quantityOrOne(line.quantity),
-      }));
+      const ready = source.map((line) => {
+        const imageRaw = Array.isArray(line.image_url)
+          ? line.image_url[0]
+          : line.image_url;
+        const imageUrl = typeof imageRaw === "string" ? imageRaw.trim() : "";
+        const manual =
+          line.manual === true ||
+          imageUrl.includes("producto-sin-foto") ||
+          imageUrl.startsWith("data:image/");
+        const placeholder =
+          !imageUrl ||
+          imageUrl.includes("imagen-no-encontrada") ||
+          imageUrl.includes("producto-sin-foto");
+        return {
+          ...line,
+          quantity: quantityOrOne(line.quantity),
+          manual,
+          // Marcador liviano; el UI/PDF resuelven la foto de PC embebida.
+          image_url: manual
+            ? placeholder || imageUrl.startsWith("data:image/")
+              ? "/producto-sin-foto.jpg"
+              : imageUrl
+            : imageUrl || line.image_url || null,
+        };
+      });
       const folio = String(imported.quoteNumber || quoteNumber)
         .trim()
         .replace(/^#/, "")
@@ -1404,6 +1453,51 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       setCustomerPhone(digits);
       setPhoneError("");
       setIncludeAssembly(imported.includeAssembly === true);
+      const importedAssembly = Number(imported.assemblyPrice);
+      if (Number.isFinite(importedAssembly) && importedAssembly > 0) {
+        setIncludeAssembly(true);
+        setAssemblyPrice(
+          String(Math.round((importedAssembly + Number.EPSILON) * 100) / 100),
+        );
+      }
+      setEquipmentCount(normalizeEquipmentCount(imported.equipmentCount));
+      const importedComments = String(imported.comments || "")
+        .trim()
+        .slice(0, 500);
+      if (importedComments) {
+        setShowComments(true);
+        setComments(importedComments);
+      }
+      const importedDeliveries = Array.isArray(imported.deliveries)
+        ? imported.deliveries
+        : [];
+      let deliveryCount = 0;
+      if (importedDeliveries.length > 0) {
+        const forms = importedDeliveries
+          .slice(0, MAX_POS_DELIVERIES)
+          .map((row) => {
+            const form = normalizePosDeliveryForm({
+              ...row,
+              noInt: row.noInt || "",
+              shippingCost:
+                row.shippingCost === undefined || row.shippingCost === null
+                  ? "0"
+                  : String(row.shippingCost),
+            });
+            if (parsePosShippingCost(form.shippingCost) == null) {
+              form.shippingCost = "0";
+            }
+            return form;
+          })
+          .filter((form) => Object.keys(validatePosDeliveryForm(form)).length === 0);
+        deliveryCount = forms.length;
+        if (forms.length > 0) {
+          setHomeDeliveryState(true);
+          setDeliveryAddresses(forms);
+          setDeliveryEditor(null);
+          setDeliveryErrors({});
+        }
+      }
       try {
         await requestPost(
           {},
@@ -1420,9 +1514,25 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         return;
       }
       const missing = Number(imported.missing) || 0;
+      const extras = [
+        missing > 0 ? `${missing} de catálogo ya no están` : "",
+        deliveryCount > 0
+          ? `${deliveryCount} domicilio(s) con costo de envío`
+          : "",
+        Number(imported.equipmentCount) > 1
+          ? `${normalizeEquipmentCount(imported.equipmentCount)} equipos`
+          : "",
+        Number.isFinite(importedAssembly) && importedAssembly > 0
+          ? "ensamble con precio"
+          : "",
+        importedComments ? "comentarios adicionales" : "",
+        ready.some((line) => line.manual === true)
+          ? "productos sin catálogo"
+          : "",
+      ].filter(Boolean);
       setNotice(
-        missing > 0
-          ? `Cotización ${folio} importada. Sus productos se sumaron al carrito. ${missing} ya no están en el catálogo.`
+        extras.length > 0
+          ? `Cotización ${folio} importada. ${extras.join(". ")}.`
           : `Cotización ${folio} importada. Sus productos se sumaron a los que ya tenías.`,
       );
     } catch (requestError) {
@@ -1644,17 +1754,30 @@ export default function useGenerarCotizacion(onCreated: () => void) {
 
       try {
         const quoteNumber = String(Date.now());
-        const pdfLines: QuotePdfLine[] = readyLines.map((line) => ({
-          idProduct: line.idProduct,
-          name: line.name,
-          description: line.description,
-          caracteristicas: line.caracteristicas,
-          price: money(Number(line.price) || 0),
-          quantity: line.quantity,
-          imageUrl: line.image_url,
-          upc: line.upc,
-          manual: line.manual === true,
-        }));
+        const pdfLines: QuotePdfLine[] = readyLines.map((line) => {
+          const imageRaw = Array.isArray(line.image_url)
+            ? line.image_url[0]
+            : line.image_url;
+          const imageUrl = typeof imageRaw === "string" ? imageRaw.trim() : "";
+          const manual =
+            line.manual === true || imageUrl.includes("producto-sin-foto");
+          const missing =
+            !imageUrl ||
+            imageUrl.includes("producto-sin-foto") ||
+            imageUrl.includes("imagen-no-encontrada");
+          return {
+            idProduct: line.idProduct,
+            name: line.name,
+            description: line.description,
+            caracteristicas: line.caracteristicas,
+            price: money(Number(line.price) || 0),
+            quantity: line.quantity,
+            imageUrl:
+              manual && missing ? MANUAL_PRODUCT_IMAGE : imageUrl || line.image_url,
+            upc: line.upc,
+            manual,
+          };
+        });
         const itemCount = pdfLines.reduce(
           (sum, line) => sum + line.quantity,
           0,
@@ -1720,6 +1843,9 @@ export default function useGenerarCotizacion(onCreated: () => void) {
             assemblyPrice: assemblyChargeOf(includeAssembly, assemblyPrice) || null,
             ...(homeDelivery
               ? { deliveries: deliveryAddresses.map(toPosDeliveryAddress) }
+              : {}),
+            ...(showComments && comments.trim()
+              ? { comments: comments.trim().slice(0, 500) }
               : {}),
           }),
         );
@@ -1950,18 +2076,30 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           setGenerating(null);
           return;
         }
-        const response = await requestGet(
-          `/cotizaciones/admin/products/availability?ids=${readyLines
-            .map((line) => line.idProduct)
-            .join(",")}`,
-          { silent: true },
-        );
-        const payload = response.data as { data?: QuoteAvailability[] };
-        if (!Array.isArray(payload.data)) {
-          throw new Error("availability");
-        }
-        const availability = payload.data;
-        const incidents = buildQuoteStockIncidents(readyLines, availability);
+        const catalogLines = readyLines.filter((line) => {
+          if (line.manual === true) return false;
+          const raw = Array.isArray(line.image_url)
+            ? line.image_url[0]
+            : line.image_url;
+          const url = typeof raw === "string" ? raw : "";
+          return !url.includes("producto-sin-foto");
+        });
+        const incidents =
+          catalogLines.length === 0
+            ? []
+            : await (async () => {
+                const response = await requestGet(
+                  `/cotizaciones/admin/products/availability?ids=${catalogLines
+                    .map((line) => line.idProduct)
+                    .join(",")}`,
+                  { silent: true },
+                );
+                const payload = response.data as { data?: QuoteAvailability[] };
+                if (!Array.isArray(payload.data)) {
+                  throw new Error("availability");
+                }
+                return buildQuoteStockIncidents(catalogLines, payload.data);
+              })();
         if (incidents.length > 0) {
           const closeModal = () =>
             setDataModal((previous) => ({ ...previous, isOpen: false }));
@@ -2036,8 +2174,13 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     assemblyPrice,
     assemblyAmount: assemblyChargeOf(includeAssembly, assemblyPrice),
     setAssemblyPrice: (value: string) => {
-      const raw = String(value || "").replace(/,/g, "");
-      if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return;
+      let raw = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
+      const firstDot = raw.indexOf(".");
+      if (firstDot !== -1) {
+        raw =
+          raw.slice(0, firstDot + 1) +
+          raw.slice(firstDot + 1).replace(/\./g, "");
+      }
       const amount = Number(raw);
       if (raw !== "" && raw !== "." && (!Number.isFinite(amount) || amount > 999999.99)) {
         return;
