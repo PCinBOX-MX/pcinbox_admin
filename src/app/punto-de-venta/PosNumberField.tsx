@@ -129,11 +129,18 @@ export default function PosNumberField({
           setDraft(committed);
         }}
         onChange={(e) => {
+          // Al pegar ($1,234.50, 1 234, etc.) limpiamos; no rechazamos el pegado.
           let v = e.target.value.replace(/,/g, "");
           if (integer) {
             v = v.replace(/\D/g, "");
-          } else if (v !== "" && !/^\d*\.?\d*$/.test(v)) {
-            return;
+          } else {
+            v = v.replace(/[^\d.]/g, "");
+            const firstDot = v.indexOf(".");
+            if (firstDot !== -1) {
+              v =
+                v.slice(0, firstDot + 1) +
+                v.slice(firstDot + 1).replace(/\./g, "");
+            }
           }
           setDraft(v);
           if (v.trim() !== "" && v !== ".") onCommit(v);

@@ -4,9 +4,32 @@ import { pdf } from "@react-pdf/renderer";
 import { useCallback, useEffect, useRef, useState } from "react";
 import CotizacionPdf, {
   QuoteDetailLevel,
+  QuotePdfDelivery,
   QuotePdfLine,
 } from "./pdf/CotizacionPdf";
+import { MANUAL_PRODUCT_IMAGE } from "./pdf/manualProductImage";
 import styles from "./generar.module.css";
+
+function withManualPlaceholder(products: QuotePdfLine[]): QuotePdfLine[] {
+  return products.map((product) => {
+    const value = Array.isArray(product.imageUrl)
+      ? product.imageUrl[0]
+      : product.imageUrl;
+    const url = typeof value === "string" ? value.trim() : "";
+    const missing =
+      !url ||
+      url.includes("producto-sin-foto") ||
+      url.includes("imagen-no-encontrada");
+    const isManual =
+      product.manual === true || url.includes("producto-sin-foto");
+    if (!isManual || !missing) return product;
+    return {
+      ...product,
+      manual: true,
+      imageUrl: MANUAL_PRODUCT_IMAGE,
+    };
+  });
+}
 
 type Props = {
   hasLines: boolean;
@@ -16,8 +39,11 @@ type Props = {
   userName: string;
   userPhone: string;
   includeAssembly: boolean;
+  assemblyPrice: number;
   includeTransfer: boolean;
   comments: string;
+  equipmentCount: number;
+  deliveries: QuotePdfDelivery[];
 };
 
 export default function QuotePdfPreview({
@@ -28,16 +54,17 @@ export default function QuotePdfPreview({
   userName,
   userPhone,
   includeAssembly,
+  assemblyPrice,
   includeTransfer,
   comments,
+  equipmentCount,
+  deliveries,
 }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [phase, setPhase] = useState<"empty" | "loading" | "ready" | "error">(
     "empty",
   );
   const urlRef = useRef<string | null>(null);
-  const workerRef = useRef<Worker | null | undefined>(undefined);
-  const jobIdRef = useRef(0);
   const runningRef = useRef(false);
 
   const replaceUrl = useCallback((nextUrl: string | null) => {
@@ -57,96 +84,39 @@ export default function QuotePdfPreview({
   useEffect(
     () => () => {
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-      workerRef.current?.terminate();
-      workerRef.current = null;
     },
     [],
   );
 
-  const renderBlob = async (products: QuotePdfLine[]) => {
-    const snapshot = {
-      detailLevel,
-      userName,
-      userPhone,
-      includeAssembly,
-      includeTransfer,
-      comments,
-      products,
-    };
-    if (workerRef.current === undefined) {
-      try {
-        workerRef.current = new Worker(
-          new URL("./pdfPreview.worker.tsx", import.meta.url),
-        );
-      } catch {
-        workerRef.current = null;
-      }
-    }
-    const worker = workerRef.current;
-    if (!worker) {
-      return pdf(
-        <CotizacionPdf
-          noCotizacion="Vista previa"
-          products={snapshot.products}
-          userName={snapshot.userName}
-          userPhone={snapshot.userPhone}
-          includeAssemblyService={snapshot.includeAssembly}
-          includeTransferInfo={snapshot.includeTransfer}
-          comments={snapshot.comments}
-          detailLevel={snapshot.detailLevel}
-        />,
-      ).toBlob();
-    }
-    const id = ++jobIdRef.current;
-    return new Promise<Blob>((resolve, reject) => {
-      const onMessage = (
-        event: MessageEvent<{ id: number; blob?: Blob; error?: string }>,
-      ) => {
-        if (event.data?.id !== id) return;
-        worker.removeEventListener("message", onMessage);
-        if (event.data.blob) resolve(event.data.blob);
-        else reject(new Error(event.data.error || "preview"));
-      };
-      worker.addEventListener("message", onMessage);
-      worker.onerror = () => {
-        worker.removeEventListener("message", onMessage);
-        workerRef.current = null;
-        worker.terminate();
-        reject(new Error("worker"));
-      };
-      worker.postMessage({ id, ...snapshot });
-    });
-  };
+  const renderBlob = (products: QuotePdfLine[]) =>
+    pdf(
+      <CotizacionPdf
+        noCotizacion="Vista previa"
+        products={products}
+        userName={userName}
+        userPhone={userPhone}
+        includeAssemblyService={includeAssembly}
+        assemblyPrice={assemblyPrice}
+        includeTransferInfo={includeTransfer}
+        comments={comments}
+        equipmentCount={equipmentCount}
+        deliveries={deliveries}
+        detailLevel={detailLevel}
+      />,
+    ).toBlob();
 
   const generatePreview = async () => {
     if (!hasLines || runningRef.current) return;
     runningRef.current = true;
     setPhase("loading");
     try {
-      const products = await loadLines();
+      const products = withManualPlaceholder(await loadLines());
       if (products.length === 0) {
         setPhase("empty");
         replaceUrl(null);
         return;
       }
-      let blob: Blob;
-      try {
-        blob = await renderBlob(products);
-      } catch (error) {
-        if (!(error instanceof Error) || error.message !== "worker") throw error;
-        blob = await pdf(
-          <CotizacionPdf
-            noCotizacion="Vista previa"
-            products={products}
-            userName={userName}
-            userPhone={userPhone}
-            includeAssemblyService={includeAssembly}
-            includeTransferInfo={includeTransfer}
-            comments={comments}
-            detailLevel={detailLevel}
-          />,
-        ).toBlob();
-      }
+      const blob = await renderBlob(products);
       replaceUrl(URL.createObjectURL(blob));
       setPhase("ready");
     } catch {

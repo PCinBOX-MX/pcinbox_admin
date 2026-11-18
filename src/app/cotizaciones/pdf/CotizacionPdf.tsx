@@ -1,9 +1,19 @@
 "use client";
 
 import { Document, Image, Page, Text, View } from "@react-pdf/renderer";
+import { MANUAL_PRODUCT_IMAGE } from "./manualProductImage";
 import { styles } from "./styles";
 
 export type QuoteDetailLevel = "full" | "hidden";
+
+export type QuotePdfDelivery = {
+  label: string;
+  shippingCost: number;
+  postalCode?: string;
+  cologne?: string;
+  city?: string;
+  state?: string;
+};
 
 export type QuotePdfLine = {
   idProduct: string | number;
@@ -14,9 +24,14 @@ export type QuotePdfLine = {
   quantity: number;
   imageUrl?: unknown;
   upc?: string | null;
+  manual?: boolean;
 };
 
 const FALLBACK_PRODUCT_IMAGE = "/imagen-no-encontrada.png";
+
+function isMissingProductImage(url: string): boolean {
+  return !url || url.includes("producto-sin-foto") || url.includes("imagen-no-encontrada");
+}
 
 const TRANSFER = {
   bank: "BBVA",
@@ -37,11 +52,24 @@ const appendImageKitTransform = (url: string, transform: string) => {
   return `${url}${separator}tr=${transform}`;
 };
 
-const firstImageUrl = (raw: unknown): string => {
+const firstImageUrl = (raw: unknown, manual = false): string => {
   const value = Array.isArray(raw) ? raw[0] : raw;
   const url = typeof value === "string" ? value.trim() : "";
-  if (!url) return FALLBACK_PRODUCT_IMAGE;
-  if (!url.includes("ik.imagekit.io")) return url;
+  if (url.startsWith("data:image")) return url;
+  if (isMissingProductImage(url)) {
+    // Sin foto o el placeholder de PC: nunca el 404 en productos sin catálogo.
+    if (manual || url.includes("producto-sin-foto")) {
+      return MANUAL_PRODUCT_IMAGE;
+    }
+    return FALLBACK_PRODUCT_IMAGE;
+  }
+  if (!url.includes("ik.imagekit.io")) {
+    // Rutas locales del admin no existen dentro del PDF: usar la foto embebida.
+    if (manual || url.includes("producto-sin-foto")) {
+      return MANUAL_PRODUCT_IMAGE;
+    }
+    return url;
+  }
 
   let withoutTr = url;
   try {
@@ -87,20 +115,60 @@ const buildClientBlock = (
   return lines.join("\n");
 };
 
-/** Precios machine-readable en Keywords del PDF (el POS los lee de aquí). */
-const buildQuoteLinesKeywords = (products: QuotePdfLine[]): string => {
-  const parts: string[] = [];
+/** Texto seguro para Keywords: sin `|`, `:` ni `;`. */
+const encodeKeywordText = (value: string): string => {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+};
+
+/**
+ * Precios que el POS lee del PDF.
+ * Catálogo: pcinbox-lines-v1|id:qty:price
+ * Sin catálogo: pcinbox-manual-v1|id:qty:price:nombre:upc
+ * Ensamble de un equipo: pcinbox-assembly-v1|precio
+ * Envíos: pcinbox-shipping-v1|costo:etiqueta
+ */
+const buildQuoteLinesKeywords = (
+  products: QuotePdfLine[],
+  assemblyPrice: number,
+  deliveries: QuotePdfDelivery[],
+): string => {
+  const catalog: string[] = [];
+  const manual: string[] = [];
   for (const product of products) {
     const id = String(product.idProduct ?? "").trim();
     if (!id || id.length > 64) continue;
     const qty = Math.max(1, Math.round(Number(product.quantity ?? 1) || 1));
     const priceRaw = Number(product.price);
-    if (!Number.isFinite(priceRaw) || priceRaw < 0) continue;
+    if (!Number.isFinite(priceRaw) || priceRaw < 0 || priceRaw > 999999.99) continue;
     const price = Math.round((priceRaw + Number.EPSILON) * 100) / 100;
-    parts.push(`${id}:${qty}:${price.toFixed(2)}`);
+    if (product.manual) {
+      const name = String(product.name || "").trim().slice(0, 180);
+      if (name.length < 2) continue;
+      const upc = String(product.upc || "").trim().slice(0, 32);
+      manual.push(
+        `${id}:${qty}:${price.toFixed(2)}:${encodeKeywordText(name)}:${encodeKeywordText(upc)}`,
+      );
+      continue;
+    }
+    catalog.push(`${id}:${qty}:${price.toFixed(2)}`);
   }
-  if (!parts.length) return "";
-  return `pcinbox-lines-v1|${parts.join(";")}`;
+  const sections: string[] = [];
+  if (catalog.length) sections.push(`pcinbox-lines-v1|${catalog.join(";")}`);
+  if (manual.length) sections.push(`pcinbox-manual-v1|${manual.join(";")}`);
+  if (assemblyPrice > 0) {
+    sections.push(`pcinbox-assembly-v1|${assemblyPrice.toFixed(2)}`);
+  }
+  if (deliveries.length) {
+    const shipping = deliveries.map((row) => {
+      const cost = Math.round((Number(row.shippingCost) + Number.EPSILON) * 100) / 100;
+      return `${cost.toFixed(2)}:${encodeKeywordText(String(row.label || "").slice(0, 80))}`;
+    });
+    sections.push(`pcinbox-shipping-v1|${shipping.join(";")}`);
+  }
+  return sections.join("|");
 };
 
 const readCaracteristicas = (raw: unknown) => {
@@ -128,9 +196,14 @@ type CotizacionPdfProps = {
   userName?: string | null;
   userPhone?: string | null;
   includeAssemblyService?: boolean;
+  /** Precio del ensamble de un equipo. Vacío si solo se indica que va incluido. */
+  assemblyPrice?: number | null;
   /** Muestra el recuadro de transferencia en el pie. */
   includeTransferInfo?: boolean;
   comments?: string | null;
+  equipmentCount?: number;
+  /** Envíos ya resumidos: CP, colonia y ciudad. Sin calle ni número. */
+  deliveries?: QuotePdfDelivery[];
   detailLevel?: QuoteDetailLevel;
 };
 
@@ -140,8 +213,11 @@ const CotizacionPdf = ({
   userName,
   userPhone,
   includeAssemblyService,
+  assemblyPrice = null,
   includeTransferInfo = true,
   comments,
+  equipmentCount = 1,
+  deliveries = [],
   detailLevel = "full",
 }: CotizacionPdfProps) => {
   const now = new Date();
@@ -149,18 +225,47 @@ const CotizacionPdf = ({
   expiry.setHours(expiry.getHours() + 24);
   const hidden = detailLevel === "hidden";
 
-  const total = products.reduce((acc, product) => {
+  const productsTotal = products.reduce((acc, product) => {
     const price = Number(product.price ?? 0);
     const qty = Number(product.quantity ?? 1);
     return Number.isFinite(price) && Number.isFinite(qty) ? acc + price * qty : acc;
   }, 0);
+  const assembly = includeAssemblyService
+    ? Math.round((Number(assemblyPrice) + Number.EPSILON) * 100) / 100
+    : 0;
+  const assemblyCharge =
+    Number.isFinite(assembly) && assembly > 0 ? assembly : 0;
 
   const totalQty = products.reduce((acc, product) => {
     const qty = Number(product.quantity ?? 1);
     return Number.isFinite(qty) ? acc + qty : acc;
   }, 0);
+  const equipos = Math.min(999, Math.max(1, Math.round(Number(equipmentCount) || 1)));
+  const roundMoney = (value: number) =>
+    Math.round((value + Number.EPSILON) * 100) / 100;
+  const perPc = roundMoney(productsTotal);
+  const productsAll = roundMoney(perPc * equipos);
+  const assemblyAll = roundMoney(assemblyCharge * equipos);
+  const shippingRows = deliveries
+    .map((row) => ({
+      label: String(row.label || "").trim().slice(0, 80),
+      shippingCost: roundMoney(Number(row.shippingCost) || 0),
+      postalCode: String(row.postalCode || "").trim().slice(0, 5),
+      cologne: String(row.cologne || "").trim().slice(0, 100),
+      city: String(row.city || "").trim().slice(0, 100),
+      state: String(row.state || "").trim().slice(0, 100),
+    }))
+    .filter((row) => row.label.length >= 2 && row.shippingCost >= 0);
+  const shippingAll = roundMoney(
+    shippingRows.reduce((sum, row) => sum + row.shippingCost, 0),
+  );
+  const grandTotal = roundMoney(productsAll + assemblyAll + shippingAll);
 
-  const linesKeywords = buildQuoteLinesKeywords(products);
+  const linesKeywords = buildQuoteLinesKeywords(
+    products,
+    assemblyCharge,
+    shippingRows,
+  );
   const commentText = String(comments || "").trim().slice(0, 500);
 
   const renderFullRow = (product: QuotePdfLine) => {
@@ -189,7 +294,7 @@ const CotizacionPdf = ({
         <View style={styles.colImg} wrap={false}>
           <View style={styles.productImageFrame} wrap={false}>
             <Image
-              src={firstImageUrl(product.imageUrl)}
+              src={firstImageUrl(product.imageUrl, product.manual === true)}
               style={styles.productImage}
             />
           </View>
@@ -204,12 +309,36 @@ const CotizacionPdf = ({
           {product.description ? (
             <Text style={styles.productDesc}>{product.description}</Text>
           ) : null}
-          {filtered.slice(0, 4).map((car, index) => (
-            <Text key={`${car.prop}-${index}`} style={styles.productProp}>
-              <Text style={styles.productPropBold}>{car.prop}: </Text>
-              {car.value}
-            </Text>
-          ))}
+          {filtered.slice(0, 4).map((car, index) => {
+            const freeText = car.prop.trim().toLowerCase() === "características";
+            if (!freeText) {
+              return (
+                <Text key={`${car.prop}-${index}`} style={styles.productProp}>
+                  <Text style={styles.productPropBold}>{car.prop}: </Text>
+                  {car.value}
+                </Text>
+              );
+            }
+            return String(car.value || "")
+              .split(/\r?\n/)
+              .filter((line) => line.trim())
+              .map((line, lineIndex) => {
+                const splitAt = line.indexOf(":");
+                const key = splitAt > 0 ? line.slice(0, splitAt).trim() : "";
+                const hasKey = key.length > 0 && key.length <= 40;
+                return (
+                  <Text
+                    key={`${car.prop}-${index}-${lineIndex}`}
+                    style={styles.productProp}
+                  >
+                    {hasKey ? (
+                      <Text style={styles.productPropBold}>{key}: </Text>
+                    ) : null}
+                    {hasKey ? line.slice(splitAt + 1).trim() : line.trim()}
+                  </Text>
+                );
+              });
+          })}
         </View>
         <View style={styles.colUnit} wrap={false}>
           <Text style={styles.tdUnitText}>{formatCurrency(price)}</Text>
@@ -240,12 +369,7 @@ const CotizacionPdf = ({
         .filter(Boolean)
         .join("|")}
     >
-      <Page
-        size="LETTER"
-        style={
-          includeTransferInfo ? [styles.page, styles.pageWithTransfer] : styles.page
-        }
-      >
+      <Page size="LETTER" style={styles.page}>
         <View style={styles.header} fixed>
           <View style={styles.logoWrap}>
             <Image src="/logo.png" style={styles.logo} />
@@ -330,9 +454,9 @@ const CotizacionPdf = ({
           </>
         )}
 
-        <View style={styles.totalsSection} wrap={false} minPresenceAhead={64}>
+        <View style={styles.totalsSection} minPresenceAhead={64}>
           <View style={styles.totalsHeaderRow}>
-            {hidden ? (
+            {hidden || equipos > 1 ? (
               <Text style={styles.totalsProductCount}> </Text>
             ) : (
               <Text style={styles.totalsProductCount}>
@@ -340,9 +464,66 @@ const CotizacionPdf = ({
               </Text>
             )}
             <View style={styles.totalsAmounts}>
+              {equipos > 1 ? (
+                <View style={styles.assemblyPriceRow}>
+                  <Text style={styles.totalLabel}>Total por PC</Text>
+                  <Text style={styles.assemblyPriceValue}>
+                    {formatCurrency(perPc)}
+                  </Text>
+                </View>
+              ) : null}
+              {equipos > 1 ? (
+                <View style={styles.assemblyPriceRow}>
+                  <View style={styles.shippingCopy}>
+                    <Text style={styles.shippingTitle}>{equipos} equipos</Text>
+                    <Text style={styles.shippingPlace}>Total por PC × {equipos}</Text>
+                  </View>
+                  <Text style={styles.assemblyPriceValue}>
+                    {formatCurrency(productsAll)}
+                  </Text>
+                </View>
+              ) : null}
+              {assemblyCharge > 0 ? (
+                <View style={styles.assemblyPriceRow}>
+                  <View style={styles.shippingCopy}>
+                    <Text style={styles.shippingTitle}>Ensamble</Text>
+                    {equipos > 1 ? (
+                      <Text style={styles.shippingPlace}>
+                        {formatCurrency(assemblyCharge)} × {equipos}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.assemblyPriceValue}>
+                    {formatCurrency(equipos > 1 ? assemblyAll : assemblyCharge)}
+                  </Text>
+                </View>
+              ) : null}
+              {shippingRows.map((row, index) => (
+                <View key={`${row.label}-${index}`} style={styles.shippingRow}>
+                  <View style={styles.shippingCopy}>
+                    <Text style={styles.shippingTitle}>Envío {index + 1}</Text>
+                    {row.postalCode ? (
+                      <Text style={styles.shippingPlace}>CP {row.postalCode}</Text>
+                    ) : null}
+                    {row.cologne ? (
+                      <Text style={styles.shippingPlace}>Col. {row.cologne}</Text>
+                    ) : null}
+                    {row.city || row.state ? (
+                      <Text style={styles.shippingPlace}>
+                        {[row.city, row.state].filter(Boolean).join(", ")}
+                      </Text>
+                    ) : (
+                      <Text style={styles.shippingPlace}>{row.label}</Text>
+                    )}
+                  </View>
+                  <Text style={styles.assemblyPriceValue}>
+                    {formatCurrency(row.shippingCost)}
+                  </Text>
+                </View>
+              ))}
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>TOTAL</Text>
-                <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+                <Text style={styles.totalLabel}>Total</Text>
+                <Text style={styles.totalValue}>{formatCurrency(grandTotal)}</Text>
               </View>
               <Text style={styles.ivaNote}>Precios incluyen I.V.A.</Text>
             </View>
@@ -366,7 +547,7 @@ const CotizacionPdf = ({
           </Text>
         </View>
 
-        {includeAssemblyService ? (
+        {includeAssemblyService && assemblyCharge <= 0 ? (
           <View
             style={[
               styles.noteBox,
@@ -395,12 +576,13 @@ const CotizacionPdf = ({
           </Text>
         </View>
 
-        <View style={styles.bottomFooter} fixed>
-          {includeTransferInfo ? (
-          <View style={styles.transferCard}>
+        {includeTransferInfo ? (
+          <View style={styles.transferCard} wrap={false} minPresenceAhead={120}>
             <View style={styles.transferHead}>
               <Text style={styles.transferTitle}>DATOS PARA TRANSFERENCIA</Text>
-              <Text style={styles.transferBadge}>PCINBOX · PAGO POR TRANSFERENCIA</Text>
+              <Text style={styles.transferBadge}>
+                PCINBOX · PAGO POR TRANSFERENCIA
+              </Text>
             </View>
             <View style={styles.transferBody}>
               <View style={styles.transferGrid}>
@@ -427,7 +609,9 @@ const CotizacionPdf = ({
               </Text>
             </View>
           </View>
-          ) : null}
+        ) : null}
+
+        <View style={styles.bottomFooter} fixed>
           <View style={styles.footer}>
             <View style={styles.footerRow}>
               <View style={styles.footerCol}>
@@ -452,9 +636,6 @@ const CotizacionPdf = ({
                   hyphenationCallback={(word) => [word]}
                 >
                   Pago anticipado requerido.
-                  {includeTransferInfo
-                    ? "\nFavor de enviar su comprobante de transferencia para confirmar su pedido."
-                    : ""}
                 </Text>
                 <Text style={[styles.footerValue, { marginTop: 4 }]}>
                   Garantía por defecto de fábrica

@@ -222,13 +222,25 @@ export const GlobalProvider = ({ children }: { children: any }) => {
   const pathName = usePathname();
   const isAuthPage = isAuthPathname(pathName);
 
+  const sortCatalogByName = <T extends { name?: string | null }>(
+    rows: T[],
+  ): T[] =>
+    [...rows].sort((a, b) =>
+      String(a.name || "")
+        .trim()
+        .localeCompare(String(b.name || "").trim(), "es", {
+          sensitivity: "base",
+          numeric: true,
+        }),
+    );
+
   const handleGetMarcas = async () => {
     try {
       const resp = await requestGetProveedores("/getAllMarcaPrincipal");
       const data = resp.data;
 
       if (resp.status == 200) {
-        setDataMarca(data.data.data);
+        setDataMarca(sortCatalogByName(data.data.data || []));
       }
     } catch (error) {
       // Conservar marcas previas: error ≠ catálogo vacío.
@@ -241,7 +253,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
       const data = resp.data;
 
       if (resp.status == 200) {
-        setDataCategoria(data.data.data);
+        setDataCategoria(sortCatalogByName(data.data.data || []));
       }
     } catch (error) {
       // Conservar categorías previas: error ≠ catálogo vacío.

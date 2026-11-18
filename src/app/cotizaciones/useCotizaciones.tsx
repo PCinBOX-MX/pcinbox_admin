@@ -10,6 +10,8 @@ import {
   CotizacionesPagination,
 } from "../interfaces/cotizaciones/cotizaciones.interface";
 import UtilsService from "../services/utils";
+import QuoteCostPanel from "./QuoteCostPanel";
+import type { PosCostSummary } from "../interfaces/pos/pos.interface";
 import {
   resolvePageParam,
   readWindowSearchParam,
@@ -60,6 +62,9 @@ export default function useCotizaciones(enabled = true) {
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState("");
   const [documentLoadingId, setDocumentLoadingId] = useState<
+    Cotizacion["idCotizacion"] | null
+  >(null);
+  const [costLoadingId, setCostLoadingId] = useState<
     Cotizacion["idCotizacion"] | null
   >(null);
   const objectUrlRef = useRef<string | null>(null);
@@ -292,6 +297,66 @@ export default function useCotizaciones(enabled = true) {
     [getDocument],
   );
 
+  const openCost = useCallback(
+    async (record: Cotizacion) => {
+      setCostLoadingId(record.idCotizacion);
+      try {
+        const response = await requestGet(
+          `/cotizaciones/admin/${encodeURIComponent(
+            String(record.idCotizacion),
+          )}/cost-summary`,
+          { silent: true },
+        );
+        const data = (
+          response.data as {
+            data?: {
+              summary?: PosCostSummary | null;
+              missingCount?: number;
+              equipmentCount?: number;
+            };
+          }
+        )?.data;
+        setDataModal({
+          isOpen: true,
+          type: "info",
+          title: `Inversión · ${record.quoteNumber}`,
+          content: (
+            <QuoteCostPanel
+              summary={data?.summary ?? null}
+              missingCount={data?.missingCount ?? 0}
+              equipmentCount={data?.equipmentCount ?? 1}
+              compact
+              message="Esta cotización no tiene productos de TechSmart o DicoTech."
+            />
+          ),
+          showActions: true,
+          showCancel: false,
+          confirmLabel: "Cerrar",
+          onClose: closeModal,
+          onConfirm: closeModal,
+        });
+      } catch (requestError) {
+        const axiosError = requestError as AxiosError<{ message?: string }>;
+        const apiMessage = String(
+          axiosError.response?.data?.message || "",
+        ).trim();
+        const status = axiosError.response?.status;
+        showErrorModal(
+          status === 404
+            ? apiMessage ||
+                "No se pudo abrir la inversión de esta cotización. Si el PDF sí abre, reinicia el API en la rama form-address para cargar la ruta nueva."
+            : errorMessage(
+                requestError,
+                "No se pudo calcular la inversión de la cotización.",
+              ),
+        );
+      } finally {
+        setCostLoadingId(null);
+      }
+    },
+    [closeModal, requestGet, setDataModal, showErrorModal],
+  );
+
   const confirmArchive = useCallback(
     (record: Cotizacion) => {
       const archiveRecord = async () => {
@@ -371,6 +436,7 @@ export default function useCotizaciones(enabled = true) {
     loading,
     error,
     documentLoadingId,
+    costLoadingId,
     setSearch,
     setFrom,
     setTo,
@@ -379,6 +445,7 @@ export default function useCotizaciones(enabled = true) {
     reload: loadCotizaciones,
     preview,
     download,
+    openCost,
     confirmArchive,
   };
 }

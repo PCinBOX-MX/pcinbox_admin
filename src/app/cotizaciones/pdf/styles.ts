@@ -24,10 +24,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 48,
     backgroundColor: C.white,
   },
-  pageWithTransfer: {
-    paddingBottom: 228,
-  },
-
   // ── HEADER ──────────────────────────────────────────────────────────────
   header: {
     position: "absolute",
@@ -347,6 +343,65 @@ export const styles = StyleSheet.create({
     minWidth: 80,
     textAlign: "right",
   },
+  assemblyPriceRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+    marginTop: 6,
+    width: "100%",
+  },
+  shippingRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+    marginTop: 8,
+    width: "100%",
+  },
+  shippingCopy: {
+    alignItems: "flex-end",
+    marginRight: 12,
+    maxWidth: 220,
+  },
+  shippingTitle: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    textAlign: "right",
+  },
+  shippingPlace: {
+    fontSize: 8,
+    fontFamily: "Helvetica",
+    color: C.gray700,
+    textAlign: "right",
+    marginTop: 1,
+  },
+  assemblyPriceValue: {
+    fontSize: 11,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    minWidth: 80,
+    textAlign: "right",
+  },
+  grandTotalBox: {
+    marginTop: 8,
+    paddingTop: 6,
+    alignItems: "flex-end",
+    width: "100%",
+  },
+  grandTotalLabel: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray700,
+    textTransform: "uppercase",
+    marginBottom: 2,
+    textAlign: "right",
+  },
+  grandTotalValue: {
+    fontSize: 14,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    textAlign: "right",
+  },
   totalRowMuted: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -543,8 +598,9 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── TRANSFERENCIA ───────────────────────────────────────────────────────
+  // ── TRANSFERENCIA (solo al final del documento; no va en el footer fijo) ─
   transferCard: {
+    marginTop: 12,
     borderWidth: 1,
     borderColor: "#0b1f4d",
     borderRadius: 4,

@@ -63,26 +63,15 @@ const PRODUCT_TYPE_OPTIONS = [
   },
 ] as const;
 
-const ALLOWED_CATEGORIES = [
-  "ALMACENAMIENTO",
-  "AUDIO Y BOCINAS",
-  "ENFRIAMIENTO",
-  "FUENTES DE PODER",
-  "GABINETES",
-  "LAPTOPS",
-  "MEMORIAS RAM Y FLASH",
-  "MONITORES Y ACCESORIOS PARA MONITOR",
-  "MOUSES Y ACCESORIOS PARA MOUSES",
-  "PROCESADORES",
-  "REDES",
-  "REGULADORES, NOBREAKS Y ENERGIA",
-  "TARJETAS DE VIDEO",
-  "TARJETAS MADRE",
-  "TECLADOS",
-  "VENTILADORES",
-  "VIDEO Y ACCESORIOS",
-  "SOFTWARE",
-];
+const sortByName = <T extends { name?: string | null }>(rows: T[]): T[] =>
+  [...rows].sort((a, b) =>
+    String(a.name || "")
+      .trim()
+      .localeCompare(String(b.name || "").trim(), "es", {
+        sensitivity: "base",
+        numeric: true,
+      }),
+  );
 
 type LicenseFields = {
   licenseType: string;
@@ -617,12 +606,11 @@ const RegisterProduct = () => {
                 fullWidth
                 disabled={typeProduct === "license"}
                 slotProps={{ popper: { sx: { zIndex: 11000 } } }}
-                options={(dataCategoria || []).filter((c: any) => ALLOWED_CATEGORIES.includes(c.name?.trim().toUpperCase()))}
-                getOptionLabel={(option: any) =>
-                  `${option.name} ${
-                    option.description == null ? "" : option.description
-                  }`
-                } // cómo mostrar cada opción
+                options={sortByName(dataCategoria || [])}
+                isOptionEqualToValue={(option: any, value: any) =>
+                  option.idCategorie === value.idCategorie
+                }
+                getOptionLabel={(option: any) => String(option.name || "")}
                 value={
                   dataCategoria.find(
                     (m: any) => m.idCategorie === selectedCategoria,
@@ -657,7 +645,10 @@ const RegisterProduct = () => {
               <Autocomplete
                 fullWidth
                 slotProps={{ popper: { sx: { zIndex: 11000 } } }}
-                options={dataMarca || []}
+                options={sortByName(dataMarca || [])}
+                isOptionEqualToValue={(option: any, value: any) =>
+                  option.idMarca === value.idMarca
+                }
                 getOptionLabel={(option: any) => option.name || ""}
                 value={
                   dataMarca.find((m: any) => m.idMarca === selectedMarca) ||

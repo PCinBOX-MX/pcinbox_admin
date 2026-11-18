@@ -5,6 +5,7 @@ import { Alert, CircularProgress, TextField } from "@mui/material";
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
+  Coins,
   Download,
   Eye,
   FilePlus,
@@ -51,16 +52,20 @@ function formatBytes(value: number): string {
 type ActionsProps = {
   record: Cotizacion;
   loading: boolean;
+  costLoading: boolean;
   onPreview: () => void;
   onDownload: () => void;
+  onCost: () => void;
   onArchive: () => void;
 };
 
 function QuoteActions({
   record,
   loading,
+  costLoading,
   onPreview,
   onDownload,
+  onCost,
   onArchive,
 }: ActionsProps) {
   return (
@@ -86,6 +91,17 @@ function QuoteActions({
         data-testid={`download-cotizacion-${record.idCotizacion}`}
       >
         <Download size={18} />
+      </button>
+      <button
+        type="button"
+        className={styles.iconButton}
+        onClick={onCost}
+        disabled={costLoading}
+        aria-label={`Inversión de ${record.quoteNumber}`}
+        title="Inversión"
+        data-testid={`cost-cotizacion-${record.idCotizacion}`}
+      >
+        {costLoading ? <CircularProgress size={17} /> : <Coins size={18} />}
       </button>
       <button
         type="button"
@@ -121,6 +137,7 @@ export default function CotizacionesPage() {
     loading,
     error,
     documentLoadingId,
+    costLoadingId,
     setSearch,
     setFrom,
     setTo,
@@ -129,6 +146,7 @@ export default function CotizacionesPage() {
     reload,
     preview,
     download,
+    openCost,
     confirmArchive,
   } = useCotizaciones(hasPermission);
 
@@ -372,9 +390,11 @@ export default function CotizacionesPage() {
                       <QuoteActions
                         record={record}
                         loading={documentLoadingId === record.idCotizacion}
+                        costLoading={costLoadingId === record.idCotizacion}
                         onPreview={() => void preview(record)}
                         onDownload={() => void download(record)}
-                          onArchive={() => confirmArchive(record)}
+                        onCost={() => void openCost(record)}
+                        onArchive={() => confirmArchive(record)}
                       />
                     </td>
                   </tr>
@@ -439,9 +459,11 @@ export default function CotizacionesPage() {
                 <QuoteActions
                   record={record}
                   loading={documentLoadingId === record.idCotizacion}
+                  costLoading={costLoadingId === record.idCotizacion}
                   onPreview={() => void preview(record)}
                   onDownload={() => void download(record)}
-                    onArchive={() => confirmArchive(record)}
+                  onCost={() => void openCost(record)}
+                  onArchive={() => confirmArchive(record)}
                 />
               </article>
             ))}
