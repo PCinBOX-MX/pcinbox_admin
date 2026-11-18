@@ -24,10 +24,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 48,
     backgroundColor: C.white,
   },
-  pageWithTransfer: {
-    paddingBottom: 228,
-  },
-
   // ── HEADER ──────────────────────────────────────────────────────────────
   header: {
     position: "absolute",
@@ -602,8 +598,9 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── TRANSFERENCIA ───────────────────────────────────────────────────────
+  // ── TRANSFERENCIA (solo al final del documento; no va en el footer fijo) ─
   transferCard: {
+    marginTop: 12,
     borderWidth: 1,
     borderColor: "#0b1f4d",
     borderRadius: 4,

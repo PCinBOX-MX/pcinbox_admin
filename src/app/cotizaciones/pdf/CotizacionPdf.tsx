@@ -369,12 +369,7 @@ const CotizacionPdf = ({
         .filter(Boolean)
         .join("|")}
     >
-      <Page
-        size="LETTER"
-        style={
-          includeTransferInfo ? [styles.page, styles.pageWithTransfer] : styles.page
-        }
-      >
+      <Page size="LETTER" style={styles.page}>
         <View style={styles.header} fixed>
           <View style={styles.logoWrap}>
             <Image src="/logo.png" style={styles.logo} />
@@ -581,12 +576,13 @@ const CotizacionPdf = ({
           </Text>
         </View>
 
-        <View style={styles.bottomFooter} fixed>
-          {includeTransferInfo ? (
-          <View style={styles.transferCard}>
+        {includeTransferInfo ? (
+          <View style={styles.transferCard} wrap={false} minPresenceAhead={120}>
             <View style={styles.transferHead}>
               <Text style={styles.transferTitle}>DATOS PARA TRANSFERENCIA</Text>
-              <Text style={styles.transferBadge}>PCINBOX · PAGO POR TRANSFERENCIA</Text>
+              <Text style={styles.transferBadge}>
+                PCINBOX · PAGO POR TRANSFERENCIA
+              </Text>
             </View>
             <View style={styles.transferBody}>
               <View style={styles.transferGrid}>
@@ -613,7 +609,9 @@ const CotizacionPdf = ({
               </Text>
             </View>
           </View>
-          ) : null}
+        ) : null}
+
+        <View style={styles.bottomFooter} fixed>
           <View style={styles.footer}>
             <View style={styles.footerRow}>
               <View style={styles.footerCol}>
@@ -638,9 +636,6 @@ const CotizacionPdf = ({
                   hyphenationCallback={(word) => [word]}
                 >
                   Pago anticipado requerido.
-                  {includeTransferInfo
-                    ? "\nFavor de enviar su comprobante de transferencia para confirmar su pedido."
-                    : ""}
                 </Text>
                 <Text style={[styles.footerValue, { marginTop: 4 }]}>
                   Garantía por defecto de fábrica

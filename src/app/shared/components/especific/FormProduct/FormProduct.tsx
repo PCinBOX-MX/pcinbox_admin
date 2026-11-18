@@ -52,25 +52,15 @@ import {
 import ProductImagesField from "../productImages/ProductImagesField";
 import StickyFormAction from "../productImages/StickyFormAction";
 
-const ALLOWED_CATEGORIES = [
-  "ALMACENAMIENTO",
-  "AUDIO Y BOCINAS",
-  "ENFRIAMIENTO",
-  "FUENTES DE PODER",
-  "GABINETES",
-  "LAPTOPS",
-  "MEMORIAS RAM Y FLASH",
-  "MONITORES Y ACCESORIOS PARA MONITOR",
-  "MOUSES Y ACCESORIOS PARA MOUSES",
-  "PROCESADORES",
-  "REDES",
-  "REGULADORES, NOBREAKS Y ENERGIA",
-  "TARJETAS DE VIDEO",
-  "TARJETAS MADRE",
-  "TECLADOS",
-  "VENTILADORES",
-  "VIDEO Y ACCESORIOS",
-];
+const sortByName = <T extends { name?: string | null }>(rows: T[]): T[] =>
+  [...rows].sort((a, b) =>
+    String(a.name || "")
+      .trim()
+      .localeCompare(String(b.name || "").trim(), "es", {
+        sensitivity: "base",
+        numeric: true,
+      }),
+  );
 
 const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
   const { requestPostProveedores } = ProveedoresUtils();
@@ -501,12 +491,10 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             render={({ field }) => (
               <Autocomplete
                 fullWidth
-                options={(dataCategoria || []).filter(
-                  (c: any) =>
-                    ALLOWED_CATEGORIES.includes(
-                      c.name?.trim().toUpperCase(),
-                    ) || c.idCategorie === dataProductProp.categoryId,
-                )}
+                options={sortByName(dataCategoria || [])}
+                isOptionEqualToValue={(option, value) =>
+                  option.idCategorie === value.idCategorie
+                }
                 value={
                   dataCategoria?.find(
                     (c: any) => c.idCategorie == field.value,
@@ -515,9 +503,7 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
                 onChange={(_event, newValue) => {
                   field.onChange(newValue ? newValue.idCategorie : null);
                 }}
-                getOptionLabel={(option) =>
-                  `${option.name} ${option.description ?? ""}`
-                }
+                getOptionLabel={(option) => String(option.name || "")}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -578,7 +564,10 @@ const FormProduct = ({ dataProductProp }: { dataProductProp: ProductsI }) => {
             render={({ field }) => (
               <Autocomplete
                 fullWidth
-                options={dataMarca || []}
+                options={sortByName(dataMarca || [])}
+                isOptionEqualToValue={(option, value) =>
+                  option.idMarca === value.idMarca
+                }
                 value={
                   dataMarca?.find((c: any) => c.idMarca == field.value) || null
                 }

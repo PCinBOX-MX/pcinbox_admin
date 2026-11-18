@@ -1,17 +1,15 @@
-# Plan: comentarios de cotización → Notas de venta (POS)
+# Plan: orden alfabético Categorías y Marcas
 
 ## Objetivo
-Al importar una cotización en Cobro, llevar `comments` a «Notas de venta».
+Que los Select de Categoría y Marca listen opciones en orden alfabético (A→Z).
 
 ## Archivos
-- Server: `pos.controller.ts` (`getPosQuoteByNumber`)
-- Admin: `usePos.tsx` (applyQuoteToCart / payload)
+- `src/app/hooks/global.hook.tsx` (ordenar al cargar catálogo)
+- FormProduct / RegisterProduct (mantener sort en el Select)
 
 ## Pasos
-1. Devolver `comments` en el import POS. ✅
-2. Aplicarlos a «Notas de venta»: si vacío → set; si hay texto → append (máx 2000). ✅
-3. Solo cotizaciones nuevas con comments en linesJson.
+1. Ordenar `dataCategoria` y `dataMarca` al setearlos desde la API.
+2. Confirmar Select de alta/edición usan lista ordenada.
 
 ## Fuera de alcance
-- Transferencia del PDF.
-- Extraer comments de cotizaciones viejas sin linesJson.comments.
+- Otros selects (tipo PC, proveedores, etc.).
