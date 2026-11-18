@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { GlobalProvider } from "./hooks/global.hook";
@@ -13,11 +13,26 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "PCInbox Admin",
+  applicationName: "PCInbox Admin",
+  appleWebApp: {
+    capable: true,
+    title: "PCInbox Admin",
+    statusBarStyle: "default",
+  },
   icons: {
     icon: [{ url: "/logo.png?v=3", type: "image/png", sizes: "32x32" }],
-    apple: [{ url: "/logo.png?v=3" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
     shortcut: [{ url: "/favicon.ico?v=3" }],
   },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#bb3d4b",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
