@@ -1,6 +1,13 @@
-import type { ManagerOptions, SocketOptions } from "socket.io-client";
-
-type SocketClientOptions = Partial<ManagerOptions & SocketOptions>;
+/** Opciones de socket.io-client (tipos locales: @types v1 choca con el cliente v4). */
+export type SocketClientOptions = {
+  transports?: string[];
+  upgrade?: boolean;
+  reconnection?: boolean;
+  reconnectionAttempts?: number;
+  reconnectionDelay?: number;
+  reconnectionDelayMax?: number;
+  timeout?: number;
+};
 
 /**
  * Con PM2 cluster (≥2 workers), el polling de Engine.IO hace 400

@@ -293,7 +293,31 @@ export const GlobalProvider = ({ children }: { children: any }) => {
       if (socket.connected) markReady();
     }
 
+    // Chrome mete la pestaña en Back-Forward Cache y corta los WS a la fuerza
+    // (ruido en consola). Cerrar limpio al entrar y reconectar al volver.
+    const handlePageHide = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      setSocketPagosReady(false);
+      setSocketServerReady(false);
+      setSocketCronReady(false);
+      socketPagos.current?.disconnect();
+      socketServer.current?.disconnect();
+      socketCron.current?.disconnect();
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      socketPagos.current?.connect();
+      socketServer.current?.connect();
+      socketCron.current?.connect();
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
+
     return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
       setSocketPagosReady(false);
       setSocketServerReady(false);
       setSocketCronReady(false);
