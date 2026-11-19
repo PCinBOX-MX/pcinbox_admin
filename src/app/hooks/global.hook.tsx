@@ -22,6 +22,7 @@ import {
   applyCronStockUpdate,
   normalizeCronStockPayload,
 } from "../utils/cronStockLiveSync";
+import { getSocketClientOptions } from "../utils/socketConfig";
 
 type ModalType = "success" | "error" | "warning" | "info";
 
@@ -266,13 +267,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     const socketCronUrl = process.env.NEXT_PUBLIC_SOCKET_CRON?.trim();
 
     if (socketPagosUrl) {
-      const socket = io(socketPagosUrl, {
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-      });
+      const socket = io(socketPagosUrl, getSocketClientOptions());
       socketPagos.current = socket;
 
       const markReady = () => setSocketPagosReady(true);
@@ -281,13 +276,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     }
 
     if (socketProveedorUrl) {
-      const socket = io(socketProveedorUrl, {
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-      });
+      const socket = io(socketProveedorUrl, getSocketClientOptions());
       socketServer.current = socket;
 
       const markReady = () => setSocketServerReady(true);
@@ -296,13 +285,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     }
 
     if (socketCronUrl) {
-      const socket = io(socketCronUrl, {
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 20000,
-      });
+      const socket = io(socketCronUrl, getSocketClientOptions());
       socketCron.current = socket;
 
       const markReady = () => setSocketCronReady(true);
