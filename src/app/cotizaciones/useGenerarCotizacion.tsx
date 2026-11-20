@@ -665,7 +665,15 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   /** Siempre lee el carrito completo y lo aplica (evita enredos al borrar/agregar). */
   const syncFullCart = useCallback(async () => {
     const payload = await readCart(1, true);
+    usesServerCart.current = true;
     orderedLines.current = [];
+    // Tras mutar, el orden solo puede incluir IDs que existan en el server.
+    addedOrder.current = reconcileAddedOrder(
+      addedOrder.current,
+      payload.data.map((line) => Number(line.idProduct)),
+      pendingPins.current,
+    );
+    persistAddedOrder(addedOrder.current);
     applyCart(payload);
     return payload;
   }, [applyCart, readCart]);
@@ -800,8 +808,9 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   useEffect(() => {
     addedOrder.current = readStoredAddedOrder();
     const draft = readAdminQuoteDraft();
-    legacyLines.current = draft?.lines ?? [];
-    localImports.current = draft?.importedQuotes ?? [];
+    // El carrito vive en el server: no restaurar lines del draft (causaba fantasmas al recargar).
+    legacyLines.current = [];
+    localImports.current = [];
     if (draft) {
       setCustomerName(draft.customerName);
       setCustomerLada(draft.customerLada);
@@ -814,6 +823,13 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       setEquipmentCount(normalizeEquipmentCount(draft.equipmentCount));
       setHomeDeliveryState(draft.homeDelivery === true);
       setDeliveryAddresses(draft.deliveryAddresses);
+      // Limpiar lines/imports viejos del draft para que no vuelvan.
+      if (
+        (Array.isArray(draft.lines) && draft.lines.length > 0) ||
+        (Array.isArray(draft.importedQuotes) && draft.importedQuotes.length > 0)
+      ) {
+        patchAdminQuoteDraft({ lines: [], importedQuotes: [] });
+      }
     }
     setHydratedDraft(true);
   }, []);
@@ -853,42 +869,42 @@ export default function useGenerarCotizacion(onCreated: () => void) {
   useEffect(() => {
     if (!hydratedDraft) return;
     let cancelled = false;
-    const page = cartPageFromLocation();
     const sequence = ++loadSequence.current;
 
     const load = async () => {
       try {
-        let payload = await readCart(1, true);
-        const legacy = legacyLines.current;
-        if (
-          payload.pagination.total === 0 &&
-          legacy.length > 0 &&
-          sequence === loadSequence.current
-        ) {
-          const response = await requestPost(
-            { lines: legacy, page },
-            "/cotizaciones/admin/cart/replace",
-            { silent: true },
-          );
-          const replaced = asCartPayload(response.data);
-          if (!replaced) throw new Error("cart");
-          payload = cartIsComplete(replaced)
-            ? replaced
-            : await readCart(1, true);
-          pendingPins.current = legacy
-            .map((line) => line.idProduct)
-            .filter((id) => !addedOrder.current.includes(id));
-          legacyLines.current = [];
-          patchAdminQuoteDraft({ lines: [], importedQuotes: [] });
-        }
+        const payload = await readCart(1, true);
         if (cancelled || sequence !== loadSequence.current) return;
         usesServerCart.current = true;
         legacyLines.current = [];
+        localImports.current = [];
+        // Orden local solo con lo que diga el server (nada de sessionStorage viejo).
+        addedOrder.current = reconcileAddedOrder(
+          [],
+          payload.data.map((line) => Number(line.idProduct)),
+          [],
+        );
+        persistAddedOrder(addedOrder.current);
+        orderedLines.current = [];
         patchAdminQuoteDraft({ lines: [], importedQuotes: [] });
         applyCart(payload);
       } catch {
         if (cancelled || sequence !== loadSequence.current) return;
-        showLocalCart(legacyLines.current, page);
+        // No caer a carrito local/draft: deja vacío y avisa (evita enredos al recargar).
+        usesServerCart.current = true;
+        legacyLines.current = [];
+        localImports.current = [];
+        addedOrder.current = [];
+        orderedLines.current = [];
+        clearStoredAddedOrder();
+        setLines([]);
+        setImportedQuotes([]);
+        setCartTotalCount(0);
+        setCartTotalPages(0);
+        setCartAmount(0);
+        setError(
+          "No se pudo cargar el carrito del servidor. Revisa la conexión e intenta de nuevo.",
+        );
       } finally {
         if (!cancelled && sequence === loadSequence.current) setCartReady(true);
       }
@@ -898,7 +914,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     return () => {
       cancelled = true;
     };
-  }, [applyCart, hydratedDraft, readCart, requestPost, showLocalCart]);
+  }, [applyCart, hydratedDraft, readCart]);
 
   useEffect(() => {
     const term = query.trim();
