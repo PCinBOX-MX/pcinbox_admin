@@ -1294,7 +1294,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             ) : (
               <FileText size={16} />
             )}
-            Datos completos
+            Generar con datos completos
           </button>
           <button
             type="button"
@@ -1308,15 +1308,17 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             ) : (
               <FileText size={16} />
             )}
-            Ocultar datos
+            Generar con datos ocultos
           </button>
         </div>
         </div>
-        <QuoteLiveCost
-          loadLines={quote.loadPreviewLines}
-          revision={costRevision}
-          equipmentCount={quote.equipmentCount}
-        />
+        {quote.cartReady && quote.cartTotalCount > 0 ? (
+          <QuoteLiveCost
+            loadLines={quote.loadPreviewLines}
+            revision={costRevision}
+            equipmentCount={quote.equipmentCount}
+          />
+        ) : null}
       </div>
       </div>
       <QuotePdfPreview

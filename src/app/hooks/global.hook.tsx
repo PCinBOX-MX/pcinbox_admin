@@ -312,11 +312,10 @@ export const GlobalProvider = ({ children }: { children: any }) => {
         } catch {
           // ignore
         }
-        if (socket.connected) {
-          socket.disconnect();
-        }
+        // Solo disconnect(): engine.close() en medio del handshake llena la
+        // consola con "WebSocket is closed before the connection is established".
         try {
-          socket.io.engine?.close();
+          socket.disconnect();
         } catch {
           // ignore
         }

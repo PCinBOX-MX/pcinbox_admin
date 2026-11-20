@@ -62,6 +62,10 @@ export function QuoteLiveCost({
 
   useEffect(() => {
     let cancelled = false;
+    // Evita mostrar cifras de un carrito anterior mientras corre el debounce/fetch.
+    setSummary(null);
+    setMissingCount(0);
+
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
@@ -80,6 +84,11 @@ export function QuoteLiveCost({
                 .filter((id) => Number.isSafeInteger(id) && id > 0),
             ),
           ].slice(0, 200);
+          if (ids.length === 0) {
+            setSummary(null);
+            setMissingCount(0);
+            return;
+          }
           const response = await requestGet(
             `/pos/products/costs?ids=${ids.join(",")}`,
             { silent: true },
@@ -102,6 +111,7 @@ export function QuoteLiveCost({
             missingIds,
             equipmentCount,
           );
+          if (cancelled) return;
           setSummary(built.summary);
           setMissingCount(built.missingCount);
         } catch {

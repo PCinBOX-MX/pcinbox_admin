@@ -19,7 +19,8 @@ export default function PosCostSummary({
   missingCount?: number;
   compact?: boolean;
 }) {
-  if (!summary && missingCount === 0) return null;
+  const hasLines = Boolean(summary && summary.lines > 0);
+  if (!hasLines && missingCount === 0) return null;
 
   const marginPct =
     summary && summary.investment > 0
@@ -37,7 +38,7 @@ export default function PosCostSummary({
         <span className={styles.internal}>Uso interno</span>
       </header>
 
-      {summary ? (
+      {hasLines && summary ? (
         <div className={styles.grid}>
           <div className={`${styles.chip} ${styles.chipInvest}`}>
             <span className={styles.chipLabel}>
@@ -88,10 +89,10 @@ export default function PosCostSummary({
       ) : null}
 
       <p className={styles.foot}>
-        {summary
+        {hasLines && summary
           ? `${summary.lines} línea(s) · ${summary.units} ud(s.) de proveedor`
           : null}
-        {summary && missingCount > 0 ? " · " : null}
+        {hasLines && summary && missingCount > 0 ? " · " : null}
         {missingCount > 0
           ? `${missingCount} sin costo registrado`
           : null}
