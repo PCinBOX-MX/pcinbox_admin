@@ -1580,8 +1580,31 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     }
   }, [applyCart, importNumber, readCart, requestGet, requestPost, showLocalCart]);
 
+  const clearImportedQuoteFormExtras = useCallback(() => {
+    setCustomerName("");
+    setCustomerLada("+52");
+    setCustomerPhone("");
+    setPhoneError("");
+    setIncludeAssembly(false);
+    setAssemblyPrice("");
+    setShowComments(false);
+    setComments("");
+    setEquipmentCount(1);
+    setHomeDeliveryState(false);
+    setDeliveryAddresses([]);
+    setDeliveryEditor(null);
+    setDeliveryErrors({});
+  }, []);
+
   const performUnlink = useCallback(
     async (quoteNumber: string) => {
+      const folioKey = String(quoteNumber || "")
+        .trim()
+        .replace(/^#/, "")
+        .toUpperCase();
+      const localStaged = localImports.current.find(
+        (quote) => quote.quoteNumber === folioKey,
+      );
       const response = await requestPost(
         { page: cartPageRef.current },
         `/cotizaciones/admin/import/${encodeURIComponent(quoteNumber)}/unlink`,
@@ -1591,39 +1614,91 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         removed?: number;
         productIds?: number[];
         quoteNumber?: string;
+        importedQuotes?: string[];
       };
-      const productIds = new Set(
-        (Array.isArray(body.productIds) ? body.productIds : [])
+      const responseFolio = String(body.quoteNumber || quoteNumber)
+        .trim()
+        .replace(/^#/, "")
+        .toUpperCase();
+      // Preferir IDs staged en cliente (manuales) + los del server.
+      const productIds = new Set<number>([
+        ...(localStaged?.productIds ?? []),
+        ...((Array.isArray(body.productIds) ? body.productIds : [])
           .map((id) => Number(id))
-          .filter((id) => Number.isSafeInteger(id) && id > 0),
-      );
+          .filter((id) => Number.isSafeInteger(id) && id > 0)),
+      ]);
       let removed = Number(body.removed) || 0;
       if (!usesServerCart.current) {
         const before = allLines.current.length;
         const next = allLines.current.filter(
           (line) => !productIds.has(line.idProduct),
         );
-        removed = before - next.length;
-        const folioKey = String(body.quoteNumber || quoteNumber)
-          .trim()
-          .replace(/^#/, "")
-          .toUpperCase();
+        removed = Math.max(removed, before - next.length);
         localImports.current = localImports.current.filter(
-          (quote) => quote.quoteNumber !== folioKey,
+          (quote) => quote.quoteNumber !== responseFolio,
         );
         showLocalCart(next, cartPageRef.current);
       } else {
-        let payload = asCartPayload(response.data);
+        // Siempre recargar carrito completo tras unlink: evita que applyCart
+        // mergeé páginas parciales y deje productos de la cotización.
+        let payload =
+          (await readCart(1, true).catch(() => null)) ||
+          asCartPayload(response.data);
         if (!payload) throw new Error("cart");
-        if (!cartIsComplete(payload)) payload = await readCart(1, true);
+        // Quitar del orden local los productos desvinculados antes de pintar.
+        if (productIds.size > 0) {
+          addedOrder.current = addedOrder.current.filter(
+            (id) => !productIds.has(id),
+          );
+          persistAddedOrder(addedOrder.current);
+          orderedLines.current = orderedLines.current.filter(
+            (line) => !productIds.has(line.idProduct),
+          );
+          pendingPins.current = pendingPins.current.filter(
+            (id) => !productIds.has(id),
+          );
+          if (cartIsComplete(payload)) {
+            const data = payload.data.filter(
+              (line) => !productIds.has(Number(line.idProduct)),
+            );
+            payload = {
+              ...payload,
+              data,
+              pagination: {
+                ...payload.pagination,
+                total: data.length,
+                totalPages: Math.max(
+                  1,
+                  Math.ceil(data.length / Math.max(1, payload.pagination.limit || 4)),
+                ),
+              },
+            };
+          }
+        }
         applyCart(payload);
+        if (Array.isArray(body.importedQuotes)) {
+          setImportedQuotes(
+            body.importedQuotes
+              .map((quote) => String(quote || "").trim())
+              .filter(Boolean),
+          );
+        }
+      }
+      const remainingImports = usesServerCart.current
+        ? Array.isArray(body.importedQuotes)
+          ? body.importedQuotes.filter(Boolean).length
+          : null
+        : localImports.current.length;
+      // Solo limpia cliente/envíos/ensamble si ya no queda ninguna importada.
+      if (remainingImports === 0) {
+        clearImportedQuoteFormExtras();
       }
       return {
         removed,
         folio: body.quoteNumber || quoteNumber,
       };
     },
-    [applyCart, readCart, requestPost, showLocalCart],
+    [applyCart, clearImportedQuoteFormExtras, readCart, requestPost, showLocalCart],
   );
 
   const startUnlink = useCallback(() => {
