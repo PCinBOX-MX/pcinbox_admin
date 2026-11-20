@@ -294,36 +294,86 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     }
 
     // Chrome mete la pestaña en Back-Forward Cache y corta los WS a la fuerza
-    // (ruido en consola). Cerrar limpio al entrar y reconectar al volver.
-    const handlePageHide = (event: PageTransitionEvent) => {
-      if (!event.persisted) return;
+    // (ruido: "Page entered Back-Forward Cache"). Hay que cerrar nosotros
+    // ANTES (pagehide/freeze), apagar reconnection, y reabrir en pageshow/resume.
+    const listSockets = (): Socket[] =>
+      [socketPagos.current, socketServer.current, socketCron.current].filter(
+        (s): s is Socket => Boolean(s),
+      );
+
+    const pauseSocketsForLifecycle = () => {
       setSocketPagosReady(false);
       setSocketServerReady(false);
       setSocketCronReady(false);
-      socketPagos.current?.disconnect();
-      socketServer.current?.disconnect();
-      socketCron.current?.disconnect();
+      for (const socket of listSockets()) {
+        try {
+          // Evita que socket.io reintente mientras la pestaña está congelada.
+          socket.io.reconnection(false);
+        } catch {
+          // ignore
+        }
+        if (socket.connected) {
+          socket.disconnect();
+        }
+        try {
+          socket.io.engine?.close();
+        } catch {
+          // ignore
+        }
+      }
     };
 
-    const handlePageShow = (event: PageTransitionEvent) => {
-      if (!event.persisted) return;
-      socketPagos.current?.connect();
-      socketServer.current?.connect();
-      socketCron.current?.connect();
+    const resumeSocketsFromLifecycle = () => {
+      for (const socket of listSockets()) {
+        try {
+          socket.io.reconnection(true);
+        } catch {
+          // ignore
+        }
+        if (!socket.connected) {
+          socket.connect();
+        }
+      }
+    };
+
+    const handlePageHide = () => {
+      pauseSocketsForLifecycle();
+    };
+
+    const handlePageShow = () => {
+      resumeSocketsFromLifecycle();
+    };
+
+    const handleFreeze = () => {
+      pauseSocketsForLifecycle();
+    };
+
+    const handleResume = () => {
+      resumeSocketsFromLifecycle();
     };
 
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("pageshow", handlePageShow);
+    // Page Lifecycle API (Chrome): cubre casos donde freeze ocurre sin pagehide claro.
+    window.addEventListener("freeze", handleFreeze);
+    window.addEventListener("resume", handleResume);
 
     return () => {
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("pageshow", handlePageShow);
+      window.removeEventListener("freeze", handleFreeze);
+      window.removeEventListener("resume", handleResume);
       setSocketPagosReady(false);
       setSocketServerReady(false);
       setSocketCronReady(false);
-      socketPagos.current?.disconnect();
-      socketServer.current?.disconnect();
-      socketCron.current?.disconnect();
+      for (const socket of listSockets()) {
+        try {
+          socket.io.reconnection(false);
+        } catch {
+          // ignore
+        }
+        socket.disconnect();
+      }
       socketPagos.current = null;
       socketServer.current = null;
       socketCron.current = null;
