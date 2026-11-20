@@ -341,6 +341,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     };
 
     const handlePageShow = () => {
+      if (document.visibilityState === "hidden") return;
       resumeSocketsFromLifecycle();
     };
 
@@ -349,20 +350,31 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     };
 
     const handleResume = () => {
+      if (document.visibilityState === "hidden") return;
       resumeSocketsFromLifecycle();
     };
 
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("pageshow", handlePageShow);
-    // Page Lifecycle API (Chrome): cubre casos donde freeze ocurre sin pagehide claro.
-    window.addEventListener("freeze", handleFreeze);
-    window.addEventListener("resume", handleResume);
+    // Tab en segundo plano / freeze: cerrar YA (capture corre antes que Chrome corte el WS).
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        pauseSocketsForLifecycle();
+      } else {
+        resumeSocketsFromLifecycle();
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide, true);
+    window.addEventListener("pageshow", handlePageShow, true);
+    window.addEventListener("freeze", handleFreeze, true);
+    window.addEventListener("resume", handleResume, true);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("pageshow", handlePageShow);
-      window.removeEventListener("freeze", handleFreeze);
-      window.removeEventListener("resume", handleResume);
+      window.removeEventListener("pagehide", handlePageHide, true);
+      window.removeEventListener("pageshow", handlePageShow, true);
+      window.removeEventListener("freeze", handleFreeze, true);
+      window.removeEventListener("resume", handleResume, true);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       setSocketPagosReady(false);
       setSocketServerReady(false);
       setSocketCronReady(false);
