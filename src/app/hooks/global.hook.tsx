@@ -242,11 +242,83 @@ export const GlobalProvider = ({ children }: { children: any }) => {
       if (socket.connected) markReady();
     }
 
-    return () => {
+    // Chrome mete la pestaña en Back-Forward Cache y corta los WS a la fuerza
+    // (ruido: "Page entered Back-Forward Cache"). Cerrar limpio en pagehide/freeze
+    // y reabrir en pageshow/resume.
+    const listSockets = (): Socket[] =>
+      [socketPagos.current, socketServer.current].filter(
+        (s): s is Socket => Boolean(s),
+      );
+
+    const pauseSocketsForLifecycle = () => {
       setSocketPagosReady(false);
       setSocketServerReady(false);
-      socketPagos.current?.disconnect();
-      socketServer.current?.disconnect();
+      for (const socket of listSockets()) {
+        try {
+          socket.io.reconnection(false);
+        } catch {
+          // ignore
+        }
+        if (socket.connected) {
+          socket.disconnect();
+        }
+        try {
+          socket.io.engine?.close();
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    const resumeSocketsFromLifecycle = () => {
+      for (const socket of listSockets()) {
+        try {
+          socket.io.reconnection(true);
+        } catch {
+          // ignore
+        }
+        if (!socket.connected) {
+          socket.connect();
+        }
+      }
+    };
+
+    const handlePageHide = () => {
+      pauseSocketsForLifecycle();
+    };
+
+    const handlePageShow = () => {
+      resumeSocketsFromLifecycle();
+    };
+
+    const handleFreeze = () => {
+      pauseSocketsForLifecycle();
+    };
+
+    const handleResume = () => {
+      resumeSocketsFromLifecycle();
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
+    window.addEventListener("freeze", handleFreeze);
+    window.addEventListener("resume", handleResume);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
+      window.removeEventListener("freeze", handleFreeze);
+      window.removeEventListener("resume", handleResume);
+      setSocketPagosReady(false);
+      setSocketServerReady(false);
+      for (const socket of listSockets()) {
+        try {
+          socket.io.reconnection(false);
+        } catch {
+          // ignore
+        }
+        socket.disconnect();
+      }
       socketPagos.current = null;
       socketServer.current = null;
     };
