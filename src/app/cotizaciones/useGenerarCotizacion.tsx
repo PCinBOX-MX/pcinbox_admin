@@ -567,99 +567,68 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     [overlayPending, setQueryParams],
   );
 
+  /** Aplica un carrito completo del server. No usar páginas parciales para borrar/agregar. */
   const applyCart = useCallback(
     (payload: CartPayload) => {
       const incoming = payload.data.map((line) => mapCartLine(line));
       const serverIds = incoming.map((line) => line.idProduct);
+      const serverIdSet = new Set(serverIds);
+
       if (!cartIsComplete(payload)) {
-        if (
-          orderedLines.current.length > 0 &&
-          orderedLines.current.length === payload.pagination.total
-        ) {
-          const byId = new Map(incoming.map((line) => [line.idProduct, line]));
-          const merged = orderedLines.current.map((line) => {
-            const next = byId.get(line.idProduct);
-            if (!next) return line;
-            const pending = pendingQty.current.get(line.idProduct);
-            return {
-              ...line,
-              ...next,
-              quantity: pending === undefined ? next.quantity : pending,
-            };
-          });
-          paintOrdered(merged, cartPageRef.current, {
-            totalAmount: payload.totalAmount,
-            importedQuotes: payload.importedQuotes,
-            total: payload.pagination.total,
-          });
-          return;
-        }
-        // Respuesta de una sola página: fusionar en orderedLines, no reemplazar el carrito.
+        // Página parcial: solo refresca datos de líneas conocidas / nuevas.
+        // NUNCA elimina por “no vino en esta página” (el orden local ≠ server).
         const byId = new Map(incoming.map((line) => [line.idProduct, line]));
-        const known = new Set(addedOrder.current);
-        const pinsOnPage = pendingPins.current.filter((id) =>
-          serverIds.includes(id),
-        );
-        pendingPins.current = pendingPins.current.filter(
-          (id) => !serverIds.includes(id),
-        );
-        for (const id of serverIds) {
-          if (!known.has(id) && !pinsOnPage.includes(id)) {
-            addedOrder.current.push(id);
-            known.add(id);
+        let nextLines =
+          orderedLines.current.length > 0
+            ? orderedLines.current.map((line) => {
+                const next = byId.get(line.idProduct);
+                if (!next) return line;
+                const pending = pendingQty.current.get(line.idProduct);
+                return {
+                  ...line,
+                  ...next,
+                  quantity: pending === undefined ? next.quantity : pending,
+                };
+              })
+            : incoming.slice();
+        for (const line of incoming) {
+          if (nextLines.some((item) => item.idProduct === line.idProduct)) continue;
+          const pending = pendingQty.current.get(line.idProduct);
+          nextLines.push({
+            ...line,
+            quantity: pending === undefined ? line.quantity : pending,
+          });
+          if (!addedOrder.current.includes(line.idProduct)) {
+            addedOrder.current.push(line.idProduct);
           }
-        }
-        for (const id of pinsOnPage) {
-          if (!addedOrder.current.includes(id)) addedOrder.current.push(id);
         }
         persistAddedOrder(addedOrder.current);
-
-        let mergedBase =
-          orderedLines.current.length > 0
-            ? orderedLines.current
-            : incoming;
-        if (orderedLines.current.length > 0) {
-          mergedBase = orderedLines.current.map((line) => {
-            const next = byId.get(line.idProduct);
-            if (!next) return line;
-            const pending = pendingQty.current.get(line.idProduct);
-            return {
-              ...line,
-              ...next,
-              quantity: pending === undefined ? next.quantity : pending,
-            };
-          });
-          for (const line of incoming) {
-            if (!mergedBase.some((item) => item.idProduct === line.idProduct)) {
-              mergedBase = [...mergedBase, line];
-            }
-          }
-        }
-
-        paintOrdered(mergedBase, payload.pagination.page, {
+        const total = Number(payload.pagination?.total);
+        paintOrdered(nextLines, payload.pagination.page, {
           totalAmount: payload.totalAmount,
           importedQuotes: payload.importedQuotes,
-          total: payload.pagination.total,
+          total:
+            Number.isFinite(total) && total >= nextLines.length
+              ? total
+              : Math.max(nextLines.length, Number.isFinite(total) ? total : 0),
         });
         return;
       }
 
-      const pins = pendingPins.current;
+      // Completo: replace duro desde el server (única fuente de verdad estructural).
+      const pins = pendingPins.current.filter((id) => serverIdSet.has(id));
       pendingPins.current = [];
-      const previous = addedOrder.current.slice();
-      const newPins = pins.filter(
-        (id) => serverIds.includes(id) && !previous.includes(id),
-      );
       const nextOrder = reconcileAddedOrder(
         addedOrder.current,
         serverIds,
-        newPins,
+        pins,
       );
       addedOrder.current = nextOrder;
       persistAddedOrder(nextOrder);
-      const lastPin = [...newPins]
-        .reverse()
-        .find((id) => serverIds.includes(id));
+      for (const id of [...pendingQty.current.keys()]) {
+        if (!serverIdSet.has(id)) pendingQty.current.delete(id);
+      }
+      const lastPin = [...pins].reverse().find((id) => serverIdSet.has(id));
       const orderedPreview = sortByAddedOrder(incoming, nextOrder);
       const placed =
         lastPin == null
@@ -675,7 +644,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         total: payload.pagination.total,
       });
     },
-    [overlayPending, paintOrdered, setQueryParams],
+    [paintOrdered],
   );
 
   const readCart = useCallback(
@@ -692,6 +661,14 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     },
     [requestGet],
   );
+
+  /** Siempre lee el carrito completo y lo aplica (evita enredos al borrar/agregar). */
+  const syncFullCart = useCallback(async () => {
+    const payload = await readCart(1, true);
+    orderedLines.current = [];
+    applyCart(payload);
+    return payload;
+  }, [applyCart, readCart]);
 
   const loadPreviewLines = useCallback(async (): Promise<QuotePdfLine[]> => {
     const toPdf = (line: QuoteDraftLine): QuotePdfLine => {
@@ -809,12 +786,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         .then(async (response) => {
           const body = response.data as { changed?: boolean };
           if (body?.changed === false) return;
-          let payload = asCartPayload(response.data);
-          if (!payload) return;
-          if (!cartIsComplete(payload)) {
-            payload = await readCart(1, true);
-          }
-          applyCart(payload);
+          await syncFullCart();
         })
         .catch(() => undefined);
     };
@@ -823,7 +795,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     return () => {
       cronSocket.off("updatedStockCron", onCronUpdate);
     };
-  }, [applyCart, readCart, requestPost, showLocalCart, socketCron, socketCronReady]);
+  }, [requestPost, showLocalCart, socketCron, socketCronReady, syncFullCart]);
 
   useEffect(() => {
     addedOrder.current = readStoredAddedOrder();
@@ -1002,8 +974,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           { silent: true },
         );
         if (!asCartPayload(response.data)) throw new Error("cart");
-        // Siempre refrescar carrito completo: el POST solo trae una página.
-        applyCart(await readCart(1, true));
+        await syncFullCart();
       } catch (requestError) {
         pendingPins.current = pendingPins.current.filter(
           (id) => id !== product.idProduct,
@@ -1011,7 +982,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         setError(errorText(requestError, "No se pudo agregar el producto."));
       }
     },
-    [applyCart, readCart, requestPost, showLocalCart],
+    [requestPost, showLocalCart, syncFullCart],
   );
 
   const addManualProduct = useCallback(
@@ -1097,7 +1068,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           { silent: true },
         );
         if (!asCartPayload(response.data)) throw new Error("cart");
-        applyCart(await readCart(1, true));
+        await syncFullCart();
         return true;
       } catch (requestError) {
         pendingPins.current = pendingPins.current.filter((id) => id !== idProduct);
@@ -1105,7 +1076,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         return false;
       }
     },
-    [applyCart, readCart, requestPost, showLocalCart],
+    [requestPost, showLocalCart, syncFullCart],
   );
 
   const setQuantity = useCallback(
@@ -1157,12 +1128,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
             if (pendingQty.current.get(idProduct) === value) {
               pendingQty.current.delete(idProduct);
             }
-            let payload = asCartPayload(response.data);
-            if (!payload) return;
-            if (!cartIsComplete(payload)) {
-              payload = await readCart(1, true);
-            }
-            applyCart(payload);
+            if (!asCartPayload(response.data)) return;
+            await syncFullCart();
           })
           .catch((requestError) => {
             if (qtyEpoch.current.get(idProduct) !== ticket) return;
@@ -1171,7 +1138,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       }, 400);
       qtyTimers.current.set(idProduct, timer);
     },
-    [applyCart, readCart, requestPost, showLocalCart],
+    [requestPost, showLocalCart, syncFullCart],
   );
 
   const lineOrderSource = useCallback(() => {
@@ -1270,21 +1237,51 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         );
         return;
       }
+      // UI optimista solo de esa línea; el sync completo confirma el resto.
+      const prevOrder = addedOrder.current.slice();
+      const prevLines = orderedLines.current.slice();
+      const prevPins = pendingPins.current.slice();
+      addedOrder.current = addedOrder.current.filter((id) => id !== idProduct);
+      orderedLines.current = orderedLines.current.filter(
+        (line) => line.idProduct !== idProduct,
+      );
+      pendingPins.current = pendingPins.current.filter((id) => id !== idProduct);
+      pendingQty.current.delete(idProduct);
+      persistAddedOrder(addedOrder.current);
+      paintOrdered(orderedLines.current, cartPageRef.current, {
+        totalAmount: orderedLines.current.reduce(
+          (sum, line) =>
+            sum +
+            Number(line.price || 0) *
+              (line.quantity === "" ? 0 : Number(line.quantity) || 0),
+          0,
+        ),
+        importedQuotes: importedQuotes.slice(),
+        total: orderedLines.current.length,
+      });
       void requestDelete(
-        `/cotizaciones/admin/cart/lines/${idProduct}?page=${cartPageRef.current}`,
+        `/cotizaciones/admin/cart/lines/${idProduct}`,
         { silent: true },
       )
-        .then(async (response) => {
-          let payload = asCartPayload(response.data);
-          if (!payload) return;
-          if (!cartIsComplete(payload)) payload = await readCart(1, true);
-          applyCart(payload);
+        .then(async () => {
+          await syncFullCart();
         })
         .catch((requestError) => {
+          addedOrder.current = prevOrder;
+          orderedLines.current = prevLines;
+          pendingPins.current = prevPins;
+          persistAddedOrder(prevOrder);
           setError(errorText(requestError, "No se pudo quitar el producto."));
+          void syncFullCart().catch(() => undefined);
         });
     },
-    [applyCart, readCart, requestDelete, showLocalCart],
+    [
+      importedQuotes,
+      paintOrdered,
+      requestDelete,
+      showLocalCart,
+      syncFullCart,
+    ],
   );
 
   const goToCartPage = useCallback(
@@ -1464,10 +1461,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
             .map((line) => line.idProduct)
             .filter((id) => !known.has(id));
         }
-        let payload = asCartPayload(merged.data);
-        if (!payload) throw new Error("cart");
-        if (!cartIsComplete(payload)) payload = await readCart(1, true);
-        applyCart(payload);
+        if (!asCartPayload(merged.data)) throw new Error("cart");
+        await syncFullCart();
       }
       const phone = String(imported.customerPhone || "").trim();
       const match = phone.match(/^(\+\d{1,3})\s+(\d+)$/);
@@ -1578,7 +1573,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     } finally {
       setImporting(false);
     }
-  }, [applyCart, importNumber, readCart, requestGet, requestPost, showLocalCart]);
+  }, [importNumber, requestGet, requestPost, showLocalCart, syncFullCart]);
 
   const clearImportedQuoteFormExtras = useCallback(() => {
     setCustomerName("");
@@ -1639,43 +1634,17 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         );
         showLocalCart(next, cartPageRef.current);
       } else {
-        // Siempre recargar carrito completo tras unlink: evita que applyCart
-        // mergeé páginas parciales y deje productos de la cotización.
-        let payload =
-          (await readCart(1, true).catch(() => null)) ||
-          asCartPayload(response.data);
-        if (!payload) throw new Error("cart");
-        // Quitar del orden local los productos desvinculados antes de pintar.
         if (productIds.size > 0) {
           addedOrder.current = addedOrder.current.filter(
             (id) => !productIds.has(id),
           );
-          persistAddedOrder(addedOrder.current);
-          orderedLines.current = orderedLines.current.filter(
-            (line) => !productIds.has(line.idProduct),
-          );
           pendingPins.current = pendingPins.current.filter(
             (id) => !productIds.has(id),
           );
-          if (cartIsComplete(payload)) {
-            const data = payload.data.filter(
-              (line) => !productIds.has(Number(line.idProduct)),
-            );
-            payload = {
-              ...payload,
-              data,
-              pagination: {
-                ...payload.pagination,
-                total: data.length,
-                totalPages: Math.max(
-                  1,
-                  Math.ceil(data.length / Math.max(1, payload.pagination.limit || 4)),
-                ),
-              },
-            };
-          }
+          for (const id of productIds) pendingQty.current.delete(id);
+          persistAddedOrder(addedOrder.current);
         }
-        applyCart(payload);
+        await syncFullCart();
         if (Array.isArray(body.importedQuotes)) {
           setImportedQuotes(
             body.importedQuotes
@@ -1698,7 +1667,12 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         folio: body.quoteNumber || quoteNumber,
       };
     },
-    [applyCart, clearImportedQuoteFormExtras, readCart, requestPost, showLocalCart],
+    [
+      clearImportedQuoteFormExtras,
+      requestPost,
+      showLocalCart,
+      syncFullCart,
+    ],
   );
 
   const startUnlink = useCallback(() => {
@@ -1834,16 +1808,15 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           return;
         }
         void requestDelete("/cotizaciones/admin/cart", { silent: true })
-          .then((response) => {
-            const payload = asCartPayload(response.data);
-            if (payload) applyCart(payload);
+          .then(async () => {
+            await syncFullCart();
           })
           .catch((requestError) => {
             setError(errorText(requestError, "No se pudo vaciar el carrito."));
           });
       },
     });
-  }, [applyCart, cartTotalCount, requestDelete, setDataModal, showLocalCart]);
+  }, [cartTotalCount, requestDelete, setDataModal, showLocalCart, syncFullCart]);
 
   const submitQuote = useCallback(
     async (
