@@ -426,7 +426,10 @@ function reconcileAddedOrder(
 }
 
 function cartIsComplete(payload: CartPayload): boolean {
-  const total = Number(payload.pagination?.total) || 0;
+  const total = Number(payload.pagination?.total);
+  // Si total falta/NaN, NO asumir carrito completo (evita que 1 línea borre el resto).
+  if (!Number.isFinite(total) || total < 0) return false;
+  if (total === 0) return payload.data.length === 0;
   return payload.data.length >= total;
 }
 
@@ -591,6 +594,8 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           });
           return;
         }
+        // Respuesta de una sola página: fusionar en orderedLines, no reemplazar el carrito.
+        const byId = new Map(incoming.map((line) => [line.idProduct, line]));
         const known = new Set(addedOrder.current);
         const pinsOnPage = pendingPins.current.filter((id) =>
           serverIds.includes(id),
@@ -608,18 +613,34 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           if (!addedOrder.current.includes(id)) addedOrder.current.push(id);
         }
         persistAddedOrder(addedOrder.current);
-        setLines(overlayPending(sortByAddedOrder(incoming, addedOrder.current)));
-        cartPageRef.current = payload.pagination.page;
-        setCartPage(payload.pagination.page);
-        setCartTotalCount(payload.pagination.total);
-        setCartTotalPages(payload.pagination.totalPages);
-        if (pendingQty.current.size === 0) setCartAmount(payload.totalAmount);
-        setImportedQuotes(payload.importedQuotes);
-        setQueryParams({
-          cartPage:
-            payload.pagination.page <= 1 ? null : payload.pagination.page,
+
+        let mergedBase =
+          orderedLines.current.length > 0
+            ? orderedLines.current
+            : incoming;
+        if (orderedLines.current.length > 0) {
+          mergedBase = orderedLines.current.map((line) => {
+            const next = byId.get(line.idProduct);
+            if (!next) return line;
+            const pending = pendingQty.current.get(line.idProduct);
+            return {
+              ...line,
+              ...next,
+              quantity: pending === undefined ? next.quantity : pending,
+            };
+          });
+          for (const line of incoming) {
+            if (!mergedBase.some((item) => item.idProduct === line.idProduct)) {
+              mergedBase = [...mergedBase, line];
+            }
+          }
+        }
+
+        paintOrdered(mergedBase, payload.pagination.page, {
+          totalAmount: payload.totalAmount,
+          importedQuotes: payload.importedQuotes,
+          total: payload.pagination.total,
         });
-        rememberCartPage(payload.pagination.page);
         return;
       }
 
@@ -785,11 +806,15 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         "/cotizaciones/admin/cart/live",
         { silent: true },
       )
-        .then((response) => {
+        .then(async (response) => {
           const body = response.data as { changed?: boolean };
           if (body?.changed === false) return;
-          const payload = asCartPayload(response.data);
-          if (payload) applyCart(payload);
+          let payload = asCartPayload(response.data);
+          if (!payload) return;
+          if (!cartIsComplete(payload)) {
+            payload = await readCart(1, true);
+          }
+          applyCart(payload);
         })
         .catch(() => undefined);
     };
@@ -798,7 +823,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
     return () => {
       cronSocket.off("updatedStockCron", onCronUpdate);
     };
-  }, [applyCart, requestPost, showLocalCart, socketCron, socketCronReady]);
+  }, [applyCart, readCart, requestPost, showLocalCart, socketCron, socketCronReady]);
 
   useEffect(() => {
     addedOrder.current = readStoredAddedOrder();
@@ -968,16 +993,17 @@ export default function useGenerarCotizacion(onCreated: () => void) {
         const alreadyThere =
           addedOrder.current.includes(product.idProduct) ||
           orderedLines.current.some((line) => line.idProduct === product.idProduct);
-        if (!alreadyThere) pendingPins.current = [product.idProduct];
+        if (!alreadyThere && !pendingPins.current.includes(product.idProduct)) {
+          pendingPins.current = [...pendingPins.current, product.idProduct];
+        }
         const response = await requestPost(
           product,
           "/cotizaciones/admin/cart/lines",
           { silent: true },
         );
-        let payload = asCartPayload(response.data);
-        if (!payload) throw new Error("cart");
-        if (!cartIsComplete(payload)) payload = await readCart(1, true);
-        applyCart(payload);
+        if (!asCartPayload(response.data)) throw new Error("cart");
+        // Siempre refrescar carrito completo: el POST solo trae una página.
+        applyCart(await readCart(1, true));
       } catch (requestError) {
         pendingPins.current = pendingPins.current.filter(
           (id) => id !== product.idProduct,
@@ -1062,16 +1088,16 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       }
 
       try {
-        pendingPins.current = [idProduct];
+        if (!pendingPins.current.includes(idProduct)) {
+          pendingPins.current = [...pendingPins.current, idProduct];
+        }
         const response = await requestPost(
           { ...product, quantity },
           "/cotizaciones/admin/cart/lines",
           { silent: true },
         );
-        let payload = asCartPayload(response.data);
-        if (!payload) throw new Error("cart");
-        if (!cartIsComplete(payload)) payload = await readCart(1, true);
-        applyCart(payload);
+        if (!asCartPayload(response.data)) throw new Error("cart");
+        applyCart(await readCart(1, true));
         return true;
       } catch (requestError) {
         pendingPins.current = pendingPins.current.filter((id) => id !== idProduct);
@@ -1126,13 +1152,17 @@ export default function useGenerarCotizacion(onCreated: () => void) {
           "/cotizaciones/admin/cart/lines/quantity",
           { silent: true },
         )
-          .then((response) => {
+          .then(async (response) => {
             if (qtyEpoch.current.get(idProduct) !== ticket) return;
             if (pendingQty.current.get(idProduct) === value) {
               pendingQty.current.delete(idProduct);
             }
-            const payload = asCartPayload(response.data);
-            if (payload) applyCart(payload);
+            let payload = asCartPayload(response.data);
+            if (!payload) return;
+            if (!cartIsComplete(payload)) {
+              payload = await readCart(1, true);
+            }
+            applyCart(payload);
           })
           .catch((requestError) => {
             if (qtyEpoch.current.get(idProduct) !== ticket) return;
@@ -1141,7 +1171,7 @@ export default function useGenerarCotizacion(onCreated: () => void) {
       }, 400);
       qtyTimers.current.set(idProduct, timer);
     },
-    [applyCart, requestPost, showLocalCart],
+    [applyCart, readCart, requestPost, showLocalCart],
   );
 
   const lineOrderSource = useCallback(() => {
