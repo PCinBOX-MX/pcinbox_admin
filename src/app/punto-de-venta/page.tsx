@@ -3721,8 +3721,8 @@ export default function PuntoDeVentaPage() {
                     Garantías
                   </h2>
                   <p>
-                    Ventas con número de serie: consulta e imprime la hoja de
-                    garantía.
+                    Ventas con número de serie: busca por folio, cliente o
+                    serie e imprime la hoja de garantía.
                   </p>
                 </div>
                 {!pos.warrantiesLoading && pos.warrantiesTotal > 0 ? (
@@ -3750,6 +3750,16 @@ export default function PuntoDeVentaPage() {
                   value={pos.warrantyFolio}
                   onChange={(e) => pos.setWarrantyFolio(e.target.value)}
                   sx={{ ...fieldSx, minWidth: 150, flex: "1 1 140px" }}
+                />
+                <TextField
+                  size="small"
+                  label="Nº serie"
+                  placeholder="Mín. 3 caracteres"
+                  helperText="Guiones y espacios no importan"
+                  FormHelperTextProps={{ sx: { m: 0, mt: 0.5 } }}
+                  value={pos.warrantySerial}
+                  onChange={(e) => pos.setWarrantySerial(e.target.value)}
+                  sx={{ ...fieldSx, minWidth: 180, flex: "1 1 180px" }}
                 />
                 <TextField
                   size="small"
