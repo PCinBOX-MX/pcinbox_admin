@@ -260,6 +260,24 @@ function formatTicketFolio(folio: string | null | undefined): string {
   return formatPosFolio(folio);
 }
 
+/** Folio de origen (venta cobrada tras importar). */
+function resolveSaleSourceFolio(sale: PosSale): string | null {
+  const direct = String(sale.sourceFolio || "").trim();
+  if (direct) return direct;
+  for (const event of sale.events || []) {
+    if (event.eventType && event.eventType !== "created") continue;
+    const payload =
+      event.payload && typeof event.payload === "object"
+        ? (event.payload as Record<string, unknown>)
+        : null;
+    const raw = payload?.sourceFolio;
+    if (raw == null) continue;
+    const value = String(raw).trim();
+    if (value) return value;
+  }
+  return null;
+}
+
 export function buildEscPosTicket(
   sale: PosSale,
   opts?: {
@@ -278,6 +296,7 @@ export function buildEscPosTicket(
     (s, it) => s + Number(it.quantity || 0),
     0,
   );
+  const compactLines = Boolean(resolveSaleSourceFolio(sale));
 
   parts.push(ESC + "@"); // init
   parts.push(LF + LF + LF);
@@ -352,26 +371,32 @@ export function buildEscPosTicket(
     for (const w of wrapProductName(thermalText(title), width)) {
       parts.push(w + LF);
     }
-    if (isMeaningfulCode(it.productSku)) {
-      parts.push(`Clave: ${thermalText(it.productSku)}` + LF);
-    }
-    if (isMeaningfulCode(it.productUpc)) {
-      parts.push(`UPC: ${thermalText(it.productUpc)}` + LF);
-    }
-    const bodega = itemBodegaLabel(it, sale);
-    if (bodega) {
-      parts.push(`Bodega: ${bodega}` + LF);
+    if (!compactLines) {
+      if (isMeaningfulCode(it.productSku)) {
+        parts.push(`Clave: ${thermalText(it.productSku)}` + LF);
+      }
+      if (isMeaningfulCode(it.productUpc)) {
+        parts.push(`UPC: ${thermalText(it.productUpc)}` + LF);
+      }
+      const bodega = itemBodegaLabel(it, sale);
+      if (bodega) {
+        parts.push(`Bodega: ${bodega}` + LF);
+      }
     }
     const qty = Number(it.quantity) || 0;
     const unit = Number(it.unitPrice) || 0;
     const lineTotal = Number(it.lineTotal) || 0;
-    if (qty > 1) {
+    if (compactLines) {
+      parts.push(`Cantidad: ${qty || 1}` + LF);
+    } else if (qty > 1) {
       parts.push(`Cant: ${qty} x ${money(unit)}` + LF);
     } else {
       parts.push(`Cantidad: ${qty || 1}` + LF);
     }
-    // Un solo importe por línea (evita repetir el mismo precio 2–3 veces).
-    parts.push(line(width, "Importe:", money(lineTotal)) + LF);
+    if (!compactLines) {
+      // Un solo importe por línea (evita repetir el mismo precio 2–3 veces).
+      parts.push(line(width, "Importe:", money(lineTotal)) + LF);
+    }
     if (it.serials?.length) {
       for (const w of wrapNote(
         `S/N: ${thermalText(it.serials.map((s) => s.serialNumber).join(", "))}`,
@@ -384,9 +409,9 @@ export function buildEscPosTicket(
     if (intake?.equipment?.length) {
       parts.push(centerDashed("EQUIPO / COMPONENTE", width) + LF);
       for (const eq of intake.equipment) {
-        const qty = Number(eq.quantity) || 1;
+        const eqQty = Number(eq.quantity) || 1;
         const desc = thermalText(eq.description || "");
-        for (const w of wrapNote(`${qty}x ${desc}`, width)) {
+        for (const w of wrapNote(`${eqQty}x ${desc}`, width)) {
           parts.push(w + LF);
         }
         if (eq.serialNumber) {
@@ -398,20 +423,22 @@ export function buildEscPosTicket(
           }
         }
       }
-      const failure = String(intake.failureOrRequestedService || "").trim();
-      if (failure) {
-        parts.push("Falla/Servicio:" + LF);
-        for (const w of wrapNote(thermalText(failure), width)) {
-          parts.push(w + LF);
+      if (!compactLines) {
+        const failure = String(intake.failureOrRequestedService || "").trim();
+        if (failure) {
+          parts.push("Falla/Servicio:" + LF);
+          for (const w of wrapNote(thermalText(failure), width)) {
+            parts.push(w + LF);
+          }
         }
-      }
-      const obs = String(
-        intake.technicalObservationsOnReceipt || "",
-      ).trim();
-      if (obs) {
-        parts.push("Obs. tecnicas:" + LF);
-        for (const w of wrapNote(thermalText(obs), width)) {
-          parts.push(w + LF);
+        const obs = String(
+          intake.technicalObservationsOnReceipt || "",
+        ).trim();
+        if (obs) {
+          parts.push("Obs. tecnicas:" + LF);
+          for (const w of wrapNote(thermalText(obs), width)) {
+            parts.push(w + LF);
+          }
         }
       }
     }

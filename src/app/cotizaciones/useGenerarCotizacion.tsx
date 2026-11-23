@@ -53,6 +53,8 @@ export type QuoteCatalogProduct = {
   stocksByBranch?: QuoteBranchStock[];
   kind?: string | null;
   manual?: boolean;
+  warrantyMonths?: number | null;
+  warrantyMode?: string | null;
 };
 
 export type QuoteDraftLine = QuoteCatalogProduct & { quantity: number | "" };

@@ -85,6 +85,48 @@ function paymentDetailIcon(method: string) {
   return CircleDollarSign;
 }
 
+/** Etiqueta de garantía para UI (detalle / meta del carrito). */
+function saleItemWarrantyLabel(item: {
+  warrantyMode?: string | null;
+  warrantyMonths?: number | null;
+  serials?: Array<{
+    warrantyMode?: string | null;
+    warrantyMonths?: number | null;
+  }>;
+}): string | null {
+  const mode = String(item.warrantyMode || "").trim();
+  const months =
+    item.warrantyMonths != null && Number(item.warrantyMonths) > 0
+      ? Number(item.warrantyMonths)
+      : null;
+  if (mode || months != null) {
+    return warrantyCoverageLabel(mode || null, months);
+  }
+  const fromSerial = (item.serials || []).find(
+    (s) =>
+      String(s.warrantyMode || "").trim() ||
+      (s.warrantyMonths != null && Number(s.warrantyMonths) > 0),
+  );
+  if (!fromSerial) return null;
+  return warrantyCoverageLabel(
+    fromSerial.warrantyMode,
+    fromSerial.warrantyMonths,
+  );
+}
+
+function cartLineWarrantyLabel(line: {
+  warrantyMode?: string | null;
+  warrantyMonths?: number | null;
+}): string | null {
+  const mode = String(line.warrantyMode || "").trim();
+  const months =
+    line.warrantyMonths != null && Number(line.warrantyMonths) > 0
+      ? Number(line.warrantyMonths)
+      : null;
+  if (!mode && months == null) return null;
+  return warrantyCoverageLabel(mode || null, months);
+}
+
 function paymentDetailNote(method: string, reference: string | null) {
   const raw = String(reference || "").trim();
   if (!raw) return "";
@@ -2374,6 +2416,10 @@ export default function PuntoDeVentaPage() {
                                         })
                                       : "PCinBOX-León"
                                   }`,
+                                (() => {
+                                  const w = cartLineWarrantyLabel(line);
+                                  return w ? `Garantía: ${w}` : null;
+                                })(),
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
@@ -4559,6 +4605,14 @@ export default function PuntoDeVentaPage() {
                                 Bodega: {clipText(branchShown, 36)}
                               </span>
                             ) : null}
+                            {(() => {
+                              const coverage = saleItemWarrantyLabel(it);
+                              return coverage ? (
+                                <span title={`Garantía: ${coverage}`}>
+                                  Garantía: {coverage}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                           {it.serials && it.serials.length > 0 ? (
                             <div className={styles.detailSerialList}>
@@ -4567,6 +4621,14 @@ export default function PuntoDeVentaPage() {
                                 const sn = /^POS-W-\d+-\d+-\d+$/i.test(snRaw)
                                   ? ""
                                   : snRaw;
+                                const coverage = warrantyCoverageLabel(
+                                  s.warrantyMode,
+                                  s.warrantyMonths,
+                                );
+                                const hasCoverage =
+                                  Boolean(String(s.warrantyMode || "").trim()) ||
+                                  (s.warrantyMonths != null &&
+                                    Number(s.warrantyMonths) > 0);
                                 return (
                                   <div
                                     key={s.idProductSerial}
@@ -4575,6 +4637,17 @@ export default function PuntoDeVentaPage() {
                                     <strong title={sn ? `Serie: ${sn}` : undefined}>
                                       Serie: {clipText(sn, 40) || "—"}
                                     </strong>
+                                    {hasCoverage ? (
+                                      <span>Cobertura: {coverage}</span>
+                                    ) : null}
+                                    {s.warrantyExpiresAt ? (
+                                      <span>
+                                        Garantía hasta:{" "}
+                                        {new Date(
+                                          s.warrantyExpiresAt,
+                                        ).toLocaleDateString("es-MX")}
+                                      </span>
+                                    ) : null}
                                   </div>
                                 );
                               })}
