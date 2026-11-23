@@ -1495,6 +1495,9 @@ export default function usePos() {
   const [warrantySaleId, setWarrantySaleId] = useState(
     () => searchParams.get("wSaleId") || "",
   );
+  const [warrantySerial, setWarrantySerial] = useState(
+    () => searchParams.get("wSerial") || "",
+  );
   const [warrantyFrom, setWarrantyFrom] = useState(
     () => searchParams.get("wFrom") || "",
   );
@@ -5822,6 +5825,7 @@ export default function usePos() {
         folio?: string;
         customer?: string;
         saleId?: string;
+        serial?: string;
         from?: string;
         to?: string;
       },
@@ -5831,6 +5835,10 @@ export default function usePos() {
         const folio = (overrides?.folio ?? warrantyFolio).trim();
         const customer = (overrides?.customer ?? warrantyCustomer).trim();
         const saleId = (overrides?.saleId ?? warrantySaleId).trim();
+        const serial = (overrides?.serial ?? warrantySerial).trim();
+        // No consultar por serie con 1–2 chars: evita ruido y carga inútil.
+        const serialQuery =
+          serial.replace(/[^a-zA-Z0-9]/g, "").length >= 3 ? serial : "";
         const fromDay = overrides?.from ?? warrantyFrom;
         const toDay = overrides?.to ?? warrantyTo;
 
@@ -5844,6 +5852,7 @@ export default function usePos() {
         if (folio) params.set("folio", folio);
         if (customer) params.set("customerName", customer);
         if (saleId) params.set("saleId", saleId.replace(/^#/, ""));
+        if (serialQuery) params.set("serial", serialQuery);
         if (fromDay) {
           const start = new Date(`${fromDay}T00:00:00`);
           if (!Number.isNaN(start.getTime())) {
@@ -5874,6 +5883,7 @@ export default function usePos() {
       warrantyFolio,
       warrantyCustomer,
       warrantySaleId,
+      warrantySerial,
       warrantyFrom,
       warrantyTo,
       requestGet,
@@ -5891,6 +5901,7 @@ export default function usePos() {
     folio: warrantyFolio,
     customer: warrantyCustomer,
     saleId: warrantySaleId,
+    serial: warrantySerial,
     from: warrantyFrom,
     to: warrantyTo,
   });
@@ -5898,6 +5909,7 @@ export default function usePos() {
     folio: warrantyFolio,
     customer: warrantyCustomer,
     saleId: warrantySaleId,
+    serial: warrantySerial,
     from: warrantyFrom,
     to: warrantyTo,
   };
@@ -5907,11 +5919,13 @@ export default function usePos() {
   const warrantyFilterFetchKey = useCallback(
     (page: number) => {
       const f = warrantyFiltersRef.current;
+      const serialNorm = f.serial.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
       return [
         page,
         f.folio.trim(),
         f.customer.trim(),
         f.saleId.trim(),
+        serialNorm.length >= 3 ? serialNorm : "",
         f.from,
         f.to,
         branchId ?? "",
@@ -5925,6 +5939,7 @@ export default function usePos() {
     const folio = warrantyFiltersRef.current.folio.trim();
     const customer = warrantyFiltersRef.current.customer.trim();
     const saleId = warrantyFiltersRef.current.saleId.trim();
+    const serial = warrantyFiltersRef.current.serial.trim();
     const from = warrantyFiltersRef.current.from;
     const to = warrantyFiltersRef.current.to;
     const sp = warrantySearchParamsRef.current;
@@ -5932,6 +5947,7 @@ export default function usePos() {
       folio === (sp.get("wFolio") || "") &&
       customer === (sp.get("wCustomer") || "") &&
       saleId === (sp.get("wSaleId") || "") &&
+      serial === (sp.get("wSerial") || "") &&
       from === (sp.get("wFrom") || "") &&
       to === (sp.get("wTo") || "")
     ) {
@@ -5943,6 +5959,7 @@ export default function usePos() {
       wFolio: folio || null,
       wCustomer: customer || null,
       wSaleId: saleId || null,
+      wSerial: serial || null,
       wFrom: from || null,
       wTo: to || null,
     });
@@ -5954,6 +5971,7 @@ export default function usePos() {
       const folio = warrantyFiltersRef.current.folio.trim();
       const customer = warrantyFiltersRef.current.customer.trim();
       const saleId = warrantyFiltersRef.current.saleId.trim();
+      const serial = warrantyFiltersRef.current.serial.trim();
       const from = warrantyFiltersRef.current.from;
       const to = warrantyFiltersRef.current.to;
       const key = warrantyFilterFetchKey(page);
@@ -5963,6 +5981,7 @@ export default function usePos() {
         folio,
         customer,
         saleId,
+        serial,
         from,
         to,
       });
@@ -5989,12 +6008,14 @@ export default function usePos() {
       folio: "",
       customer: "",
       saleId: "",
+      serial: "",
       from: "",
       to: "",
     };
     setWarrantyFolio("");
     setWarrantyCustomer("");
     setWarrantySaleId("");
+    setWarrantySerial("");
     setWarrantyFrom("");
     setWarrantyTo("");
     warrantySelfSyncRef.current = true;
@@ -6004,6 +6025,7 @@ export default function usePos() {
       wFolio: null,
       wCustomer: null,
       wSaleId: null,
+      wSerial: null,
       wFrom: null,
       wTo: null,
     });
@@ -6011,6 +6033,7 @@ export default function usePos() {
       folio: "",
       customer: "",
       saleId: "",
+      serial: "",
       from: "",
       to: "",
     });
@@ -6031,6 +6054,7 @@ export default function usePos() {
     searchParams.get("wFolio"),
     searchParams.get("wCustomer"),
     searchParams.get("wSaleId"),
+    searchParams.get("wSerial"),
     searchParams.get("wFrom"),
     searchParams.get("wTo"),
   ].join("|");
@@ -6045,11 +6069,13 @@ export default function usePos() {
     const folio = searchParams.get("wFolio") || "";
     const customer = searchParams.get("wCustomer") || "";
     const saleId = searchParams.get("wSaleId") || "";
+    const serial = searchParams.get("wSerial") || "";
     const from = searchParams.get("wFrom") || "";
     const to = searchParams.get("wTo") || "";
     setWarrantyFolio(folio);
     setWarrantyCustomer(customer);
     setWarrantySaleId(saleId);
+    setWarrantySerial(serial);
     setWarrantyFrom(from);
     setWarrantyTo(to);
     warrantyLastFetchKeyRef.current = [
@@ -6057,6 +6083,7 @@ export default function usePos() {
       folio,
       customer,
       saleId,
+      serial,
       from,
       to,
       branchId ?? "",
@@ -6065,6 +6092,7 @@ export default function usePos() {
       folio,
       customer,
       saleId,
+      serial,
       from,
       to,
     });
@@ -6096,6 +6124,7 @@ export default function usePos() {
     warrantyFolio,
     warrantyCustomer,
     warrantySaleId,
+    warrantySerial,
     persistWarrantyFiltersUrl,
     fetchWarrantiesWithLocalFilters,
   ]);
@@ -7098,6 +7127,8 @@ export default function usePos() {
     setWarrantyCustomer,
     warrantySaleId,
     setWarrantySaleId,
+    warrantySerial,
+    setWarrantySerial,
     warrantyFrom,
     setWarrantyFrom,
     warrantyTo,

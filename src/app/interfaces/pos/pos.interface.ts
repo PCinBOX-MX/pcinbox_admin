@@ -330,6 +330,8 @@ export type PosSale = {
   idLinkPago?: number | null;
   cashSessionId?: number | null;
   quoteNumber?: string | null;
+  /** Folio importado al cobrar; ticket compacto (nombre/cantidad/serie). */
+  sourceFolio?: string | null;
   /** Domicilios de la venta. El primero también queda en deliveryAddress. */
   deliveryAddresses?: Array<{
     street: string;
@@ -372,6 +374,8 @@ export type PosSale = {
     unitPrice: number;
     discountPct: number;
     lineTotal: number;
+    warrantyMonths?: number | null;
+    warrantyMode?: string | null;
     serials?: Array<{
       idProductSerial: number;
       serialNumber: string;

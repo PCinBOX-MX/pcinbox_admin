@@ -11,11 +11,25 @@ import QuotePdfPreview from "./QuotePdfPreview";
 import { QuoteLiveCost } from "./QuoteCostPanel";
 import PosNumberField from "../punto-de-venta/PosNumberField";
 import PosDeliveryAddress from "../punto-de-venta/PosDeliveryAddress";
+import { warrantyCoverageLabel } from "../punto-de-venta/posWarranty";
 import useGenerarCotizacion, {
   QUOTE_LADA_OPTIONS,
 } from "./useGenerarCotizacion";
 import { QuoteDetailLevel } from "./pdf/CotizacionPdf";
 import { MANUAL_PRODUCT_IMAGE } from "./pdf/manualProductImage";
+
+function quoteLineWarrantyLabel(line: {
+  warrantyMode?: string | null;
+  warrantyMonths?: number | null;
+}): string | null {
+  const mode = String(line.warrantyMode || "").trim();
+  const months =
+    line.warrantyMonths != null && Number(line.warrantyMonths) > 0
+      ? Number(line.warrantyMonths)
+      : null;
+  if (!mode && months == null) return null;
+  return warrantyCoverageLabel(mode || null, months);
+}
 
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -603,7 +617,9 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
             }}
             data-testid="quote-search-results"
           >
-            {quote.results.map((product) => (
+            {quote.results.map((product) => {
+              const productWarranty = quoteLineWarrantyLabel(product);
+              return (
               <button
                 key={product.idProduct}
                 type="button"
@@ -645,6 +661,12 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                       <dt>UPC</dt>
                       <dd>{product.upc || "Sin UPC"}</dd>
                     </div>
+                    {productWarranty ? (
+                      <div>
+                        <dt>Garantía</dt>
+                        <dd>{productWarranty}</dd>
+                      </div>
+                    ) : null}
                   </dl>
                   <div className={styles.stockBlock}>
                     <div className={styles.stockTotalLine}>
@@ -670,7 +692,8 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                   </strong>
                 </div>
               </button>
-            ))}
+            );
+            })}
           </div>,
           document.body,
         ) : null}
@@ -995,6 +1018,7 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
           {quote.lines.map((line) => {
             const unit = Number(line.price) || 0;
             const quantity = line.quantity === "" ? 0 : line.quantity;
+            const warrantyLabel = quoteLineWarrantyLabel(line);
             return (
               <li
                 key={line.idProduct}
@@ -1091,12 +1115,20 @@ export default function GenerarCotizacionPanel({ onClose, onCreated }: Props) {
                           <span>{`UPC ${line.upc}`}</span>
                         </div>
                       ) : null}
+                      {warrantyLabel ? (
+                        <div className={styles.cartCodes}>
+                          <span>Garantía: {warrantyLabel}</span>
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <>
                   <div className={styles.cartCodes}>
                     <span>{line.sku ? `SKU ${line.sku}` : "Sin SKU"}</span>
                     {line.upc ? <span>{`UPC ${line.upc}`}</span> : null}
+                    {warrantyLabel ? (
+                      <span>Garantía: {warrantyLabel}</span>
+                    ) : null}
                   </div>
                   <div className={styles.cartStock}>
                     <div className={styles.cartStockCell}>
