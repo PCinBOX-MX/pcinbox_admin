@@ -3755,8 +3755,7 @@ export default function PuntoDeVentaPage() {
                   size="small"
                   label="Nº serie"
                   placeholder="Mín. 3 caracteres"
-                  helperText="Guiones y espacios no importan"
-                  FormHelperTextProps={{ sx: { m: 0, mt: 0.5 } }}
+                  title="Guiones, espacios y signos no importan"
                   value={pos.warrantySerial}
                   onChange={(e) => pos.setWarrantySerial(e.target.value)}
                   sx={{ ...fieldSx, minWidth: 180, flex: "1 1 180px" }}
