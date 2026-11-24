@@ -108,6 +108,15 @@ interface ContextProps {
   setTableKey: Dispatch<SetStateAction<number>>;
 }
 
+const socketConnectGuards = new WeakMap<Socket, () => void>();
+
+const setSocketConnectGuard = (socket: Socket, guard: () => void) => {
+  const previous = socketConnectGuards.get(socket);
+  if (previous) socket.off("connect", previous);
+  socketConnectGuards.set(socket, guard);
+  socket.on("connect", guard);
+};
+
 const CreateContext = createContext<ContextProps>({
   dataModal: {
     isOpen: false,
@@ -266,54 +275,96 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     const socketPagosUrl = process.env.NEXT_PUBLIC_SOCKET_PAGOS?.trim();
     const socketCronUrl = process.env.NEXT_PUBLIC_SOCKET_CRON?.trim();
 
-    if (socketPagosUrl) {
-      const socket = io(socketPagosUrl, getSocketClientOptions());
-      socketPagos.current = socket;
+    let disposed = false;
+    // Strict Mode desmonta el efecto antes del primer timer: así io() no
+    // llega a abrir un WebSocket que el cleanup tendría que abortar.
+    let wantConnected = true;
+    let connectTimer = 0;
 
-      const markReady = () => setSocketPagosReady(true);
-      socket.on("connect", markReady);
-      if (socket.connected) markReady();
-    }
-
-    if (socketProveedorUrl) {
-      const socket = io(socketProveedorUrl, getSocketClientOptions());
-      socketServer.current = socket;
-
-      const markReady = () => setSocketServerReady(true);
-      socket.on("connect", markReady);
-      if (socket.connected) markReady();
-    }
-
-    if (socketCronUrl) {
-      const socket = io(socketCronUrl, getSocketClientOptions());
-      socketCron.current = socket;
-
-      const markReady = () => setSocketCronReady(true);
-      socket.on("connect", markReady);
-      if (socket.connected) markReady();
-    }
-
-    // Chrome mete la pestaña en Back-Forward Cache y corta los WS a la fuerza
-    // (ruido: "Page entered Back-Forward Cache"). Hay que cerrar nosotros
-    // ANTES (pagehide/freeze), apagar reconnection, y reabrir en pageshow/resume.
     const listSockets = (): Socket[] =>
       [socketPagos.current, socketServer.current, socketCron.current].filter(
         (s): s is Socket => Boolean(s),
       );
 
-    const pauseSocketsForLifecycle = () => {
-      setSocketPagosReady(false);
-      setSocketServerReady(false);
-      setSocketCronReady(false);
+    const handshakeInFlight = (socket: Socket) => {
+      const engine = socket.io.engine as {
+        readyState?: string;
+        transport?: { ws?: WebSocket | null };
+      } | null;
+      if (!engine) return false;
+      // ws.close() con readyState CONNECTING es el texto
+      // "WebSocket is closed before the connection is established".
+      if (engine.readyState === "opening") return true;
+      return engine.transport?.ws?.readyState === WebSocket.CONNECTING;
+    };
+
+    const allowReconnect = (socket: Socket) => {
+      const manager = socket.io as unknown as {
+        reconnection(value: boolean): void;
+        skipReconnect: boolean;
+      };
+      manager.reconnection(true);
+      manager.skipReconnect = false;
+    };
+
+    const bindSocket = (socket: Socket, markReady: () => void) => {
+      const onConnect = () => {
+        if (!wantConnected) {
+          // Ya está OPEN: disconnect() no dispara el aviso de Chrome.
+          try {
+            socket.disconnect();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        if (!disposed) markReady();
+      };
+      setSocketConnectGuard(socket, onConnect);
+      if (socket.connected) onConnect();
+    };
+
+    const openOne = (
+      url: string | undefined,
+      current: { current: Socket | null },
+      markReady: () => void,
+    ) => {
+      if (!url || current.current) return;
+      const socket = io(url, getSocketClientOptions());
+      current.current = socket;
+      bindSocket(socket, markReady);
+    };
+
+    const openSockets = () => {
+      if (disposed || !wantConnected) return;
+      if (document.visibilityState !== "visible") return;
+      if (document.prerendering) return;
+
+      openOne(socketPagosUrl, socketPagos, () => setSocketPagosReady(true));
+      openOne(socketProveedorUrl, socketServer, () => setSocketServerReady(true));
+      openOne(socketCronUrl, socketCron, () => setSocketCronReady(true));
+    };
+
+    const scheduleOpen = () => {
+      window.clearTimeout(connectTimer);
+      connectTimer = window.setTimeout(openSockets, 0);
+    };
+
+    const stopSockets = () => {
+      wantConnected = false;
+      window.clearTimeout(connectTimer);
+      if (!disposed) {
+        setSocketPagosReady(false);
+        setSocketServerReady(false);
+        setSocketCronReady(false);
+      }
       for (const socket of listSockets()) {
         try {
-          // Evita que socket.io reintente mientras la pestaña está congelada.
           socket.io.reconnection(false);
         } catch {
           // ignore
         }
-        // Solo disconnect(): engine.close() en medio del handshake llena la
-        // consola con "WebSocket is closed before the connection is established".
+        if (handshakeInFlight(socket)) continue;
         try {
           socket.disconnect();
         } catch {
@@ -322,69 +373,77 @@ export const GlobalProvider = ({ children }: { children: any }) => {
       }
     };
 
-    const resumeSocketsFromLifecycle = () => {
+    const resumeSockets = () => {
+      if (disposed) return;
+      wantConnected = true;
       for (const socket of listSockets()) {
         try {
-          socket.io.reconnection(true);
+          allowReconnect(socket);
         } catch {
           // ignore
         }
-        if (!socket.connected) {
-          socket.connect();
+        if (!socket.connected && !handshakeInFlight(socket)) {
+          try {
+            socket.connect();
+          } catch {
+            // ignore
+          }
         }
       }
+      scheduleOpen();
     };
 
+    // pagehide/freeze sí: la página se va o entra a bfcache.
+    // visibility hidden no: cortar el handshake al cambiar de pestaña
+    // es lo que imprime el error de WebSocket en la consola.
     const handlePageHide = () => {
-      pauseSocketsForLifecycle();
+      stopSockets();
     };
 
     const handlePageShow = () => {
       if (document.visibilityState === "hidden") return;
-      resumeSocketsFromLifecycle();
+      resumeSockets();
     };
 
     const handleFreeze = () => {
-      pauseSocketsForLifecycle();
+      stopSockets();
     };
 
     const handleResume = () => {
       if (document.visibilityState === "hidden") return;
-      resumeSocketsFromLifecycle();
+      resumeSockets();
     };
 
-    // Tab en segundo plano / freeze: cerrar YA (capture corre antes que Chrome corte el WS).
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        pauseSocketsForLifecycle();
-      } else {
-        resumeSocketsFromLifecycle();
-      }
+      if (document.visibilityState === "visible") resumeSockets();
     };
+
+    const handlePrerenderingChange = () => {
+      if (!document.prerendering) resumeSockets();
+    };
+
+    scheduleOpen();
 
     window.addEventListener("pagehide", handlePageHide, true);
     window.addEventListener("pageshow", handlePageShow, true);
     window.addEventListener("freeze", handleFreeze, true);
     window.addEventListener("resume", handleResume, true);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("prerenderingchange", handlePrerenderingChange);
 
     return () => {
+      disposed = true;
+      window.clearTimeout(connectTimer);
       window.removeEventListener("pagehide", handlePageHide, true);
       window.removeEventListener("pageshow", handlePageShow, true);
       window.removeEventListener("freeze", handleFreeze, true);
       window.removeEventListener("resume", handleResume, true);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      setSocketPagosReady(false);
-      setSocketServerReady(false);
-      setSocketCronReady(false);
-      for (const socket of listSockets()) {
-        try {
-          socket.io.reconnection(false);
-        } catch {
-          // ignore
-        }
-        socket.disconnect();
-      }
+      document.removeEventListener(
+        "prerenderingchange",
+        handlePrerenderingChange,
+      );
+      stopSockets();
       socketPagos.current = null;
       socketServer.current = null;
       socketCron.current = null;

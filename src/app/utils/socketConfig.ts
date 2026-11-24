@@ -7,6 +7,7 @@ export type SocketClientOptions = {
   reconnectionDelay?: number;
   reconnectionDelayMax?: number;
   timeout?: number;
+  closeOnBeforeunload?: boolean;
 };
 
 /**
@@ -26,6 +27,9 @@ export function getSocketClientOptions(
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     timeout: 20000,
+    // true hace que beforeunload llame ws.close() con el handshake abierto.
+    // Chrome lo anota como "WebSocket is closed before the connection is established".
+    closeOnBeforeunload: false,
     ...overrides,
   };
 }
