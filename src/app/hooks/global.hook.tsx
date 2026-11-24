@@ -110,6 +110,10 @@ interface ContextProps {
 
 const socketConnectGuards = new WeakMap<Socket, () => void>();
 
+/** Spec actual; el DOM lib de TS aún no lo tipa en Document. */
+const isDocumentPrerendering = () =>
+  Boolean((document as Document & { prerendering?: boolean }).prerendering);
+
 const setSocketConnectGuard = (socket: Socket, guard: () => void) => {
   const previous = socketConnectGuards.get(socket);
   if (previous) socket.off("connect", previous);
@@ -338,7 +342,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     const openSockets = () => {
       if (disposed || !wantConnected) return;
       if (document.visibilityState !== "visible") return;
-      if (document.prerendering) return;
+      if (isDocumentPrerendering()) return;
 
       openOne(socketPagosUrl, socketPagos, () => setSocketPagosReady(true));
       openOne(socketProveedorUrl, socketServer, () => setSocketServerReady(true));
@@ -419,7 +423,7 @@ export const GlobalProvider = ({ children }: { children: any }) => {
     };
 
     const handlePrerenderingChange = () => {
-      if (!document.prerendering) resumeSockets();
+      if (!isDocumentPrerendering()) resumeSockets();
     };
 
     scheduleOpen();
