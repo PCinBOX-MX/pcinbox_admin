@@ -9,6 +9,7 @@ import {
   clearVoluntaryLogout,
   markVoluntaryLogout,
 } from "@/app/utils/sessionAuth";
+import { clearAdminMemoryToken } from "@/app/utils/authMemory";
 
 const ROUTES_BY_TAB: Record<string, string> = {
   ventas: "/dashboard",
@@ -29,7 +30,7 @@ const useNavbar = () => {
   const [isLoadStorage, setIsLoadStorage] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("ventas");
   const { setDataModal } = useTheContext();
-  const { onRouterPush } = UtilsService();
+  const { onRouterPush, requestPost } = UtilsService();
 
   const handleActiveTab = (id: string) => {
     setActiveTab(id);
@@ -56,10 +57,18 @@ const useNavbar = () => {
       // Antes de quitar el token: los 401 en vuelo no deben mostrar «Sesión expirada».
       markVoluntaryLogout();
 
+      try {
+        await requestPost({}, "/user/logout");
+      } catch {
+        // Cookie/local limpiados igual abajo.
+      }
+
       await new Promise((resolve) => window.setTimeout(resolve, 150));
 
       localStorage.removeItem("token");
       localStorage.removeItem("email");
+      localStorage.removeItem("idUser");
+      clearAdminMemoryToken();
       clearAdminRole();
       clearAllQuerySessions();
 

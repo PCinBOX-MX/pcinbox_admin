@@ -8,14 +8,16 @@ import { RequestOptions } from "./request-options";
 import { resolveApiErrorMessage } from "@/app/utils/apiErrorMessage";
 import { isVoluntaryLogoutPending } from "@/app/utils/sessionAuth";
 import { clearLocalStorageKeepingDevicePrefs } from "@/app/utils/clearLocalStorageKeepingDevicePrefs";
+import { getAdminMemoryToken } from "@/app/utils/authMemory";
 
 export const pagosApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL_PAGOS,
+  withCredentials: true,
 });
 
 pagosApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = getAdminMemoryToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

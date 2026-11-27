@@ -76,6 +76,7 @@ import {
   isQzPdfOrVirtualPrinter,
 } from "./qz/qzPos";
 import { formatPosBranchUiLabel } from "../interfaces/pos/posBranchDisplay";
+import { getAdminMemoryToken } from "../utils/authMemory";
 import { useQueryParams } from "../hooks/useQueryParams";
 import WarrantySheetPdf, {
   buildWarrantyPdfRows,
@@ -6370,9 +6371,10 @@ export default function usePos() {
     const preview = window.open("about:blank", "_blank");
     try {
       const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
-      const token = localStorage.getItem("token") || "";
+      const token = getAdminMemoryToken() || "";
       const res = await fetch(`${base}/pos/sales/${id}/ticket`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         throw new Error("No se pudo cargar el ticket.");
@@ -6512,9 +6514,10 @@ export default function usePos() {
           }
 
           const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
-          const token = localStorage.getItem("token") || "";
+          const token = getAdminMemoryToken() || "";
           const res = await fetch(`${base}/pos/sales/${id}/ticket`, {
-            headers: { Authorization: `Bearer ${token}` },
+            credentials: "include",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
           if (!res.ok) throw new Error("No se pudo cargar el ticket.");
           const html = opts?.createdAt

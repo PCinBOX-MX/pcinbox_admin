@@ -6,6 +6,7 @@ import UtilsService from "../services/utils";
 import { persistAdminRole, normalizeAdminRole } from "../constants/permissions";
 import { useTheContext } from "./global.hook";
 import { clearVoluntaryLogout } from "../utils/sessionAuth";
+import { setAdminMemoryToken } from "../utils/authMemory";
 
 const useLogin = () => {
   const [dataLogin, setDataLogin] = useState<LoginI>({
@@ -61,8 +62,10 @@ const useLogin = () => {
 
         if (role === "admin" || role === "support") {
           clearVoluntaryLogout();
-          localStorage.setItem("email", email || "");
-          localStorage.setItem("token", data?.data?.token || data?.token || "");
+          // Cookie httpOnly + JWT/email en memoria (no identidad en localStorage).
+          localStorage.removeItem("token");
+          localStorage.removeItem("email");
+          setAdminMemoryToken(data?.data?.token || data?.token || null);
           persistAdminRole(role);
           onRouterPush("/dashboard");
         } else {

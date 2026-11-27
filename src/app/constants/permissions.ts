@@ -1,3 +1,9 @@
+import {
+  clearAdminMemoryRole,
+  getAdminMemoryRole,
+  setAdminMemoryRole,
+} from "../utils/authMemory";
+
 export type AdminRole = "admin" | "support";
 
 export type AdminPermission =
@@ -74,19 +80,37 @@ export function roleHasPermission(
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
 }
 
-const ROLE_STORAGE_KEY = "adminRole";
-
+/**
+ * Cache UI-only en memoria (no localStorage).
+ * Las mutaciones se autorizan en server (role desde DB).
+ * Preferir `/user/session` (usePermissions) como fuente fresca.
+ */
 export function persistAdminRole(role: AdminRole) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(ROLE_STORAGE_KEY, role);
+  setAdminMemoryRole(role);
+  try {
+    localStorage.removeItem("adminRole");
+  } catch {
+    // ignore
+  }
 }
 
 export function readAdminRole(): AdminRole | null {
   if (typeof window === "undefined") return null;
-  return normalizeAdminRole(localStorage.getItem(ROLE_STORAGE_KEY));
+  try {
+    localStorage.removeItem("adminRole");
+  } catch {
+    // ignore
+  }
+  return getAdminMemoryRole();
 }
 
 export function clearAdminRole() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(ROLE_STORAGE_KEY);
+  clearAdminMemoryRole();
+  try {
+    localStorage.removeItem("adminRole");
+  } catch {
+    // ignore
+  }
 }

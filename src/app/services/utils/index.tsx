@@ -8,14 +8,18 @@ import { useCallback } from "react";
 import { RequestOptions } from "./request-options";
 import { isVoluntaryLogoutPending } from "@/app/utils/sessionAuth";
 import { clearLocalStorageKeepingDevicePrefs } from "@/app/utils/clearLocalStorageKeepingDevicePrefs";
+import { getAdminMemoryToken } from "@/app/utils/authMemory";
 
 const mainApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
+  withCredentials: true,
 });
 
 mainApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    // Preferir cookie httpOnly; Bearer solo desde memoria (nunca localStorage).
+    config.headers["X-PCINBOX-Client"] = "1";
+    const token = getAdminMemoryToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
